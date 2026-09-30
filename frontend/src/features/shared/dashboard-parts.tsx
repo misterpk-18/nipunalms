@@ -28,7 +28,7 @@ export function Tile({
     <>
       <div className="flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
         {rank !== undefined && (
-          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-navy text-[11px] text-navy-foreground" aria-label={`Priority ${rank}`}>
+          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-navy text-[11px] text-navy-foreground" aria-hidden>
             {rank}
           </span>
         )}
