@@ -57,7 +57,7 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Batch recording commitment | Included / Not Included / Limited terms per batch (Module 17 §2) are not modelled; the check job flags every Delivered session without a recording |
 | Student notices on 24 h delay | Module 17 §6 asks to update affected students at 24 h; only staff escalation notices are sent |
 | Recording playback | Needs the verified Drive integration and a proxy with per-request entitlement (Module 17 §7); today `watch` records the view and returns the integration state |
-| Jobs runner | `flask jobs run` (S2) holds `recording-check`; other slices add their jobs to `services/jobs.JOBS` |
+| Jobs runner | `flask jobs run` (S2) holds `recording-check` and `support-escalate-overdue` (S5); other slices add their jobs to `services/jobs.JOBS` |
 | S2 seed adjusts two joining dates | Learners A and F (completed) get Joining Dates 2025-06-10 and 2024-08-19 so EXT-032 / EXT-033 show a request after the first / second anniversary |
 
 ## Delivery (S1)
@@ -100,7 +100,7 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Notifications for other workspaces | Only student and trainer have a notification route and header bell; academic / branch / admin need routes and a nav entry |
 | Staff profile screen | `GET /me/profile` works for staff; no staff route (student `/profile` is student-workspace only) |
 | Placement Team | Module 23 names a Placement Team role; there is none, so Academic Coordinator, Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
-| Support SLA | One `support_sla_hours` for all categories and priorities; a scheduler for `support-escalate-overdue` is not set up |
+| Support SLA | One `support_sla_hours` for all categories and priorities. The `support-escalate-overdue` job is in `services/jobs.JOBS`; cron for `flask jobs run` is not set up |
 | External channels | WhatsApp / email delivery, quiet hours and retry (Module 26) need the integrations verified first; preferences are stored only |
-| Ask Nipuna | No spend ceiling / cost tracking (Module 24 section 11: ceiling stays unset); Telugu answer quality untested against a live model; due-work facts wait for S3 to register a provider |
+| Ask Nipuna | No spend ceiling / cost tracking (Module 24 section 11: ceiling stays unset); Telugu answer quality untested against a live model; the due-work facts (open assignments and tests) cover the student's own batch seats only, with no per-question detail |
 | Career file storage | CV files on local disk under `UPLOAD_DIR/cv` |

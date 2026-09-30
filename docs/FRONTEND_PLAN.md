@@ -136,7 +136,7 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 |---|---|---|
 | `/branch` | `branch/dashboard` (`branch.index.tsx`) | P3 |
 | `/branch/operations` | `branch/operations` | S1 |
-| `/branch/requests` | `branch/requests` | S2 (access extensions) + S5 (escalations) |
+| `/branch/requests` | `branch/requests` | Built: one page, two tabs (Escalations from S5, Access extensions from S2); `e2e/services.spec.ts` |
 | `/branch/reports` | `branch/reports` | S4 |
 | `/admin` | `admin/dashboard` (`admin.index.tsx`) | P3 |
 | `/admin/integrations` | `admin/integrations` | S6 |
@@ -241,7 +241,7 @@ Added to the admin nav in `auth/access.ts`: Users & Access, Student Accounts, CR
 | `/academic/schedule`, `/branch/operations` | `academic/schedule`, `branch/operations` | Session table with create / reschedule / cancel / Meet actions and the request queue; branch view of batches, requests and Meet exceptions |
 | shared | `shared/delivery-ui.tsx`, `shared/sessions.tsx`, `api/delivery.ts` | IST helpers (`fmtDate` with weekday, `fmtRange` with date, datetime-local converters), DeliveryBar, MeetBadge, field-driven `ActionDialog`, session actions / table / requests panel / roster dialog |
 
-`shared/delivery-ui.tsx` keeps its own `fmtDate` / `fmtRange` (weekday and date-in-range forms); `shared/format.ts` (S4) holds the plain forms and `percent`. S5's `ist.ts`, if it duplicates either, should be folded into `format.ts` at the S5 merge.
+`shared/delivery-ui.tsx` keeps its own `fmtDate` / `fmtRange` (weekday and date-in-range forms); `shared/format.ts` (S4) holds the plain forms and `percent`. S5's `ist.ts` was folded into these at the S5 merge: its date and date-time forms are `fmtDate` / `fmtDateTime`, and `formatMoney` lives in `lib/format.ts`.
 
 ## 7. S2 — Content & recordings (built)
 
@@ -253,7 +253,7 @@ Added to the admin nav in `auth/access.ts`: Users & Access, Student Accounts, CR
 | `/trainer/content` | `trainer/content.tsx` | Upload (batch → topic picker from `/content-items/options`, file or link), submit for review, new version, details |
 | `/academic/content-review` | `academic/content-review.tsx` | Tabs Awaiting review / Ready to release / Released / Changes requested / All; review dialog (approve, approve & release, request changes, reject), retire |
 | `/academic/recording-exceptions` | `academic/recording-exceptions.tsx` | Tabs Exceptions (start / resolve, escalation step) and Recordings (register, media reference, release, hold, partial, unavailable) |
-| `/branch/requests` (part) | `branch/access-extensions.tsx` | Component `AccessExtensions` only; `routes/branch.requests.tsx` is composed by the dashboards phase (with S5's escalations component) |
+| `/branch/requests` (tab) | `branch/access-extensions.tsx` | Component `AccessExtensions`: the "Access extensions" tab of `branch/requests.tsx` (with the note that repeated requests do not stack years) |
 | shared | `shared/content-detail.tsx`, `api/content.ts` | Detail dialog with versions and review history; API calls, types, IST date helpers, authenticated file open |
 
 Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me/recordings?session_id=`.
@@ -286,6 +286,6 @@ Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me
 | `/profile` | `student/profile` | Identity with masked mobile, language (stored on the student), devices (sign out / sign out others), password and recovery |
 | `/finance` | `student/finance` | CRM summary per admission, receipts, as-of time and source |
 | `/ask-nipuna`, `/trainer/ask-nipuna` | `shared/assistant` | Status, scope, usage, actions, sources, warnings, thumbs; refusals shown as "Not answered: out of scope" |
-| (component) | `branch/escalations` (`BranchEscalations`) | Support requests escalated to the Branch Manager; the dashboards phase places it on `/branch/requests` |
+| (component) | `branch/escalations` (`BranchEscalations`) | Support requests escalated to the Branch Manager: the "Escalations" tab of `branch/requests.tsx` |
 
-Shared pieces added: `features/shared/{ist,reason-dialog,support-desk,notification-centre,assistant}`, `api/{support,notifications,career,profile,ask-nipuna}.ts`. The header bell shows the unread count (`useNotificationOverview`). Staff profile is available from `GET /me/profile`; there is no staff profile route yet. The bell exists only in the student and trainer workspaces (the only ones with a notification route).
+Shared pieces added: `features/shared/{reason-dialog,support-desk,notification-centre,assistant}`, `api/{support,notifications,career,profile,ask-nipuna}.ts`. The header bell shows the unread count (`useNotificationOverview`). Staff profile is available from `GET /me/profile`; there is no staff profile route yet. The bell exists only in the student and trainer workspaces (the only ones with a notification route).

@@ -66,7 +66,7 @@ cd frontend && npm install && npm run dev
 
 Open http://localhost:5174 and sign in with a staging account.
 
-Other backend commands (from `backend/`): `flask --app app create-admin` (first Super Admin on a fresh database), `flask --app app create-test-db`, `flask --app app crm-outbox list` (values waiting for the CRM), `flask --app app api-http` (regenerate `backend/api.http` after adding endpoints).
+Other backend commands (from `backend/`): `flask --app app create-admin` (first Super Admin on a fresh database), `flask --app app create-test-db`, `flask --app app crm-outbox list` (values waiting for the CRM), `flask --app app jobs run` (background jobs: recording check, support escalation; `jobs list` shows them), `flask --app app api-http` (regenerate `backend/api.http` after adding endpoints).
 
 ## 5. Testing
 

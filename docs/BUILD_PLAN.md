@@ -194,7 +194,7 @@ Same routine as Step 1: test in the worktree, commit, rebase, resolve conflicts,
 
 Same routine. Extra checks:
 
-- **Shared components:** S1 and S5 both add files under `frontend/src/features/shared/`. Check that no two files share a name and that the helpers don't duplicate each other (e.g. `ist.ts` vs `shared/format.ts`).
+- **Shared components:** S1 and S5 both add files under `frontend/src/features/shared/`. Check that no two files share a name and that the helpers don't duplicate each other (e.g. `ist.ts` vs `shared/format.ts`; done: folded into `format.ts`).
 - **Jobs:** move `cli/support_jobs.py` into the S2 jobs runner (`flask jobs run`) rather than keeping a separate CLI.
 - **Ask Nipuna:** hook up the S3 due-work provider.
 
