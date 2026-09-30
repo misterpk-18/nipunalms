@@ -723,6 +723,13 @@ Content-Type: application/json
 
 {}
 
+### class_sessions.save_notes
+PUT {{base}}/api/v1/class-sessions/1/notes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### class_sessions.start
 POST {{base}}/api/v1/class-sessions/1/start
 Authorization: Bearer {{token}}
@@ -1020,6 +1027,15 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/health
 Authorization: Bearer {{token}}
 
+# ================================================================ home
+### home.my_home
+GET {{base}}/api/v1/me/home
+Authorization: Bearer {{token}}
+
+### home.trainer_today
+GET {{base}}/api/v1/trainer/today
+Authorization: Bearer {{token}}
+
 # ================================================================ integrations
 ### integrations.get_integration
 GET {{base}}/api/v1/integrations/1
@@ -1296,6 +1312,15 @@ Authorization: Bearer {{token}}
 
 ### reference.list_staff
 GET {{base}}/api/v1/reference/staff
+Authorization: Bearer {{token}}
+
+# ================================================================ reports
+### reports.academic_reports
+GET {{base}}/api/v1/academic/reports
+Authorization: Bearer {{token}}
+
+### reports.trainer_reports
+GET {{base}}/api/v1/trainer/reports
 Authorization: Bearer {{token}}
 
 # ================================================================ results

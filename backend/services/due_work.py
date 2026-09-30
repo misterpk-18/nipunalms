@@ -18,11 +18,12 @@ OPEN_TEST_STATUSES = {"Scheduled", "Available"}
 LIMIT = 10
 
 
-def student_due_work(student: Student) -> tuple[dict, list[dict]]:
+def open_items(student: Student) -> tuple[list[tuple], list[tuple]]:
+    """The student's open work as raw records: [(Assignment, task state)] and [(Test, effective status)]. Student Home and
+    Ask Nipuna both read through this, so the two always agree on what is due."""
     now = datetime.now(timezone.utc)
     seats = access.seats_of_student(student.student_id)
     enrolment_ids = {e.enrolment_id for e in seats.values()}
-    sources: list[dict] = []
 
     released = assignments_repo.released_for_batches(set(seats), now)
     versions = assignments_repo.versions_for_enrolments(enrolment_ids, [a.assignment_id for a in released])
@@ -32,12 +33,11 @@ def student_due_work(student: Student) -> tuple[dict, list[dict]]:
         enrolment_id = seats[a.batch_id].enrolment_id
         state = task_state(a, versions.get((a.assignment_id, enrolment_id), []), results.get((a.assignment_id, enrolment_id)), now)
         if state in OPEN_TASK_STATES:
-            assignments.append({"code": a.assignment_code, "title": a.title, "state": state, "due": format_ist(a.due_at), "batch": a.batch.batch_code})
-            sources.append({"type": "assignment", "id": a.assignment_id, "code": a.assignment_code})
+            assignments.append((a, state))
 
     tests = tests_repo.for_batches(set(seats))
     attempts = tests_repo.attempts_for_enrolments(enrolment_ids, [t.test_id for t in tests])
-    test_facts = []
+    open_tests = []
     for t in tests:
         status = effective_status(t, now)
         if status not in OPEN_TEST_STATUSES:
@@ -45,6 +45,19 @@ def student_due_work(student: Student) -> tuple[dict, list[dict]]:
         used = sum(1 for x in attempts.get((t.test_id, seats[t.batch_id].enrolment_id), []) if x.status == "Submitted")
         if t.attempts_allowed is not None and used >= t.attempts_allowed:
             continue
+        open_tests.append((t, status))
+    return assignments, open_tests
+
+
+def student_due_work(student: Student) -> tuple[dict, list[dict]]:
+    assignment_items, test_items = open_items(student)
+    sources: list[dict] = []
+    assignments = []
+    for a, state in assignment_items:
+        assignments.append({"code": a.assignment_code, "title": a.title, "state": state, "due": format_ist(a.due_at), "batch": a.batch.batch_code})
+        sources.append({"type": "assignment", "id": a.assignment_id, "code": a.assignment_code})
+    test_facts = []
+    for t, status in test_items:
         test_facts.append({
             "code": t.test_code, "title": t.title, "kind": t.kind, "status": status, "batch": t.batch.batch_code,
             "opens": format_ist(t.opens_at) if t.opens_at else None, "closes": format_ist(t.closes_at) if t.closes_at else None,

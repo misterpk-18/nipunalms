@@ -507,3 +507,10 @@ def verified_outcome_summary() -> list[dict]:
     return [{"outcome_type": kind, "outcomes": total, "students": students}
             for kind, total, students in career_repo.verified_outcome_counts(_visible_branches())]
 
+
+def home_summary(student_id: int) -> dict:
+    """Opt-in and profile completeness for the student's home card (no opportunities or applications are loaded)."""
+    profile = career_repo.get_profile(student_id)
+    has_reviewed = any(cv.review_status == "Reviewed" for cv in career_repo.cvs_of_student(student_id))
+    return {"opted_in": bool(profile and profile.opted_in), "profile_percent": completeness(profile, has_reviewed)["percent"]}
+

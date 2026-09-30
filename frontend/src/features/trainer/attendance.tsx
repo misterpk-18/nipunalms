@@ -20,14 +20,18 @@ import { cn } from "@/lib/utils";
 
 type Draft = Record<number, { status: AttendanceStatus; remarks: string }>;
 
-function RegisterForm({ sessionId }: { sessionId: number }) {
+/** The register for one class. `onSaved` lets another screen (Today's flow) refresh what it shows after attendance is confirmed. */
+export function RegisterForm({ sessionId, onSaved }: { sessionId: number; onSaved?: () => void }) {
   const query = useRegister(sessionId);
   const [draft, setDraft] = useState<Draft>({});
   const invalidate = [attendanceKeys.all, ["progress"], ["completion"]];
   const save = useApiMutation((body: Parameters<typeof attendanceApi.mark>[1]) => attendanceApi.mark(sessionId, body), {
     success: "Attendance confirmed.",
     invalidate,
-    onSuccess: () => setDraft({}),
+    onSuccess: () => {
+      setDraft({});
+      onSaved?.();
+    },
   });
   const correct = useApiMutation(attendanceApi.requestCorrection, { success: "Correction requested. An independent reviewer will decide.", invalidate });
 

@@ -64,6 +64,13 @@ def deliver(session_id: int):
     return class_sessions_controller.deliver(session_id)
 
 
+@class_sessions_bp.put("/class-sessions/<int:session_id>/notes")
+@login_required
+@require_roles(*TEACHING_ROLES)
+def save_notes(session_id: int):
+    return class_sessions_controller.save_notes(session_id)
+
+
 @class_sessions_bp.put("/class-sessions/<int:session_id>/meet")
 @login_required
 @require_roles(*MANAGE_ROLES)

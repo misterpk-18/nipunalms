@@ -293,3 +293,16 @@ Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me
 | (component) | `branch/escalations` (`BranchEscalations`) | Support requests escalated to the Branch Manager: the "Escalations" tab of `branch/requests.tsx` |
 
 Shared pieces added: `features/shared/{reason-dialog,support-desk,notification-centre,assistant}`, `api/{support,notifications,career,profile,ask-nipuna}.ts`. The header bell shows the unread count (`useNotificationOverview`). Staff use `/account/profile` (same component as the student profile; language and student identity sections are hidden). Every workspace except the founder has a notification route and bell; nothing is sent to the founder.
+
+---
+
+## 8. P3 — Student Home, Trainer Today & reports (as built)
+
+| Route | Feature | Notes |
+|---|---|---|
+| `/dashboard` | `student/dashboard` | `GET /me/home`. Header (name EN / తెలుగు by the language setting, Master ID, service branch), three ranked tiles (Next Class, Due Work, Current Course Progress), Join Class (disabled with the reason; Meet organizer shown as Pending Verification), eight cards, and the engagement freshness note (Stale, never zero). Each card shows its own Empty / Unavailable text via `CardGap` |
+| `/trainer` | `trainer/today` | `GET /trainer/today`. Three tiles, then "Today's flow" per session: open session (`start`) -> Join / Start Meet -> save delivered topics (`deliver`) -> attendance (the `RegisterForm` from `trainer/attendance`, now exported) -> notes and close-out (`PUT /class-sessions/{id}/notes`). Empty state "No assigned session scheduled today." and the scope note |
+| `/trainer/reports` | `trainer/reports` | `GET /trainer/reports`: delivery and attendance per assigned batch (Meter), review turnaround (Partial Data), engagement (Stale) |
+| `/academic/reports` | `academic/reports` | `GET /academic/reports` per branch block plus the S4 branch summary table (`useBranchSummary`) |
+
+New shared pieces: `api/dashboards.ts` (types and hooks for the four endpoints), `features/shared/dashboard-parts.tsx` (`Tile`, `CardGap`); `Meter` is now exported from `shared/attendance-parts`. Spec: `e2e/dashboards-learning.spec.ts` (desktop plus a `@mobile` Student Home check). The Today spec schedules a class for today through the API, so it needs a freshly seeded database and is skipped within ten minutes of midnight IST.

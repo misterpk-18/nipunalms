@@ -20,7 +20,7 @@ export function AttendanceCell({ measures }: { measures: Measures["attendance"] 
   );
 }
 
-function Meter({ value, label }: { value: number | null; label: string }) {
+export function Meter({ value, label }: { value: number | null; label: string }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">

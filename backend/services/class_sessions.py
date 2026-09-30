@@ -382,6 +382,18 @@ def deliver(session_id: int, notes: str | None) -> ClassSession:
     return session
 
 
+def save_notes(session_id: int, notes: str) -> ClassSession:
+    """Session notes at close-out: the teaching trainer (or a manager covering) writes them once the class is Live or Delivered."""
+    session = _load_for_change(session_id, allow_own_trainer=True)
+    if session.state not in ("Live", "Delivered"):
+        raise BusinessRule(f"Notes can be saved once the class is Live or Delivered (this one is {session.state})")
+    previous, session.notes = session.notes, notes
+    db.session.flush()
+    audit.record("SESSION_NOTES_SAVED", "class_session", session.session_id, branch_id=session.batch.branch_id,
+                 old={"notes": previous}, new={"notes": notes})
+    return session
+
+
 # ---------------------------------------------------------------- reschedule requests
 
 def request_reschedule(session_id: int, proposed_starts_at: datetime, proposed_ends_at: datetime, reason: str) -> SessionChangeRequest:
