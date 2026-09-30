@@ -13,6 +13,9 @@ from models.enums import (
 )
 from models.masters import Branch
 
+# The register's words for the stored Meet statuses
+MEET_STATUS_LABELS = {"Not Required": "Not Required", "Pending Verification": "Pending Verification", "Linked": "Associated", "Unavailable": "Failed"}
+
 
 class Batch(db.Model):
     __tablename__ = "batches"
@@ -55,6 +58,7 @@ class Batch(db.Model):
             "curriculum_version": self.curriculum_version.to_summary() if self.curriculum_version else None,
             "capacity": self.capacity,
             "allocated_count": allocated_count,
+            "is_full": allocated_count >= self.capacity,
             "mode": self.mode,
             "planned_start": self.planned_start,
             "planned_end": self.planned_end,
@@ -80,8 +84,8 @@ class BatchTrainer(db.Model):
     trainer: Mapped[User] = relationship(lazy="joined")
 
     def to_dict(self) -> dict:
-        return {"user_id": self.trainer_user_id, "full_name": self.trainer.full_name, "role": self.role,
-                "from_date": self.from_date}
+        return {"batch_trainer_id": self.batch_trainer_id, "user_id": self.trainer_user_id, "full_name": self.trainer.full_name,
+                "role": self.role, "from_date": self.from_date, "to_date": self.to_date}
 
 
 class BatchAllocation(db.Model):
@@ -139,21 +143,30 @@ class ClassSession(db.Model):
     topic: Mapped[CurriculumTopic | None] = relationship(lazy="joined")
     trainer: Mapped[User] = relationship(lazy="joined")
 
-    def to_dict(self) -> dict:
+    def to_summary(self) -> dict:
+        return {"session_id": self.session_id, "session_code": self.session_code, "title": self.title,
+                "starts_at": self.starts_at, "ends_at": self.ends_at, "state": self.state}
+
+    def to_dict(self, *, include_link: bool = True, join: dict | None = None) -> dict:
+        """include_link: staff see the Meet link; a learner gets it only through `join`, when joining is open."""
         return {
             "session_id": self.session_id,
             "session_code": self.session_code,
             "batch": self.batch.to_summary(),
             "branch": self.batch.branch.to_summary(),
-            "topic": {"topic_id": self.topic.topic_id, "title": self.topic.title} if self.topic else None,
+            "course": self.batch.course.to_summary(),
+            "topic": {"topic_id": self.topic.topic_id, "title": self.topic.title, "module_id": self.topic.module_id} if self.topic else None,
             "title": self.title,
             "starts_at": self.starts_at,
             "ends_at": self.ends_at,
             "mode": self.mode,
             "trainer": {"user_id": self.trainer_user_id, "full_name": self.trainer.full_name},
             "room": self.room,
-            "meet_link": self.meet_link,
+            "meet_link": self.meet_link if include_link else None,
             "meet_status": self.meet_status,
+            "meet_status_label": MEET_STATUS_LABELS[self.meet_status],
+            "organizer_email": self.batch.branch.mailbox if self.mode != "Classroom" else None,
+            "join": join,
             "state": self.state,
             "delivered_at": self.delivered_at,
             "notes": self.notes,

@@ -23,8 +23,8 @@ from sqlalchemy.engine import make_url
 from config.database import db
 from config.timezone import IST
 from models import (
-    ActivityEvent, AttendanceRecord, AttendanceRecovery, Batch, BatchTrainer, Certificate, ClassSession, Course, CourseComponent, CurriculumModule, CurriculumTopic,
-    CurriculumVersion, Enrolment, Student, User,
+    ActivityEvent, AttendanceRecord, AttendanceRecovery, Batch, BatchEvent, BatchTrainer, Certificate, ClassSession, Course, CourseComponent,
+    CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion, Enrolment, MeetEvent, SessionChange, SessionChangeRequest, Student, User,
 )
 from repositories import batches as batches_repo
 from repositories import users as users_repo
@@ -440,6 +440,70 @@ def seed_sessions(ctx: SeedContext) -> None:
     db.session.commit()
 
 
+def seed_delivery(ctx: SeedContext) -> None:
+    """S1 Delivery states: batch history, a curriculum draft in review, a rescheduled and a cancelled class, a failed Meet
+    association, a trainer's open reschedule request, and the Meet association log of every online class."""
+    for key, batch in ctx.batches.items():
+        db.session.add(BatchEvent(batch_id=batch.batch_id, event_type="Created", to_value="Forming", actor_user_id=ctx.users["coord_gnt" if batch.branch_id == GNT else "coord_vij"],
+                                  created_at=datetime.combine(BATCHES[key]["start"] - timedelta(days=30), time(10, 0), tzinfo=IST)))
+        if batch.state != "Forming":
+            db.session.add(BatchEvent(batch_id=batch.batch_id, event_type="State changed", from_value="Forming", to_value=batch.state,
+                                      actor_user_id=ctx.users["coord_gnt" if batch.branch_id == GNT else "coord_vij"],
+                                      created_at=datetime.combine(BATCHES[key]["start"], time(9, 0), tzinfo=IST)))
+
+    # NIT-CRS-052: a draft submitted for review (still no Active version, so its enrolments stay in Curriculum Mapping Pending)
+    course = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-052")).scalar_one()
+    draft = CurriculumVersion(course_id=course.course_id, version_label="CV 3.0", status="Under Review")
+    db.session.add(draft)
+    db.session.flush()
+    for order, (module_title, topics) in enumerate([("Python Foundations", ["Syntax & Data Types", "Functions & Modules"]),
+                                                     ("Django & REST APIs", ["Models & ORM", "Views & Serializers", "Authentication"])], 1):
+        module = CurriculumModule(curriculum_version_id=draft.curriculum_version_id, title=module_title, sort_order=order)
+        db.session.add(module)
+        db.session.flush()
+        for topic_order, title in enumerate(topics, 1):
+            db.session.add(CurriculumTopic(module_id=module.module_id, title=title, sort_order=topic_order))
+    db.session.add(CurriculumEvent(curriculum_version_id=draft.curriculum_version_id, action="Created", to_status="Draft", actor_user_id=ctx.users["coord_gnt"]))
+    db.session.add(CurriculumEvent(curriculum_version_id=draft.curriculum_version_id, action="Submitted", from_status="Draft", to_status="Under Review",
+                                   actor_user_id=ctx.users["coord_gnt"]))
+
+    def session_by_title(title: str) -> ClassSession:
+        return db.session.execute(select(ClassSession).where(ClassSession.title == title)).scalar_one()
+
+    # A rescheduled class (with 2 days' notice) and a cancelled one
+    moved = session_by_title("Precision, recall and ROC")
+    new_start = moved.starts_at + timedelta(days=1)
+    db.session.add(SessionChange(session_id=moved.session_id, change_type="Rescheduled", reason="Trainer at a workshop on 8 Oct", old_starts_at=moved.starts_at,
+                                 old_ends_at=moved.ends_at, new_starts_at=new_start, new_ends_at=new_start + (moved.ends_at - moved.starts_at),
+                                 notice_hours=50, short_notice=False, changed_by=ctx.users["coord_gnt"], created_at=at("2026-09-28", "16:00")))
+    moved.starts_at, moved.ends_at, moved.state = new_start, new_start + (moved.ends_at - moved.starts_at), "Rescheduled"
+    cancelled = session_by_title("Capstone check-in")
+    db.session.add(SessionChange(session_id=cancelled.session_id, change_type="Cancelled", reason="Institute closed for a local holiday", old_starts_at=cancelled.starts_at,
+                                 old_ends_at=cancelled.ends_at, notice_hours=72, short_notice=False, changed_by=ctx.users["coord_vij"], created_at=at("2026-09-29", "12:00")))
+    cancelled.state = "Cancelled"
+
+    # An open request from Trainer R. Sample
+    asked = session_by_title("Cross-validation workshop")
+    proposed = asked.starts_at + timedelta(days=2)
+    db.session.add(SessionChangeRequest(session_id=asked.session_id, requested_by=ctx.users["trainer_g1"], proposed_starts_at=proposed,
+                                        proposed_ends_at=proposed + (asked.ends_at - asked.starts_at), reason="Lab is booked for an exam on 1 Oct"))
+
+    # Meet: the Vijayawada organizer is unverified; one class failed its association
+    failed = session_by_title("EC2 and VPC networking")
+    failed.meet_status = "Unavailable"
+    db.session.flush()
+    for session in db.session.execute(select(ClassSession).where(ClassSession.meet_status != "Not Required").order_by(ClassSession.session_id)).scalars():
+        mailbox = session.batch.branch.mailbox
+        db.session.add(MeetEvent(session_id=session.session_id, event_type="Requested", meet_status="Pending Verification", organizer_email=mailbox,
+                                 detail="Awaiting the organizer link", actor_user_id=ctx.users["coord_gnt" if session.batch.branch_id == GNT else "coord_vij"]))
+        if session.meet_status == "Linked":
+            db.session.add(MeetEvent(session_id=session.session_id, event_type="Link associated", meet_status="Linked", organizer_email=mailbox,
+                                     meet_link=session.meet_link, detail="Entered manually", actor_user_id=ctx.users["coord_gnt"]))
+        elif session.meet_status == "Unavailable":
+            db.session.add(MeetEvent(session_id=session.session_id, event_type="Association failed", meet_status="Unavailable", organizer_email=mailbox,
+                                     detail="Organizer account licence Pending Verification", actor_user_id=ctx.users["coord_vij"]))
+
+
 def seed_finance(ctx: SeedContext) -> None:
     for crm_admission_id, summary in FINANCE:
         ctx.crm_event("FinanceSummaryUpdated", {"crm_admission_id": crm_admission_id, **summary}, version=2,
@@ -607,6 +671,7 @@ SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_sessions,
     seed_finance,
     seed_crm_inbox_examples,
+    seed_delivery,
     seed_attendance,
     seed_admin_readiness,  # last: it suspends a learner whose certificate the attendance seed works
 ]

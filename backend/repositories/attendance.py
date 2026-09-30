@@ -5,6 +5,7 @@ from sqlalchemy import Select, and_, func, or_, select
 
 from config.database import db
 from config.timezone import IST
+from repositories import class_sessions as class_sessions_repo
 from models import (
     AttendanceCorrection, AttendanceRecord, AttendanceRecovery, Batch, BatchAllocation, ClassSession, Enrolment, Student,
 )
@@ -16,8 +17,7 @@ def _start_of_day(day: date) -> datetime:
 
 # ---------------------------------------------------------------- sessions and their registers
 
-def get_session(session_id: int) -> ClassSession | None:
-    return db.session.get(ClassSession, session_id)
+get_session = class_sessions_repo.get_session  # one implementation, in the delivery repository
 
 
 def allocated_enrolments(batch_id: int) -> list[Enrolment]:

@@ -20,6 +20,10 @@ from routes.attendance import attendance_bp
 from routes.certificates import certificates_bp
 from routes.completion import completion_bp
 from routes.progress import progress_bp
+from routes.batch_allocations import batch_allocations_bp
+from routes.curriculum import curriculum_bp
+from routes.enrolments import enrolments_bp
+from routes.my_courses import my_courses_bp
 
 BLUEPRINTS = [
     health_bp,
@@ -39,6 +43,10 @@ BLUEPRINTS = [
     progress_bp,
     completion_bp,
     certificates_bp,
+    batch_allocations_bp,
+    curriculum_bp,
+    enrolments_bp,
+    my_courses_bp,
 ]
 
 

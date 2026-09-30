@@ -306,7 +306,6 @@ def _delivered(make_session, world, hours_ago: float, **columns):
 
 def test_the_job_flags_delivered_sessions_without_a_recording(app, world, make_session):
     world.delivered.delivered_at = datetime.now(timezone.utc) - timedelta(hours=2)  # inside the 4 hour window: not yet flagged
-    world.delivered.ends_at = world.delivered.delivered_at
     old = _delivered(make_session, world, 6)
     online = _delivered(make_session, world, 7, mode="Live Online", meet_status="Pending Verification")
     _delivered(make_session, world, 1)
