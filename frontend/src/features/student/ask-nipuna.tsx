@@ -1,5 +1,7 @@
-import { Placeholder } from "@/components/lms/placeholder";
+import { useT } from "@/lib/i18n";
+import { Assistant } from "@/features/shared/assistant";
 
 export function AskNipuna() {
-  return <Placeholder title="Ask Nipuna" description="Student study assistant with sources, scope and usage limits." />;
+  const t = useT();
+  return <Assistant title={t("askNipuna")} />;
 }

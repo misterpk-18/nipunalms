@@ -270,3 +270,22 @@ Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me
 | `/academic/assessments` | `academic/assessments` | `/assessment-reviews`, `/results`, moderate, publish, approve tests and questions |
 
 `src/api/assessments.ts` holds all calls; `src/lib/format.ts` has the IST helpers (`formatIst`, `toIstInput` / `fromIstInput` for datetime-local inputs). Student screens keep the prototype wording. Spec: `e2e/assessments.spec.ts`.
+
+---
+
+## 7. S5 — Student services screens (as built)
+
+| Route | Feature | Notes |
+|---|---|---|
+| `/support` | `student/support` | Raise form (category, details), my requests, request panel with the thread (reply, confirm and close, reopen) |
+| `/trainer/support` | `trainer/support` | "Flag a student" dialog, requests the trainer owns or raised, students with open flags |
+| `/academic/support` | `academic/support` | Branch requests with reply, internal remark, status, resolve, escalate, reassign |
+| `/trainer/students` | `trainer/students` | Assigned students with support flag (attendance figures come with S4) |
+| `/notifications`, `/trainer/notifications` | `shared/notification-centre` | Five views, separate Read / Acknowledged / Action controls, preferences matrix |
+| `/career` | `student/career` | Opt-in, profile editor, consent (withdraw), CV upload / versions / download, approved opportunities with Apply, applications with Withdraw, outcomes |
+| `/profile` | `student/profile` | Identity with masked mobile, language (stored on the student), devices (sign out / sign out others), password and recovery |
+| `/finance` | `student/finance` | CRM summary per admission, receipts, as-of time and source |
+| `/ask-nipuna`, `/trainer/ask-nipuna` | `shared/assistant` | Status, scope, usage, actions, sources, warnings, thumbs; refusals shown as "Not answered: out of scope" |
+| (component) | `branch/escalations` (`BranchEscalations`) | Support requests escalated to the Branch Manager; the dashboards phase places it on `/branch/requests` |
+
+Shared pieces added: `features/shared/{ist,reason-dialog,support-desk,notification-centre,assistant}`, `api/{support,notifications,career,profile,ask-nipuna}.ts`. The header bell shows the unread count (`useNotificationOverview`). Staff profile is available from `GET /me/profile`; there is no staff profile route yet. The bell exists only in the student and trainer workspaces (the only ones with a notification route).

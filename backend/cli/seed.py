@@ -30,6 +30,7 @@ from models import (
 from models import (
     Assignment, AssignmentSubmission, AttemptAnswer, InterviewSlot, Question, Result, SubmissionReview, Test, TestAttempt, TestQuestion,
 )
+from cli.seed_services import seed_student_services
 from repositories import batches as batches_repo
 from repositories import users as users_repo
 from services import certificates as certificates_service
@@ -918,6 +919,7 @@ SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_delivery,
     seed_attendance,
     seed_assessments,  # after seed_delivery: needs batches, sessions and curriculum topics
+    seed_student_services,  # S5: support, notifications, career, Ask Nipuna samples
     seed_admin_readiness,  # last: it suspends a learner whose certificate the attendance seed works
 ]
 

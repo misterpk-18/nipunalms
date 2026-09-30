@@ -1,5 +1,5 @@
-import { Placeholder } from "@/components/lms/placeholder";
+import { Assistant } from "@/features/shared/assistant";
 
 export function TrainerAskNipuna() {
-  return <Placeholder title="Trainer — Ask Nipuna" description="Staff assistant for session prep and review." />;
+  return <Assistant title="Ask Nipuna (Staff)" />;
 }

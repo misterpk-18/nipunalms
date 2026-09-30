@@ -91,3 +91,16 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Question bank scope | One bank per branch; company-wide reuse by a global publisher is not built |
 | Assessment evidence in Completion Review | Required learning (S4) is topic coverage from attendance, not assessment work. Required assignments submitted / graded and published test results are not yet shown in the completion evidence or counted in any progress measure; decide the rule with the Completion profile per course |
 | asg-11 due date | Seeded due 02 Oct 2026 (prototype: 29 Sep) so it reads Due, not Overdue, on the prototype's "today" (30 Sep) |
+
+## Student services (S5)
+
+| Item | Notes |
+|---|---|
+| Fees & Receipts fields | `finance_summaries` will gain pending-verification, waived, refunded, installments and invoice numbers (db/005); the screen shows fee, verified paid, dues, next due and receipts only |
+| Notifications for other workspaces | Only student and trainer have a notification route and header bell; academic / branch / admin need routes and a nav entry |
+| Staff profile screen | `GET /me/profile` works for staff; no staff route (student `/profile` is student-workspace only) |
+| Placement Team | Module 23 names a Placement Team role; there is none, so Academic Coordinator, Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
+| Support SLA | One `support_sla_hours` for all categories and priorities; a scheduler for `support-escalate-overdue` is not set up |
+| External channels | WhatsApp / email delivery, quiet hours and retry (Module 26) need the integrations verified first; preferences are stored only |
+| Ask Nipuna | No spend ceiling / cost tracking (Module 24 section 11: ceiling stays unset); Telugu answer quality untested against a live model; due-work facts wait for S3 to register a provider |
+| Career file storage | CV files on local disk under `UPLOAD_DIR/cv` |

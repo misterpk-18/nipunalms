@@ -121,6 +121,29 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ ask_nipuna
+### ask_nipuna.ask
+POST {{base}}/api/v1/ask-nipuna/queries
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### ask_nipuna.give_feedback
+POST {{base}}/api/v1/ask-nipuna/queries/1/feedback
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### ask_nipuna.list_queries
+GET {{base}}/api/v1/ask-nipuna/queries
+Authorization: Bearer {{token}}
+
+### ask_nipuna.status
+GET {{base}}/api/v1/ask-nipuna/status
+Authorization: Bearer {{token}}
+
 # ================================================================ assignments
 ### assignments.create_assignment
 POST {{base}}/api/v1/assignments
@@ -407,6 +430,145 @@ Content-Type: application/json
 
 ### batches.update_batch
 PATCH {{base}}/api/v1/batches/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ career
+### career.apply
+POST {{base}}/api/v1/me/career/opportunities/1/apply
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.change_application_status
+POST {{base}}/api/v1/applications/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.change_opportunity_status
+POST {{base}}/api/v1/opportunities/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.create_opportunity
+POST {{base}}/api/v1/opportunities
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.download_cv
+GET {{base}}/api/v1/cv-documents/1/download
+Authorization: Bearer {{token}}
+
+### career.extend_support
+POST {{base}}/api/v1/career-profiles/1/extend-support
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.get_application
+GET {{base}}/api/v1/applications/1
+Authorization: Bearer {{token}}
+
+### career.get_opportunity
+GET {{base}}/api/v1/opportunities/1
+Authorization: Bearer {{token}}
+
+### career.get_student_career
+GET {{base}}/api/v1/career-profiles/1
+Authorization: Bearer {{token}}
+
+### career.list_applications
+GET {{base}}/api/v1/applications
+Authorization: Bearer {{token}}
+
+### career.list_opportunities
+GET {{base}}/api/v1/opportunities
+Authorization: Bearer {{token}}
+
+### career.list_outcomes
+GET {{base}}/api/v1/placement-outcomes
+Authorization: Bearer {{token}}
+
+### career.list_profiles
+GET {{base}}/api/v1/career-profiles
+Authorization: Bearer {{token}}
+
+### career.outcome_summary
+GET {{base}}/api/v1/placement-outcomes/summary
+Authorization: Bearer {{token}}
+
+### career.overview
+GET {{base}}/api/v1/me/career
+Authorization: Bearer {{token}}
+
+### career.record_outcome
+POST {{base}}/api/v1/placement-outcomes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.review_cv
+POST {{base}}/api/v1/cv-documents/1/review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.review_profile
+POST {{base}}/api/v1/career-profiles/1/review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.set_consent
+PUT {{base}}/api/v1/me/career/consent
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.update_opportunity
+PATCH {{base}}/api/v1/opportunities/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.update_profile
+PUT {{base}}/api/v1/me/career/profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.upload_cv
+POST {{base}}/api/v1/me/career/cvs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.verify_outcome
+POST {{base}}/api/v1/placement-outcomes/1/verify
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### career.withdraw
+POST {{base}}/api/v1/me/career/applications/1/withdraw
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -840,6 +1002,19 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/enrolments
 Authorization: Bearer {{token}}
 
+# ================================================================ finance
+### finance.get_summary
+GET {{base}}/api/v1/finance-summaries/1
+Authorization: Bearer {{token}}
+
+### finance.list_summaries
+GET {{base}}/api/v1/finance-summaries
+Authorization: Bearer {{token}}
+
+### finance.my_finance
+GET {{base}}/api/v1/me/finance
+Authorization: Bearer {{token}}
+
 # ================================================================ health
 ### health.get_health
 GET {{base}}/api/v1/health
@@ -889,6 +1064,73 @@ Authorization: Bearer {{token}}
 ### my_courses.schedule
 GET {{base}}/api/v1/me/schedule
 Authorization: Bearer {{token}}
+
+# ================================================================ notifications
+### notifications.acknowledge
+POST {{base}}/api/v1/notifications/1/acknowledge
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### notifications.get_preferences
+GET {{base}}/api/v1/notifications/preferences
+Authorization: Bearer {{token}}
+
+### notifications.list_notifications
+GET {{base}}/api/v1/notifications
+Authorization: Bearer {{token}}
+
+### notifications.mark_action_done
+POST {{base}}/api/v1/notifications/1/action-done
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### notifications.mark_all_read
+POST {{base}}/api/v1/notifications/read-all
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### notifications.mark_read
+POST {{base}}/api/v1/notifications/1/read
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### notifications.overview
+GET {{base}}/api/v1/notifications/overview
+Authorization: Bearer {{token}}
+
+### notifications.set_preferences
+PUT {{base}}/api/v1/notifications/preferences
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ profile
+### profile.get_profile
+GET {{base}}/api/v1/me/profile
+Authorization: Bearer {{token}}
+
+### profile.sign_out_other_devices
+POST {{base}}/api/v1/me/devices/sign-out-others
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### profile.update_profile
+PATCH {{base}}/api/v1/me/profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 # ================================================================ progress
 ### progress.branch_summary
@@ -1124,6 +1366,64 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ support
+### support.add_message
+POST {{base}}/api/v1/support-requests/1/messages
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### support.assign
+POST {{base}}/api/v1/support-requests/1/assign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### support.change_status
+POST {{base}}/api/v1/support-requests/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### support.close
+POST {{base}}/api/v1/support-requests/1/close
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### support.escalate
+POST {{base}}/api/v1/support-requests/1/escalate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### support.get_request
+GET {{base}}/api/v1/support-requests/1
+Authorization: Bearer {{token}}
+
+### support.list_requests
+GET {{base}}/api/v1/support-requests
+Authorization: Bearer {{token}}
+
+### support.raise_request
+POST {{base}}/api/v1/support-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### support.reopen
+POST {{base}}/api/v1/support-requests/1/reopen
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ tests
 ### tests.approve_test
 POST {{base}}/api/v1/tests/1/approve
@@ -1249,3 +1549,8 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ trainer_students
+### trainer_students.assigned_students
+GET {{base}}/api/v1/trainer/students
+Authorization: Bearer {{token}}

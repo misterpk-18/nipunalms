@@ -106,6 +106,8 @@ class Notification(db.Model):
     event_key: Mapped[str] = mapped_column(String(200))
     delivery_status: Mapped[str] = mapped_column(NotificationDeliveryStatus, default="Delivered")
     action_status: Mapped[str] = mapped_column(NotificationActionStatus, default="None")
+    channel: Mapped[str] = mapped_column(String(20), default="In-app")
+    delivery_note: Mapped[str | None] = mapped_column(Text)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
@@ -119,6 +121,8 @@ class Notification(db.Model):
             "link": self.link,
             "delivery_status": self.delivery_status,
             "action_status": self.action_status,
+            "channel": self.channel,
+            "delivery_note": self.delivery_note,
             "read_at": self.read_at,
             "acknowledged_at": self.acknowledged_at,
             "created_at": self.created_at,
