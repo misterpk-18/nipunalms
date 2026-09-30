@@ -132,3 +132,73 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ admin & security (S6): examples with bodies
+### integrations.list_statuses (any signed-in user: Verified / Pending Verification / Integration Unavailable)
+GET {{base}}/api/v1/integrations/status
+Authorization: Bearer {{token}}
+
+### integrations.update (Super Admin, fresh auth; Verified needs Configured + evidence)
+PATCH {{base}}/api/v1/integrations/2
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"configuration_status": "Configured", "verification_status": "Verified", "evidence": "Test meeting created for NIT-GNT on 30 Sep"}
+
+### security_controls.update
+PATCH {{base}}/api/v1/security-controls/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"verification_status": "Verified", "evidence": "Out-of-scope record answered 404 in staging"}
+
+### admin_users.create (the temporary password is returned once)
+POST {{base}}/api/v1/admin/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"full_name": "Trainer N. Newhire", "email": "new.hire@nipuna.test", "scopes": [{"role_code": "TRAINER", "branch_id": 1}]}
+
+### admin_users.grant_scope (temporary access: expires_at at most 7 days ahead)
+POST {{base}}/api/v1/admin/users/1/scopes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"role_code": "ACADEMIC_COORDINATOR", "branch_id": 1, "expires_at": "2026-10-05T18:00:00+05:30"}
+
+### admin_users.revoke_scope
+POST {{base}}/api/v1/admin/users/1/scopes/1/revoke
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"reason": "Moved back to teaching"}
+
+### admin_users.deactivate
+POST {{base}}/api/v1/admin/users/1/deactivate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"reason": "Left the company"}
+
+### admin_students.search
+GET {{base}}/api/v1/admin/students?q=NIT-STU-2026-004182&activation_status=Activated
+Authorization: Bearer {{token}}
+
+### admin_students.suspend
+POST {{base}}/api/v1/admin/students/1/suspend
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"reason": "Duplicate enrolment under review"}
+
+### crm_sync.list_events (failed events, newest first)
+GET {{base}}/api/v1/admin/crm-sync/events?status=Failed
+Authorization: Bearer {{token}}
+
+### crm_sync.retry_event
+POST {{base}}/api/v1/admin/crm-sync/events/1/retry
+Authorization: Bearer {{token}}
+
+### audit_log.list (from / to are IST dates)
+GET {{base}}/api/v1/audit-log?action=STUDENT_SUSPENDED&from=2026-09-01&to=2026-09-30
+Authorization: Bearer {{token}}

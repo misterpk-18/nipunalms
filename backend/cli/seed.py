@@ -438,6 +438,47 @@ def seed_crm_inbox_examples(ctx: SeedContext) -> None:
     ctx.crm_event("AdmissionUpdated", {"crm_admission_id": "CRM-ADM-214", "mode": "Classroom"}, version=2)  # late: ignored
 
 
+def seed_admin_readiness(ctx: SeedContext) -> None:
+    """Readiness registers, staff and student account states for the admin screens, all through the admin API as the Super Admin.
+
+    Nothing is Verified in the integrations register (the prototype: no successful evidence exists); the controls the
+    platform already enforces are verified with evidence, the rest keep their migration status.
+    """
+    login = ctx.client.post(f"{API}/auth/login", json={"login": "admin@nipuna.test", "password": STAGING_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.get_json()['data']['token']}"}
+
+    def call(method: str, path: str, body: dict | None = None) -> dict:
+        response = getattr(ctx.client, method)(f"{API}{path}", headers=headers, json=body if body is not None else {})
+        if response.status_code >= 400:
+            raise click.ClickException(f"{method.upper()} {path} failed ({response.status_code}): {response.get_json()}")
+        return response.get_json()["data"]
+
+    integrations = {i["integration_code"]: i for i in call("get", "/integrations")}
+    call("patch", f"/integrations/{integrations['GOOGLE_MEET']['integration_id']}",
+         {"notes": "Organizer licences for both branch mailboxes are Pending Verification; nothing is Live Verified"})
+    call("patch", f"/integrations/{integrations['CRM']['integration_id']}",
+         {"notes": "Inbound events supported; outbound delivery worker not built yet (values are queued in the outbox)"})
+
+    controls = {c["control_code"]: c for c in call("get", "/security-controls")}
+    for code, evidence in (
+        ("SESSION_IDLE", "Session unusable after 30 idle minutes in staging (checked 29 Sep 2026)"),
+        ("SESSION_MAX", "Session ended at 12 hours in staging (checked 29 Sep 2026)"),
+        ("LOGIN_LOCKOUT", "Account locked after 5 failed sign-ins and released after 15 minutes"),
+        ("UNIQUE_LMS_LOGIN", "Second admission for the same CRM Person reused the existing Student ID"),
+        ("AUDIT_IMMUTABLE", "UPDATE and DELETE on audit_log raise an error in staging"),
+    ):
+        call("patch", f"/security-controls/{controls[code]['control_id']}", {"verification_status": "Verified", "evidence": evidence})
+
+    newjoin = call("post", "/admin/users", {"full_name": "Trainer A. Newjoin", "email": "trainer.new@nipuna.test",
+                                            "scopes": [{"role_code": "TRAINER", "branch_id": GNT}]})
+    ctx.notes.append(f"Trainer A. Newjoin (trainer.new@nipuna.test) must change the temporary password {newjoin['temporary_password']}")
+    former = call("post", "/admin/users", {"full_name": "Former Trainer T. Sample", "email": "trainer.former@nipuna.test",
+                                           "scopes": [{"role_code": "TRAINER", "branch_id": VIJ}]})
+    call("post", f"/admin/users/{former['user_id']}/deactivate", {"reason": "Left the company on 15 Sep 2026"})
+
+    call("post", f"/admin/students/{ctx.students['E']['student_id']}/suspend", {"reason": "Duplicate enrolment under review"})
+
+
 # Run in order; later slices append their own seeders here
 SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_staff,
@@ -449,6 +490,7 @@ SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_sessions,
     seed_finance,
     seed_crm_inbox_examples,
+    seed_admin_readiness,
 ]
 
 

@@ -72,6 +72,27 @@ class User(db.Model):
     def to_summary(self) -> dict:
         return {"user_id": self.user_id, "full_name": self.full_name, "email": self.email}
 
+    def to_admin_dict(self) -> dict:
+        """The Users & Access row: account state plus the role scopes that are live now (revoked ones are left out)."""
+        now = datetime.now(timezone.utc)
+        return {
+            "user_id": self.user_id,
+            "full_name": self.full_name,
+            "email": self.email,
+            "phone": self.phone,
+            "is_active": self.is_active,
+            "must_change_password": self.must_change_password,
+            "is_locked": self.is_locked,
+            "last_login_at": self.last_login_at,
+            "password_changed_at": self.password_changed_at,
+            "created_at": self.created_at,
+            "scopes": [
+                {**s.to_dict(), "expires_at": s.expires_at, "granted_at": s.granted_at}
+                for s in self.scopes
+                if s.revoked_at is None and (s.expires_at is None or s.expires_at > now)
+            ],
+        }
+
 
 class UserRoleScope(db.Model):
     """One role at one branch (branch_id NULL = all branches, company-wide roles only)."""

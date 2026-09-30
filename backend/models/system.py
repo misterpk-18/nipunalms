@@ -72,6 +72,9 @@ class Integration(db.Model):
     last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+    verified_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    evidence: Mapped[str | None] = mapped_column(Text)
 
     def to_dict(self) -> dict:
         return {
@@ -84,6 +87,9 @@ class Integration(db.Model):
             "owner": self.owner,
             "last_checked_at": self.last_checked_at,
             "notes": self.notes,
+            "verified_by": self.verified_by,
+            "verified_at": self.verified_at,
+            "evidence": self.evidence,
         }
 
 

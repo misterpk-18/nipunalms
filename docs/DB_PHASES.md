@@ -21,6 +21,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Catalogue & curriculum | ✅ Done | `002_catalog_curriculum.sql` |
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
+| 2 — S6 Admin & security | ✅ Done | `060_admin_security.sql` |
 
 ---
 
@@ -94,3 +95,14 @@ The CRM already has these columns (`nipuna-crm` db 005/006); the LMS is their so
 | `class_sessions` | Actual Class Sessions: batch, topic, trainer, scheduled start/end, mode, room, Meet link + status, state Scheduled / Live / Delivered / Cancelled / Rescheduled |
 
 **Rules enforced:** `batch_code` is immutable; capacity can't drop below allocated students; a trainer must hold the Trainer role at the batch's branch; allocation course and branch must match the enrolment; no allocation into a closed or full batch; the track must belong to the enrolment; the session trainer must be assigned to the batch; session end after start.
+
+## 060 — Admin & security ✅
+
+| Table / change | Purpose |
+|---|---|
+| `integrations` (ALTER) | + `verified_by`, `verified_at`, `evidence`; CHECK `integrations_verified_needs_evidence` (Verified needs a person, a time, an evidence note and a Configured setup) |
+| `integration_configuration_status` (ALTER TYPE) | + `Misconfigured` |
+| `integrations` (rows) | + `MEET_ORGANIZER_GNT`, `MEET_ORGANIZER_VIJ` (per-branch organizer, Pending Verification), `HDFC_PAYMENTS` (CRM-owned feed), `PRODUCTION_AUTH` |
+| `security_controls` | Security readiness register (seeded with 18 controls: scope enforcement, session idle / max, fresh auth, lockout, password policy, unique LMS login, activation token, audit immutability and decisions, temporary / emergency access, student MFA, file access, export scoping, AI data scope, HTTPS, backups); same Verified CHECK |
+
+Nothing is seeded as Verified. The status table above gains the row: `060_admin_security.sql` — S6 Admin & security ✅.

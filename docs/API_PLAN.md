@@ -184,3 +184,38 @@ Endpoint tables are added per slice below as they are built ("As built" notes, l
 | GET | `/class-sessions?batch_id=&from=&to=` | Scoped | |
 
 Scope helpers every slice uses live in `services/scope.py` (branch visibility, trainer batches, student enrolments; out-of-scope → 404).
+
+### Admin & security (S6 — `060_admin_security.sql`)
+
+Super Admin manages; the Founder / CEO can read every list (mutations are Super Admin only, all with fresh auth). Nothing here calls an external system.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/integrations` | Super Admin, Founder | Register: requirement, configuration, verification, owner, evidence, verified by / at, last check |
+| GET | `/integrations/status` | Any signed-in user | `[{integration_code, configuration_status, verification_status, state}]`, `state` = Verified / Pending Verification / Integration Unavailable |
+| GET, PATCH | `/integrations/{id}` | Super Admin (PATCH, fresh auth) | PATCH any of `configuration_status`, `verification_status`, `owner`, `evidence`, `notes` |
+| GET | `/security-controls`, `/security-controls/{id}` | Super Admin, Founder | Same shape as the integrations register (`control_code`, `category`, `title`) |
+| PATCH | `/security-controls/{id}` | Super Admin (fresh auth) | Same rules as integrations |
+| GET | `/admin/users?q=&role_code=&branch_id=&is_active=` | Super Admin, Founder | Staff logins (never students) with live role scopes |
+| POST | `/admin/users` | Super Admin | `{full_name, email, phone?, scopes: [{role_code, branch_id?, expires_at?}]}` → 201 with `temporary_password` (once); `must_change_password` set |
+| GET, PATCH | `/admin/users/{id}` | Super Admin (PATCH) | PATCH `full_name`, `email`, `phone` |
+| POST | `/admin/users/{id}/scopes` | Super Admin | Grant a role scope; company-wide roles take no branch, branch roles need one; `expires_at` (temporary access) at most 7 days ahead |
+| POST | `/admin/users/{id}/scopes/{scope_id}/revoke` | Super Admin | `{reason}`; not your own access; not the last active Super Admin |
+| POST | `/admin/users/{id}/deactivate`, `/reactivate` | Super Admin | Deactivate `{reason}` ends all sessions; not yourself, not the last Super Admin |
+| POST | `/admin/users/{id}/reset-password` | Super Admin | New `temporary_password` (once), sessions ended, lockout cleared, must change at next sign-in |
+| GET | `/admin/students?q=&activation_status=&branch_id=` | Super Admin, Founder | Search by Student ID, name, email; activation status, LMS account (`lms_user_id`, login state, active sessions), enrolment counts |
+| GET | `/admin/students/{id}` | Super Admin, Founder | Adds enrolments, outstanding activation link state (never the token), suspension reason, recent audit |
+| POST | `/admin/students/{id}/suspend`, `/reactivate`, `/revoke-sessions` | Super Admin | Suspend `{reason}`: blocks sign-in, ends sessions, cancels the activation link. Reactivate returns to Activated (password set) or Account Created |
+| POST | `/students/{id}/activation` | (Phase 1) | Issue / reissue the activation token (shown once) — used by the Student Accounts screen |
+| GET | `/admin/crm-sync/summary` | Super Admin, Founder | Counts by status for the inbox and outbox, last received / delivered, oldest pending |
+| GET | `/admin/crm-sync/events?status=&event_type=&q=&from=&to=`, `/events/{id}` | Super Admin, Founder | List without payload; detail with payload and result |
+| POST | `/admin/crm-sync/events/{id}/retry` | Super Admin (fresh auth) | Re-applies a Failed event; audited `CRM_EVENT_RETRIED` on success |
+| GET | `/admin/crm-sync/outbox?status=&event_type=`, `/outbox/{id}` | Super Admin, Founder | Values queued for the CRM |
+| GET | `/audit-log?actor_user_id=&entity_type=&entity_id=&action=&branch_id=&from=&to=`, `/audit-log/facets` | Super Admin, Founder | Newest first with the actor's name; `from` / `to` are inclusive IST dates; facets list the distinct actions and entity types |
+
+**As built (S6):**
+- `services/integrations.py` exposes `integration_status(code)` (`.state`, `.is_verified`) and `is_verified(code)` for other slices; an unknown code counts as Not Configured / Not Verified. `GOOGLE_MEET` gates `class_sessions.meet_status`, `GOOGLE_DRIVE_RECORDINGS` gates recording import.
+- Readiness rules (integrations and security controls share `services/readiness.py`): *Verified* needs a Configured setup and an evidence note and records `verified_by` / `verified_at`; taking a Verified record out of Configured drops it to Not Verified; any status or evidence change sets `last_checked_at`. The database CHECK `*_verified_needs_evidence` enforces the same. Audit actions: `INTEGRATION_UPDATED`, `SECURITY_CONTROL_UPDATED` (entity id = code, old / new of the changed fields only).
+- Staff account actions are audited on the `user` entity (`USER_CREATED`, `USER_UPDATED`, `SCOPE_GRANTED`, `SCOPE_REVOKED`, `USER_DEACTIVATED`, `USER_REACTIVATED`, `PASSWORD_RESET`) and student actions on the `student` entity (`STUDENT_SUSPENDED`, `STUDENT_REACTIVATED`, `STUDENT_SESSIONS_REVOKED`, plus the Phase 1 activation actions). Passwords and tokens are never written to the audit log.
+- The platform always keeps an active Super Admin: the last one cannot be deactivated or lose the scope, and nobody can revoke or deactivate themselves.
+- The Phase 1 `GET /integrations/crm/events` and `POST /integrations/crm/events/{id}/retry` remain; the admin screen uses the `/admin/crm-sync/*` equivalents (payload only on detail, audited retry).

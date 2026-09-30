@@ -17,3 +17,13 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
 | WhatsApp / email / telephony | In-app notifications only |
+
+## Admin & security
+
+| Item | Notes |
+|---|---|
+| Emergency / elevated access | Security control `EMERGENCY_ACCESS` (max 4 hours, reviewed afterwards) has no mechanism yet; only routine temporary access (7 days) is enforced |
+| Student MFA | `students.mfa_status` exists but no second factor is implemented |
+| Exception queue | `/admin/exceptions` and the `exception_queue` view belong to the dashboards phase |
+| Integration alerts | A Failed integration verification does not yet notify anyone |
+| Audit actor filter | The Actor filter lists staff only; student sign-ins are found by entity |
