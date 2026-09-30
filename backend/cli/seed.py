@@ -23,10 +23,12 @@ from sqlalchemy.engine import make_url
 from config.database import db
 from config.timezone import IST
 from models import (
-    ActivityEvent, Batch, BatchTrainer, ClassSession, Course, CourseComponent, CurriculumModule, CurriculumTopic,
+    ActivityEvent, AttendanceRecord, AttendanceRecovery, Batch, BatchTrainer, Certificate, ClassSession, Course, CourseComponent, CurriculumModule, CurriculumTopic,
     CurriculumVersion, Enrolment, Student, User,
 )
 from repositories import batches as batches_repo
+from repositories import users as users_repo
+from services import certificates as certificates_service
 from services import users as users_service
 
 API = "/api/v1"
@@ -438,6 +440,105 @@ def seed_crm_inbox_examples(ctx: SeedContext) -> None:
     ctx.crm_event("AdmissionUpdated", {"crm_admission_id": "CRM-ADM-214", "mode": "Classroom"}, version=2)  # late: ignored
 
 
+# ---------------------------------------------------------------- slice S4: attendance, recovery, certificates
+
+# Extra delivered classes of batch G1 before the prototype's August sessions (a batch that started in January has many more)
+EARLIER_G1_SESSIONS = [
+    (("Parent Programme v2026.1", "Programme Roadmap & Assessment Scheme"), "Programme orientation", "2026-07-27", "10:00", "12:00"),
+    (("Track CV 3.2", "Functions & Modules"), "Functions and modules", "2026-07-29", "10:00", "12:00"),
+    (("Parent Programme v2026.1", "Learning Tools Setup"), "Learning tools setup", "2026-08-05", "10:00", "12:00"),
+]
+# Absent class numbers (1 = oldest of the batch's 14 delivered classes) per learner of G1
+G1_ABSENCES = {"anvitha": {6, 13}, "G": {2, 5, 7, 10}, "H": {8}, "I": set()}
+STAFF_LOGINS = {"coord_gnt": "coordinator.gnt", "coord_vij": "coordinator.vij", "bm_gnt": "bm.gnt", "bm_vij": "bm.vij", "admin": "admin"}
+# learner, certificate type, how far it goes in the register, the branch coordinator and manager who work it
+CERTIFICATE_PLAN = [
+    ("A", "Course Completion Certificate", "issued", "coord_gnt", "bm_gnt"),
+    ("B", "Internship Certificate", "issued", "coord_vij", "bm_vij"),
+    ("F", "Course Completion Certificate", "revoked", "coord_gnt", "bm_gnt"),
+    ("C", "Course Completion Certificate", "eligibility", "coord_gnt", "bm_gnt"),
+    ("D", "Internship Certificate", "awaiting", "coord_vij", "bm_vij"),
+    ("E", "Course Completion Certificate", "approved", "coord_vij", "bm_vij"),
+]
+
+
+def _staff_call(ctx: SeedContext, staff_key: str, path: str, body: dict | None = None) -> dict:
+    """POST as a staff member (real login, real permissions and audit)."""
+    login = ctx.client.post(f"{API}/auth/login", json={"login": f"{STAFF_LOGINS[staff_key]}@nipuna.test", "password": STAGING_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.get_json()['data']['token']}"}
+    response = ctx.client.post(f"{API}{path}", json=body or {}, headers=headers)
+    if response.status_code not in (200, 201):
+        raise click.ClickException(f"{path} failed ({response.status_code}): {response.get_json()}")
+    return response.get_json()["data"]
+
+
+def _enrolment_of(ctx: SeedContext, key: str, kind: str | None = None) -> Enrolment:
+    enrolments = [db.session.get(Enrolment, e["enrolment_id"]) for e in ctx.students[key]["enrolments"]]
+    return next(e for e in enrolments if kind is None or e.kind == kind)
+
+
+def seed_attendance(ctx: SeedContext) -> None:
+    """Trainer-confirmed attendance for batch G1 (REC-0041 included) and the eight prototype Certificate Register rows."""
+    g1 = ctx.batches["G1"]
+    for topic, title, day, start, end in EARLIER_G1_SESSIONS:
+        db.session.add(ClassSession(batch_id=g1.batch_id, topic_id=ctx.topics[topic], title=title, starts_at=at(day, start),
+                                    ends_at=at(day, end), mode="Classroom", trainer_user_id=ctx.users["trainer_g1"], room="Lab 1",
+                                    state="Delivered", delivered_at=at(day, end)))
+    db.session.flush()
+
+    delivered = db.session.execute(select(ClassSession).where(ClassSession.batch_id == g1.batch_id, ClassSession.state == "Delivered")
+                                   .order_by(ClassSession.starts_at)).scalars().all()
+    absence_of_rec = None
+    for key, absences in G1_ABSENCES.items():
+        enrolment = _enrolment_of(ctx, key, "Combo" if key == "anvitha" else None)
+        for number, session in enumerate(delivered, 1):
+            if key == "I" and number == len(delivered):
+                continue  # Learner I's last class is still unmarked: Partial Data
+            status = "Absent" if number in absences else "Late" if key == "anvitha" and number == 4 else "Present"
+            record = AttendanceRecord(session_id=session.session_id, enrolment_id=enrolment.enrolment_id, status=status,
+                                      marked_by=session.trainer_user_id, marked_at=session.ends_at + timedelta(hours=1))
+            db.session.add(record)
+            db.session.flush()
+            if key == "anvitha" and session.session_code == "SES-000101":
+                absence_of_rec = record
+    # The first recovery gets the prototype's code REC-0041
+    db.session.execute(text("INSERT INTO code_counters (counter_key, last_value) VALUES ('REC', 40) "
+                            "ON CONFLICT (counter_key) DO UPDATE SET last_value = 40"))
+    student_user = users_repo.get_by_student_id(ctx.students["anvitha"]["student_id"])
+    db.session.add(AttendanceRecovery(
+        attendance_id=absence_of_rec.attendance_id, method="Recording watched", status="Approved",
+        reason="Was unwell on the day; will watch the recording and submit the regression exercise",
+        requested_by=student_user.user_id, decided_by=ctx.users["coord_gnt"], decided_at=at("2026-09-22", "12:00"),
+        decision_note="Approved: recording plus the regression exercise", target_date=date(2026, 10, 5)))
+    db.session.commit()
+
+    # Learners A-F have finished: each goes through the real completion review and register steps
+    for key, kind, stage, coordinator, manager in CERTIFICATE_PLAN:
+        enrolment = _enrolment_of(ctx, key)
+        enrolment.status, enrolment.joining_date = "Active", enrolment.joining_date or date(2026, 3, 2)
+        db.session.commit()
+        if kind == "Internship Certificate":
+            _staff_call(ctx, coordinator, "/certificates", {"enrolment_id": enrolment.enrolment_id, "certificate_type": kind})
+        review = _staff_call(ctx, coordinator, "/completion-reviews", {"enrolment_id": enrolment.enrolment_id})
+        _staff_call(ctx, coordinator, f"/completion-reviews/{review['review_id']}/decision", {"decision": "Complete"})
+        cid = db.session.execute(select(Certificate.certificate_id).where(
+            Certificate.enrolment_id == enrolment.enrolment_id, Certificate.certificate_type == kind)).scalar_one()
+        if stage != "eligibility":
+            _staff_call(ctx, coordinator, f"/certificates/{cid}/recommendation")
+        if stage in ("approved", "issued", "revoked"):
+            _staff_call(ctx, manager, f"/certificates/{cid}/approval")
+        if stage in ("issued", "revoked"):
+            _staff_call(ctx, manager, f"/certificates/{cid}/issue")
+        if stage == "revoked":
+            _staff_call(ctx, "admin", f"/certificates/{cid}/revocation", {"reason": "Record error: issued against the wrong enrolment"})
+        if key == "A":
+            _staff_call(ctx, manager, f"/certificates/{cid}/reissue", {"reason": "Name correction"})
+    # Anvitha is still studying: her register entry waits as Not Yet Eligible
+    certificates_service.ensure_register_entry(_enrolment_of(ctx, "anvitha", "Combo"))
+    db.session.execute(text("UPDATE enrolments SET certificate_status = 'Configuration Pending — completion rule not configured "
+                            "for complimentary offer' WHERE kind = 'Complimentary'"))
+
+
 # Run in order; later slices append their own seeders here
 SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_staff,
@@ -449,6 +550,7 @@ SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_sessions,
     seed_finance,
     seed_crm_inbox_examples,
+    seed_attendance,
 ]
 
 

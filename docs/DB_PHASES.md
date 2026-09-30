@@ -21,6 +21,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Catalogue & curriculum | ✅ Done | `002_catalog_curriculum.sql` |
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
+| 2 — S4 Attendance, progress & certificates | ✅ Done | `040_attendance_certificates.sql` |
 
 ---
 
@@ -94,3 +95,18 @@ The CRM already has these columns (`nipuna-crm` db 005/006); the LMS is their so
 | `class_sessions` | Actual Class Sessions: batch, topic, trainer, scheduled start/end, mode, room, Meet link + status, state Scheduled / Live / Delivered / Cancelled / Rescheduled |
 
 **Rules enforced:** `batch_code` is immutable; capacity can't drop below allocated students; a trainer must hold the Trainer role at the batch's branch; allocation course and branch must match the enrolment; no allocation into a closed or full batch; the track must belong to the enrolment; the session trainer must be assigned to the batch; session end after start.
+
+
+## 040 — Attendance, progress & certificates (S4) ✅
+
+| Object | Purpose |
+|---|---|
+| `attendance_records` | One row per Class Session x enrolment (Present / Absent / Late / Excused, remarks, marked_by / marked_at, correction fields). Only Live / Delivered sessions and seated enrolments |
+| `attendance_recoveries` | `REC-0041` codes; Requested → Approved / Rejected → Completed with evidence; one live recovery per absence |
+| `attendance_corrections` | Post-lock changes and student disputes; the decider cannot be the requester |
+| Views `enrolment_batch_links`, `attendance_grid`, `enrolment_delivery`, `enrolment_attendance`, `enrolment_required_topics`, `enrolment_covered_topics`, `enrolment_required_learning`, `enrolment_engagement`, `enrolment_progress` | The four progress measures per enrolment |
+| `completion_reviews` | Trainer recommendation, Academic Coordinator decision, evidence snapshot; one Open review per enrolment; Complete blocked by open recoveries |
+| `certificates` | LMS Certificate Register (types Course Completion / Internship; statuses Not Yet Eligible → Eligibility Review → Awaiting Approval → Approved for Issue → Issued → Superseded / Revoked); number allocated at first issue, kept across versions |
+| `app_settings` (added) | `attendance_lock_days`, `attendance_alert_threshold`, `engagement_window_days`, `engagement_high_events`, `engagement_medium_events`, `complimentary_completion_rule_configured` |
+
+**Rules enforced:** transition table and eligibility (Completed enrolment; complimentary rule configured), immutable certificate number, reissue must follow the Superseded version, revocation needs a reason, Excused needs a reason, rejected recoveries / corrections need a note. No backbone table is altered; a trigger keeps `enrolments.certificate_status` in step with the live register entry.

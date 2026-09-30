@@ -9,6 +9,12 @@ from routes.health import health_bp
 from routes.reference import reference_bp
 from routes.students import students_bp
 
+# Slice S4: attendance, progress, completion review, certificates
+from routes.attendance import attendance_bp
+from routes.certificates import certificates_bp
+from routes.completion import completion_bp
+from routes.progress import progress_bp
+
 BLUEPRINTS = [
     health_bp,
     auth_bp,
@@ -17,6 +23,10 @@ BLUEPRINTS = [
     batches_bp,
     class_sessions_bp,
     crm_bp,
+    attendance_bp,
+    progress_bp,
+    completion_bp,
+    certificates_bp,
 ]
 
 

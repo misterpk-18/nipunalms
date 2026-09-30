@@ -132,3 +132,80 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+
+# ================================================================ S4 attendance, progress, completion, certificates
+### attendance.mark (bulk: everyone Present, one exception)
+PUT {{base}}/api/v1/attendance/sessions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"default_status": "Present", "entries": [{"enrolment_id": 5, "status": "Absent"}]}
+
+### attendance.register
+GET {{base}}/api/v1/attendance/sessions/1
+Authorization: Bearer {{token}}
+
+### attendance.request_recovery
+POST {{base}}/api/v1/attendance/recoveries
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"attendance_id": 1, "method": "Recording watched", "reason": "Was unwell"}
+
+### attendance.decide_recovery
+POST {{base}}/api/v1/attendance/recoveries/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"decision": "Approved", "target_date": "2026-10-10"}
+
+### attendance.request_correction
+POST {{base}}/api/v1/attendance/corrections
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"session_id": 1, "enrolment_id": 5, "requested_status": "Present", "reason": "Was in class"}
+
+### progress.mine
+GET {{base}}/api/v1/me/progress
+Authorization: Bearer {{token}}
+
+### progress.students
+GET {{base}}/api/v1/progress/students?alert=true
+Authorization: Bearer {{token}}
+
+### completion.open_review
+POST {{base}}/api/v1/completion-reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"enrolment_id": 5}
+
+### completion.decide
+POST {{base}}/api/v1/completion-reviews/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"decision": "Complete"}
+
+### certificates.register
+GET {{base}}/api/v1/certificates?status=Issued
+Authorization: Bearer {{token}}
+
+### certificates.recommend / approval / issue
+POST {{base}}/api/v1/certificates/1/recommendation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.reissue
+POST {{base}}/api/v1/certificates/1/reissue
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"reason": "Name correction", "holder_name": "Corrected Name"}
+
+### certificates.verify (public)
+GET {{base}}/api/v1/certificates/verify/NIT-CERT-2026-000001
