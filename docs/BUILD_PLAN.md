@@ -4,6 +4,12 @@ Snapshot 30 Sep 2026, `main` at `2643287`. Compared the running app (`frontend/s
 (`prototype/reference/screens/*`) for every role. A screen counts as **missing** while its feature file still renders
 `<Placeholder>`.
 
+> **Status 30 Sep 2026 — Steps 1–8 done.** S1, S3 and S5 merged; `/branch/requests`, the exception queue (db 080), all six
+> dashboards, both reports pages, staff notifications and `/account/profile` built; `placeholder.tsx` deleted. Verified on
+> `main`: pytest 553 passed; typecheck, lint (0 errors) and build clean; Playwright 82 passed, 6 skipped (mobile-only tests
+> in the desktop project). Step 9 (removing agent worktrees and per-slice databases) is still open. Gaps found while
+> building are in [BACKLOG.md](BACKLOG.md).
+
 ## 1. Where things stand
 
 | Slice | Status |
