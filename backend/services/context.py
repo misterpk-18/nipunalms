@@ -76,4 +76,5 @@ def client_ip() -> str | None:
 
 
 def client_user_agent() -> str | None:
-    return request.user_agent.string if has_request_context() and request.user_agent else None
+    # werkzeug's UserAgent object is falsy even when a header was sent, so read the string itself
+    return (request.user_agent.string or None) if has_request_context() else None

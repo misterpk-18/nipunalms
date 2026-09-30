@@ -1,5 +1,7 @@
-import { Placeholder } from "@/components/lms/placeholder";
+import { useT } from "@/lib/i18n";
+import { NotificationCentre } from "@/features/shared/notification-centre";
 
 export function Notifications() {
-  return <Placeholder title="Notifications" description="In-app notifications with separate delivery, read, acknowledged and action states." />;
+  const t = useT();
+  return <NotificationCentre title={t("notifications")} />;
 }

@@ -184,3 +184,52 @@ Endpoint tables are added per slice below as they are built ("As built" notes, l
 | GET | `/class-sessions?batch_id=&from=&to=` | Scoped | |
 
 Scope helpers every slice uses live in `services/scope.py` (branch visibility, trainer batches, student enrolments; out-of-scope → 404).
+
+
+### Student services (S5 — `050_student_services.sql`)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/support-requests` | Scoped | Filters `status`, `category`, `open`, `mine`, `escalated=true` (escalated to the Branch Manager), `branch_id`, `student_id`, `q`. Student: own; trainer: requests they own or raised; AC / BM: their branch; admin: all |
+| POST | `/support-requests` | Student; staff for a student (`student_id`) | `{category, details, subject?, priority?, enrolment_id?}`. Routed to a named owner; staff raising for a student = "Staff flag" |
+| GET | `/support-requests/{id}` | Scoped | With the thread; internal remarks are left out for a student |
+| POST | `/support-requests/{id}/messages` | Scoped | `{body, internal?}`; a staff reply moves Open to In Progress, a student reply moves Waiting on Student to In Progress |
+| POST | `/support-requests/{id}/status` | Owner / branch AC, BM / admin | `In Progress`, `Waiting on Student`, `Resolved` (note required), `Closed` |
+| POST | `/support-requests/{id}/close`, `/reopen` | Student closes a Resolved request; student or manager reopens with a reason | Reopen gives a fresh SLA clock |
+| POST | `/support-requests/{id}/escalate` | Staff | Trainer-owned goes to the Academic Coordinator (owner changes); anything else goes to the Branch Manager |
+| POST | `/support-requests/{id}/assign` | AC / BM / admin | `{owner_user_id}`, must work at the request's branch |
+| GET | `/trainer/students` | Trainer | Students with active seats in their batches + open-request flag |
+| GET | `/notifications` | Signed in | Own only. `view` = my, action, unread, completed or system; `category`, `q`; each item has `delivery_label` |
+| GET | `/notifications/overview` | Signed in | `{unread, action_required, categories}` for the header bell |
+| POST | `/notifications/{id}/read`, `/acknowledge`, `/action-done`, `/notifications/read-all` | Recipient | Separate states; acknowledging also reads, does not complete the action |
+| GET / PUT | `/notifications/preferences` | Signed in | Group x channel matrix; In-app always on; WhatsApp / Email carry their integration status |
+| GET | `/me/career` | Student | Profile + completeness, CVs, eligible opportunities, applications, outcomes, next action |
+| PUT | `/me/career/profile`, `/me/career/consent` | Student | Opt in / out; employer-sharing consent is separate |
+| POST | `/me/career/cvs` (multipart `file`, `label`) | Student | New version, older ones marked Superseded |
+| POST | `/me/career/opportunities/{id}/apply`, `/me/career/applications/{id}/withdraw` | Student | Needs opt-in, consent, a Reviewed CV; one application per opportunity and cycle |
+| GET | `/cv-documents/{id}/download` | Student / branch staff | |
+| GET / POST / PATCH | `/opportunities`, `/opportunities/{id}` | AC, BM, Super Admin | Branch-scoped; editing a verified one sends it back to Verification Pending |
+| POST | `/opportunities/{id}/status` | AC, BM, Super Admin | Draft, Verification Pending, Active (verifier is not the creator, needs `verification_source`), On Hold, Closed |
+| GET | `/career-profiles`, `/career-profiles/{student_id}` | AC, BM, Super Admin | |
+| POST | `/career-profiles/{student_id}/review`, `/cv-documents/{id}/review` | AC, BM, Super Admin | Readiness + skill verification; CV Reviewed / Changes Requested |
+| POST | `/career-profiles/{student_id}/extend-support` | Super Admin, Founder (fresh auth) | `{support_end, reason}`, audited |
+| GET | `/applications`, `/applications/{id}` | AC, BM, Super Admin | With status history |
+| POST | `/applications/{id}/status` | AC, BM, Super Admin | Any stage may be recorded (stages can be skipped); closed applications are final |
+| GET / POST | `/placement-outcomes` | AC, BM, Super Admin | Recorded as Pending Verification |
+| POST | `/placement-outcomes/{id}/verify` | AC, BM, Super Admin | `{decision: Verified or Rejected, evidence_note}`; not by the recorder |
+| GET | `/placement-outcomes/summary` | AC, BM, Super Admin | Verified outcomes and distinct students per type (reports read this) |
+| GET / PATCH | `/me/profile` | Signed in (PATCH: student) | Identity with masked mobile, devices, language |
+| POST | `/me/devices/sign-out-others` | Signed in | Revokes every other session |
+| GET | `/me/finance` | Student | Read-only CRM summary per admission |
+| GET | `/finance-summaries`, `/finance-summaries/{admission_id}` | BM (service or collecting branch), Super Admin, Founder | Read-only |
+| GET | `/ask-nipuna/status` | Signed in | `AI Available` / `Configuration Pending` / `Quota Limited` / `Disabled`, usage today, actions, scope |
+| POST / GET | `/ask-nipuna/queries` | Signed in | Ask (refusals are answered with `status: Refused` and do not use the allowance); own history |
+| POST | `/ask-nipuna/queries/{id}/feedback` | Asker | `Helpful` / `Not helpful` (+comment); a report notifies the branch Academic Coordinator |
+
+**As built (S5):**
+- Every support request has a named owner (routing table in `services/support.py`); the owner label reads like the prototype ("Academic Coordinator — Guntur", "LMS Support — Vijayawada"). Status moves follow a database trigger (`Open -> In Progress / Waiting on Student / Resolved`, `Resolved -> Closed / Open`, `Closed -> Open`). `flask --app app support-escalate-overdue` escalates requests past `app_settings.support_sla_hours` (48) to the Branch Manager; run it from a scheduler.
+- Notifications reuse the backbone table; `050` adds `channel` and `delivery_note` (a WhatsApp / email notice that was not sent is `Failed` with the reason and shows under System Issues). Preferences are stored, but nothing is sent on WhatsApp / email until those integrations are verified.
+- Ask Nipuna calls `client.messages.create(model=AI_MODEL, ...)` only when `ANTHROPIC_API_KEY` is set; otherwise, or when the provider fails, `services/ai_rules.py` answers from the same permitted facts. Facts come from `services/ai_facts.py`; other slices add facts with `register_fact_provider(name, fn)` (e.g. S3 registers `due_work`). Questions about other students, fee changes, marks / attendance / certificate changes, secrets and prompt injection are refused before anything is retrieved. Daily allowance: `ai_daily_limit` 50 (student) and `ai_daily_limit_staff` 100 per IST day; `ai_enabled` switches it off.
+- Career: verified outcomes are exposed through the `verified_placement_outcomes` view and `GET /placement-outcomes/summary`; "Verified" needs evidence and a verifier other than the recorder (database CHECKs).
+- Fees & Receipts shows what `finance_summaries` holds; pending payments are never receipts.
+- `services/context.client_user_agent()` now returns the User-Agent string (werkzeug's `UserAgent` object is falsy, so sessions never stored it); the profile screen labels devices from it.

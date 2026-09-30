@@ -20,6 +20,17 @@ BLUEPRINTS = [
 ]
 
 
+# Student services slice (050)
+from routes.ask_nipuna import ask_nipuna_bp  # noqa: E402
+from routes.career import career_bp  # noqa: E402
+from routes.finance import finance_bp  # noqa: E402
+from routes.notifications import notifications_bp  # noqa: E402
+from routes.profile import profile_bp  # noqa: E402
+from routes.support import support_bp, trainer_students_bp  # noqa: E402
+
+BLUEPRINTS += [support_bp, trainer_students_bp, notifications_bp, career_bp, profile_bp, finance_bp, ask_nipuna_bp]
+
+
 def register_blueprints(app: Flask) -> None:
     prefix = app.config["API_PREFIX"]
     for blueprint in BLUEPRINTS:

@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useNotificationOverview } from "@/api/notifications";
 import { useDocumentLanguage, useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const branchLabel = scopes.some((s) => s.is_company_wide) ? "All authorised branches" : [...new Set(scopes.map((s) => s.branch_name))].join(", ");
   const fullName = profile?.user.full_name ?? "";
   const bell = NOTIFICATIONS[workspace];
+  const unread = useNotificationOverview({ enabled: Boolean(bell) }).data?.unread ?? 0;
 
   const exit = async () => {
     await signOut();
@@ -81,9 +83,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 to={bell}
                 aria-label={translated ? t("notifications") : "Notifications"}
-                className="tap grid place-items-center rounded-lg hover:bg-navy-muted"
+                className="tap relative grid place-items-center rounded-lg hover:bg-navy-muted"
               >
                 <Bell className="size-5" aria-hidden />
+                {unread > 0 && (
+                  <span
+                    data-testid="unread-count"
+                    className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-4 text-white"
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
               </Link>
             )}
             <DropdownMenu>

@@ -21,6 +21,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Catalogue & curriculum | ✅ Done | `002_catalog_curriculum.sql` |
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
+| 2 — S5 Student services | ✅ Done | `050_student_services.sql` |
 
 ---
 
@@ -94,3 +95,19 @@ The CRM already has these columns (`nipuna-crm` db 005/006); the LMS is their so
 | `class_sessions` | Actual Class Sessions: batch, topic, trainer, scheduled start/end, mode, room, Meet link + status, state Scheduled / Live / Delivered / Cancelled / Rescheduled |
 
 **Rules enforced:** `batch_code` is immutable; capacity can't drop below allocated students; a trainer must hold the Trainer role at the batch's branch; allocation course and branch must match the enrolment; no allocation into a closed or full batch; the track must belong to the enrolment; the session trainer must be assigned to the batch; session end after start.
+
+## 050 — Student services ✅
+
+| Table | Purpose |
+|---|---|
+| `support_requests` | `SR-1042` codes; category, priority, status machine (trigger), named owner + role, escalation level, SLA due, resolution, reopen count |
+| `support_messages` | Append-only thread and history (Message / Status / Escalation / Assignment / Reopened); internal remarks flagged |
+| `notification_preferences` | Per user, group (Service / Learning reminders / Placement / Promotions & alumni) and channel; in-app cannot be off |
+| `career_profiles` | Opt-in, support period, preferences, skills with confidence, sharing consent (separate), readiness |
+| `cv_documents` | CV versions (`version_no` by trigger), review status, file path |
+| `opportunities` | `OPP-0001`; Draft to Closed; Active needs a verifier who is not the creator |
+| `applications`, `application_events` | One per student + opportunity + hiring cycle; every status change logged by trigger; closed statuses are final |
+| `placement_outcomes`, `verified_placement_outcomes` (view) | Offer Received / Accepted / Joined; counted only when Verified with evidence by someone other than the recorder |
+| `ai_queries` | Ask Nipuna question, answer, sources, tokens, fallback flag, status, feedback |
+
+**Changes to backbone tables:** `notifications` gains `channel` (In-app / WhatsApp / Email) and `delivery_note` (a Failed delivery must say why). `app_settings`: `ai_daily_limit` raised to 50 (Module 24 pilot limit), new `ai_daily_limit_staff` (100), `ai_enabled`, `support_sla_hours` (48). New helper function `acting_user_id()`. `finance_summaries` is untouched.

@@ -132,3 +132,87 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+
+# ================================================================ student services (S5) — request examples with bodies
+### Raise a support request (student) — owner is routed by category
+POST {{base}}/api/v1/support-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"category": "Recording access", "details": "The recording for the 24 Sep class is held. When will it be released?"}
+
+### Support requests escalated to the Branch Manager (SLA breach or manual)
+GET {{base}}/api/v1/support-requests?escalated=true
+Authorization: Bearer {{token}}
+
+### Reply / internal remark / resolve / escalate / reassign / reopen
+POST {{base}}/api/v1/support-requests/1/messages
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"body": "Looking into it", "internal": false}
+
+###
+POST {{base}}/api/v1/support-requests/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"status": "Resolved", "note": "Recording released after review"}
+
+###
+POST {{base}}/api/v1/support-requests/1/escalate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"reason": "Needs a decision from the Branch Manager"}
+
+### Notifications: views are my | action | unread | completed | system
+GET {{base}}/api/v1/notifications?view=action
+Authorization: Bearer {{token}}
+
+###
+PUT {{base}}/api/v1/notifications/preferences
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"preferences": [{"group": "Learning reminders", "channel": "WhatsApp", "enabled": true}]}
+
+### Career: opt in, consent, apply (student)
+PUT {{base}}/api/v1/me/career/profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"opted_in": true, "preferred_roles": ["Data Analyst"], "skills": ["SQL", "Python"]}
+
+###
+POST {{base}}/api/v1/me/career/opportunities/1/apply
+Authorization: Bearer {{token}}
+
+### Career: staff create, verify (a second person) and move an application
+POST {{base}}/api/v1/opportunities
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"title": "Junior Data Analyst", "employer_name": "Sample Analytics Pvt Ltd", "branch_id": 1}
+
+###
+POST {{base}}/api/v1/opportunities/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"status": "Active", "verification_source": "Employer website and HR call"}
+
+###
+POST {{base}}/api/v1/applications/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"status": "Interview Scheduled", "interview_round": "Technical round 2", "interview_at": "2026-10-02T15:00:00+05:30"}
+
+### Ask Nipuna
+POST {{base}}/api/v1/ask-nipuna/queries
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"question": "When is my next class?", "action": null}

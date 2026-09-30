@@ -451,6 +451,11 @@ SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_crm_inbox_examples,
 ]
 
+# Student services slice (050): support, notifications, career support, Ask Nipuna samples
+from cli.seed_services import seed_student_services  # noqa: E402
+
+SEEDERS.append(seed_student_services)
+
 
 @click.command("seed-dev")
 @with_appcontext

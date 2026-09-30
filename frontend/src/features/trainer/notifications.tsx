@@ -1,5 +1,5 @@
-import { Placeholder } from "@/components/lms/placeholder";
+import { NotificationCentre } from "@/features/shared/notification-centre";
 
 export function TrainerNotifications() {
-  return <Placeholder title="Trainer — Notifications" description="Trainer in-app notification centre." />;
+  return <NotificationCentre title="Notifications" />;
 }

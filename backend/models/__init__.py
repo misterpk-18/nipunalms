@@ -18,3 +18,14 @@ __all__ = [
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
 ]
+
+# Student services slice (050)
+from models.ask_nipuna import AiQuery  # noqa: E402
+from models.career import Application, ApplicationEvent, CareerProfile, CvDocument, Opportunity, PlacementOutcome  # noqa: E402
+from models.notification_preferences import NotificationPreference  # noqa: E402
+from models.support import SupportMessage, SupportRequest  # noqa: E402
+
+__all__ += [
+    "AiQuery", "Application", "ApplicationEvent", "CareerProfile", "CvDocument", "NotificationPreference", "Opportunity",
+    "PlacementOutcome", "SupportMessage", "SupportRequest",
+]
