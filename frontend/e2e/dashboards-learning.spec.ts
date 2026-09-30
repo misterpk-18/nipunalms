@@ -42,10 +42,13 @@ test("student home shows the ranked tiles and every card for Anvitha, and switch
   ]) {
     await expect(page.getByRole("heading", { level: 2, name: title, exact: true })).toBeVisible();
   }
-  await expect(page.getByText("Supervised Learning")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Linear & Logistic Regression" })).toBeVisible();
-  await expect(page.getByText("Window functions lab")).toBeVisible();
-  await expect(page.getByText(/Access until 12 Jan 2027/)).toBeVisible();
+  // earlier specs release recordings and deliver classes, so check the shape rather than one fixed title
+  const learning = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "Continue Learning", exact: true }) });
+  await expect(learning.getByRole("link")).toHaveAttribute("href", /\/topics\/\d+/);
+  const recording = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "Latest Released Recording", exact: true }) });
+  await expect(recording.getByRole("link")).toHaveAttribute("href", "/recordings");
+  await expect(recording.getByText("Released", { exact: true })).toBeVisible();
+  await expect(recording.getByText(/Access until \d{1,2} \w{3,4} \d{4}/)).toBeVisible();
   await expect(page.getByText(/REC-0041/)).toBeVisible();
   await expect(page.getByText("Not Yet Eligible")).toBeVisible();
   await expect(page.getByText(/Opted in · Profile \d+% complete/)).toBeVisible();
@@ -101,7 +104,7 @@ test("trainer today: tiles, the empty state, then the session flow from open to 
     data: {
       batch_id: batchId,
       topic_id: topicId,
-      title: "E2E live class",
+      title: "Today flow class",
       starts_at: start.toISOString(),
       ends_at: new Date(start.getTime() + 60 * 60_000).toISOString(),
       mode: "Classroom",
@@ -111,7 +114,7 @@ test("trainer today: tiles, the empty state, then the session flow from open to 
   expect(created.status(), await created.text()).toBe(201);
 
   await page.reload();
-  await expect(page.getByRole("heading", { level: 2, name: "Today's flow — E2E live class" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Today's flow — Today flow class" })).toBeVisible();
   const steps = page.getByRole("list", { name: "Session flow" });
   for (const label of ["Open today's session", "Join / Start Meet", "Record delivered topics", "Mark attendance", "Notes & closeout"]) {
     await expect(steps.getByText(label)).toBeVisible();
