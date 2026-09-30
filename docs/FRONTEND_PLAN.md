@@ -216,3 +216,15 @@ Staging logins (password `Nipuna-staging-1`): student `NIT-STU-2026-004182`; sta
 | `/admin/audit` | `audit` | `/audit-log` | Filters by actor, entity, action, date (IST) |
 
 Added to the admin nav in `auth/access.ts`: Users & Access, Student Accounts, CRM Sync, Audit Log. Local helpers: `shared.tsx` (Pager, FormDialog, SecretDialog), `format.ts` (IST formatter, `useCanAdminister`).
+
+### S4 screens (attendance, progress, completion, certificates)
+
+| Route | Feature | Notes |
+|---|---|---|
+| `/attendance` | `student/attendance` | Per-enrolment table with the prototype labels, request recovery, dispute an entry |
+| `/progress` | `student/progress` | Four separate measure cards (`shared/attendance-parts` `MeasureCards`), course tabs when several enrolments |
+| `/certificates` | `student/certificates` | Own register entries + "Configuration Pending" note for complimentary offers |
+| `/trainer/attendance` | `trainer/attendance` | Pending / All sessions, register with radio marking, Mark all Present, Confirm, request correction when locked, recoveries to verify |
+| `/academic/progress` | `academic/progress` | Table per student with batch / alert filters, recovery and correction queues |
+| `/academic/completion` | `academic/completion` | Evidence table, open review, recommend, decide |
+| `/academic/certificates`, `/branch/reports` | `shared/certificate-register` | One register component; the API's `actions` decide which buttons show (recommend / approve / issue / reissue / revoke) |

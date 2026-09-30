@@ -19,3 +19,11 @@ __all__ = [
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "SecurityControl", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
 ]
+
+# Slice S4: attendance, progress, completion review, certificates
+from models.attendance import AttendanceCorrection, AttendanceRecord, AttendanceRecovery  # noqa: E402
+from models.certificates import Certificate  # noqa: E402
+from models.completion import CompletionReview  # noqa: E402
+from models.progress import EnrolmentProgress  # noqa: E402
+
+__all__ += ["AttendanceCorrection", "AttendanceRecord", "AttendanceRecovery", "Certificate", "CompletionReview", "EnrolmentProgress"]

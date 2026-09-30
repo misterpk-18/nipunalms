@@ -219,3 +219,35 @@ Super Admin manages; the Founder / CEO can read every list (mutations are Super 
 - Staff account actions are audited on the `user` entity (`USER_CREATED`, `USER_UPDATED`, `SCOPE_GRANTED`, `SCOPE_REVOKED`, `USER_DEACTIVATED`, `USER_REACTIVATED`, `PASSWORD_RESET`) and student actions on the `student` entity (`STUDENT_SUSPENDED`, `STUDENT_REACTIVATED`, `STUDENT_SESSIONS_REVOKED`, plus the Phase 1 activation actions). Passwords and tokens are never written to the audit log.
 - The platform always keeps an active Super Admin: the last one cannot be deactivated or lose the scope, and nobody can revoke or deactivate themselves.
 - The Phase 1 `GET /integrations/crm/events` and `POST /integrations/crm/events/{id}/retry` remain; the admin screen uses the `/admin/crm-sync/*` equivalents (payload only on detail, audited retry).
+
+### Attendance, progress, completion & certificates (S4 — `db/040`)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/attendance/sessions` | Trainer, AC, BM, SA, Founder (scoped) | Live / Delivered sessions with `seats`, `marked`, `attendance_state`, `locked`, `can_mark`; filters `batch_id`, `from`, `to`, `attendance=pending\|marked\|locked` |
+| GET | `/attendance/sessions/{id}` | same | The register: one row per allocated enrolment, `label` ("Absent — recovery approved (REC-0041)"), summary, `locked`, `can_mark` |
+| PUT | `/attendance/sessions/{id}` | Trainer of the batch, AC, SA | `{default_status?, entries: [{enrolment_id, status, remarks?}]}`; `default_status` fills only seats without an entry ("all Present, then exceptions"). Sets the joining date (first Present / Late) |
+| GET | `/me/attendance` | Student | Per own enrolment: attendance measure + a row per Live / Delivered class since joining |
+| GET | `/attendance/enrolments/{id}` | Scoped | Same block for one enrolment |
+| GET / POST | `/attendance/recoveries` | Scoped / Student, Trainer, AC, SA | Raise `{attendance_id, method, reason}` for an Absent entry; one live recovery per absence |
+| POST | `/attendance/recoveries/{id}/decision` | AC, SA | `{decision: Approved\|Rejected, decision_note?, target_date?}` |
+| POST | `/attendance/recoveries/{id}/completion` | Trainer of the batch, AC, SA | `{evidence_note}` verifies an approved recovery (Completed) |
+| GET / POST | `/attendance/corrections` | Scoped / Student, Trainer, AC, SA | `{session_id, enrolment_id, requested_status, reason}`: a dispute, or a change after the lock |
+| POST | `/attendance/corrections/{id}/decision` | AC, BM, SA (fresh auth) | Approve applies the change; the decider must not be the requester or the marker |
+| GET | `/me/progress`, `/progress/enrolments/{id}` | Student / Scoped | The four measures (`delivery`, `attendance`, `required_learning`, `engagement`), never combined |
+| GET | `/progress/students` | Staff (scoped) | Table with filters `branch_id`, `course_id`, `batch_id`, `status`, `alert`, `q` |
+| GET | `/progress/summary` | AC, BM, SA, Founder | Per-batch averages of each measure, enrolments and certificates by status |
+| GET | `/completion-reviews` | Staff (scoped) | Running / completed enrolments with evidence, latest review, certificate status |
+| POST | `/completion-reviews` | Trainer, AC, SA | `{enrolment_id}` opens a review (201, or 200 with the open one) |
+| POST | `/completion-reviews/{id}/recommendation` | Trainer of the batch, AC, SA | `{recommendation, comment?}` |
+| POST | `/completion-reviews/{id}/decision` | AC, SA (fresh auth) | `{decision: Complete\|Not Yet\|Needs Recovery, reason?}`; Complete → enrolment Completed + certificate eligibility |
+| GET | `/certificates`, `/certificates/{id}`, `/me/certificates` | AC, BM, SA, Founder (branch scope) / Student (own) | Register entries (every version) with `actions` the caller may take; detail has `history` |
+| POST | `/certificates` | AC, SA | `{enrolment_id, certificate_type}` adds an entry (e.g. Internship Certificate) |
+| POST | `/certificates/{id}/recommendation`, `/return`, `/approval`, `/issue`, `/reissue`, `/revocation` | AC / BM / BM, AC, SA / BM, SA / SA | Approval, issue, reissue, revocation need fresh auth; approval needs someone other than the recommender |
+| GET | `/certificates/verify/{number}` | Public | Holder, course, issue date, status, version only |
+
+**As built (S4):**
+- Attendance: no row = "Not yet marked" (never a guessed absence). A session locks `attendance_lock_days` (7) after it ends; later changes go through a correction with an independent reviewer. Absent students get an in-app notification.
+- Joining date: `services/attendance.set_joining_date(enrolment, date)` — the first Present / Late moves "Allocated — awaiting first regular class" to Active and opens the enrolment's Certificate Register entry (Not Yet Eligible).
+- Progress is computed by SQL views (`enrolment_progress` and the views under it). Attendance % = (Present + Late) / marked classes delivered since joining; "Partial Data" while any delivered class is unmarked; the alert needs three marked classes and `attendance_alert_threshold`. Excused counts against the percentage; an approved or completed recovery is reported separately and counts towards required learning.
+- Certificates: the database validates transitions and allocates `NIT-CERT-YYYY-NNNNNN` at first issue; a reissue is a new version under the same number and supersedes the earlier one. Complimentary enrolments stay "Configuration Pending" until `complimentary_completion_rule_configured` is true.

@@ -10,6 +10,170 @@ Content-Type: application/json
 
 {"login": "admin@nipuna.test", "password": "Nipuna-staging-1"}
 
+# ================================================================ admin_students
+### admin_students.get_student
+GET {{base}}/api/v1/admin/students/1
+Authorization: Bearer {{token}}
+
+### admin_students.reactivate
+POST {{base}}/api/v1/admin/students/1/reactivate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_students.revoke_sessions
+POST {{base}}/api/v1/admin/students/1/revoke-sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_students.search
+GET {{base}}/api/v1/admin/students
+Authorization: Bearer {{token}}
+
+### admin_students.suspend
+POST {{base}}/api/v1/admin/students/1/suspend
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ admin_users
+### admin_users.create_user
+POST {{base}}/api/v1/admin/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.deactivate
+POST {{base}}/api/v1/admin/users/1/deactivate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.get_user
+GET {{base}}/api/v1/admin/users/1
+Authorization: Bearer {{token}}
+
+### admin_users.grant_scope
+POST {{base}}/api/v1/admin/users/1/scopes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.list_users
+GET {{base}}/api/v1/admin/users
+Authorization: Bearer {{token}}
+
+### admin_users.reactivate
+POST {{base}}/api/v1/admin/users/1/reactivate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.reset_password
+POST {{base}}/api/v1/admin/users/1/reset-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.revoke_scope
+POST {{base}}/api/v1/admin/users/1/scopes/1/revoke
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.update_user
+PATCH {{base}}/api/v1/admin/users/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ attendance
+### attendance.complete_recovery
+POST {{base}}/api/v1/attendance/recoveries/1/completion
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### attendance.decide_correction
+POST {{base}}/api/v1/attendance/corrections/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### attendance.decide_recovery
+POST {{base}}/api/v1/attendance/recoveries/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### attendance.enrolment_attendance
+GET {{base}}/api/v1/attendance/enrolments/1
+Authorization: Bearer {{token}}
+
+### attendance.get_register
+GET {{base}}/api/v1/attendance/sessions/1
+Authorization: Bearer {{token}}
+
+### attendance.list_corrections
+GET {{base}}/api/v1/attendance/corrections
+Authorization: Bearer {{token}}
+
+### attendance.list_recoveries
+GET {{base}}/api/v1/attendance/recoveries
+Authorization: Bearer {{token}}
+
+### attendance.list_register_sessions
+GET {{base}}/api/v1/attendance/sessions
+Authorization: Bearer {{token}}
+
+### attendance.mark_attendance
+PUT {{base}}/api/v1/attendance/sessions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### attendance.my_attendance
+GET {{base}}/api/v1/me/attendance
+Authorization: Bearer {{token}}
+
+### attendance.request_correction
+POST {{base}}/api/v1/attendance/corrections
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### attendance.request_recovery
+POST {{base}}/api/v1/attendance/recoveries
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ audit_log
+### audit_log.facets
+GET {{base}}/api/v1/audit-log/facets
+Authorization: Bearer {{token}}
+
+### audit_log.list_entries
+GET {{base}}/api/v1/audit-log
+Authorization: Bearer {{token}}
+
 # ================================================================ auth
 ### auth.activate
 POST {{base}}/api/v1/auth/activate
@@ -71,10 +235,106 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/batches
 Authorization: Bearer {{token}}
 
+# ================================================================ certificates
+### certificates.approve
+POST {{base}}/api/v1/certificates/1/approval
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.create_entry
+POST {{base}}/api/v1/certificates
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.get_certificate
+GET {{base}}/api/v1/certificates/1
+Authorization: Bearer {{token}}
+
+### certificates.issue
+POST {{base}}/api/v1/certificates/1/issue
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.list_register
+GET {{base}}/api/v1/certificates
+Authorization: Bearer {{token}}
+
+### certificates.my_certificates
+GET {{base}}/api/v1/me/certificates
+Authorization: Bearer {{token}}
+
+### certificates.recommend
+POST {{base}}/api/v1/certificates/1/recommendation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.reissue
+POST {{base}}/api/v1/certificates/1/reissue
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.return_to_review
+POST {{base}}/api/v1/certificates/1/return
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.revoke
+POST {{base}}/api/v1/certificates/1/revocation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.verify
+GET {{base}}/api/v1/certificates/verify/1
+Authorization: Bearer {{token}}
+
 # ================================================================ class_sessions
 ### class_sessions.list_class_sessions
 GET {{base}}/api/v1/class-sessions
 Authorization: Bearer {{token}}
+
+# ================================================================ completion
+### completion.decide
+POST {{base}}/api/v1/completion-reviews/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### completion.get_review
+GET {{base}}/api/v1/completion-reviews/1
+Authorization: Bearer {{token}}
+
+### completion.list_candidates
+GET {{base}}/api/v1/completion-reviews
+Authorization: Bearer {{token}}
+
+### completion.open_review
+POST {{base}}/api/v1/completion-reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### completion.recommend
+POST {{base}}/api/v1/completion-reviews/1/recommendation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 # ================================================================ crm
 ### crm.get_status
@@ -99,9 +359,74 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ crm_sync
+### crm_sync.get_event
+GET {{base}}/api/v1/admin/crm-sync/events/1
+Authorization: Bearer {{token}}
+
+### crm_sync.get_outbox
+GET {{base}}/api/v1/admin/crm-sync/outbox/1
+Authorization: Bearer {{token}}
+
+### crm_sync.list_events
+GET {{base}}/api/v1/admin/crm-sync/events
+Authorization: Bearer {{token}}
+
+### crm_sync.list_outbox
+GET {{base}}/api/v1/admin/crm-sync/outbox
+Authorization: Bearer {{token}}
+
+### crm_sync.retry_event
+POST {{base}}/api/v1/admin/crm-sync/events/1/retry
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### crm_sync.summary
+GET {{base}}/api/v1/admin/crm-sync/summary
+Authorization: Bearer {{token}}
+
 # ================================================================ health
 ### health.get_health
 GET {{base}}/api/v1/health
+Authorization: Bearer {{token}}
+
+# ================================================================ integrations
+### integrations.get_integration
+GET {{base}}/api/v1/integrations/1
+Authorization: Bearer {{token}}
+
+### integrations.list_integrations
+GET {{base}}/api/v1/integrations
+Authorization: Bearer {{token}}
+
+### integrations.list_statuses
+GET {{base}}/api/v1/integrations/status
+Authorization: Bearer {{token}}
+
+### integrations.update_integration
+PATCH {{base}}/api/v1/integrations/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ progress
+### progress.branch_summary
+GET {{base}}/api/v1/progress/summary
+Authorization: Bearer {{token}}
+
+### progress.get_enrolment_progress
+GET {{base}}/api/v1/progress/enrolments/1
+Authorization: Bearer {{token}}
+
+### progress.list_progress
+GET {{base}}/api/v1/progress/students
+Authorization: Bearer {{token}}
+
+### progress.my_progress
+GET {{base}}/api/v1/me/progress
 Authorization: Bearer {{token}}
 
 # ================================================================ reference
@@ -121,6 +446,22 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/reference/staff
 Authorization: Bearer {{token}}
 
+# ================================================================ security_controls
+### security_controls.get_control
+GET {{base}}/api/v1/security-controls/1
+Authorization: Bearer {{token}}
+
+### security_controls.list_controls
+GET {{base}}/api/v1/security-controls
+Authorization: Bearer {{token}}
+
+### security_controls.update_control
+PATCH {{base}}/api/v1/security-controls/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ students
 ### students.get_student
 GET {{base}}/api/v1/students/1
@@ -132,73 +473,3 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
-
-# ================================================================ admin & security (S6): examples with bodies
-### integrations.list_statuses (any signed-in user: Verified / Pending Verification / Integration Unavailable)
-GET {{base}}/api/v1/integrations/status
-Authorization: Bearer {{token}}
-
-### integrations.update (Super Admin, fresh auth; Verified needs Configured + evidence)
-PATCH {{base}}/api/v1/integrations/2
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{"configuration_status": "Configured", "verification_status": "Verified", "evidence": "Test meeting created for NIT-GNT on 30 Sep"}
-
-### security_controls.update
-PATCH {{base}}/api/v1/security-controls/1
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{"verification_status": "Verified", "evidence": "Out-of-scope record answered 404 in staging"}
-
-### admin_users.create (the temporary password is returned once)
-POST {{base}}/api/v1/admin/users
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{"full_name": "Trainer N. Newhire", "email": "new.hire@nipuna.test", "scopes": [{"role_code": "TRAINER", "branch_id": 1}]}
-
-### admin_users.grant_scope (temporary access: expires_at at most 7 days ahead)
-POST {{base}}/api/v1/admin/users/1/scopes
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{"role_code": "ACADEMIC_COORDINATOR", "branch_id": 1, "expires_at": "2026-10-05T18:00:00+05:30"}
-
-### admin_users.revoke_scope
-POST {{base}}/api/v1/admin/users/1/scopes/1/revoke
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{"reason": "Moved back to teaching"}
-
-### admin_users.deactivate
-POST {{base}}/api/v1/admin/users/1/deactivate
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{"reason": "Left the company"}
-
-### admin_students.search
-GET {{base}}/api/v1/admin/students?q=NIT-STU-2026-004182&activation_status=Activated
-Authorization: Bearer {{token}}
-
-### admin_students.suspend
-POST {{base}}/api/v1/admin/students/1/suspend
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{"reason": "Duplicate enrolment under review"}
-
-### crm_sync.list_events (failed events, newest first)
-GET {{base}}/api/v1/admin/crm-sync/events?status=Failed
-Authorization: Bearer {{token}}
-
-### crm_sync.retry_event
-POST {{base}}/api/v1/admin/crm-sync/events/1/retry
-Authorization: Bearer {{token}}
-
-### audit_log.list (from / to are IST dates)
-GET {{base}}/api/v1/audit-log?action=STUDENT_SUSPENDED&from=2026-09-01&to=2026-09-30
-Authorization: Bearer {{token}}

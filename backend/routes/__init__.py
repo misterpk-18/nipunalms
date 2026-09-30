@@ -15,6 +15,12 @@ from routes.crm_sync import crm_sync_bp
 from routes.integrations import integrations_bp
 from routes.security_controls import security_controls_bp
 
+# Slice S4: attendance, progress, completion review, certificates
+from routes.attendance import attendance_bp
+from routes.certificates import certificates_bp
+from routes.completion import completion_bp
+from routes.progress import progress_bp
+
 BLUEPRINTS = [
     health_bp,
     auth_bp,
@@ -29,6 +35,10 @@ BLUEPRINTS = [
     admin_students_bp,
     crm_sync_bp,
     audit_log_bp,
+    attendance_bp,
+    progress_bp,
+    completion_bp,
+    certificates_bp,
 ]
 
 
