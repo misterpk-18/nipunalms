@@ -1,0 +1,133 @@
+@import "tailwindcss" source(none);
+@source "./";
+@import "tw-animate-css";
+@custom-variant dark (&:is(.dark *));
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-overlay: var(--overlay);
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-navy-muted: var(--navy-muted);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+  --font-sans: "IBM Plex Sans", "Noto Sans Telugu", ui-sans-serif, system-ui, sans-serif;
+  --font-telugu: "Noto Sans Telugu", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Nipuna LMS theme (tokens from the approved prototype): navy header, blue primary, cool-grey page, white cards. */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(97.5% 0.006 250);
+  --foreground: oklch(22% 0.04 258);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(22% 0.04 258);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(22% 0.04 258);
+  --primary: oklch(46% 0.15 256);
+  --primary-foreground: oklch(99% 0 0);
+  --secondary: oklch(94.5% 0.018 250);
+  --secondary-foreground: oklch(28% 0.08 258);
+  --muted: oklch(95.5% 0.01 250);
+  --muted-foreground: oklch(46% 0.03 258);
+  --accent: oklch(93% 0.03 250);
+  --accent-foreground: oklch(28% 0.08 258);
+  --destructive: oklch(52% 0.2 27);
+  --destructive-foreground: oklch(99% 0 0);
+  --border: oklch(90% 0.015 250);
+  --input: oklch(86% 0.02 250);
+  --ring: oklch(55% 0.18 256);
+  --sidebar: oklch(100% 0 0);
+  --sidebar-foreground: oklch(22% 0.04 258);
+  --sidebar-accent: oklch(93% 0.03 250);
+  --sidebar-accent-foreground: oklch(28% 0.08 258);
+  --sidebar-border: oklch(90% 0.015 250);
+  --overlay: oklch(22% 0.04 258 / 0.4);
+  --navy: oklch(25% 0.07 260);
+  --navy-foreground: oklch(97% 0.01 250);
+  --navy-muted: oklch(34% 0.07 260);
+  --success: oklch(42% 0.12 150);
+  --success-soft: oklch(95% 0.04 150);
+  --warning: oklch(45% 0.11 65);
+  --warning-soft: oklch(96% 0.05 85);
+  --danger: oklch(48% 0.18 27);
+  --danger-soft: oklch(95% 0.03 27);
+  --info: oklch(43% 0.14 256);
+  --info-soft: oklch(95% 0.03 250);
+  --neutral: oklch(42% 0.02 258);
+  --neutral-soft: oklch(94% 0.008 258);
+  --chart-1: oklch(55% 0.16 256);
+  --chart-2: oklch(60% 0.12 165);
+  --chart-3: oklch(75% 0.14 80);
+  --chart-4: oklch(65% 0.12 230);
+  --chart-5: oklch(75% 0.06 260);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    line-height: 1.55;
+  }
+  /* Telugu text needs more line height and the Telugu face first. */
+  :lang(te) {
+    font-family: var(--font-telugu);
+    line-height: 1.75;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* Minimum touch target (44px) for buttons, links and controls on phones. */
+.tap {
+  min-width: 44px;
+  min-height: 44px;
+}

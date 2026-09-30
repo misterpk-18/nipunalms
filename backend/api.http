@@ -1,0 +1,134 @@
+# Nipuna LMS API — request collection (VS Code REST Client / JetBrains HTTP client).
+# Generated from the Flask URL map (flask --app app api-http). Log in first, then paste the token into @token.
+@base = http://127.0.0.1:5060
+@token = paste-token-here
+@service_key = dev-crm-service-key
+
+### Log in (staff email, Student ID or student email)
+POST {{base}}/api/v1/auth/login
+Content-Type: application/json
+
+{"login": "admin@nipuna.test", "password": "Nipuna-staging-1"}
+
+# ================================================================ auth
+### auth.activate
+POST {{base}}/api/v1/auth/activate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### auth.change_password
+POST {{base}}/api/v1/auth/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### auth.get_activation
+GET {{base}}/api/v1/auth/activation/1
+Authorization: Bearer {{token}}
+
+### auth.list_sessions
+GET {{base}}/api/v1/auth/sessions
+Authorization: Bearer {{token}}
+
+### auth.login
+POST {{base}}/api/v1/auth/login
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### auth.logout
+POST {{base}}/api/v1/auth/logout
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### auth.me
+GET {{base}}/api/v1/auth/me
+Authorization: Bearer {{token}}
+
+### auth.reauthenticate
+POST {{base}}/api/v1/auth/reauthenticate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### auth.revoke_session
+DELETE {{base}}/api/v1/auth/sessions/1
+Authorization: Bearer {{token}}
+
+# ================================================================ batches
+### batches.get_batch
+GET {{base}}/api/v1/batches/1
+Authorization: Bearer {{token}}
+
+### batches.list_batches
+GET {{base}}/api/v1/batches
+Authorization: Bearer {{token}}
+
+# ================================================================ class_sessions
+### class_sessions.list_class_sessions
+GET {{base}}/api/v1/class-sessions
+Authorization: Bearer {{token}}
+
+# ================================================================ crm
+### crm.get_status
+GET {{base}}/api/v1/integrations/crm/status
+X-Service-Key: {{service_key}}
+
+### crm.list_events
+GET {{base}}/api/v1/integrations/crm/events
+Authorization: Bearer {{token}}
+
+### crm.receive_event
+POST {{base}}/api/v1/integrations/crm/events
+X-Service-Key: {{service_key}}
+Content-Type: application/json
+
+{}
+
+### crm.retry_event
+POST {{base}}/api/v1/integrations/crm/events/1/retry
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ health
+### health.get_health
+GET {{base}}/api/v1/health
+Authorization: Bearer {{token}}
+
+# ================================================================ reference
+### reference.list_branches
+GET {{base}}/api/v1/reference/branches
+Authorization: Bearer {{token}}
+
+### reference.list_courses
+GET {{base}}/api/v1/reference/courses
+Authorization: Bearer {{token}}
+
+### reference.list_roles
+GET {{base}}/api/v1/reference/roles
+Authorization: Bearer {{token}}
+
+### reference.list_staff
+GET {{base}}/api/v1/reference/staff
+Authorization: Bearer {{token}}
+
+# ================================================================ students
+### students.get_student
+GET {{base}}/api/v1/students/1
+Authorization: Bearer {{token}}
+
+### students.issue_activation
+POST {{base}}/api/v1/students/1/activation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}

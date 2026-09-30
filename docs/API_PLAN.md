@@ -131,10 +131,11 @@ Names below are the contract between slices. Codes follow the prototype:
 
 | Phase | Work | Status |
 |---|---|---|
-| 1a | Backend foundation + backbone schema + auth (staff and student login, activation) + CRM event intake + seed from prototype sample data | ⏳ |
-| 1b | Frontend foundation: shell, auth, per-role navigation, EN/తెలుగు, shared components, every route as a placeholder | ⏳ |
+| 1a | Backend foundation + backbone schema + auth (staff and student login, activation) + CRM event intake + seed from prototype sample data | ✅ Done — 117 pytest |
+| 1b | Frontend foundation: shell, auth, per-role navigation, EN/తెలుగు, shared components, every route as a placeholder | ✅ Done — `e2e/shell.spec.ts` |
 | 2 | Slices S1–S6 in parallel (backend + tests + frontend screens), each in its own worktree | ⏳ |
-| 3 | Merge, dashboards & reports, exception queues, end-to-end tests, docs | ⏳ |
+| 3 | Merge, dashboards & reports, exception queues, session/topic panels across slices | ⏳ |
+| 4 | Validation: full cross-role Playwright suite (desktop + mobile) against the merged app, acceptance matrix in `TESTING.md`, `PRODUCT_GUIDE.md`, `ROLE_GUIDE.md` | ⏳ |
 
 Endpoint tables are added per slice below as they are built ("As built" notes, like the CRM).
 
@@ -151,7 +152,8 @@ Endpoint tables are added per slice below as they are built ("As built" notes, l
 | POST | `/auth/logout` | Signed in | Revokes the session |
 | GET | `/auth/me` | Signed in | User, scopes, student (if any), `home_route`, `workspaces` |
 | POST | `/auth/reauthenticate` | Signed in | Fresh auth |
-| POST | `/auth/change-password` | Signed in | |
+| POST | `/auth/change-password` | Signed in | Minimum length from `app_settings.password_min_length` (10) |
+| GET / DELETE | `/auth/sessions`, `/auth/sessions/{id}` | Signed in | Own sessions; sign out another device |
 | POST | `/auth/activate` | Public | `{token, password}` — single-use student activation |
 | GET | `/auth/activation/{token}` | Public | Token status (valid / expired / used) and masked Student ID |
 | POST | `/students/{id}/activation` | Super Admin / BM / AC (branch) | Issue or reissue an activation token (fresh auth) |
@@ -163,3 +165,22 @@ Endpoint tables are added per slice below as they are built ("As built" notes, l
 | POST | `/integrations/crm/events` | CRM service key (`X-Service-Key`) | `AdmissionQualified`, `AdmissionUpdated`, `AdmissionCancelled`, `FinanceSummaryUpdated`, `CourseUpserted`. Idempotent on `event_id`; stale `source_version` → `Ignored — stale` |
 | GET | `/integrations/crm/events` | Super Admin | Inbox with status filters |
 | POST | `/integrations/crm/events/{id}/retry` | Super Admin | Re-apply a failed event |
+| GET | `/integrations/crm/status?since=` | CRM service key | What the CRM stores about the LMS, changed since `since`: `persons` [{crm_person_id, lms_user_id, lms_provisioned_at}], `admissions` [{crm_admission_id, lms_status, lms_last_activity_at, lms_last_synced_at}], `batches` [{crm_batch_id, lms_course_id}] |
+
+**As built (1a):**
+- Every event is stored once in `crm_events`. Replaying an `event_id` returns the first result; the same `event_id` with a different payload is a 409; a `source_version` lower than the stored one is recorded as `Ignored — stale` and changes nothing. A failure is kept as `Failed` with the error, retryable.
+- `AdmissionQualified` upserts the Student by `crm_person_id` (one Student / one LMS login per Person, reused for later admissions), the Admission projection and its Enrolments. An enrolment waits in *Curriculum Mapping Pending* when its course has no Active curriculum version, else *Allocation Pending*. A new login gets an activation token; the branch Academic Coordinator is notified. The response includes `lms_user_id` and `lms_status`.
+- `AdmissionCancelled` withdraws only that admission's enrolments. `FinanceSummaryUpdated` replaces the read-only finance snapshot.
+- Values the CRM keeps (`persons.lms_user_id`, `admissions.lms_status`, `batches.lms_course_id`, …) are queued in `crm_outbox` in the same transaction as the change and are also served by `/integrations/crm/status`. Mapping table: [DB_PHASES.md](DB_PHASES.md#crm-columns-fed-by-the-lms).
+
+### Reference & backbone reads (Phase 1a)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/reference/branches`, `/reference/roles`, `/reference/courses` | Staff | Courses include combo components |
+| GET | `/reference/staff?role=&branch_id=` | Staff | Staff in the caller's branches |
+| GET | `/students/{id}` | Scoped | Student record (student: own only) |
+| GET | `/batches`, `/batches/{id}` | Scoped | Filters `branch_id`, `course_id`, `state`; trainers see assigned batches only |
+| GET | `/class-sessions?batch_id=&from=&to=` | Scoped | |
+
+Scope helpers every slice uses live in `services/scope.py` (branch visibility, trainer batches, student enrolments; out-of-scope → 404).
