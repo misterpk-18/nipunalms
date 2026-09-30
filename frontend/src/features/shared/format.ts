@@ -22,3 +22,6 @@ export function fmtDateTime(value: DateTime | null | undefined): string {
 }
 
 export const percent = (value: number | null | undefined) => (value === null || value === undefined ? "Not Yet Calculable" : `${Math.round(value)}%`);
+
+/** "Today", "1 day", "5 days" for the age of a queue item. */
+export const ageText = (days: number) => (days === 0 ? "Today" : `${days} day${days === 1 ? "" : "s"}`);

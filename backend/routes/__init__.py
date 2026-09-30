@@ -89,3 +89,9 @@ from routes.home import home_bp  # noqa: E402
 from routes.reports import reports_bp  # noqa: E402
 
 BLUEPRINTS += [home_bp, reports_bp]
+
+# Phase 3: exception queue and staff dashboards
+from routes.dashboards import dashboards_bp  # noqa: E402
+from routes.exceptions import exceptions_bp  # noqa: E402
+
+BLUEPRINTS += [exceptions_bp, dashboards_bp]

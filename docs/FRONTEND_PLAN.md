@@ -21,7 +21,7 @@ for every route. Slices S1–S6 then replace placeholders with real screens.
 | Language | `en` / `te`, dictionary in `src/lib/i18n.ts`; choice stored per user in `localStorage` (`nipuna-lms-lang:<user_id>`), default `profile.student.preferred_language`; sets `<html lang>` (Telugu switches font and line height). Only student-workspace labels and the sign-in / activation screens are translated | Same scope as the prototype |
 | Look | Prototype tokens (navy header, blue primary, tone colours) as CSS variables mapped onto shadcn variables; IBM Plex Sans + Noto Sans Telugu; `.tap` = 44px touch target | Visual parity with the approved prototype |
 | Phones | Sidebar hidden below `md`; 5-slot bottom bar (4 items + More bottom sheet); `DataTable` turns into labelled cards | Prototype behaviour; e2e checks no horizontal scroll at 360px |
-| Placeholders | One route file per prototype route imports a feature component from `src/features/<workspace>/`; the component is a `<Placeholder>` until its slice replaces it | Slices touch feature files only, never route files or the shell |
+| Placeholders | One route file per prototype route imports a feature component from `src/features/<workspace>/`; the component was a `<Placeholder>` until its slice replaced it (all replaced after P3; `placeholder.tsx` is deleted) | Slices touch feature files only, never route files or the shell |
 | Formatting | Prettier via ESLint, `printWidth: 160` (`.prettierrc.json`) | Matches the CRM's long-line style |
 
 ---
@@ -50,7 +50,7 @@ frontend/
     ├── hooks/                 use-mobile.tsx
     ├── components/
     │   ├── ui/                shadcn primitives (copied from the CRM)
-    │   └── lms/               app-shell, ui, forms, placeholder, auth-page, language-toggle, password-field
+    │   └── lms/               app-shell, ui, forms, auth-page, language-toggle, password-field
     ├── routes/                thin file routes (see §3)
     └── features/              student/ trainer/ academic/ branch/ admin/ founder/  (+ shared/ when a slice needs cross-workspace parts)
 ```
@@ -116,12 +116,12 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 
 | Route | Feature (`features/academic/`) | API from |
 |---|---|---|
-| `/academic` | `dashboard` (`academic.index.tsx`) | P3 |
+| `/academic` | `dashboard` (`academic.index.tsx`) | Built (P3): `GET /academic/summary` |
 | `/academic/batches` | `batches` | S1 |
 | `/academic/curriculum` | `curriculum` | S1 |
 | `/academic/schedule` | `schedule` | S1 |
 | `/academic/assessments` | `assessments` | S3 |
-| `/academic/exceptions` | `exceptions` | P3 (exception queue view across slices) |
+| `/academic/exceptions` | `exceptions` | Built (P3): `GET /exceptions`, Update logs a recovery step |
 | `/academic/content-review` | `content-review` | S2 |
 | `/academic/recording-exceptions` | `recording-exceptions` | S2 |
 | `/academic/progress` | `progress` | S4 |
@@ -135,17 +135,17 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 
 | Route | Feature | API from |
 |---|---|---|
-| `/branch` | `branch/dashboard` (`branch.index.tsx`) | P3 |
+| `/branch` | `branch/dashboard` (`branch.index.tsx`) | Built (P3): `GET /branch/summary` |
 | `/branch/operations` | `branch/operations` | S1 |
 | `/branch/requests` | `branch/requests` | Built: one page, two tabs (Escalations from S5, Access extensions from S2); `e2e/services.spec.ts` |
 | `/branch/reports` | `branch/reports` | S4 |
 | `/branch/notifications` | `shared/notification-centre` | P3 cross-role finish |
-| `/admin` | `admin/dashboard` (`admin.index.tsx`) | P3 |
+| `/admin` | `admin/dashboard` (`admin.index.tsx`) | Built (P3): `GET /admin/summary` |
 | `/admin/integrations` | `admin/integrations` | S6 |
 | `/admin/security` | `admin/security` | S6 |
-| `/admin/exceptions` | `admin/exceptions` | P3 |
+| `/admin/exceptions` | `admin/exceptions` | Built (P3): `GET /exceptions`, grouped by queue |
 | `/admin/notifications` | `shared/notification-centre` | P3 cross-role finish |
-| `/founder` | `founder/dashboard` (`founder.tsx`) | P3 |
+| `/founder` | `founder/dashboard` (`founder.tsx`) | Built (P3): `GET /founder/summary` |
 
 ### Public and account screens (built in Phase 1b)
 
@@ -305,4 +305,19 @@ Shared pieces added: `features/shared/{reason-dialog,support-desk,notification-c
 | `/trainer/reports` | `trainer/reports` | `GET /trainer/reports`: delivery and attendance per assigned batch (Meter), review turnaround (Partial Data), engagement (Stale) |
 | `/academic/reports` | `academic/reports` | `GET /academic/reports` per branch block plus the S4 branch summary table (`useBranchSummary`) |
 
-New shared pieces: `api/dashboards.ts` (types and hooks for the four endpoints), `features/shared/dashboard-parts.tsx` (`Tile`, `CardGap`); `Meter` is now exported from `shared/attendance-parts`. Spec: `e2e/dashboards-learning.spec.ts` (desktop plus a `@mobile` Student Home check). The Today spec schedules a class for today through the API, so it needs a freshly seeded database and is skipped within ten minutes of midnight IST.
+New shared pieces: `api/dashboards.ts` (types and hooks for these four endpoints and the four staff summaries), `features/shared/dashboard-parts.tsx` (`Tile`, `CardGap`, shared with the staff dashboards below); `Meter` is now exported from `shared/attendance-parts`. Spec: `e2e/dashboards-learning.spec.ts` (desktop plus a `@mobile` Student Home check). The Today spec schedules a class for today through the API, so it needs a freshly seeded database and is skipped within ten minutes of midnight IST.
+
+---
+
+## P3 — Exception queue & staff dashboards (as built)
+
+| Route | Feature | Notes |
+|---|---|---|
+| `/academic` | `academic/dashboard` | Ranked tiles (allocation queue, results awaiting review, unfulfilled recording promises), widgets (batches delivery-ready, reviews awaiting, open exceptions), a note for each batch that is not ready, quick links, the "four distinct records" note |
+| `/branch` | `branch/dashboard` | Three CRM tiles rendered **Unavailable** with the Not Configured hint (never 0); running batches, schedule and recording exceptions, escalations and extension requests; "Go to" links; locked-branch note |
+| `/admin` | `admin/dashboard` | Integration failures, work awaiting a named owner, overdue payment verifications (Unavailable), integrations verified x / total, provisioning, open exceptions; CRM/LMS sync table, provisioning table, AI status, links |
+| `/founder` | `founder/dashboard` | CRM tiles (Unavailable), active enrolments per branch, batches at risk, certificates awaiting approval, "Decisions needing you" (AI rupee ceiling, recording-access exceptions after the 2nd anniversary with a link to `/branch/requests`) |
+| `/academic/exceptions` | `academic/exceptions` | "Exception / Recovery queue": one table (branch column only when rows span branches), type filter, recovery owner ("Awaiting named owner" plus the role that should own it), **Update** opens a reason dialog, toast "Recovery step logged." Read only for the Branch Manager |
+| `/admin/exceptions` | `admin/exceptions` | "Exception Queues — all branches": a section per queue with a branch column (company-wide rows say "All branches"); Super Admin can Update, the Founder reads |
+
+Shared: `features/shared/dashboard-parts.tsx` (one `Tile` for every dashboard, plus `CrmTile`, `TileRow`, `QuickLinks`, `CardGap`), `features/shared/recovery-step.tsx` (`RecoveryStepButton`, `OwnerCell`, `ItemCell`), `api/{dashboards,exceptions}.ts`; `ageText` lives in `features/shared/format.ts`. Spec: `e2e/dashboards-staff.spec.ts` (desktop plus `@mobile`).

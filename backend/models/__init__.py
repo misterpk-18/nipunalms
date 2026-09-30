@@ -45,6 +45,11 @@ __all__ += [
     "AccessExtensionRequest", "ContentItem", "ContentReview", "ContentVersion", "Recording", "RecordingException",
 ]
 
+# Phase 3: exception queue (080)
+from models.exceptions import ExceptionItem, ExceptionRecoveryStep  # noqa: E402
+
+__all__ += ["ExceptionItem", "ExceptionRecoveryStep"]
+
 # Student services slice (050)
 from models.ask_nipuna import AiQuery  # noqa: E402
 from models.career import Application, ApplicationEvent, CareerProfile, CvDocument, Opportunity, PlacementOutcome  # noqa: E402

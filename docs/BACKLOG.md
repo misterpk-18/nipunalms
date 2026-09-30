@@ -28,7 +28,7 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 |---|---|
 | Emergency / elevated access | Security control `EMERGENCY_ACCESS` (max 4 hours, reviewed afterwards) has no mechanism yet; only routine temporary access (7 days) is enforced |
 | Student MFA | `students.mfa_status` exists but no second factor is implemented |
-| Exception queue | `/admin/exceptions` and the `exception_queue` view belong to the dashboards phase |
+| Exception queue | Built in P3 (see the P3 section below) |
 | Integration alerts | A Failed integration verification does not yet notify anyone |
 | Audit actor filter | The Actor filter lists staff only; student sign-ins are found by entity |
 
@@ -116,3 +116,18 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Trainer Today: substitute and co-trainers | Today lists sessions where the trainer is the session's trainer; a co-trainer who is not the session trainer sees the batch but not the session in Today |
 | Student Home language | Card titles follow the EN / తెలుగు setting (prototype keys); card bodies are English, as in the prototype. The Telugu greeting uses `name_te` when the CRM sent it |
 | Join Class on the home tile | Shows the next class only; a second class the same day is reachable from Schedule |
+
+## Exception queue & staff dashboards (P3)
+
+| Item | Notes |
+|---|---|
+| CRM-authoritative dashboard figures | Verified collections and paid Admissions against a target, overdue amount, overdue payment verifications and follow-ups are Not Configured: `finance_summaries` has no targets, no period-paid counts and no verification or follow-up workflow. Needs new CRM events (or a CRM read API) and a target setting before these can be numbers |
+| Recovery steps are notes | A step records what is being done and names an owner; it does not assign work, set a due date or change the source record. The source screen still resolves the item. Reassigning a recording exception's owner from the queue is not built |
+| Allocation Pending is always an exception | Every enrolment waiting for a seat is listed, however recent. A waiting-time threshold (e.g. 7 days) would keep normal flow out of the queue; needs a product decision |
+| Support queue rule | A support request enters the queue when escalated or past `sla_due_at`; the Branch Manager's escalations are also on `/branch/requests` |
+| Post-2nd-anniversary access exceptions | Listed in the queue and the Founder's decisions with a link to `/branch/requests`; the Founder cannot decide from the dashboard itself |
+| AI rupee ceiling | No setting exists; the dashboards read `app_settings.ai_monthly_ceiling_inr` and show Configuration Pending while it is absent. No spend tracking (see Student services) |
+| Integration failures tile | Counts the readiness register (Failed / Misconfigured); there is no live monitoring, alerting or notification on a failure |
+| Provisioning | "Provisioning" means an enrolment held in `Provisioning Pending` (complimentary offer, unmet payment gate). The seed has none, so the Provisioning table on `/admin` is empty in staging; a failed LMS-account creation has no stored state to list |
+| Dashboard freshness | Summaries are read live on each visit (no caching, no auto-refresh); `as_of` is returned but not shown |
+| Academic "reviews awaiting" | Counts content awaiting review (Submitted / Under Review), open completion reviews and certificates in Eligibility Review / Awaiting Approval; assessment moderation is shown separately as "results awaiting publication review" |
