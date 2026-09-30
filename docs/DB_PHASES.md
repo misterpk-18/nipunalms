@@ -22,6 +22,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
 | CRM alignment | ✅ Done | `005_crm_alignment.sql` — real CRM vocabulary and shapes; academic state and batches back to the CRM |
+| 2 — S6 Admin & security | ✅ Done | `060_admin_security.sql` |
 
 ---
 
@@ -112,3 +113,13 @@ Checked against the CRM's schema (db 001–025) and docs; contract in [CRM_INTEG
 | `admission_academic_state()`, `admission_lms_state.academic` + triggers → `AdmissionAcademicsChanged` | Enrolment status, curriculum status, allocations with joining date, completion — the CRM columns the LMS now owns |
 | `batch_crm_state()`, `batch_crm_state` table + triggers → `BatchUpserted` | The CRM's `batches` become a mirror keyed by `lms_course_id` |
 | `queue_crm_state()` | An undelivered outbox row for the same admission / batch is superseded by the latest state (the CRM needs the state, not every step) |
+## 060 — Admin & security ✅
+
+| Table / change | Purpose |
+|---|---|
+| `integrations` (ALTER) | + `verified_by`, `verified_at`, `evidence`; CHECK `integrations_verified_needs_evidence` (Verified needs a person, a time, an evidence note and a Configured setup) |
+| `integration_configuration_status` (ALTER TYPE) | + `Misconfigured` |
+| `integrations` (rows) | + `MEET_ORGANIZER_GNT`, `MEET_ORGANIZER_VIJ` (per-branch organizer, Pending Verification), `HDFC_PAYMENTS` (CRM-owned feed), `PRODUCTION_AUTH` |
+| `security_controls` | Security readiness register (seeded with 18 controls: scope enforcement, session idle / max, fresh auth, lockout, password policy, unique LMS login, activation token, audit immutability and decisions, temporary / emergency access, student MFA, file access, export scoping, AI data scope, HTTPS, backups); same Verified CHECK |
+
+Nothing is seeded as Verified. The status table above gains the row: `060_admin_security.sql` — S6 Admin & security ✅.

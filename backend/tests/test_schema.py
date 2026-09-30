@@ -252,7 +252,7 @@ def test_seeded_reference_data(app, run_sql):
     assert branches == [("NIT-GNT", "trainer@nipunatechnologies.com"), ("NIT-VIJ", "contactus@nipunatechnologies.com")]
     assert roles == ["STUDENT", "TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"]
     assert {"GOOGLE_WORKSPACE", "GOOGLE_MEET", "GOOGLE_DRIVE_RECORDINGS", "CRM", "WHATSAPP", "EMAIL", "TELEPHONY",
-            "AI_PROVIDER"} == set(integrations)
+            "AI_PROVIDER"} <= set(integrations)  # later migrations add more rows (per-branch Meet organizers, ...)
     assert {"session_idle_minutes", "session_max_minutes", "activation_token_hours", "recording_access_days",
             "ai_daily_limit"} <= set(settings)
     assert db.session.execute(db.text("SELECT setting_value FROM app_settings WHERE setting_key = 'activation_token_hours'")).scalar_one() == 72

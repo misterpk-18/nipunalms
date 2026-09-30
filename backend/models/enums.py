@@ -7,7 +7,7 @@ def _pg_enum(name: str, values: tuple[str, ...]) -> ENUM:
 
 
 DELIVERY_MODES = ("Classroom", "Live Online", "Hybrid")
-INTEGRATION_CONFIGURATION_STATUSES = ("Not Configured", "Configuration Pending", "Configured")
+INTEGRATION_CONFIGURATION_STATUSES = ("Not Configured", "Configuration Pending", "Configured", "Misconfigured")
 INTEGRATION_VERIFICATION_STATUSES = ("Not Verified", "Pending Verification", "Verified", "Failed")
 NOTIFICATION_DELIVERY_STATUSES = ("Delivered", "Failed")
 NOTIFICATION_ACTION_STATUSES = ("None", "Open", "Completed")

@@ -203,3 +203,16 @@ npm run e2e            # needs the API on :5060 with the staging users; desktop 
 
 Staging logins (password `Nipuna-staging-1`): student `NIT-STU-2026-004182`; staff `founder@`, `admin@`, `bm.gnt@`, `bm.vij@`, `coordinator.gnt@`, `coordinator.vij@`,
 `trainer.g1@`, `trainer.v1@` `nipuna.test`.
+
+### Admin & security screens (S6)
+
+| Route | Feature (`features/admin/`) | API | Notes |
+|---|---|---|---|
+| `/admin/integrations` | `integrations` | `/integrations` | Shared `readiness-table` (requirement, configuration, verification, evidence, owner, last check); Update dialog for Super Admin only; Founder reads |
+| `/admin/security` | `security` | `/security-controls` | Same table and dialog |
+| `/admin/users` | `users` | `/admin/users` | Filters, role chips with revoke, add role (temporary access), reset password, deactivate / reactivate; temporary password shown once (`SecretDialog`) |
+| `/admin/students` | `students` | `/admin/students`, `/students/{id}/activation` | Search, detail dialog, activation link shown once, suspend / reactivate, revoke sessions |
+| `/admin/crm-sync` | `crm-sync` | `/admin/crm-sync/*` | Inbox (filters, payload view, retry) and outbox; event types come from the data |
+| `/admin/audit` | `audit` | `/audit-log` | Filters by actor, entity, action, date (IST) |
+
+Added to the admin nav in `auth/access.ts`: Users & Access, Student Accounts, CRM Sync, Audit Log. Local helpers: `shared.tsx` (Pager, FormDialog, SecretDialog), `format.ts` (IST formatter, `useCanAdminister`).

@@ -8,6 +8,12 @@ from routes.crm import crm_bp
 from routes.health import health_bp
 from routes.reference import reference_bp
 from routes.students import students_bp
+from routes.admin_students import admin_students_bp
+from routes.admin_users import admin_users_bp
+from routes.audit_log import audit_log_bp
+from routes.crm_sync import crm_sync_bp
+from routes.integrations import integrations_bp
+from routes.security_controls import security_controls_bp
 
 BLUEPRINTS = [
     health_bp,
@@ -17,6 +23,12 @@ BLUEPRINTS = [
     batches_bp,
     class_sessions_bp,
     crm_bp,
+    integrations_bp,
+    security_controls_bp,
+    admin_users_bp,
+    admin_students_bp,
+    crm_sync_bp,
+    audit_log_bp,
 ]
 
 
