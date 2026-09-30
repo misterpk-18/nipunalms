@@ -6,7 +6,6 @@ from cli.database import create_dev_db_command, create_test_db_command
 from cli.jobs import jobs_cli
 from cli.outbox import crm_outbox_cli
 from cli.seed import seed_dev_command
-from cli.support_jobs import support_escalate_overdue_command
 from cli.users import create_admin_command
 
 
@@ -18,4 +17,3 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(crm_outbox_cli)
     app.cli.add_command(api_http_command)
     app.cli.add_command(jobs_cli)
-    app.cli.add_command(support_escalate_overdue_command)

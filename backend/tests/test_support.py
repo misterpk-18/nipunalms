@@ -312,8 +312,10 @@ def test_the_database_requires_a_resolution_note(run_sql, world, client):
         run_sql("UPDATE support_requests SET status = 'Resolved' WHERE support_request_id = :id", id=request["support_request_id"])
 
 
-def test_overdue_job_command_runs(app):
-    from cli.support_jobs import support_escalate_overdue_command
-
-    result = app.test_cli_runner().invoke(support_escalate_overdue_command)
-    assert result.exit_code == 0 and "Escalated 0" in result.output
+def test_the_overdue_job_runs_from_the_jobs_runner(app, client, world, run_sql):
+    request = raise_request(client, world, world.students.s1, "Recording access")
+    run_sql("UPDATE support_requests SET sla_due_at = now() - interval '1 hour' WHERE support_request_id = :id", id=request["support_request_id"])
+    db.session.commit()
+    result = app.test_cli_runner().invoke(args=["jobs", "run", "support-escalate-overdue"])
+    assert result.exit_code == 0 and "support-escalate-overdue: {'escalated': 1}" in result.output
+    assert "support-escalate-overdue" in app.test_cli_runner().invoke(args=["jobs", "list"]).output

@@ -5,6 +5,7 @@ Later slices register their own jobs by adding to JOBS.
 from typing import Callable
 
 from services import recordings as recordings_service
+from services import support as support_service
 
 
 def recording_check() -> dict:
@@ -12,6 +13,12 @@ def recording_check() -> dict:
     return recordings_service.check_missing_recordings()
 
 
+def support_escalate_overdue() -> dict:
+    """Escalate open support requests past their SLA (app_settings.support_sla_hours) to the Branch Manager."""
+    return {"escalated": support_service.escalate_overdue()}
+
+
 JOBS: dict[str, Callable[[], object]] = {
     "recording-check": recording_check,
+    "support-escalate-overdue": support_escalate_overdue,
 }

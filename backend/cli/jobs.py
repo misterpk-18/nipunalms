@@ -5,7 +5,7 @@ from flask.cli import AppGroup
 from config.database import db
 from services.jobs import JOBS
 
-jobs_cli = AppGroup("jobs", help="Background jobs: recording check and escalation.")
+jobs_cli = AppGroup("jobs", help="Background jobs: recording check, support escalation.")
 
 
 @jobs_cli.command("list")
