@@ -56,7 +56,13 @@ export function Profile() {
                     items={[
                       ["Name", profile.user.full_name],
                       ["Email", profile.user.email ?? "—"],
-                      ["Access", profile.scopes.map((s) => `${s.role_name}${s.branch_name ? ` — ${s.branch_name}` : ""}`).join(", ")],
+                      ["Role", [...new Set(profile.scopes.map((s) => s.role_name))].join(", ")],
+                      [
+                        "Branch",
+                        profile.scopes.some((s) => !s.branch_name)
+                          ? "All authorised branches"
+                          : [...new Set(profile.scopes.map((s) => s.branch_name))].join(", "),
+                      ],
                     ]}
                   />
                 </Section>
@@ -130,7 +136,9 @@ export function Profile() {
                   </Button>
                 </div>
                 <div className="mt-3">
-                  <Note>Staff cannot view or set your password.</Note>
+                  <Note>
+                    {student ? "Staff cannot view or set your password." : "Only you know your password; a Super Admin can reset it if you are locked out."}
+                  </Note>
                 </div>
               </Section>
             </>

@@ -97,8 +97,8 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Item | Notes |
 |---|---|
 | Fees & Receipts fields | `finance_summaries` will gain pending-verification, waived, refunded, installments and invoice numbers (db/005); the screen shows fee, verified paid, dues, next due and receipts only |
-| Notifications for other workspaces | Only student and trainer have a notification route and header bell; academic / branch / admin need routes and a nav entry |
-| Staff profile screen | `GET /me/profile` works for staff; no staff route (student `/profile` is student-workspace only) |
+| Staff profile details | `/account/profile` is read-only: no phone number (the API does not return one for staff), MFA is shown as Not Configured, and staff cannot edit their name or email |
+| Founder notifications | No event is addressed to the Founder role, so the founder workspace has no notification route or bell; add one when an event targets it |
 | Placement Team | Module 23 names a Placement Team role; there is none, so Academic Coordinator, Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
 | Support SLA | One `support_sla_hours` for all categories and priorities. The `support-escalate-overdue` job is in `services/jobs.JOBS`; cron for `flask jobs run` is not set up |
 | External channels | WhatsApp / email delivery, quiet hours and retry (Module 26) need the integrations verified first; preferences are stored only |

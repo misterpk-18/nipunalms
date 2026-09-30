@@ -13,7 +13,7 @@ for every route. Slices S1–S6 then replace placeholders with real screens.
 |---|---|---|
 | Stack | Vite 8, React 19, TanStack Router (file routes, auto code splitting), TanStack Query, shadcn `new-york` + Radix, Tailwind 4, react-hook-form + zod, sonner toasts | Identical to the CRM; a change to one repo can be copied to the other |
 | Dev ports | SPA `:5174` (preview `:4174`), API `:5060` via Vite proxy `/api` (`VITE_API_TARGET` overrides) | CRM uses 5173 / 5050; both stacks can run side by side. No CORS |
-| Workspace from URL | `workspaceForPath(path)` — `/trainer*` trainer, `/academic*` academic, `/branch*` branch, `/admin*` admin, `/founder*` founder, everything else student (except `/login`, `/activate`, `/change-password`) | Same rule as the prototype |
+| Workspace from URL | `workspaceForPath(path)` — `/trainer*` trainer, `/academic*` academic, `/branch*` branch, `/admin*` admin, `/founder*` founder, everything else student (except `/login`, `/activate`, `/change-password`; `/account/*` has no workspace of its own and is framed by the user's home workspace) | Same rule as the prototype |
 | Who may open a workspace | `profile.workspaces` from `/auth/me` (already expanded per role: Super Admin also holds academic and branch, Founder also admin and branch); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
 | Guard | Root route: public paths (`/login`, `/activate`) → anonymous → `/login?redirect=` → `must_change_password` → `/change-password` → workspace not permitted → **Permission Restricted** view (link home) → `/` redirects to `home_route`. Not a security boundary; every endpoint re-checks scope | Same as the CRM |
 | Workspace switcher | Header `<select>` shown only when the user has more than one workspace; goes to that workspace's home | Replaces the prototype's UAT role simulator; no prototype banner, no "Demo" badges |
@@ -129,6 +129,7 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 | `/academic/certificates` | `certificates` | S4 |
 | `/academic/support` | `support` | S5 |
 | `/academic/reports` | `reports` | P3 |
+| `/academic/notifications` | `shared/notification-centre` | P3 cross-role finish |
 
 ### Branch Manager, Super Admin, Founder
 
@@ -138,10 +139,12 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 | `/branch/operations` | `branch/operations` | S1 |
 | `/branch/requests` | `branch/requests` | Built: one page, two tabs (Escalations from S5, Access extensions from S2); `e2e/services.spec.ts` |
 | `/branch/reports` | `branch/reports` | S4 |
+| `/branch/notifications` | `shared/notification-centre` | P3 cross-role finish |
 | `/admin` | `admin/dashboard` (`admin.index.tsx`) | P3 |
 | `/admin/integrations` | `admin/integrations` | S6 |
 | `/admin/security` | `admin/security` | S6 |
 | `/admin/exceptions` | `admin/exceptions` | P3 |
+| `/admin/notifications` | `shared/notification-centre` | P3 cross-role finish |
 | `/founder` | `founder/dashboard` (`founder.tsx`) | P3 |
 
 ### Public and account screens (built in Phase 1b)
@@ -150,6 +153,7 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 |---|---|---|
 | `/login` | Student ID / student email / staff email + password, show / hide password, forgot-password guidance ("Ask your branch Academic Coordinator to reissue an activation link"), activation-state explanation, EN/తెలుగు | `POST /auth/login` |
 | `/activate?token=` | Checks the token (valid / expired / used), set + confirm password, success → `/login` | `GET /auth/activation/{token}`, `POST /auth/activate` |
+| `/account/profile` | `account.profile.tsx` → `student/profile` (staff see Role, Branch, devices, password, last sign-in; read-only) | `GET /me/profile`; shell nav is the user's home workspace |
 | `/change-password` | Forced when `must_change_password`, also from the account menu | `POST /auth/change-password` |
 | `/` | Never renders: redirects to `home_route` | `GET /auth/me` |
 
@@ -158,8 +162,8 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 ## 4. Shell and theme
 
 **Header** (navy, sticky): logo → `home_route`; `role label · branch` chip (large screens); language toggle (student workspace); workspace switcher (only when the
-user has several workspaces); notifications bell (student → `/notifications`, trainer → `/trainer/notifications`); account menu (Profile for students, Change password,
-Sign out).
+user has several workspaces); notifications bell (student → `/notifications`, trainer / academic / branch / admin → `<workspace>/notifications`; the founder has none); account menu (Profile —
+`/profile` for students, `/account/profile` for staff — Change password, Sign out).
 
 **Sidebar** (≥ `md`, 240px): the workspace's nav list from `NAV` in `auth/access.ts` (same items, labels, order and icons as the prototype). Student labels come from
 the dictionary. **Bottom bar** (< `md`): four pinned items (`mobileBarItems`) + **More** bottom sheet with the rest of the list.
@@ -288,4 +292,4 @@ Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me
 | `/ask-nipuna`, `/trainer/ask-nipuna` | `shared/assistant` | Status, scope, usage, actions, sources, warnings, thumbs; refusals shown as "Not answered: out of scope" |
 | (component) | `branch/escalations` (`BranchEscalations`) | Support requests escalated to the Branch Manager: the "Escalations" tab of `branch/requests.tsx` |
 
-Shared pieces added: `features/shared/{reason-dialog,support-desk,notification-centre,assistant}`, `api/{support,notifications,career,profile,ask-nipuna}.ts`. The header bell shows the unread count (`useNotificationOverview`). Staff profile is available from `GET /me/profile`; there is no staff profile route yet. The bell exists only in the student and trainer workspaces (the only ones with a notification route).
+Shared pieces added: `features/shared/{reason-dialog,support-desk,notification-centre,assistant}`, `api/{support,notifications,career,profile,ask-nipuna}.ts`. The header bell shows the unread count (`useNotificationOverview`). Staff use `/account/profile` (same component as the student profile; language and student identity sections are hidden). Every workspace except the founder has a notification route and bell; nothing is sent to the founder.

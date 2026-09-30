@@ -157,3 +157,28 @@ def test_the_database_keeps_failed_notifications_explained(run_sql, world):
 
 def test_login_is_required(client):
     assert client.get(API).status_code == 401
+
+
+@pytest.mark.parametrize("who", ["ac", "bm", "admin", "founder"])
+def test_every_staff_role_lists_and_acknowledges_only_its_own_notifications(client, world, who):
+    me = getattr(world.people, who)
+    other = world.people.bm_vij if who == "bm" else world.people.bm
+    notify(category="Review", title="Mine", event_key=f"staff-mine-{who}", recipient_user_ids=[me.user_id], action_required=True)
+    notify(category="Review", title="Theirs", event_key=f"staff-theirs-{who}", recipient_user_ids=[other.user_id])
+    db.session.commit()
+    h = world.h(me)
+
+    seen = titles(client.get(API, headers=h))
+    assert "Mine" in seen and "Theirs" not in seen
+    mine = next(n for n in client.get(API, headers=h).get_json()["data"] if n["title"] == "Mine")
+    assert client.get(f"{API}/overview", headers=h).get_json()["data"]["action_required"] >= 1
+    assert client.post(f"{API}/{mine['notification_id']}/acknowledge", headers=h).get_json()["data"]["acknowledged_at"]
+
+    theirs = db.session.query(Notification).filter_by(event_key=f"staff-theirs-{who}").one().notification_id
+    for action in ("read", "acknowledge", "action-done"):
+        assert client.post(f"{API}/{theirs}/{action}", headers=h).status_code == 404
+
+
+def test_staff_profile_lists_roles_and_branch(client, world):
+    data = client.get("/api/v1/me/profile", headers=world.h(world.people.bm)).get_json()["data"]
+    assert data["student"] is None and [s["role_name"] for s in data["scopes"]] == ["Branch Manager"]

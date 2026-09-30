@@ -114,6 +114,18 @@ def _notifications(ctx: "SeedContext") -> None:
         db.session.execute(text("INSERT INTO notifications (recipient_user_id, category, title, event_key, channel, delivery_status, delivery_note) "
                                 "VALUES (:u, 'Session', 'WhatsApp reminder for tomorrow''s class', :k, 'WhatsApp', 'Failed', "
                                 "'Integration Not Configured')"), {"u": trainer, "k": f"seed:{key}:a4"})
+
+    # Staff workspaces: a couple each, one needing action
+    staff = (
+        ("coord_gnt", "Review", "Two completion reviews are waiting for a decision", "/academic/completion", True),
+        ("coord_gnt", "Support", "A student support request was escalated to Academic", "/academic/support", False),
+        ("bm_gnt", "Certificate", "A certificate is waiting for your approval", "/branch/reports", True),
+        ("bm_gnt", "Session", "Batch schedule for next week is published", "/branch/operations", False),
+        ("admin", "Integration", "CRM sync finished with no failures", "/admin/crm-sync", False),
+        ("admin", "Security", "Review the security readiness checklist", "/admin/security", True),
+    )
+    for n, (key, category, title, link, action) in enumerate(staff):
+        notify(category=category, title=title, event_key=f"seed:staff:{key}:{n}", link=link, recipient_user_ids=[ctx.users[key]], action_required=action)
     db.session.commit()
 
 
