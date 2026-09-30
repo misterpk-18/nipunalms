@@ -7,7 +7,7 @@ import { ConfirmAction, DataTable, KeyValue, Note, PageHead, QueryView, Section,
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { formatDate, formatIst } from "@/features/shared/ist";
+import { fmtDateTime, fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
 import { useT } from "@/lib/i18n";
 
@@ -61,8 +61,8 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
             <>
               <KeyValue
                 items={[
-                  ["Opt-in", <StatusBadge tone="success">Opted in — {formatDate(profile.opted_in_at)}</StatusBadge>],
-                  ["Support period", profile.support_end ? `Until ${formatDate(profile.support_end)}` : "—"],
+                  ["Opt-in", <StatusBadge tone="success">Opted in — {fmtDate(profile.opted_in_at)}</StatusBadge>],
+                  ["Support period", profile.support_end ? `Until ${fmtDate(profile.support_end)}` : "—"],
                   ["Preferred roles", profile.preferred_roles.join(", ") || "—"],
                   ["Preferred locations", profile.preferred_locations.join(", ") || "—"],
                   [
@@ -139,7 +139,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {o.employment_type} · {o.work_mode}
                     {o.location ? ` · ${o.location}` : ""} · {o.compensation_text}
-                    {o.closing_date ? ` · closes ${formatDate(o.closing_date)}` : ""}
+                    {o.closing_date ? ` · closes ${fmtDate(o.closing_date)}` : ""}
                   </p>
                   {o.required_skills.length > 0 && <p className="mt-1 text-xs">Skills: {o.required_skills.join(", ")}</p>}
                   <div className="mt-2">
@@ -169,7 +169,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
           { h: "Employer", c: (a) => a.opportunity.employer_name },
           {
             h: "Interview round",
-            c: (a) => (a.interview_round ? `${a.interview_round}${a.interview_at ? ` — ${formatIst(a.interview_at)}` : ""}` : (a.status_note ?? "—")),
+            c: (a) => (a.interview_round ? `${a.interview_round}${a.interview_at ? ` — ${fmtDateTime(a.interview_at)}` : ""}` : (a.status_note ?? "—")),
           },
           { h: "State", c: (a) => <StatusBadge>{a.status}</StatusBadge> },
           {
@@ -201,7 +201,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
             cols={[
               { h: "Outcome", c: (o) => o.outcome_type },
               { h: "Role", c: (o) => `${o.role_title} — ${o.employer_name}` },
-              { h: "Date", c: (o) => formatDate(o.event_date) },
+              { h: "Date", c: (o) => fmtDate(o.event_date) },
               {
                 h: "Verification",
                 c: (o) => <StatusBadge>{o.verification_status === "Pending Verification" ? "Confirmation Pending" : o.verification_status}</StatusBadge>,
@@ -243,7 +243,7 @@ function CvSection({ overview }: { overview: CareerOverview }) {
                   {cv.label}
                 </button>{" "}
                 <span className="text-xs text-muted-foreground">
-                  v{cv.version_no} · {formatDate(cv.uploaded_at)}
+                  v{cv.version_no} · {fmtDate(cv.uploaded_at)}
                 </span>
                 {cv.review_feedback && <span className="block text-xs">Feedback: {cv.review_feedback}</span>}
               </span>

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiMutation } from "@/lib/mutation";
-import { formatIst } from "./ist";
+import { fmtDateTime } from "@/features/shared/format";
 
 const BLOCKED: Record<string, string> = {
   "Quota Limited": "Daily limit reached. It resets at 00:00 IST.",
@@ -102,7 +102,7 @@ export function Assistant({ title }: { title: string }) {
                             <button className="w-full rounded-lg border p-2 text-left hover:bg-muted" onClick={() => setLatest(item)}>
                               <span className="block truncate font-medium">{item.question}</span>
                               <span className="text-xs text-muted-foreground">
-                                {formatIst(item.created_at)} · {item.status}
+                                {fmtDateTime(item.created_at)} · {item.status}
                               </span>
                             </button>
                           </li>

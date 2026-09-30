@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useApiMutation } from "@/lib/mutation";
-import { formatIst } from "./ist";
+import { fmtDateTime } from "@/features/shared/format";
 
 const TABS = ["My Notifications", "Action Required", "Unread", "Completed", "System Issues"] as const;
 type Tab = (typeof TABS)[number];
@@ -96,7 +96,7 @@ export function NotificationCentre({ title }: { title: string }) {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {n.category} · {formatIst(n.created_at)}
+                        {n.category} · {fmtDateTime(n.created_at)}
                       </div>
                     </div>
                   ),

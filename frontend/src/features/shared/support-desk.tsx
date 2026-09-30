@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/auth/auth";
 import { useApiMutation } from "@/lib/mutation";
-import { formatIst } from "./ist";
+import { fmtDateTime } from "@/features/shared/format";
 import { ReasonDialog } from "./reason-dialog";
 
 export type SupportMode = "student" | "staff";
@@ -167,7 +167,7 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
                 <span className="font-mono">{request.request_code}</span> · {request.category}
               </DialogTitle>
               <DialogDescription>
-                {request.subject} — raised {formatIst(request.created_at)}
+                {request.subject} — raised {fmtDateTime(request.created_at)}
                 {request.raised_via === "Staff flag" ? ` by ${request.raised_by.full_name} (support flag)` : ""}
               </DialogDescription>
             </DialogHeader>
@@ -194,7 +194,7 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
               )}
               <div>
                 <dt className="text-xs text-muted-foreground">Respond by</dt>
-                <dd>{formatIst(request.sla_due_at)}</dd>
+                <dd>{fmtDateTime(request.sla_due_at)}</dd>
               </div>
               {request.resolution_note && (
                 <div className="sm:col-span-2">
@@ -216,7 +216,7 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
                       {m.author.user_id === profile?.user.user_id ? " (you)" : ""}
                       {m.is_internal ? " · internal remark, not shown to the student" : ""}
                     </span>
-                    <span>{formatIst(m.created_at)}</span>
+                    <span>{fmtDateTime(m.created_at)}</span>
                   </div>
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 </li>

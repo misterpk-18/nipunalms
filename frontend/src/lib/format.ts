@@ -41,3 +41,8 @@ export function clock(totalSeconds: number): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 }
+
+/** "₹ 30,000" from a money string such as "30000.00". */
+export function formatMoney(value: string | null | undefined): string {
+  return value == null ? "—" : `₹ ${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}

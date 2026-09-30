@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { profileApi } from "@/api/profile";
 import { ConfirmAction, KeyValue, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatIst } from "@/features/shared/ist";
+import { fmtDateTime, fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
 import { useLanguage, useT } from "@/lib/i18n";
 import type { Language } from "@/api/types";
@@ -94,7 +94,7 @@ export function Profile() {
                   {profile.devices.map((d) => (
                     <li key={d.session_id} className="flex flex-wrap items-center justify-between gap-2">
                       <span>
-                        {d.label} — {d.current ? "this device" : formatIst(d.last_seen_at)}
+                        {d.label} — {d.current ? "this device" : fmtDateTime(d.last_seen_at)}
                       </span>
                       {d.current ? (
                         <StatusBadge tone="success">Active</StatusBadge>
@@ -112,7 +112,7 @@ export function Profile() {
                   items={[
                     [
                       "Password",
-                      profile.password_changed_at ? `Set by you · last changed ${formatDate(profile.password_changed_at)}` : "Set by you at activation",
+                      profile.password_changed_at ? `Set by you · last changed ${fmtDate(profile.password_changed_at)}` : "Set by you at activation",
                     ],
                     [
                       "Recovery",
@@ -121,7 +121,7 @@ export function Profile() {
                         : "A Super Admin resets a staff password.",
                     ],
                     ["MFA", student ? student.mfa_status : "Not Configured"],
-                    ["Last sign-in", formatIst(profile.last_login_at)],
+                    ["Last sign-in", fmtDateTime(profile.last_login_at)],
                   ]}
                 />
                 <div className="mt-3">

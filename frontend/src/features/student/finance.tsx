@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { profileApi, type FinanceEntry } from "@/api/profile";
 import { DataTable, Note, PageHead, QueryView, Section, StatusNote } from "@/components/lms/ui";
-import { formatDate, formatIst, formatMoney } from "@/features/shared/ist";
+import { fmtDateTime, fmtDate } from "@/features/shared/format";
+import { formatMoney } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
 function Amount({ label, value }: { label: string; value: string }) {
@@ -28,7 +29,7 @@ function AdmissionFinance({ entry }: { entry: FinanceEntry }) {
           </div>
           {summary.next_due_date && (
             <p className="text-sm">
-              Next due: <strong>{formatMoney(summary.next_due_amount)}</strong> on <strong>{formatDate(summary.next_due_date)}</strong>
+              Next due: <strong>{formatMoney(summary.next_due_amount)}</strong> on <strong>{fmtDate(summary.next_due_date)}</strong>
             </p>
           )}
           <DataTable
@@ -39,11 +40,11 @@ function AdmissionFinance({ entry }: { entry: FinanceEntry }) {
             cols={[
               { h: "Receipt", c: (r) => <span className="font-mono text-xs">{r.receipt_number}</span> },
               { h: "Amount", c: (r) => formatMoney(r.amount) },
-              { h: "Date", c: (r) => formatDate(r.date) },
+              { h: "Date", c: (r) => fmtDate(r.date) },
             ]}
           />
           <p className="text-xs text-muted-foreground">
-            As of {formatIst(summary.as_of)} · source: {entry.source}
+            As of {fmtDateTime(summary.as_of)} · source: {entry.source}
           </p>
         </div>
       )}
