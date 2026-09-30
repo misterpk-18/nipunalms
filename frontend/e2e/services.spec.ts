@@ -68,7 +68,7 @@ test("student sees the resolution, an unread bell count and separate notificatio
   await page.getByRole("tab", { name: "System Issues" }).click();
   await expect(page.getByText("WhatsApp — Integration Pending Verification (not sent)").first()).toBeVisible();
   await page.getByRole("tab", { name: "My Notifications" }).click();
-  await page.getByRole("button", { name: /Acknowledge Module test scheduled/ }).click();
+  await page.getByRole("button", { name: /Acknowledge Support request SR-1042 resolved/ }).click();
   await expect(page.getByText("Acknowledged").first()).toBeVisible();
   await expect(page.getByRole("switch", { name: "Placement by In-app" })).toBeDisabled();
 });
@@ -127,9 +127,9 @@ test("fees & receipts is read-only and shows the CRM summary", async ({ page }, 
   await login(page, USERS.student);
   await page.goto("/finance");
   await expect(page.getByRole("heading", { level: 1, name: "Fees & Receipts" })).toBeVisible();
-  await expect(page.getByText("ADM-GNT-2026-000214").first()).toBeVisible();
+  await expect(page.getByText("NIT-GNT-2026-000214").first()).toBeVisible();
   await expect(page.getByText("₹ 45,000").first()).toBeVisible();
-  await expect(page.getByText("GNT-R-2627-00014").first()).toBeVisible();
+  await expect(page.getByText("GNT-R-2526-00148").first()).toBeVisible();
   await expect(page.getByText(/is not a receipt and is not counted as paid/)).toBeVisible();
   await expect(page.getByRole("button", { name: /pay/i })).toHaveCount(0);
 });
