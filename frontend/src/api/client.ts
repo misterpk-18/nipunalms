@@ -81,6 +81,7 @@ export function buildQuery(query?: Query) {
 
 async function send(method: string, path: string, options: RequestOptions, retried = false): Promise<unknown> {
   const headers: Record<string, string> = { Accept: "application/json" };
+  const sentToken = Boolean(token);
   if (token) headers["Authorization"] = `Bearer ${token}`;
   let body: BodyInit | undefined;
   if (options.form) body = options.form;
@@ -101,7 +102,8 @@ async function send(method: string, path: string, options: RequestOptions, retri
 
   if (apiError.code === "FRESH_AUTH_REQUIRED" && !retried) {
     if (await onFreshAuthRequired()) return send(method, path, options, true);
-  } else if (apiError.code === "UNAUTHENTICATED" && path !== "/auth/login") {
+  } else if (apiError.code === "UNAUTHENTICATED" && path !== "/auth/login" && sentToken) {
+    // Only a rejected session signs the user out; a request made before signing in must not overwrite the ?redirect= of the login page
     setToken(null);
     onUnauthenticated();
   } else if (apiError.code === "PASSWORD_CHANGE_REQUIRED") {

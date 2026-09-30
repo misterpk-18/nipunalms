@@ -42,13 +42,13 @@ test("learner navigates My Courses, a combo track, module, topic and session", a
   await expect(page.getByRole("heading", { name: "My Courses" })).toBeVisible();
   await expect(page.getByText("Combo (3 + 1)")).toBeVisible();
   await expect(page.getByText("Separately purchased")).toBeVisible();
-  await expect(page.getByText("Promotional complimentary — linked to qualifying paid Admission ADM-GNT-2026-000214")).toBeVisible();
+  await expect(page.getByText("Promotional complimentary — linked to qualifying paid Admission NIT-GNT-2026-000214")).toBeVisible();
   await expect(page.getByText("Curriculum Mapping Pending · Recovery Owner: Academic Coordinator — Guntur")).toBeVisible();
   await expect(page.getByText("You are allocated to batch NIT-VIJ-BAT-2026-000001")).toBeVisible();
 
   await page.getByRole("link", { name: "Open course" }).first().click();
   await expect(page.getByText("Admission reference (CRM)")).toBeVisible();
-  await expect(page.getByText("ADM-GNT-2026-000214 (CRM)")).toBeVisible();
+  await expect(page.getByText("NIT-GNT-2026-000214 (CRM)")).toBeVisible();
   await expect(page.getByText("Combo programme — one paid Admission")).toBeVisible();
 
   await page.getByRole("listitem").filter({ hasText: "NIT-CRS-018/T2" }).getByRole("link", { name: "Open track" }).click();
@@ -76,7 +76,7 @@ test("coordinator creates a batch and allocates a waiting student after the revi
   await page.goto("/academic/batches");
   await expect(page.getByRole("heading", { name: "Batch Management" })).toBeVisible();
   await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ })).toContainText("Blocked");
-  await expect(page.getByRole("row", { name: /Sample Learner C\./ })).toContainText("None"); // no open Power BI batch yet
+  await expect(page.getByRole("row", { name: /Sample Learner K\./ })).toContainText("None"); // no open Power BI batch yet
 
   await page.getByRole("button", { name: "New batch" }).click();
   await choose(dialog(page).getByLabel("Course"), /NIT-CRS-019/);
@@ -84,14 +84,14 @@ test("coordinator creates a batch and allocates a waiting student after the revi
   await dialog(page).getByRole("button", { name: "Create batch" }).click();
   await expect(page.getByText("Batch created")).toBeVisible();
 
-  const learner = page.getByRole("row", { name: /Sample Learner C\./ });
+  const learner = page.getByRole("row", { name: /Sample Learner K\./ });
   await expect(learner).toContainText("NIT-GNT-BAT-2026-");
   await learner.getByRole("button", { name: "Review & allocate" }).click();
   await expect(dialog(page).getByText("Batch allocation review")).toBeVisible();
   await expect(dialog(page).getByText("Ready to allocate")).toBeVisible();
   await dialog(page).getByRole("button", { name: "Allocate", exact: true }).click();
   await expect(page.getByText("Student allocated")).toBeVisible();
-  await expect(page.getByRole("row", { name: /Sample Learner C\./ })).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /Sample Learner K\./ })).toHaveCount(0);
 });
 
 test("coordinator schedules classes; trainer starts and delivers one and asks to move another", async ({ page }) => {
@@ -181,7 +181,7 @@ test("branch manager sees batches, exceptions, trainers and students of the bran
   await login(page, USERS.bmVij);
   await page.goto("/branch/operations");
   await expect(page.getByRole("heading", { name: "Batches, schedule & people" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /NIT-VIJ-BAT-2026-000001/ })).toContainText("Pending Verification");
+  await expect(page.getByRole("row", { name: /NIT-VIJ-BAT-2026-000001/ }).first()).toContainText("Pending Verification");
   await expect(page.getByRole("row", { name: /Capstone check-in/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Trainers" })).toBeVisible();
   await page.getByLabel("Search students").fill("Sample Learner J");

@@ -150,6 +150,7 @@ NAMED_LEARNERS = [
     ("D", "Sample Learner D.", "learner.d@example.test", VIJ, "NIT-CRS-007", None, None),
     ("E", "Sample Learner E.", "learner.e@example.test", VIJ, "NIT-CRS-047", None, None),
     ("F", "Sample Learner F.", "learner.f@example.test", GNT, "NIT-CRS-019", None, "completed: certificate revoked"),
+    ("K", "Sample Learner K.", "learner.k@example.test", GNT, "NIT-CRS-019", None, None),  # waits in the allocation queue for a Power BI batch
 ]
 
 # batch key, trainer key, (label, topic) or None, title, date, start, end, mode, state, code

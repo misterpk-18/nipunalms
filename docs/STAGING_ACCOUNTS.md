@@ -23,7 +23,7 @@ Students sign in with their **Student ID** (or email, when they have one) — ne
 | `NIT-STU-2026-004182` | Anvitha K. | Activated — the prototype's sample student (combo, separately purchased and complimentary enrolments) |
 | `NIT-STU-2026-004183`…`004185` | Sample Learners G, H, I | Activated |
 | `NIT-STU-2026-004186` | Sample Learner J. | **Activation Pending** — `seed-dev` prints its one-time link `/activate?token=…` |
-| `NIT-STU-2026-004187`… | Sample Learners A–F and batch fillers | Activated |
+| `NIT-STU-2026-004187`… | Sample Learners A–F, K (waiting for a Power BI batch) and batch fillers | Activated |
 
 ## Service key
 
