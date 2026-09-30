@@ -21,6 +21,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Catalogue & curriculum | ✅ Done | `002_catalog_curriculum.sql` |
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
+| 2 / S2 — Content & recordings | ✅ Done | `020_content_recordings.sql` |
 
 ---
 
@@ -94,3 +95,18 @@ The CRM already has these columns (`nipuna-crm` db 005/006); the LMS is their so
 | `class_sessions` | Actual Class Sessions: batch, topic, trainer, scheduled start/end, mode, room, Meet link + status, state Scheduled / Live / Delivered / Cancelled / Rescheduled |
 
 **Rules enforced:** `batch_code` is immutable; capacity can't drop below allocated students; a trainer must hold the Trainer role at the batch's branch; allocation course and branch must match the enrolment; no allocation into a closed or full batch; the track must belong to the enrolment; the session trainer must be assigned to the batch; session end after start.
+
+## 020 — Content & recordings (S2) ✅
+
+| Table | Purpose |
+|---|---|
+| `content_items` | Library entry: `CNT-` code, type (PDF, Notes, Dataset, Code, Lab, Practice material, Link, Video link), placement (course, curriculum version, module, topic), branch, optional batch, download policy, status of the latest version, author, retirement |
+| `content_versions` | One row per upload or link (v1, v2 …): file path / URL, size, change summary, review status, released at / by |
+| `content_reviews` | Submission, review, release and retirement history with comments |
+| `recordings` | `RCD-` code, one or more parts per class session, status Processing / Released / Partial / Held / Unavailable / Expired, Drive reference, duration, download policy, hold reason / partial note |
+| `recording_exceptions` | `RX-0012` codes: Partial, Held, Unavailable, Integration Unavailable; owner role and person, Open / In Progress / Resolved, resolution note |
+| `access_extension_requests` | `EXT-031` codes: enrolment, scope (Recording / Material / Both), reason, status, `needs_exception`, original and approved expiry, decision |
+
+Also inserts `app_settings`: `access_default_years`, `access_max_years`, `recording_check_hours`, `content_max_upload_mb`, `content_dataset_max_upload_mb`.
+
+**Rules enforced:** placement consistency (version of the course, module of the version, topic of the module, batch of the course and branch); a version is a file xor a link; released versions need a release time; hold / partial / resolution / rejection need a reason; a recording maps to a non-cancelled class session and is unique per session and part; one open exception per session and issue; one pending extension per enrolment and scope; an exception's branch is its session's branch; codes are immutable.

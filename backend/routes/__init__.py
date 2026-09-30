@@ -24,3 +24,12 @@ def register_blueprints(app: Flask) -> None:
     prefix = app.config["API_PREFIX"]
     for blueprint in BLUEPRINTS:
         app.register_blueprint(blueprint, url_prefix=prefix + (blueprint.url_prefix or ""))
+
+
+# Phase 2 / S2 content & recordings
+from routes.access_extensions import access_extensions_bp  # noqa: E402
+from routes.content import content_bp  # noqa: E402
+from routes.recordings import recording_exceptions_bp, recordings_bp  # noqa: E402
+from routes.student_library import student_library_bp  # noqa: E402
+
+BLUEPRINTS += [content_bp, recordings_bp, recording_exceptions_bp, access_extensions_bp, student_library_bp]

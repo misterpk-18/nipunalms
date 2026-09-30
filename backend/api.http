@@ -132,3 +132,83 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ S2 content & recordings (examples)
+### Trainer: add content (multipart; a link type takes `url` instead of `file`)
+POST {{base}}/api/v1/content-items
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=x
+
+--x
+Content-Disposition: form-data; name="title"
+
+Regression notes
+--x
+Content-Disposition: form-data; name="content_type"
+
+PDF
+--x
+Content-Disposition: form-data; name="topic_id"
+
+1
+--x
+Content-Disposition: form-data; name="batch_id"
+
+1
+--x
+Content-Disposition: form-data; name="file"; filename="notes.pdf"
+Content-Type: application/pdf
+
+< ./notes.pdf
+--x--
+
+### Staff: list content (comma-separated statuses give the review queue)
+GET {{base}}/api/v1/content-items?status=Submitted,Under%20Review
+Authorization: Bearer {{token}}
+
+### Coordinator: review (start | approve | request_changes | reject); release:true approves and releases
+POST {{base}}/api/v1/content-items/1/review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"decision": "approve", "release": true, "comment": "Good"}
+
+### Student: released resources, recordings, access dates
+GET {{base}}/api/v1/me/resources?content_type=PDF
+Authorization: Bearer {{token}}
+
+###
+GET {{base}}/api/v1/me/recordings
+Authorization: Bearer {{token}}
+
+###
+GET {{base}}/api/v1/me/access
+Authorization: Bearer {{token}}
+
+### Coordinator: register, release, hold a recording
+POST {{base}}/api/v1/recordings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"session_id": 1, "media_ref": "drive:file-id", "duration_minutes": 120}
+
+###
+POST {{base}}/api/v1/recordings/1/hold
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"reason": "Whiteboard shows sample PII"}
+
+### Student: request an extension; coordinator / branch manager decides
+POST {{base}}/api/v1/access-extension-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"enrolment_id": 1, "scope": "Both", "reason": "Revising for interviews"}
+
+###
+POST {{base}}/api/v1/access-extension-requests/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"decision": "approve", "note": "Verified"}

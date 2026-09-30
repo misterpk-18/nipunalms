@@ -203,3 +203,18 @@ npm run e2e            # needs the API on :5060 with the staging users; desktop 
 
 Staging logins (password `Nipuna-staging-1`): student `NIT-STU-2026-004182`; staff `founder@`, `admin@`, `bm.gnt@`, `bm.vij@`, `coordinator.gnt@`, `coordinator.vij@`,
 `trainer.g1@`, `trainer.v1@` `nipuna.test`.
+
+## 7. S2 — Content & recordings (built)
+
+| Screen | Feature file | Notes |
+|---|---|---|
+| `/resources` | `student/resources.tsx` | Filters by course, type, title; Open / Download (policy and expiry enforced by the API); access column ("Until 12 Jan 2027", "Pending — no Joining Date yet", "External link") |
+| `/recordings` | `student/recordings.tsx` | Status, access-until, download policy, Watch dialog (playback placeholder that states the Drive integration status) |
+| both | `student/access-window.tsx` | Access entitlement card (rules from Modules 17 / 18) and the extension request dialog |
+| `/trainer/content` | `trainer/content.tsx` | Upload (batch → topic picker from `/content-items/options`, file or link), submit for review, new version, details |
+| `/academic/content-review` | `academic/content-review.tsx` | Tabs Awaiting review / Ready to release / Released / Changes requested / All; review dialog (approve, approve & release, request changes, reject), retire |
+| `/academic/recording-exceptions` | `academic/recording-exceptions.tsx` | Tabs Exceptions (start / resolve, escalation step) and Recordings (register, media reference, release, hold, partial, unavailable) |
+| `/branch/requests` (part) | `branch/access-extensions.tsx` | Component `AccessExtensions` only; `routes/branch.requests.tsx` is composed by the dashboards phase (with S5's escalations component) |
+| shared | `shared/content-detail.tsx`, `api/content.ts` | Detail dialog with versions and review history; API calls, types, IST date helpers, authenticated file open |
+
+Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me/recordings?session_id=`.

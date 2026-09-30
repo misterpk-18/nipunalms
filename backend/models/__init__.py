@@ -18,3 +18,12 @@ __all__ = [
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
 ]
+
+# Phase 2 / S2 content & recordings
+from models.content import (  # noqa: E402
+    AccessExtensionRequest, ContentItem, ContentReview, ContentVersion, Recording, RecordingException,
+)
+
+__all__ += [
+    "AccessExtensionRequest", "ContentItem", "ContentReview", "ContentVersion", "Recording", "RecordingException",
+]
