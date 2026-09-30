@@ -27,3 +27,12 @@ from models.completion import CompletionReview  # noqa: E402
 from models.progress import EnrolmentProgress  # noqa: E402
 
 __all__ += ["AttendanceCorrection", "AttendanceRecord", "AttendanceRecovery", "Certificate", "CompletionReview", "EnrolmentProgress"]
+
+# Phase 2 / S2 content & recordings
+from models.content import (  # noqa: E402
+    AccessExtensionRequest, ContentItem, ContentReview, ContentVersion, Recording, RecordingException,
+)
+
+__all__ += [
+    "AccessExtensionRequest", "ContentItem", "ContentReview", "ContentVersion", "Recording", "RecordingException",
+]

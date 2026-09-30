@@ -633,3 +633,145 @@ def seed_dev_command() -> None:
     click.echo(f"  Student login: {ctx.students['anvitha']['student_code']} (Anvitha K.)")
     for note in ctx.notes:
         click.echo(f"  {note}")
+
+
+# ---------------------------------------------------------------- S2 content & recordings
+
+_PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"
+_NOTEBOOK = b'{"cells": [{"cell_type": "markdown", "metadata": {}, "source": ["# Sample notebook"]}], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}'
+_CSV = b"area,bedrooms,price\n1200,2,5400000\n1500,3,7200000\n900,1,3100000\n"
+_T2, _T1 = "Track CV 2.4", "Track CV 3.2"
+
+# title, type, file name (None = a link), file bytes (or the link), topic (curriculum label, title), batch key, trainer, final state
+CONTENT_ITEMS = [
+    ("Regression notes", "PDF", "regression-notes.pdf", _PDF, (_T2, "Linear & Logistic Regression"), "G1", "trainer_g2", "Released"),
+    ("housing.csv", "Dataset", "housing.csv", _CSV, (_T2, "Linear & Logistic Regression"), "G1", "trainer_g2", "Released"),
+    ("SQL window functions cheatsheet", "Notes", "window-functions.md", b"# Window functions\n\nROW_NUMBER, RANK, LAG, LEAD\n",
+     (_T1, "Joins, Window Functions"), "G1", "trainer_g1", "Released + v2 submitted"),
+    ("starter_tree.py", "Code", "starter_tree.py", b"from sklearn.tree import DecisionTreeClassifier\n",
+     (_T2, "Decision Trees & Ensembles"), "G1", "trainer_g2", "Released"),
+    ("Practice set 3", "Practice material", "practice-set-3.pdf", _PDF, (_T2, "Linear & Logistic Regression"), "G1", "trainer_g2", "Released"),
+    ("scikit-learn docs", "Link", None, b"https://scikit-learn.org/stable/documentation.html", (_T2, "Linear & Logistic Regression"), "G1",
+     "trainer_g2", "Released"),
+    ("AWS lab guide", "Lab", "aws-lab-guide.pdf", _PDF, ("CV 4.0", "EC2 & VPC Networking"), "V1", "trainer_v1", "Released"),
+    ("AWS IAM lab", "Lab", "aws-iam-lab.pdf", _PDF, ("CV 4.0", "S3 & IAM Policies"), "V1", "trainer_v1", "Submitted"),
+    ("Decision trees slides", "PDF", "decision-trees.pdf", _PDF, (_T2, "Decision Trees & Ensembles"), "G1", "trainer_g2", "Submitted"),
+    ("Random forest lab", "Lab", "random-forest-lab.ipynb", _NOTEBOOK, (_T2, "Decision Trees & Ensembles"), "G1", "trainer_g2", "Changes Requested"),
+    ("Regression walkthrough", "Code", "regression-walkthrough.ipynb", _NOTEBOOK, (_T2, "Linear & Logistic Regression"), "G1", "trainer_g2", "Draft"),
+    ("Cross-validation cheatsheet", "PDF", "cross-validation.pdf", _PDF, (_T2, "Cross-validation & Metrics"), "G1", "trainer_g1", "Under Review"),
+    ("Model evaluation notes", "PDF", "model-evaluation.pdf", _PDF, (_T2, "Cross-validation & Metrics"), "G1", "trainer_g1", "Approved"),
+    ("Scraped customer dataset", "Dataset", "customers.csv", _CSV, (_T2, "Clustering (K-Means)"), "G1", "trainer_g2", "Rejected"),
+    ("Old Pandas notes", "PDF", "pandas-notes.pdf", _PDF, (_T1, "Data Cleaning with Pandas"), "G1", "trainer_g1", "Retired"),
+]
+
+
+def _bearer(ctx: SeedContext, login: str) -> dict:
+    response = ctx.client.post(f"{API}/auth/login", json={"login": login, "password": STAGING_PASSWORD})
+    if response.status_code != 200:
+        raise click.ClickException(f"Login failed for {login}: {response.get_json()}")
+    return {"Authorization": f"Bearer {response.get_json()['data']['token']}"}
+
+
+def _call(ctx: SeedContext, method: str, path: str, headers: dict, **kwargs) -> dict:
+    response = getattr(ctx.client, method)(f"{API}{path}", headers=headers, **kwargs)
+    if response.status_code >= 400:
+        raise click.ClickException(f"{method.upper()} {path} failed ({response.status_code}): {response.get_json()}")
+    return (response.get_json() or {}).get("data")
+
+
+def seed_content_library(ctx: SeedContext) -> None:
+    """Content in every review state, created and reviewed through the API as the trainers and coordinators."""
+    from io import BytesIO
+
+    heads = {key: _bearer(ctx, f"{login}@nipuna.test") for key, login in
+             (("trainer_g1", "trainer.g1"), ("trainer_g2", "trainer.g2"), ("trainer_v1", "trainer.v1"))}
+    coordinators = {GNT: _bearer(ctx, "coordinator.gnt@nipuna.test"), VIJ: _bearer(ctx, "coordinator.vij@nipuna.test")}
+    for title, content_type, filename, content, topic, batch_key, trainer, state in CONTENT_ITEMS:
+        batch = ctx.batches[batch_key]
+        form = {"title": title, "content_type": content_type, "topic_id": str(ctx.topics[topic]), "batch_id": str(batch.batch_id)}
+        if filename is None:
+            form["url"] = content.decode()
+        else:
+            form["file"] = (BytesIO(content), filename)
+        item = _call(ctx, "post", "/content-items", heads[trainer], data=form, content_type="multipart/form-data")
+        path, coordinator = f"/content-items/{item['content_item_id']}", coordinators[batch.branch_id]
+        if state == "Draft":
+            continue
+        _call(ctx, "post", f"{path}/submit", heads[trainer])
+        if state == "Submitted":
+            continue
+        if state == "Under Review":
+            _call(ctx, "post", f"{path}/review", coordinator, json={"decision": "start"})
+        elif state == "Changes Requested":
+            _call(ctx, "post", f"{path}/review", coordinator,
+                  json={"decision": "request_changes", "comment": "Add the evaluation section and remove the hard-coded file path."})
+        elif state == "Rejected":
+            _call(ctx, "post", f"{path}/review", coordinator, json={"decision": "reject", "comment": "Contains personal data; anonymise it first."})
+        else:
+            _call(ctx, "post", f"{path}/review", coordinator, json={"decision": "approve", "release": state != "Approved", "comment": "Approved"})
+        if state == "Retired":
+            _call(ctx, "post", f"{path}/retire", coordinator, json={"reason": "Replaced by the Track CV 3.2 Pandas lab"})
+        if state == "Released + v2 submitted":
+            _call(ctx, "post", f"{path}/versions", heads[trainer], content_type="multipart/form-data",
+                  data={"file": (BytesIO(b"# Window functions v2\n\nNTILE, FIRST_VALUE\n"), "window-functions-v2.md"),
+                        "change_summary": "Added NTILE and FIRST_VALUE examples"})
+            _call(ctx, "post", f"{path}/submit", heads[trainer])
+
+
+def seed_recordings(ctx: SeedContext) -> None:
+    """Recordings for the prototype sessions and exceptions RX-0012 to RX-0015 (raised through the same services)."""
+    db.session.execute(text("INSERT INTO code_counters (counter_key, last_value) VALUES ('RX', 11) "
+                            "ON CONFLICT (counter_key) DO UPDATE SET last_value = 11"))
+    db.session.commit()
+    sessions = {s.session_code: s.session_id for s in db.session.execute(select(ClassSession)).scalars()}
+    gnt, vij = _bearer(ctx, "coordinator.gnt@nipuna.test"), _bearer(ctx, "coordinator.vij@nipuna.test")
+    trainer_v = _bearer(ctx, "trainer.v1@nipuna.test")
+
+    def register(code: str, headers: dict, **body) -> int:
+        return _call(ctx, "post", "/recordings", headers, json={"session_id": sessions[code], **body})["recording_id"]
+
+    released = register("SES-000090", gnt, media_ref="drive:1Qa9-ses090", duration_minutes=120)
+    _call(ctx, "post", f"/recordings/{released}/release", gnt)
+    partial = register("SES-000101", gnt, media_ref="drive:1Qa9-ses101", duration_minutes=60)
+    _call(ctx, "post", f"/recordings/{partial}/partial", gnt, json={"note": "second hour missing"})  # RX-0012
+    held = register("SES-000102", gnt, media_ref="drive:1Qa9-ses102", duration_minutes=118)
+    _call(ctx, "post", f"/recordings/{held}/hold", gnt, json={"reason": "whiteboard shows sample PII"})  # RX-0013
+    register("SES-000103", gnt, status="Unavailable")
+    register("SES-000104", gnt, status="Unavailable")
+    register("SES-000201", vij, status="Unavailable")
+    _call(ctx, "post", "/recording-exceptions", trainer_v, json={"session_id": sessions["SES-000201"], "issue_type": "Integration Unavailable",
+                                                                  "issue": "Organizer account licence Pending Verification"})  # RX-0014
+    register("SES-000095", vij, status="Unavailable")
+    _call(ctx, "post", "/recording-exceptions", vij, json={"session_id": sessions["SES-000095"], "issue_type": "Unavailable",
+                                                            "issue": "No recording mapped to actual Class Session"})  # RX-0015
+    ctx.notes.append("Run `flask --app app jobs run recording-check` to flag the other delivered classes that have no recording yet")
+
+
+def seed_access_extensions(ctx: SeedContext) -> None:
+    """EXT-031 waiting, EXT-032 approved after the first expiry, EXT-033 after the second anniversary (needs an exception)."""
+    db.session.execute(text("INSERT INTO code_counters (counter_key, last_value) VALUES ('EXT', 30) "
+                            "ON CONFLICT (counter_key) DO UPDATE SET last_value = 30"))
+    # Two completed learners get earlier Joining Dates so their first / second anniversaries have passed
+    for key, joining in (("A", date(2025, 6, 10)), ("F", date(2024, 8, 19))):
+        db.session.execute(text("UPDATE enrolments SET joining_date = :d WHERE student_id = :s"),
+                           {"d": joining, "s": ctx.students[key]["student_id"]})
+    db.session.commit()
+
+    def ask(student_key: str, reason: str) -> dict:
+        student = ctx.students[student_key]
+        return _call(ctx, "post", "/access-extension-requests", _bearer(ctx, student["student_code"]),
+                     json={"enrolment_id": student["enrolments"][0]["enrolment_id"], "scope": "Both", "reason": reason})
+
+    ask("anvitha", "I would like to keep the recordings and notes for revision before interviews")  # EXT-031
+    second = ask("A", "Preparing for a certification exam; the first year has ended")  # EXT-032
+    _call(ctx, "post", f"/access-extension-requests/{second['request_id']}/decision", _bearer(ctx, "coordinator.gnt@nipuna.test"),
+          json={"decision": "approve", "note": "Joining Date and history verified"})
+    ask("F", "Returning to revise after the second anniversary")  # EXT-033
+
+    for kind, detail in (("resource_view", {"item_code": "CNT-000001"}), ("recording_view", {"session_code": "SES-000090"})):
+        db.session.add(ActivityEvent(student_id=ctx.students["anvitha"]["student_id"], kind=kind, detail=detail,
+                                     occurred_at=datetime(2026, 9, 29, 19, 0, tzinfo=IST)))
+    db.session.commit()
+
+
+SEEDERS += [seed_content_library, seed_recordings, seed_access_extensions]

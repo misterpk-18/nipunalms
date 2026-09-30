@@ -251,3 +251,35 @@ Super Admin manages; the Founder / CEO can read every list (mutations are Super 
 - Joining date: `services/attendance.set_joining_date(enrolment, date)` — the first Present / Late moves "Allocated — awaiting first regular class" to Active and opens the enrolment's Certificate Register entry (Not Yet Eligible).
 - Progress is computed by SQL views (`enrolment_progress` and the views under it). Attendance % = (Present + Late) / marked classes delivered since joining; "Partial Data" while any delivered class is unmarked; the alert needs three marked classes and `attendance_alert_threshold`. Excused counts against the percentage; an approved or completed recovery is reported separately and counts towards required learning.
 - Certificates: the database validates transitions and allocates `NIT-CERT-YYYY-NNNNNN` at first issue; a reissue is a new version under the same number and supersedes the earlier one. Complimentary enrolments stay "Configuration Pending" until `complimentary_completion_rule_configured` is true.
+### S2 — Content library, recordings, recording exceptions, access extensions (migration `020`)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/content-items` | Staff | Filters `course_id`, `batch_id`, `branch_id`, `module_id`, `topic_id`, `content_type`, `q`, `status` (comma list). Trainer: own items + items of batches they teach; AC / BM: their branches; Super Admin / Founder: all |
+| POST | `/content-items` | Trainer, AC, Super Admin | JSON (links) or multipart with `file`. Placement from `topic_id` / `module_id` / `curriculum_version_id` / `course_id`; branch from the batch or the author's batches (`branch_id` needed for Super Admin). Creates v1 Draft |
+| GET | `/content-items/options` | Staff | Batches the caller may author for, with curriculum versions, modules and topics |
+| GET / PATCH | `/content-items/{id}` | Staff / author, AC, Super Admin | Detail with versions and review history; edit metadata, placement, download policy (author only while Draft / Changes Requested; reviewer audited) |
+| POST | `/content-items/{id}/versions` | Author, AC, Super Admin | New file (multipart) or `url`; v2, v3 … earlier versions kept |
+| POST | `/content-items/{id}/submit` | Author, AC, Super Admin | Draft / Changes Requested → Submitted; coordinators notified |
+| POST | `/content-items/{id}/review` | AC (branch), Super Admin | `decision` start / approve / request_changes / reject (+ `comment`, `release`); never the uploader |
+| POST | `/content-items/{id}/release`, `/retire` | AC (branch), Super Admin | Approved → Released (previous released version retired, students notified); retire needs a reason |
+| POST | `/content-items/{id}/open` | Student, staff | Students: entitlement + expiry checked, `resource_view` activity recorded; returns link URL / file info |
+| GET | `/content-items/{id}/file?download=` | Student, staff | Serves the file; entitlement, expiry and `download_allowed` enforced here; only safe types shown inline |
+| GET | `/me/resources`, `/me/recordings`, `/me/access` | Student | Released items / recordings of the student's own enrolments with access state; Joining Date, expiries and what can still be requested |
+| GET / POST | `/recordings` | Staff / AC, Super Admin | List scoped by branch or taught batches; register a part against an actual class session |
+| GET / PATCH | `/recordings/{id}` | Staff / AC, Super Admin | Detail (+ open exceptions); media reference, duration, source, download policy |
+| POST | `/recordings/{id}/release`, `/hold`, `/partial`, `/unavailable` | AC (branch), Super Admin | Release needs the media reference and a Delivered class and closes open hold / partial exceptions; hold / partial / unavailable raise an exception |
+| POST | `/recordings/{id}/watch` | Student | Entitlement and expiry checked, `recording_view` recorded; playback state read from the integrations register |
+| GET / POST | `/recording-exceptions` | Staff / Trainer, AC, Super Admin | RX codes; filters `status`, `issue_type`, `branch_id`, `batch_id`, `session_id` |
+| POST | `/recording-exceptions/{id}/start`, `/resolve` | AC, BM (cover), Super Admin | Integration exceptions are Super Admin only; resolve needs a note |
+| POST / GET | `/access-extension-requests` | Student (create) / student, AC, BM, Super Admin, Founder | EXT codes; own requests or the branch's |
+| POST | `/access-extension-requests/{id}/decision` | AC / BM of the service branch, Super Admin; exceptions: Super Admin, Founder | `approve` / `reject` (+ `note`, `new_expiry` for an exception) |
+
+Job: `flask --app app jobs run recording-check` (`jobs list` shows all jobs).
+
+**As built (S2):**
+- Content versions carry the review lifecycle (Draft → Submitted → Under Review → Approved → Released, or Changes Requested / Rejected; a superseded version is Retired); the item's `status` follows its latest version, so students keep the last Released version until a newer one is released. A retired item is withdrawn from students; files and versions are never deleted.
+- Audience = same branch and course, the item's batch (if any) is the enrolment's active batch, and the item's curriculum version is the enrolment's version or one of its combo tracks' versions (`services/content.item_matches_enrolment`). Withdrawn and gate-blocked enrolments grant nothing.
+- Access window (`services/access.py`): one calendar year from the enrolment's Joining Date through the end of the anniversary day in IST (29 Feb → 1 Mar), one extra year to the second anniversary on request (Recording, Material or Both), pending before joining. Settings `access_default_years` / `access_max_years`; the older `recording_access_days` is superseded by Module 17 §8 and unused.
+- Uploads: allow-list, 50 MB / 250 MB (datasets, archives) from `app_settings`, magic-number check, notebook JSON check, safe ZIP inspection (paths, nested archives, executables, expansion ratio). Local disk under `UPLOAD_DIR`; no malware scan yet (BACKLOG).
+- Recordings are references only; Google is never called. Escalation clock from class end: 4 h Academic Coordinator, 24 h Branch Manager + Super Admin, 48 h Founder (`escalation` on each exception; the job sends the notices once).

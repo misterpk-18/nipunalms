@@ -44,3 +44,18 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Certificate document | No PDF / template and no email delivery (Email integration not verified); the register and public verification exist |
 | Public verification page | `/certificates/verify/{number}` is API only; a public SPA route needs `/verify` in the public paths |
 | Joining date on correction | An approved correction to Present sets the joining date; changing the first Present to Absent does not reset it |
+## Content & recordings (S2)
+
+| Item | Notes |
+|---|---|
+| Malware scanning of uploads | Module 18 §7 asks for scanning; not available. Files are validated (type, magic number, safe archive) and never executed; scanning is pending technical validation |
+| Scheduled release and urgent hide | Module 18 §4 / §9 describe scheduled and topic-linked release and urgent hiding of a placement. Built: immediate release and retire (withdraw); scheduled release and per-placement hide are open |
+| Separate placements per asset | The library keeps one placement per item (course / version / topic / batch). Reusing one asset in several placements without duplicating bytes needs a placement table |
+| Selected-student and company-wide audiences | Audience is branch + course (+ batch). Selected students and cross-branch publishing need the explicit company-wide permission Module 18 §3–4 describes |
+| "Report a problem" on a resource | Module 18 §10; would create a support request (S5) tied to the item and enrolment |
+| Recording access after a delayed release | Module 17 §8: at least 30 days of access after a substantially delayed release is not applied; access is Joining Date based only |
+| Batch recording commitment | Included / Not Included / Limited terms per batch (Module 17 §2) are not modelled; the check job flags every Delivered session without a recording |
+| Student notices on 24 h delay | Module 17 §6 asks to update affected students at 24 h; only staff escalation notices are sent |
+| Recording playback | Needs the verified Drive integration and a proxy with per-request entitlement (Module 17 §7); today `watch` records the view and returns the integration state |
+| Jobs runner | `flask jobs run` (S2) holds `recording-check`; other slices add their jobs to `services/jobs.JOBS` |
+| S2 seed adjusts two joining dates | Learners A and F (completed) get Joining Dates 2025-06-10 and 2024-08-19 so EXT-032 / EXT-033 show a request after the first / second anniversary |

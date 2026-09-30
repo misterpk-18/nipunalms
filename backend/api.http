@@ -10,6 +10,29 @@ Content-Type: application/json
 
 {"login": "admin@nipuna.test", "password": "Nipuna-staging-1"}
 
+# ================================================================ access_extensions
+### access_extensions.create_request
+POST {{base}}/api/v1/access-extension-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### access_extensions.decide
+POST {{base}}/api/v1/access-extension-requests/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### access_extensions.get_request
+GET {{base}}/api/v1/access-extension-requests/1
+Authorization: Bearer {{token}}
+
+### access_extensions.list_requests
+GET {{base}}/api/v1/access-extension-requests
+Authorization: Bearer {{token}}
+
 # ================================================================ admin_students
 ### admin_students.get_student
 GET {{base}}/api/v1/admin/students/1
@@ -336,6 +359,79 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ content
+### content.add_version
+POST {{base}}/api/v1/content-items/1/versions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### content.create_item
+POST {{base}}/api/v1/content-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### content.get_file
+GET {{base}}/api/v1/content-items/1/file
+Authorization: Bearer {{token}}
+
+### content.get_item
+GET {{base}}/api/v1/content-items/1
+Authorization: Bearer {{token}}
+
+### content.list_items
+GET {{base}}/api/v1/content-items
+Authorization: Bearer {{token}}
+
+### content.open_item
+POST {{base}}/api/v1/content-items/1/open
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### content.placement_options
+GET {{base}}/api/v1/content-items/options
+Authorization: Bearer {{token}}
+
+### content.release
+POST {{base}}/api/v1/content-items/1/release
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### content.retire
+POST {{base}}/api/v1/content-items/1/retire
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### content.review
+POST {{base}}/api/v1/content-items/1/review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### content.submit
+POST {{base}}/api/v1/content-items/1/submit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### content.update_item
+PATCH {{base}}/api/v1/content-items/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ crm
 ### crm.get_status
 GET {{base}}/api/v1/integrations/crm/status
@@ -429,6 +525,94 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/me/progress
 Authorization: Bearer {{token}}
 
+# ================================================================ recording_exceptions
+### recording_exceptions.get_exception
+GET {{base}}/api/v1/recording-exceptions/1
+Authorization: Bearer {{token}}
+
+### recording_exceptions.list_exceptions
+GET {{base}}/api/v1/recording-exceptions
+Authorization: Bearer {{token}}
+
+### recording_exceptions.raise_exception
+POST {{base}}/api/v1/recording-exceptions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recording_exceptions.resolve_exception
+POST {{base}}/api/v1/recording-exceptions/1/resolve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recording_exceptions.start_exception
+POST {{base}}/api/v1/recording-exceptions/1/start
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ recordings
+### recordings.get_recording
+GET {{base}}/api/v1/recordings/1
+Authorization: Bearer {{token}}
+
+### recordings.hold_recording
+POST {{base}}/api/v1/recordings/1/hold
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recordings.list_recordings
+GET {{base}}/api/v1/recordings
+Authorization: Bearer {{token}}
+
+### recordings.partial_recording
+POST {{base}}/api/v1/recordings/1/partial
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recordings.register_recording
+POST {{base}}/api/v1/recordings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recordings.release_recording
+POST {{base}}/api/v1/recordings/1/release
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recordings.unavailable_recording
+POST {{base}}/api/v1/recordings/1/unavailable
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recordings.update_recording
+PATCH {{base}}/api/v1/recordings/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recordings.watch_recording
+POST {{base}}/api/v1/recordings/1/watch
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ reference
 ### reference.list_branches
 GET {{base}}/api/v1/reference/branches
@@ -461,6 +645,19 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ student_library
+### student_library.get_access
+GET {{base}}/api/v1/me/access
+Authorization: Bearer {{token}}
+
+### student_library.list_recordings
+GET {{base}}/api/v1/me/recordings
+Authorization: Bearer {{token}}
+
+### student_library.list_resources
+GET {{base}}/api/v1/me/resources
+Authorization: Bearer {{token}}
 
 # ================================================================ students
 ### students.get_student

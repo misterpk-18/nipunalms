@@ -228,3 +228,17 @@ Added to the admin nav in `auth/access.ts`: Users & Access, Student Accounts, CR
 | `/academic/progress` | `academic/progress` | Table per student with batch / alert filters, recovery and correction queues |
 | `/academic/completion` | `academic/completion` | Evidence table, open review, recommend, decide |
 | `/academic/certificates`, `/branch/reports` | `shared/certificate-register` | One register component; the API's `actions` decide which buttons show (recommend / approve / issue / reissue / revoke) |
+## 7. S2 — Content & recordings (built)
+
+| Screen | Feature file | Notes |
+|---|---|---|
+| `/resources` | `student/resources.tsx` | Filters by course, type, title; Open / Download (policy and expiry enforced by the API); access column ("Until 12 Jan 2027", "Pending — no Joining Date yet", "External link") |
+| `/recordings` | `student/recordings.tsx` | Status, access-until, download policy, Watch dialog (playback placeholder that states the Drive integration status) |
+| both | `student/access-window.tsx` | Access entitlement card (rules from Modules 17 / 18) and the extension request dialog |
+| `/trainer/content` | `trainer/content.tsx` | Upload (batch → topic picker from `/content-items/options`, file or link), submit for review, new version, details |
+| `/academic/content-review` | `academic/content-review.tsx` | Tabs Awaiting review / Ready to release / Released / Changes requested / All; review dialog (approve, approve & release, request changes, reject), retire |
+| `/academic/recording-exceptions` | `academic/recording-exceptions.tsx` | Tabs Exceptions (start / resolve, escalation step) and Recordings (register, media reference, release, hold, partial, unavailable) |
+| `/branch/requests` (part) | `branch/access-extensions.tsx` | Component `AccessExtensions` only; `routes/branch.requests.tsx` is composed by the dashboards phase (with S5's escalations component) |
+| shared | `shared/content-detail.tsx`, `api/content.ts` | Detail dialog with versions and review history; API calls, types, IST date helpers, authenticated file open |
+
+Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me/recordings?session_id=`.
