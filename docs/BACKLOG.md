@@ -104,3 +104,15 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | External channels | WhatsApp / email delivery, quiet hours and retry (Module 26) need the integrations verified first; preferences are stored only |
 | Ask Nipuna | No spend ceiling / cost tracking (Module 24 section 11: ceiling stays unset); Telugu answer quality untested against a live model; the due-work facts (open assignments and tests) cover the student's own batch seats only, with no per-question detail |
 | Career file storage | CV files on local disk under `UPLOAD_DIR/cv` |
+
+## Home, Today & reports (P3)
+
+| Item | Notes |
+|---|---|
+| Multiple delivered topics per class | A class session carries one topic, so "Save delivered topics" confirms that topic and marks the class Delivered. Recording extra topics taught in the same class needs a `session_topics` table |
+| Engagement refresh | No scheduled engagement refresh exists; `refreshed_at` is the latest recorded learning activity. A real refresh timestamp (and Stale against it) waits for the engagement pipeline |
+| Review turnaround timestamps | Submission and review times are always present today, so Partial Data only appears for impossible pairs (review before submission). `review_started_at` is not used yet; academic reports do not include turnaround |
+| Certificate issue lead time | Measured from the completion decision to `issue_date` (a date, not a timestamp); Not Configured until issued certificates trace back to a decided review. No target or SLA is configured |
+| Trainer Today: substitute and co-trainers | Today lists sessions where the trainer is the session's trainer; a co-trainer who is not the session trainer sees the batch but not the session in Today |
+| Student Home language | Card titles follow the EN / తెలుగు setting (prototype keys); card bodies are English, as in the prototype. The Telugu greeting uses `name_te` when the CRM sent it |
+| Join Class on the home tile | Shows the next class only; a second class the same day is reachable from Schedule |
