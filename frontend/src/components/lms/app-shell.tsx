@@ -3,7 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Bell, ChevronDown, Ellipsis, KeyRound, LogOut, ShieldCheck, User } from "lucide-react";
 import type { Workspace } from "@/api/types";
 import { useAuth } from "@/auth/auth";
-import { NAV, WORKSPACE_HOME, WORKSPACE_LABELS, isNavActive, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
+import { NAV, WORKSPACE_HOME, WORKSPACE_LABELS, isNavActive, homeWorkspace, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
 import { LanguageToggle } from "@/components/lms/language-toggle";
 import {
   DropdownMenu,
@@ -18,8 +18,14 @@ import { useNotificationOverview } from "@/api/notifications";
 import { useDocumentLanguage, useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-/** Notification centre per workspace (only these two have one). */
-const NOTIFICATIONS: Partial<Record<Workspace, string>> = { student: "/notifications", trainer: "/trainer/notifications" };
+/** Notification centre per workspace (nothing is sent to the founder). */
+const NOTIFICATIONS: Partial<Record<Workspace, string>> = {
+  student: "/notifications",
+  trainer: "/trainer/notifications",
+  academic: "/academic/notifications",
+  branch: "/branch/notifications",
+  admin: "/admin/notifications",
+};
 
 /** Header + workspace sidebar + phone bottom bar around every signed-in screen. */
 export function AppShell({ children }: { children: ReactNode }) {
@@ -28,7 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { profile, workspaces, signOut } = useAuth();
   const t = useT();
   const [moreOpen, setMoreOpen] = useState(false);
-  const workspace = workspaceForPath(path) ?? "student";
+  const workspace = workspaceForPath(path) ?? homeWorkspace(profile?.home_route);
   const translated = workspace === "student";
   useDocumentLanguage(translated);
 
@@ -116,14 +122,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <div className="mt-0.5 text-xs font-normal text-muted-foreground">{roleLabel}</div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {profile?.student && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile">
-                      <User />
-                      {t("profile")}
-                    </Link>
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem asChild>
+                  <Link to={profile?.student ? "/profile" : "/account/profile"}>
+                    <User />
+                    {profile?.student ? t("profile") : "Profile"}
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/change-password">
                     <KeyRound />

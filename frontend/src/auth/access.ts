@@ -45,15 +45,20 @@ const UNSCOPED_PATHS = [...PUBLIC_PATHS, "/change-password"];
 
 const isUnder = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
-/** Which workspace a path belongs to; null for the entry route and the sign-in / activation / password screens. */
+/** Which workspace a path belongs to; null for the entry route, the sign-in / activation / password screens and the shared /account screens. */
 export function workspaceForPath(path: string): Workspace | null {
-  if (path === "/" || UNSCOPED_PATHS.some((p) => isUnder(path, p))) return null;
+  if (path === "/" || UNSCOPED_PATHS.some((p) => isUnder(path, p)) || isUnder(path, "/account")) return null;
   if (isUnder(path, "/trainer")) return "trainer";
   if (isUnder(path, "/academic")) return "academic";
   if (isUnder(path, "/branch")) return "branch";
   if (isUnder(path, "/admin")) return "admin";
   if (isUnder(path, "/founder")) return "founder";
   return "student";
+}
+
+/** The workspace whose navigation frames a shared screen (/account/*): the one the user lands in. */
+export function homeWorkspace(homeRoute: string | undefined): Workspace {
+  return workspaceForPath(homeRoute ?? "/dashboard") ?? "student";
 }
 
 export function canOpen(workspaces: Workspace[], workspace: Workspace | null): boolean {
@@ -129,6 +134,7 @@ const ACADEMIC_NAV: NavItem[] = [
   { to: "/academic/completion", label: "Completion Review", icon: CircleCheck },
   { to: "/academic/certificates", label: "Certificate Eligibility", icon: Award },
   { to: "/academic/support", label: "Academic Support", icon: LifeBuoy },
+  { to: "/academic/notifications", label: "Notifications", icon: Bell },
   { to: "/academic/reports", label: "Reports", icon: ChartColumn },
 ];
 
@@ -137,6 +143,7 @@ const BRANCH_NAV: NavItem[] = [
   { to: "/branch/operations", label: "Batches, Schedule & People", icon: Users },
   { to: "/branch/requests", label: "Escalations & Extensions", icon: LifeBuoy },
   { to: "/branch/reports", label: "Certificates & Reports", icon: Award },
+  { to: "/branch/notifications", label: "Notifications", icon: Bell },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -148,6 +155,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/admin/students", label: "Student Accounts", icon: GraduationCap },
   { to: "/admin/crm-sync", label: "CRM Sync", icon: RefreshCw },
   { to: "/admin/audit", label: "Audit Log", icon: ScrollText },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell },
   { to: "/academic", label: "Academic (all branches)", icon: CircleCheck },
   { to: "/branch", label: "Branch views", icon: Building2 },
 ];
