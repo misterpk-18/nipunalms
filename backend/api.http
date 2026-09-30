@@ -993,6 +993,23 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ dashboards
+### dashboards.academic_summary
+GET {{base}}/api/v1/academic/summary
+Authorization: Bearer {{token}}
+
+### dashboards.admin_summary
+GET {{base}}/api/v1/admin/summary
+Authorization: Bearer {{token}}
+
+### dashboards.branch_summary
+GET {{base}}/api/v1/branch/summary
+Authorization: Bearer {{token}}
+
+### dashboards.founder_summary
+GET {{base}}/api/v1/founder/summary
+Authorization: Bearer {{token}}
+
 # ================================================================ enrolments
 ### enrolments.allocation_queue
 GET {{base}}/api/v1/allocation-queue
@@ -1001,6 +1018,22 @@ Authorization: Bearer {{token}}
 ### enrolments.list_enrolments
 GET {{base}}/api/v1/enrolments
 Authorization: Bearer {{token}}
+
+# ================================================================ exceptions
+### exceptions.list_exceptions
+GET {{base}}/api/v1/exceptions
+Authorization: Bearer {{token}}
+
+### exceptions.list_steps
+GET {{base}}/api/v1/exceptions/1/1/steps
+Authorization: Bearer {{token}}
+
+### exceptions.log_step
+POST {{base}}/api/v1/exceptions/1/1/steps
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 # ================================================================ finance
 ### finance.get_summary

@@ -116,12 +116,12 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 
 | Route | Feature (`features/academic/`) | API from |
 |---|---|---|
-| `/academic` | `dashboard` (`academic.index.tsx`) | P3 |
+| `/academic` | `dashboard` (`academic.index.tsx`) | Built (P3): `GET /academic/summary` |
 | `/academic/batches` | `batches` | S1 |
 | `/academic/curriculum` | `curriculum` | S1 |
 | `/academic/schedule` | `schedule` | S1 |
 | `/academic/assessments` | `assessments` | S3 |
-| `/academic/exceptions` | `exceptions` | P3 (exception queue view across slices) |
+| `/academic/exceptions` | `exceptions` | Built (P3): `GET /exceptions`, Update logs a recovery step |
 | `/academic/content-review` | `content-review` | S2 |
 | `/academic/recording-exceptions` | `recording-exceptions` | S2 |
 | `/academic/progress` | `progress` | S4 |
@@ -134,15 +134,15 @@ Phase 3 dashboards & reports. Title and description of every placeholder come fr
 
 | Route | Feature | API from |
 |---|---|---|
-| `/branch` | `branch/dashboard` (`branch.index.tsx`) | P3 |
+| `/branch` | `branch/dashboard` (`branch.index.tsx`) | Built (P3): `GET /branch/summary` |
 | `/branch/operations` | `branch/operations` | S1 |
 | `/branch/requests` | `branch/requests` | Built: one page, two tabs (Escalations from S5, Access extensions from S2); `e2e/services.spec.ts` |
 | `/branch/reports` | `branch/reports` | S4 |
-| `/admin` | `admin/dashboard` (`admin.index.tsx`) | P3 |
+| `/admin` | `admin/dashboard` (`admin.index.tsx`) | Built (P3): `GET /admin/summary` |
 | `/admin/integrations` | `admin/integrations` | S6 |
 | `/admin/security` | `admin/security` | S6 |
-| `/admin/exceptions` | `admin/exceptions` | P3 |
-| `/founder` | `founder/dashboard` (`founder.tsx`) | P3 |
+| `/admin/exceptions` | `admin/exceptions` | Built (P3): `GET /exceptions`, grouped by queue |
+| `/founder` | `founder/dashboard` (`founder.tsx`) | Built (P3): `GET /founder/summary` |
 
 ### Public and account screens (built in Phase 1b)
 
@@ -289,3 +289,16 @@ Topic and session pages (S1) can read `GET /me/resources?topic_id=` and `GET /me
 | (component) | `branch/escalations` (`BranchEscalations`) | Support requests escalated to the Branch Manager: the "Escalations" tab of `branch/requests.tsx` |
 
 Shared pieces added: `features/shared/{reason-dialog,support-desk,notification-centre,assistant}`, `api/{support,notifications,career,profile,ask-nipuna}.ts`. The header bell shows the unread count (`useNotificationOverview`). Staff profile is available from `GET /me/profile`; there is no staff profile route yet. The bell exists only in the student and trainer workspaces (the only ones with a notification route).
+
+## P3 — Exception queue & staff dashboards (as built)
+
+| Route | Feature | Notes |
+|---|---|---|
+| `/academic` | `academic/dashboard` | Ranked tiles (allocation queue, results awaiting review, unfulfilled recording promises), widgets (batches delivery-ready, reviews awaiting, open exceptions), a note for each batch that is not ready, quick links, the "four distinct records" note |
+| `/branch` | `branch/dashboard` | Three CRM tiles rendered **Unavailable** with the Not Configured hint (never 0); running batches, schedule and recording exceptions, escalations and extension requests; "Go to" links; locked-branch note |
+| `/admin` | `admin/dashboard` | Integration failures, work awaiting a named owner, overdue payment verifications (Unavailable), integrations verified x / total, provisioning, open exceptions; CRM/LMS sync table, provisioning table, AI status, links |
+| `/founder` | `founder/dashboard` | CRM tiles (Unavailable), active enrolments per branch, batches at risk, certificates awaiting approval, "Decisions needing you" (AI rupee ceiling, recording-access exceptions after the 2nd anniversary with a link to `/branch/requests`) |
+| `/academic/exceptions` | `academic/exceptions` | "Exception / Recovery queue": one table (branch column only when rows span branches), type filter, recovery owner ("Awaiting named owner" plus the role that should own it), **Update** opens a reason dialog, toast "Recovery step logged." Read only for the Branch Manager |
+| `/admin/exceptions` | `admin/exceptions` | "Exception Queues — all branches": a section per queue with a branch column (company-wide rows say "All branches"); Super Admin can Update, the Founder reads |
+
+Shared: `features/shared/dashboard-parts.tsx` (`Tile`, `CrmTile`, `TileRow`, `QuickLinks`), `features/shared/recovery-step.tsx` (`RecoveryStepButton`, `OwnerCell`, `ItemCell`), `api/{dashboards,exceptions}.ts`; `ageText` lives in `features/shared/format.ts`. Spec: `e2e/dashboards-staff.spec.ts` (desktop plus `@mobile`).

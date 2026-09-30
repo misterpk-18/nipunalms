@@ -29,6 +29,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 2 / S2 — Content & recordings | ✅ Done | `020_content_recordings.sql` |
 | 2 / S3 — Assessments | ✅ Done | `030_assessments.sql` |
 | 2 — S5 Student services | ✅ Done | `050_student_services.sql` |
+| 3 — Exception queue | ✅ Done | `080_exception_queue.sql` — `exception_queue` view and `exception_recovery_steps` |
 
 ---
 
@@ -206,3 +207,12 @@ Also inserts `app_settings`: `access_default_years`, `access_max_years`, `record
 | `ai_queries` | Ask Nipuna question, answer, sources, tokens, fallback flag, status, feedback |
 
 **Changes to backbone tables:** `notifications` gains `channel` (In-app / WhatsApp / Email) and `delivery_note` (a Failed delivery must say why). `app_settings`: `ai_daily_limit` raised to 50 (Module 24 pilot limit), new `ai_daily_limit_staff` (100), `ai_enabled`, `support_sla_hours` (48). New helper function `acting_user_id()`. `finance_summaries` is untouched.
+
+## 080 — Exception queue (P3) ✅
+
+| Object | Purpose |
+|---|---|
+| `exception_recovery_steps` | Append-only log (trigger blocks UPDATE / DELETE): `source`, `source_id`, `branch_id`, `reason`, `logged_by`, `logged_at` |
+| `exception_queue` (view) | One row per open exception: `source`, `source_id`, `reference`, `queue`, `branch_id` (NULL = company-wide), `title`, `detail`, `owner_user_id` / `owner_name` (NULL = awaiting a named owner), `owner_label` (role that should own it), `opened_at`, `state`, `link` (SPA route), `step_count`, `last_step_at` |
+
+Unions, without copying: enrolments in `Curriculum Mapping Pending` / `Allocation Pending` / `Provisioning Pending` (003), unresolved `recording_exceptions` (020), pending `access_extension_requests` with `needs_exception` (020), results not yet `Published` per batch (030), open `support_requests` that are escalated or past their SLA (050), `crm_events` with status Failed (003) and integrations that Failed verification or are Misconfigured (001 / 060). The owner is the source record's own owner, else the last person who logged a step. No backbone tables change.
