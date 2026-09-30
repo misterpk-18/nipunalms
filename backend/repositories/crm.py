@@ -1,10 +1,10 @@
 """CRM inbox (events received), outbox (values queued for the CRM) and the pull-status queries."""
 from datetime import datetime
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, func, or_, select
 
 from config.database import db
-from models import AdmissionLmsState, BatchCrmState, CrmEvent, CrmOutbox, Student
+from models import AdmissionLmsState, BatchCrmState, Certificate, CrmEvent, CrmOutbox, Student
 
 
 def get_event_by_event_id(event_id: str) -> CrmEvent | None:
@@ -60,3 +60,14 @@ def batch_states_changed_since(since: datetime) -> list[BatchCrmState]:
     """Batches whose CRM-facing state (incl. a new CRM link) changed after `since`."""
     stmt = select(BatchCrmState).where(BatchCrmState.changed_at > since).order_by(BatchCrmState.changed_at, BatchCrmState.batch_id)
     return list(db.session.execute(stmt).scalars())
+
+
+def certificate_states_changed_since(since: datetime) -> list[dict]:
+    """Numbered certificate versions (Issued / Superseded / Revoked) changed after `since`, as the CRM mirrors them."""
+    stmt = (
+        select(func.certificate_crm_state(Certificate.certificate_id))
+        .where(Certificate.certificate_number.is_not(None), Certificate.updated_at > since)
+        .order_by(Certificate.updated_at, Certificate.certificate_id)
+    )
+    return list(db.session.execute(stmt).scalars())
+

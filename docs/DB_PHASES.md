@@ -23,6 +23,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
 | CRM alignment | ✅ Done | `005_crm_alignment.sql` — real CRM vocabulary and shapes; academic state and batches back to the CRM |
 | 2 — S6 Admin & security | ✅ Done | `060_admin_security.sql` |
+| CRM certificates | ✅ Done | `070_crm_certificates.sql` — certificates and completion authoriser to the CRM |
 | 2 — S4 Attendance, progress & certificates | ✅ Done | `040_attendance_certificates.sql` |
 | 2 / S2 — Content & recordings | ✅ Done | `020_content_recordings.sql` |
 
@@ -153,3 +154,11 @@ Nothing is seeded as Verified. The status table above gains the row: `060_admin_
 Also inserts `app_settings`: `access_default_years`, `access_max_years`, `recording_check_hours`, `content_max_upload_mb`, `content_dataset_max_upload_mb`.
 
 **Rules enforced:** placement consistency (version of the course, module of the version, topic of the module, batch of the course and branch); a version is a file xor a link; released versions need a release time; hold / partial / resolution / rejection need a reason; a recording maps to a non-cancelled class session and is unique per session and part; one open exception per session and issue; one pending extension per enrolment and scope; an exception's branch is its session's branch; codes are immutable.
+
+## 070 — CRM certificates ✅
+
+| Change | Why |
+|---|---|
+| `admission_academic_state()` wraps `admission_academic_core()` and adds `completion_authorised_by_email` | The CRM's `admissions.completion_authorised_by` is required on completion |
+| `trg_completion_reviews_academics` | A completion decision refreshes the academic state |
+| `certificate_crm_state()`, `trg_certificates_crm` → `CertificateChanged` | Each numbered version when Issued, Superseded or Revoked; the CRM mirrors the LMS register |

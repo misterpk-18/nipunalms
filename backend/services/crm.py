@@ -549,7 +549,8 @@ HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
 def status_since(since: datetime) -> dict:
     """The values the CRM stores about the LMS that changed after `since` (see docs/CRM_INTEGRATION.md):
     persons.lms_user_id / lms_provisioned_at; admissions.lms_status / lms_last_activity_at; the academic columns
-    the LMS now owns (enrolment_status, curriculum_status, allocations and joining date, completion); batches."""
+    the LMS now owns (enrolment_status, curriculum_status, allocations and joining date, completion); batches;
+    certificates from the LMS Certificate Register."""
     now = datetime.now(timezone.utc)
     return {
         "persons": [{"crm_person_id": s.crm_person_id, "lms_user_id": s.lms_user_id, "lms_provisioned_at": s.provisioned_at}
@@ -559,5 +560,6 @@ def status_since(since: datetime) -> dict:
                        for st in crm_repo.admission_states_changed_since(since)],
         "academics": [st.academic for st in crm_repo.academics_changed_since(since)],
         "batches": [state.payload for state in crm_repo.batch_states_changed_since(since)],
+        "certificates": crm_repo.certificate_states_changed_since(since),
         "as_of": now,
     }

@@ -63,7 +63,8 @@ endpoint — §3.2). Undelivered rows for the same admission / batch are superse
 | `batch_allocations` (batch, status, `joining_date`, `ended_at`, `end_reason`) | `allocations[]` = `{course_code, lms_course_id, crm_batch_id, status (Active / Moved / Withdrawn / Completed), joining_date, allocated_on, ended_on, end_reason}` — per component course for a combo | same |
 | `admissions.academic_completed_at` | Enrolment completed time | same |
 | `batches` (+ `lms_course_id`) | `{lms_course_id = LMS batch_code, crm_batch_id, course_code, branch_code, delivery_mode, status (Planned / Open / In Progress / Completed / Cancelled), capacity, start_date, end_date, curriculum_version_label, lead_trainer_email, trainer_emails}` | `batches[]` / `BatchUpserted` (+ `BatchLinked` when a CRM batch is linked) |
-| `certificates` | LMS Certificate Register | *Coming with the certificates slice* (`CertificateChanged`) |
+| `certificates` | LMS Certificate Register: every numbered version when Issued, Superseded (by a reissue) or Revoked — `{certificate_number, certificate_type, version, status, crm_admission_id, crm_person_id, course_code, enrolment_code, holder_name, issue_date, issued_by_email, revoked_at, revoked_by_email, reason, supersedes_version, changed_at}` | `certificates[]` / `CertificateChanged` |
+| `admissions.completion_authorised_by` | The Academic Coordinator who decided the completion review | `academics[].completion_authorised_by_email` |
 
 ### 2.3 Vocabulary mapping (done in the LMS)
 
@@ -119,7 +120,7 @@ Make these read-only (or remove the buttons) and link to the LMS: `POST/PATCH /b
 
 ### 3.6 Certificates
 
-The LMS register numbers certificates `NIT-CERT-2026-000001` (prototype); the CRM numbers `GNT-C-2627-00001`. Decide one series (recommended: the LMS register's, since it owns issue, reissue and revoke) and mirror LMS certificates into CRM `certificates` read-only, for Student 360 and alumni.
+The LMS register numbers certificates `NIT-CERT-2026-000001` (prototype); the CRM numbers `GNT-C-2627-00001`. Decide one series (recommended: the LMS register's, since it owns issue, reissue and revoke) and mirror LMS certificates into CRM `certificates` read-only, for Student 360 and alumni (CRM `certificate_status` has no *Superseded*: add it, or keep only the latest version per number).
 
 ### 3.7 Student activation delivery
 
@@ -153,4 +154,4 @@ CRM `support_cases` (money, admission, complaints) and LMS support requests (aca
 | CRM vocabulary and shapes (Online, English / Telugu, `phone`, `course_title`, `combo_courses` components, Archived, one course per admission, complimentary as its own admission, seat type, planned start, access until, full finance balances + instalments) | ✅ (db 005, `tests/test_crm_alignment.py`) |
 | LMS → CRM: provisioning, `lms_status`, academics, batches (pull + outbox) | ✅ (db 003, 005) |
 | Outbox delivery worker | ⏳ waits for 3.2 |
-| Certificates to the CRM | ⏳ with the certificates slice |
+| Certificates and completion authoriser to the CRM | ✅ (db 070, `tests/test_crm_certificates.py`) |
