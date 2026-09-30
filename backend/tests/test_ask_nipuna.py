@@ -1,11 +1,12 @@
 """Ask Nipuna: scope guardrails, the daily limit, the rule-based fallback and the model call (mocked; never the real API)."""
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
 
 from config.database import db
-from models import AiQuery, CurriculumModule, CurriculumTopic, Notification
+from models import AiQuery, Assignment, CurriculumModule, CurriculumTopic, Notification, Test
 from repositories import catalog as catalog_repo
 from services import ai_facts
 from services import ask_nipuna as ask_service
@@ -73,7 +74,7 @@ class TestFallback:
         assert answer["input_tokens"] == 0 and answer["status"] == "Answered"
         assert {"type": "class_session", "id": world.sessions.upcoming.session_id, "code": world.sessions.upcoming.session_code} in answer["sources"]
         assert answer["usage"]["used"] == 1
-        assert any("Assignments and tests are not connected" in w for w in answer["warnings"])
+        assert not any("not connected" in w for w in answer["warnings"])
 
     def test_progress_and_topic_questions_cite_their_records(self, client, world, curriculum):
         progress = ask(client, world, world.students.s1, "How am I doing?", "Explain my progress")
@@ -86,9 +87,32 @@ class TestFallback:
         career = ask(client, world, world.students.s1, "Help with my resume")
         assert "no guaranteed placement" in career["answer"]
 
-    def test_due_work_is_not_invented(self, client, world, curriculum):
+    def test_with_no_open_work_the_assistant_says_so(self, client, world, curriculum):
         answer = ask(client, world, world.students.s1, "What assignments are due?")
-        assert "Data unavailable / not verified" in answer["answer"]
+        assert "no open assignments or tests" in answer["answer"]
+
+    def test_due_work_lists_the_students_own_open_assignments_and_tests(self, client, world, curriculum):
+        b1, b2 = world.batches.b1, world.batches.b2
+        now = datetime.now(timezone.utc)
+        mine = Assignment(batch_id=b1.batch_id, title="Regression homework", brief="b", max_marks=10, release_at=now - timedelta(days=1),
+                          due_at=now + timedelta(days=2), closes_at=now + timedelta(days=9), reviewer_user_id=world.people.t1.user_id,
+                          status="Released", created_by=world.people.t1.user_id)
+        other = Assignment(batch_id=b2.batch_id, title="Other batch homework", brief="b", max_marks=10, release_at=now - timedelta(days=1),
+                           due_at=now + timedelta(days=2), closes_at=now + timedelta(days=9), reviewer_user_id=world.people.t2.user_id,
+                           status="Released", created_by=world.people.t2.user_id)
+        quiz = Test(batch_id=b1.batch_id, title="Module quiz", kind="Practice quiz", release_status="Released", released_at=now,
+                    closes_at=now + timedelta(days=3), reviewer_user_id=world.people.t1.user_id, created_by=world.people.t1.user_id)
+        db.session.add_all([mine, other, quiz])
+        db.session.flush()
+
+        answer = ask(client, world, world.students.s1, "What assignments are due?")
+        assert "Regression homework" in answer["answer"] and "Module quiz" in answer["answer"] and "Other batch" not in answer["answer"]
+        assert {"type": "assignment", "id": mine.assignment_id, "code": mine.assignment_code} in answer["sources"]
+        assert all(s["id"] != other.assignment_id for s in answer["sources"] if s["type"] == "assignment")
+        assert not any("not connected" in w for w in answer["warnings"])
+
+        elsewhere = ask(client, world, world.students.s2, "What assignments are due?")
+        assert "Other batch homework" in elsewhere["answer"] and "Regression homework" not in elsewhere["answer"]
 
     def test_history_lists_only_my_questions(self, client, world):
         ask(client, world, world.students.s1, "When is my next class?")
@@ -129,11 +153,11 @@ class TestModelCall:
         assert answer["audience"] == "Staff"
 
     def test_other_slices_can_add_facts(self, client, world, curriculum, fake):
-        ai_facts.register_fact_provider("due_work", lambda student: ({"assignments_due": 2}, [{"type": "assignment", "code": "ASG-8"}]))
+        ai_facts.register_fact_provider("extra", lambda student: ({"assignments_due": 2}, [{"type": "assignment", "code": "ASG-8"}]))
         try:
             answer = ask(client, world, world.students.s1, "What is due?")
         finally:
-            ai_facts.FACT_PROVIDERS.pop("due_work")
+            ai_facts.FACT_PROVIDERS.pop("extra")
         assert '"assignments_due": 2' in fake.calls[0]["messages"][0]["content"]
         assert {"type": "assignment", "code": "ASG-8"} in answer["sources"] and not any("not connected" in w for w in answer["warnings"])
 

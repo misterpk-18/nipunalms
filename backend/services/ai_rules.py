@@ -48,6 +48,13 @@ def _session_lines(sessions: list[dict], limit: int = 5) -> str:
     return "\n".join(f"- {s['starts']}: {s['title']} ({s['mode']}, {s['batch']})" for s in sessions[:limit])
 
 
+def _due_lines(due: dict, limit: int = 5) -> str:
+    lines = [f"- Assignment {a['code']} {a['title']}: {a['state'].lower()}, due {a['due']} ({a['batch']})" for a in due["assignments"][:limit]]
+    lines += [f"- Test {t['code']} {t['title']} ({t['kind']}): {t['status'].lower()}" + (f", closes {t['closes']}" if t["closes"] else "")
+              for t in due["tests"][:limit]]
+    return "\n".join(lines)
+
+
 def _first_topic(facts: Facts) -> tuple[str, str, bool] | None:
     for version in _curricula(facts):
         for module in version["modules"]:
@@ -90,7 +97,9 @@ def student_answer(question: str, action: str | None, facts: Facts) -> tuple[str
         due = facts.data.get("due_work")
         if due is None:
             return "Data unavailable / not verified: due work isn't connected to me yet. Open Tasks and Tests to see what is due.", []
-        return f"Your due work: {due}", _pick(facts, "assignment", "test")
+        if not due["assignments"] and not due["tests"]:
+            return "You have no open assignments or tests right now.", []
+        return "Your due work:\n" + _due_lines(due), _pick(facts, "assignment", "test")
     if re.search(r"\b(career|job|placement|resume|cv|interview)\b", text):
         return (
             "Career support is placement / career assistance only, with no guaranteed placement. Open Career to opt in, keep your "

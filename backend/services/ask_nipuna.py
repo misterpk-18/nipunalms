@@ -22,11 +22,14 @@ from repositories import ask_nipuna as ask_repo
 from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories.common import paginate
-from services import ai_facts, ai_rules
+from services import ai_facts, ai_rules, due_work
 from services.ai_facts import Facts
 from services.context import CurrentUser, current_user
 from services.errors import BusinessRule, NotFound, TooManyAttempts
 from services.notifications import notify
+
+# S3 supplies the student's open assignments and tests
+ai_facts.register_fact_provider("due_work", due_work.student_due_work)
 
 logger = logging.getLogger(__name__)
 
