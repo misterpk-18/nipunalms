@@ -1,4 +1,4 @@
-"""Internal notification sending for other slices (the Notification Centre API comes with the student-services slice).
+"""Internal notification sending for other slices (the Notification Centre reads them: services/notification_centre.py).
 
 A notification goes to explicit recipients, or to everyone holding a role at a branch. Sending is deduplicated:
 one notification per (event_key, recipient), however many times the same event is processed.

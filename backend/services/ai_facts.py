@@ -14,8 +14,8 @@ from typing import Any, Callable
 from config.database import db
 from config.timezone import IST
 from models import Batch, CurriculumVersion, Student
-from repositories import ask_nipuna as ask_repo
 from repositories import batches as batches_repo
+from repositories import class_sessions as sessions_repo
 from repositories import students as students_repo
 from services import scope
 from services.context import CurrentUser
@@ -66,6 +66,12 @@ def _session_facts(sessions) -> list[dict]:
     ]
 
 
+def _delivery(counts: dict[int, dict[str, int]], batch_id: int) -> dict[str, int]:
+    """Delivered sessions and planned ones (every session that was not cancelled) for a batch."""
+    c = counts.get(batch_id, {"delivered": 0, "upcoming": 0})
+    return {"delivered": c["delivered"], "planned": c["delivered"] + c["upcoming"]}
+
+
 def student_facts(student: Student, now: datetime) -> Facts:
     enrolments = [e for e in students_repo.enrolments_of_student(student.student_id) if e.status != "Withdrawn"]
     allocations = batches_repo.active_allocations([e.enrolment_id for e in enrolments])
@@ -92,15 +98,13 @@ def student_facts(student: Student, now: datetime) -> Facts:
     facts.data["curriculum"] = [_version_facts(v) for v in versions.values()]
     facts.sources += [{"type": "curriculum_version", "id": v.curriculum_version_id, "code": v.version_label} for v in versions.values()]
 
-    sessions = ask_repo.upcoming_sessions(batch_ids, now, now + timedelta(days=UPCOMING_DAYS), UPCOMING_LIMIT)
+    sessions = sessions_repo.upcoming_in_window(
+        sessions_repo.student_sessions_stmt({e.enrolment_id for e in enrolments}), now, now + timedelta(days=UPCOMING_DAYS), UPCOMING_LIMIT)
     facts.data["upcoming_sessions"] = _session_facts(sessions)
     facts.sources += [{"type": "class_session", "id": s.session_id, "code": s.session_code} for s in sessions]
 
-    counts = ask_repo.session_counts(batch_ids)
-    facts.data["delivery"] = [
-        {"batch": a.batch.batch_code, "delivered": counts.get(a.batch_id, (0, 0))[0], "planned": counts.get(a.batch_id, (0, 0))[1]}
-        for a in allocations.values()
-    ]
+    counts = sessions_repo.state_counts_by_batch(list(batch_ids))
+    facts.data["delivery"] = [{"batch": a.batch.batch_code, **_delivery(counts, a.batch_id)} for a in allocations.values()]
     facts.sources += [{"type": "batch", "id": a.batch_id, "code": a.batch.batch_code} for a in allocations.values()]
 
     for name, provider in FACT_PROVIDERS.items():
@@ -118,15 +122,16 @@ def staff_facts(user: CurrentUser, now: datetime) -> Facts:
     batches: list[Batch] = list(db.session.execute(stmt).scalars())
     batch_ids = {b.batch_id for b in batches}
     allocated = batches_repo.allocated_counts(list(batch_ids))
-    counts = ask_repo.session_counts(batch_ids)
-    sessions = ask_repo.upcoming_sessions(batch_ids, now, now + timedelta(days=7), UPCOMING_LIMIT)
+    counts = sessions_repo.state_counts_by_batch(list(batch_ids))
+    visible = sessions_repo.list_stmt({}, branch_ids, scope.trainer_batch_ids(user), set())
+    sessions = sessions_repo.upcoming_in_window(visible, now, now + timedelta(days=7), UPCOMING_LIMIT, batch_ids)
 
     facts = Facts(data={"staff": {"name": user.full_name}})
     facts.data["batches"] = [
         {
             "batch": b.batch_code, "course": b.course.title, "state": b.state, "readiness": b.readiness, "capacity": b.capacity,
             "allocated_students": allocated.get(b.batch_id, 0),
-            "sessions_delivered": counts.get(b.batch_id, (0, 0))[0], "sessions_planned": counts.get(b.batch_id, (0, 0))[1],
+            "sessions_delivered": _delivery(counts, b.batch_id)["delivered"], "sessions_planned": _delivery(counts, b.batch_id)["planned"],
             "curriculum": _version_facts(b.curriculum_version) if b.curriculum_version else None,
         }
         for b in batches

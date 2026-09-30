@@ -188,6 +188,15 @@ def delivered_in_batch(batch_id: int) -> list[ClassSession]:
     return list(db.session.execute(stmt).scalars())
 
 
+def upcoming_in_window(stmt: Select, start: datetime, end: datetime, limit: int, batch_ids: set[int] | None = None) -> list[ClassSession]:
+    """Sessions from a visibility statement that are still to happen (Scheduled / Rescheduled / Live) in the window, soonest first."""
+    stmt = stmt.where(ClassSession.starts_at >= start, ClassSession.starts_at < end,
+                      ClassSession.state.in_(("Scheduled", "Rescheduled", "Live")))
+    if batch_ids is not None:
+        stmt = stmt.where(ClassSession.batch_id.in_(batch_ids))
+    return list(db.session.execute(stmt.limit(limit)).scalars())
+
+
 # ---------------------------------------------------------------- what a student may see
 
 def _student_allocation_condition(enrolment_ids):

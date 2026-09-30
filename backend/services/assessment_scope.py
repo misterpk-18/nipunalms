@@ -69,17 +69,20 @@ def visible_batch_clause(batch_id_column):
     return clause | batch_id_column.in_(taught) if taught else clause
 
 
-def student_enrolments_by_batch(user: CurrentUser | None = None) -> dict[int, Enrolment]:
-    """The current student's seat per batch: batch id -> the enrolment allocated there."""
-    user = user or current_user()
-    if user.student_id is None:
-        return {}
-    enrolments = {e.enrolment_id: e for e in students_repo.enrolments_of_student(user.student_id)}
+def seats_of_student(student_id: int) -> dict[int, Enrolment]:
+    """A student's seat per batch: batch id -> the enrolment allocated there."""
+    enrolments = {e.enrolment_id: e for e in students_repo.enrolments_of_student(student_id)}
     allocations = batches_repo.active_allocations(list(enrolments))
     seats: dict[int, Enrolment] = {}
     for enrolment_id, allocation in allocations.items():
         seats.setdefault(allocation.batch_id, enrolments[enrolment_id])
     return seats
+
+
+def student_enrolments_by_batch(user: CurrentUser | None = None) -> dict[int, Enrolment]:
+    """The current student's seat per batch: batch id -> the enrolment allocated there."""
+    user = user or current_user()
+    return seats_of_student(user.student_id) if user.student_id is not None else {}
 
 
 def student_seat(batch_id: int, user: CurrentUser | None = None) -> Enrolment:
