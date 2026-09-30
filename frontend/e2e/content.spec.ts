@@ -56,7 +56,10 @@ test("trainer uploads and submits content, coordinator approves and releases it,
   await expect(page.getByRole("row", { name: /Regression notes/ })).toHaveCount(0);
   await page.getByLabel("Type").selectOption("");
   const download = page.waitForEvent("download");
-  await page.getByRole("row", { name: /Regression notes/ }).getByRole("button", { name: "Download" }).click();
+  await page
+    .getByRole("row", { name: /Regression notes/ })
+    .getByRole("button", { name: "Download" })
+    .click();
   expect((await download).suggestedFilename()).toBe("regression-notes.pdf");
   // draft and under-review items never reach the student
   await expect(page.getByText("Random forest lab")).toHaveCount(0);
@@ -74,7 +77,10 @@ test("student recordings show status, expiry and policy; the coordinator works t
   await expect(page.getByRole("row", { name: /Linear regression intuition/ })).toContainText("Partial");
   await expect(page.getByRole("row", { name: /Logistic regression & odds/ })).toContainText("Not playable");
   await expect(page.getByText("EXT-031 pending")).toBeVisible();
-  await page.getByRole("row", { name: /Window functions lab/ }).getByRole("button", { name: "Watch" }).click();
+  await page
+    .getByRole("row", { name: /Window functions lab/ })
+    .getByRole("button", { name: "Watch" })
+    .click();
   await expect(page.getByRole("dialog")).toContainText("Integration Unavailable");
   await page.keyboard.press("Escape");
 
@@ -83,12 +89,18 @@ test("student recordings show status, expiry and policy; the coordinator works t
   await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("Second hour missing".toLowerCase());
   await expect(page.getByRole("row", { name: /RX-0013/ })).toContainText("Academic Coordinator GNT");
   await expect(page.getByText("RX-0014")).toHaveCount(0); // Vijayawada exception: outside this coordinator's scope
-  await page.getByRole("row", { name: /RX-0012/ }).getByRole("button", { name: "Start" }).click();
+  await page
+    .getByRole("row", { name: /RX-0012/ })
+    .getByRole("button", { name: "Start" })
+    .click();
   await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("In Progress");
 
   // Releasing the held recording closes RX-0013
   await page.getByRole("tab", { name: "Recordings" }).click();
-  await page.getByRole("row", { name: /Logistic regression & odds/ }).getByRole("button", { name: "Release" }).click();
+  await page
+    .getByRole("row", { name: /Logistic regression & odds/ })
+    .getByRole("button", { name: "Release" })
+    .click();
   await page.getByRole("tab", { name: "Exceptions" }).click();
   await page.getByLabel("Status").selectOption("Resolved");
   await expect(page.getByRole("row", { name: /RX-0013/ })).toContainText("Resolved");
@@ -119,7 +131,10 @@ test("an access-extension request is approved by the branch and the student sees
   expect((await decided.json()).data.approved_expiry).toBe("2028-01-12");
   // EXT-033 (after the second anniversary) is not the coordinator's to decide
   const exception = pending.data.find((r: { request_code: string }) => r.request_code === "EXT-033");
-  const refused = await request.post(`/api/v1/access-extension-requests/${exception.request_id}/decision`, { headers: coordinator, data: { decision: "approve" } });
+  const refused = await request.post(`/api/v1/access-extension-requests/${exception.request_id}/decision`, {
+    headers: coordinator,
+    data: { decision: "approve" },
+  });
   expect(refused.status()).toBe(403);
 
   await signInAs(page, USERS.student);

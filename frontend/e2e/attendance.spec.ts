@@ -13,7 +13,10 @@ test("trainer marks a class: everyone Present, one exception, confirmed", async 
   await login(page, "trainer.g3@nipuna.test");
   await page.goto("/trainer/attendance");
   await page.getByRole("tab", { name: "All" }).click();
-  await page.getByRole("row", { name: /Mini project kick-off/ }).getByRole("button", { name: /Mark attendance|Open register/ }).click();
+  await page
+    .getByRole("row", { name: /Mini project kick-off/ })
+    .getByRole("button", { name: /Mark attendance|Open register/ })
+    .click();
 
   await expect(page.getByRole("heading", { name: /Mini project kick-off/ })).toBeVisible();
   const markAll = page.getByRole("button", { name: "Mark all Present" });
@@ -71,7 +74,10 @@ test("coordinator sees alerts and partial data, then recommends a certificate; t
   await expect(row).toContainText("Awaiting Approval");
   await row.getByRole("button", { name: "Approve for issue" }).click();
   await expect(page.getByText("Approved for issue.")).toBeVisible();
-  await page.getByRole("row", { name: /Sample Learner C\./ }).getByRole("button", { name: "Issue" }).click();
+  await page
+    .getByRole("row", { name: /Sample Learner C\./ })
+    .getByRole("button", { name: "Issue" })
+    .click();
   await expect(page.getByText(/Issued as NIT-CERT-\d{4}-\d{6}/)).toBeVisible();
   await expect(page.getByRole("row", { name: /Sample Learner C\./ })).toContainText("Issued");
   await expect(page.getByRole("row", { name: /Sample Learner A\./ }).first()).toBeVisible();

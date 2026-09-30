@@ -10,7 +10,15 @@ import { USERS, login } from "./helpers";
 /** An IST wall-clock value for <input type="datetime-local"> `minutes` from now. */
 function istInput(minutes: number): string {
   const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
       .formatToParts(new Date(Date.now() + minutes * 60_000))
       .map((p) => [p.type, p.value]),
   );
@@ -102,13 +110,16 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   await page.getByRole("button", { name: "New class session" }).click();
   await choose(dialog(page).getByLabel("Batch"), /NIT-GNT-BAT-2026-000001/);
   await dialog(page).getByLabel("Title").fill("E2E weekly revision");
-  await dialog(page).getByLabel("Starts (IST)").fill(istInput(60 * 24 * 40).slice(0, 11) + "16:00");
-  await dialog(page).getByLabel("Ends (IST)").fill(istInput(60 * 24 * 40).slice(0, 11) + "17:00");
+  await dialog(page)
+    .getByLabel("Starts (IST)")
+    .fill(istInput(60 * 24 * 40).slice(0, 11) + "16:00");
+  await dialog(page)
+    .getByLabel("Ends (IST)")
+    .fill(istInput(60 * 24 * 40).slice(0, 11) + "17:00");
   await dialog(page).getByLabel("Repeat").selectOption("weekly");
   await dialog(page).getByLabel("Number of weekly sessions").fill("3");
   await dialog(page).getByRole("button", { name: "Schedule" }).click();
   await expect(page.getByRole("row", { name: /E2E weekly revision/ })).toHaveCount(3);
-
 });
 
 test("trainer starts and delivers the class, and requests a reschedule", async ({ page }) => {
@@ -118,7 +129,10 @@ test("trainer starts and delivers the class, and requests a reschedule", async (
   await live.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Class started")).toBeVisible();
   await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Live");
-  await page.getByRole("row", { name: /E2E live class/ }).getByRole("button", { name: "Mark delivered" }).click();
+  await page
+    .getByRole("row", { name: /E2E live class/ })
+    .getByRole("button", { name: "Mark delivered" })
+    .click();
   await dialog(page).getByLabel("Notes (topics covered)").fill("Covered model evaluation");
   await dialog(page).getByRole("button", { name: "Mark delivered" }).click();
   await expect(page.getByText("Marked as delivered")).toBeVisible();
