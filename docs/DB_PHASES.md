@@ -21,6 +21,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Catalogue & curriculum | ✅ Done | `002_catalog_curriculum.sql` |
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
+| 2 / S3 — Assessments | ✅ Done | `030_assessments.sql` |
 
 ---
 
@@ -94,3 +95,18 @@ The CRM already has these columns (`nipuna-crm` db 005/006); the LMS is their so
 | `class_sessions` | Actual Class Sessions: batch, topic, trainer, scheduled start/end, mode, room, Meet link + status, state Scheduled / Live / Delivered / Cancelled / Rescheduled |
 
 **Rules enforced:** `batch_code` is immutable; capacity can't drop below allocated students; a trainer must hold the Trainer role at the batch's branch; allocation course and branch must match the enrolment; no allocation into a closed or full batch; the track must belong to the enrolment; the session trainer must be assigned to the batch; session end after start.
+
+## 030 — Assessments (slice S3) ✅
+
+| Table | Purpose |
+|---|---|
+| `assignments` | Per batch, linked to a topic: kind, brief, attachments, required flag, max marks, release / due / closes (due + 7 days) times, resubmission limit, AI-use rule, named reviewer, status Draft / Released / Withdrawn (`ASG-0008`) |
+| `assignment_submissions` | Versioned (v1, v2 …) text / file / link with attempt number, received time, late flag, review-started marker, receipt code `SUB-000012` |
+| `submission_reviews` | One per version: Reviewed (marks) or Resubmission Requested (own deadline), feedback |
+| `questions` | Question bank per course / branch / topic: 8 types, options, answer key, difficulty, tags, Draft / Approved / Retired, versions (`QB-0001`) |
+| `tests`, `test_questions` | Practice quiz, module test, coding exercise, mock test, mock interview, final test: window, duration, attempts, pass marks, release status, AC approval; questions frozen with key and marks (`TST-0001`) |
+| `test_attempts`, `attempt_answers` | Server clock (`started_at`, `deadline_at`), receipt `RCPT-T-00931`, auto / manual scores, grading status |
+| `interview_slots` | Mock interview slots: Open, Slot Confirmation Pending, Confirmed, Completed; rating and feedback |
+| `results` | Provisional, Moderated, Published marks per assignment or test and enrolment |
+
+**Rules enforced:** the topic must belong to the batch's course; a submitted version cannot be edited; marks cannot exceed the maximum; an approved question cannot be edited (new version instead); answers are refused after the deadline and once an attempt is submitted; the receipt is issued once by a trigger; one attempt in progress per student and test; one live interview booking per student and test; one result per student and item; a published result cannot change; a moderated result needs a reason. No changes to backbone tables.

@@ -203,3 +203,17 @@ npm run e2e            # needs the API on :5060 with the staging users; desktop 
 
 Staging logins (password `Nipuna-staging-1`): student `NIT-STU-2026-004182`; staff `founder@`, `admin@`, `bm.gnt@`, `bm.vij@`, `coordinator.gnt@`, `coordinator.vij@`,
 `trainer.g1@`, `trainer.v1@` `nipuna.test`.
+
+## S3 — Assessments (as built)
+
+| Route | Feature | API |
+|---|---|---|
+| `/assignments`, `/assignments/$id` | `student/assignments`, `student/assignment-detail` | `/assignments`, `/assignments/{id}/submissions` (text / link / file; the window explains replace vs resubmit) |
+| `/tests`, `/tests/$id` | `student/tests`, `student/test-detail` | `/tests`, `/tests/{id}/attempts`, `/attempts/{id}/answers` (autosave every 10 s), `/attempts/{id}/submit`, interview slots. The timer counts down to the server's `deadline_at`, corrected for clock skew |
+| `/results` | `student/results` | `/me/results` (provisional rows never show a score) |
+| `/trainer/reviews` | `trainer/reviews` | `/submissions?status=Awaiting Review&reviewer_me=true`, start-review, review |
+| `/trainer/assignments` | `trainer/assignments` | create / release / extend / withdraw, submissions list |
+| `/trainer/assessments` | `trainer/assessments` (tabs: `test-builder`, `question-bank`, `grading`, `interviews`) | `/tests`, `/questions`, `/attempts`, slots |
+| `/academic/assessments` | `academic/assessments` | `/assessment-reviews`, `/results`, moderate, publish, approve tests and questions |
+
+`src/api/assessments.ts` holds all calls; `src/lib/format.ts` has the IST helpers (`formatIst`, `toIstInput` / `fromIstInput` for datetime-local inputs). Student screens keep the prototype wording. Spec: `e2e/assessments.spec.ts`.

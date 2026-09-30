@@ -3,6 +3,10 @@
 Models map existing tables (schema lives in db/*.sql); they never create tables.
 """
 from models.access import ActiveSession, Role, User, UserRoleScope, UserSession
+from models.assessments import (
+    Assignment, AssignmentSubmission, AttemptAnswer, InterviewSlot, Question, Result, SubmissionReview, Test, TestAttempt,
+    TestQuestion,
+)
 from models.batches import Batch, BatchAllocation, BatchTrainer, ClassSession
 from models.catalog import Course, CourseComponent, CurriculumModule, CurriculumTopic, CurriculumVersion
 from models.masters import Branch
@@ -13,6 +17,8 @@ from models.students import (
 from models.system import ActivityEvent, AppSetting, AuditLog, Integration, Notification
 
 __all__ = [
+    "Assignment", "AssignmentSubmission", "AttemptAnswer", "InterviewSlot", "Question", "Result", "SubmissionReview", "Test",
+    "TestAttempt", "TestQuestion",
     "ActiveSession", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
     "BatchAllocation", "BatchTrainer", "Branch", "ClassSession", "Course", "CourseComponent", "CrmEvent", "CrmOutbox",
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",

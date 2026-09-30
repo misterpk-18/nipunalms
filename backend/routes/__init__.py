@@ -8,6 +8,10 @@ from routes.crm import crm_bp
 from routes.health import health_bp
 from routes.reference import reference_bp
 from routes.students import students_bp
+from routes.assignments import assignments_bp
+from routes.questions import questions_bp
+from routes.results import results_bp
+from routes.tests import tests_bp
 
 BLUEPRINTS = [
     health_bp,
@@ -17,6 +21,10 @@ BLUEPRINTS = [
     batches_bp,
     class_sessions_bp,
     crm_bp,
+    assignments_bp,
+    questions_bp,
+    tests_bp,
+    results_bp,
 ]
 
 

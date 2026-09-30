@@ -14,6 +14,10 @@ BRANCH_ROLES = ("BRANCH_MANAGER", "ACADEMIC_COORDINATOR")
 ACADEMIC_ROLES = ADMIN_ROLES + BRANCH_ROLES
 # Anyone on staff (everyone except students)
 STAFF_ROLES = ACADEMIC_ROLES + TRAINER_ROLES
+# Assessments: who authors and reviews work for a batch (a trainer only for batches they teach), and who moderates and
+# publishes results (the branch Academic Coordinator; Super Admin across branches)
+ASSESSMENT_AUTHOR_ROLES = ("TRAINER", "ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+MODERATOR_ROLES = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
 
 
 @dataclass(frozen=True)
