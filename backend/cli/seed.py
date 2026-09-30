@@ -11,6 +11,7 @@ All people, phones and emails are fictional (example.test / nipuna.test).
 Later slices add their own data by appending a function to SEEDERS; each takes the shared SeedContext and runs in order.
 """
 from dataclasses import dataclass, field
+from decimal import Decimal
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Callable
 
@@ -26,10 +27,14 @@ from models import (
     ActivityEvent, AttendanceRecord, AttendanceRecovery, Batch, BatchEvent, BatchTrainer, Certificate, ClassSession, Course, CourseComponent,
     CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion, Enrolment, MeetEvent, SessionChange, SessionChangeRequest, Student, User,
 )
+from models import (
+    Assignment, AssignmentSubmission, AttemptAnswer, InterviewSlot, Question, Result, SubmissionReview, Test, TestAttempt, TestQuestion,
+)
 from repositories import batches as batches_repo
 from repositories import users as users_repo
 from services import certificates as certificates_service
 from services import users as users_service
+from services.scoring import score_answer
 
 API = "/api/v1"
 STAGING_PASSWORD = "Nipuna-staging-1"
@@ -660,6 +665,244 @@ def seed_attendance(ctx: SeedContext) -> None:
     db.session.execute(text("UPDATE enrolments SET certificate_status = 'Configuration Pending — completion rule not configured "
                             "for complimentary offer' WHERE kind = 'Complimentary'"))
 
+# ---------------------------------------------------------------- assessments (slice S3)
+
+TRACK_ML, TRACK_PY = "Track CV 2.4", "Track CV 3.2"
+
+# key: (curriculum label, topic, type, stem, options, answer key, marks, difficulty, tags, author, status)
+QUESTIONS = {
+    "metric": (TRACK_ML, "Cross-validation & Metrics", "Single choice", "Which metric suits an imbalanced binary classifier?",
+               [("A", "Accuracy"), ("B", "F1-score"), ("C", "R²")], {"option": "B"}, 2, "Medium", ["metrics"], "trainer_g2", "Approved"),
+    "regularisation": (TRACK_ML, "Hyperparameter Tuning", "Multiple choice", "Select all regularisation methods.",
+                       [("A", "L1 (Lasso)"), ("B", "L2 (Ridge)"), ("C", "One-hot encoding")], {"options": ["A", "B"]}, 2, "Medium", ["regularisation"],
+                       "trainer_g2", "Approved"),
+    "logistic": (TRACK_ML, "Linear & Logistic Regression", "True / False", "Logistic regression outputs probabilities.", [], {"value": True}, 1, "Easy",
+                 ["regression"], "trainer_g2", "Approved"),
+    "slope": (TRACK_ML, "Linear & Logistic Regression", "Numeric", "Slope for y = 3x + 2?", [], {"value": 3, "tolerance": 0}, 1, "Easy", ["regression"],
+              "trainer_g2", "Approved"),
+    "ensemble": (TRACK_ML, "Decision Trees & Ensembles", "Short answer", "Name one ensemble method.", [],
+                 {"variants": ["Random forest", "Gradient boosting", "Bagging", "AdaBoost"]}, 2, "Easy", ["ensembles"], "trainer_g2", "Approved"),
+    "bias_variance": (TRACK_ML, "Cross-validation & Metrics", "Descriptive", "Explain the bias–variance trade-off.", [],
+                      {"rubric": "Defines bias and variance, links them to under- and over-fitting, names a way to balance them"}, 4, "Hard",
+                      ["theory"], "trainer_g2", "Approved"),
+    "mean": (TRACK_PY, "Python Basics & Data Structures", "Coding", "Write a function returning the mean of a list.", [],
+             {"rubric": "Returns sum(xs) / len(xs); handles the empty list explicitly"}, 4, "Easy", ["python"], "trainer_g1", "Approved"),
+    "set_len": (TRACK_PY, "Python Basics & Data Structures", "Output prediction", "What does print(len({1, 1, 2})) print?", [], {"variants": ["2"]}, 1,
+                "Easy", ["python"], "trainer_g1", "Approved"),
+    "dense_rank": (TRACK_PY, "Joins, Window Functions", "Single choice", "Which window function ranks rows without gaps after ties?",
+                   [("A", "RANK"), ("B", "DENSE_RANK"), ("C", "ROW_NUMBER")], {"option": "B"}, 1, "Medium", ["sql", "window"], "trainer_g1", "Approved"),
+    "top_earner": (TRACK_PY, "Joins, Window Functions", "Coding", "Write a query returning the top earner per department using a window function.", [],
+                   {"rubric": "Partitions by department, orders by salary descending, filters rank = 1"}, 6, "Hard", ["sql", "window"], "trainer_g1",
+                   "Approved"),
+    "having": (TRACK_PY, "Aggregations & Subqueries", "Short answer", "Which clause filters groups after aggregation?", [], {"variants": ["HAVING"]}, 1,
+               "Easy", ["sql"], "trainer_g1", "Approved"),
+    "left_join": (TRACK_PY, "Joins, Window Functions", "Single choice", "Which join keeps every row of the left table?",
+                  [("A", "INNER JOIN"), ("B", "LEFT JOIN"), ("C", "CROSS JOIN")], {"option": "B"}, 1, "Easy", ["sql"], "trainer_g1", "Draft"),
+    "knn_k": (TRACK_ML, "k-NN & Naive Bayes", "Numeric", "How many neighbours vote in 5-NN?", [], {"value": 5, "tolerance": 0}, 1, "Easy", ["knn"],
+              "trainer_g2", "Draft"),
+}
+
+# key, code, title, kind, topic (label, title), required, release, due, max marks, reviewer, brief. asg-11 is due two days after the
+# prototype's date so it still reads "Due" (not Overdue) when the staging data is loaded on the prototype's "today", 30 Sep 2026.
+ASSIGNMENTS = [
+    ("asg06", "ASG-0006", "Python data structures worksheet", "Class assignment", (TRACK_PY, "Python Basics & Data Structures"), True,
+     ("2026-08-12", "12:00"), ("2026-08-19", "23:59"), 10, "trainer_g1", "Complete the worksheet on lists, dicts and sets."),
+    ("asg07", "ASG-0007", "Data cleaning checkpoint", "Class assignment", (TRACK_PY, "Data Cleaning with Pandas"), True,
+     ("2026-09-10", "12:00"), ("2026-09-24", "23:59"), 10, "trainer_g1", "Clean the provided messy dataset and document each step."),
+    ("asg08", "ASG-0008", "Pandas cleaning practice", "Class assignment", (TRACK_PY, "DataFrames"), False,
+     ("2026-08-25", "12:00"), ("2026-09-01", "23:59"), 10, "trainer_g2", "Optional practice: reshape and clean a small DataFrame."),
+    ("asg09", "ASG-0009", "SQL window functions set", "Module assignment", (TRACK_PY, "Joins, Window Functions"), True,
+     ("2026-09-02", "12:00"), ("2026-09-09", "23:59"), 20, "trainer_g1", "Solve the ten window-function exercises."),
+    ("asg10", "ASG-0010", "EDA mini report", "Mini project", (TRACK_PY, "Joins, Window Functions"), False,
+     ("2026-09-10", "12:00"), ("2026-09-20", "23:59"), 20, "trainer_g1", "A short exploratory analysis of the sales dataset."),
+    ("asg11", "ASG-0011", "Regression on housing dataset", "Module assignment", (TRACK_ML, "Linear & Logistic Regression"), True,
+     ("2026-09-21", "12:00"), ("2026-10-02", "23:59"), 20, "trainer_g1",
+     "Build and evaluate a model on the provided dataset; include a short write-up of assumptions. Resources: housing.csv, starter notebook."),
+    ("asg12", "ASG-0012", "Decision tree tuning notebook", "Module assignment", (TRACK_ML, "Decision Trees & Ensembles"), True,
+     ("2026-09-28", "12:00"), ("2026-10-05", "23:59"), 20, "trainer_g2", "Tune a decision tree and report the effect of each hyperparameter."),
+]
+
+
+def _gnt_enrolment(ctx: SeedContext, key: str) -> Enrolment:
+    """The student's Data Science (batch G1) enrolment."""
+    course = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-018")).scalar_one()
+    return db.session.execute(select(Enrolment).where(Enrolment.student_id == ctx.students[key]["student_id"],
+                                                      Enrolment.course_id == course.course_id)).scalar_one()
+
+
+def seed_assessments(ctx: SeedContext) -> None:
+    """Assignments asg-06..12, the question bank, tests tst-1..8, interview slots and results, as in the prototype's sample data."""
+    batch = ctx.batches["G1"]
+    coord = ctx.users["coord_gnt"]
+    people = {k: _gnt_enrolment(ctx, k) for k in ("anvitha", "G", "H")}
+
+    # ---- question bank
+    questions: dict[str, Question] = {}
+    for key, (label, title, qtype, stem, options, answer_key, marks, difficulty, tags, author, status) in QUESTIONS.items():
+        approved = status == "Approved"
+        question = Question(course_id=batch.course_id, branch_id=GNT, topic_id=ctx.topics[(label, title)], question_type=qtype, stem=stem,
+                            options=[{"key": k, "text": t} for k, t in options], answer_key=answer_key, marks=marks, difficulty=difficulty,
+                            tags=tags, author_user_id=ctx.users[author], status=status, reviewed_by=coord if approved else None,
+                            approved_at=at("2026-09-01", "12:00") if approved else None)
+        db.session.add(question)
+        questions[key] = question
+    db.session.flush()
+
+    # ---- assignments, submissions, reviews
+    assignments: dict[str, Assignment] = {}
+    for key, code, title, kind, topic, required, release, due, max_marks, reviewer, brief in ASSIGNMENTS:
+        due_at = at(*due)
+        assignment = Assignment(assignment_code=code, batch_id=batch.batch_id, topic_id=ctx.topics[topic], title=title, kind=kind, brief=brief,
+                                attachments=[{"name": "housing.csv", "url": "https://example.test/files/housing.csv"}] if key == "asg11" else [],
+                                is_required=required, max_marks=max_marks, release_at=at(*release), due_at=due_at,
+                                closes_at=due_at + timedelta(days=7), reviewer_user_id=ctx.users[reviewer], status="Released",
+                                released_by=ctx.users[reviewer], created_by=ctx.users[reviewer])
+        db.session.add(assignment)
+        assignments[key] = assignment
+    db.session.flush()
+
+    def submit(key, who, version, attempt_no, day, clock, text, started_review=False):
+        enrolment = people[who]
+        submission = AssignmentSubmission(
+            assignment_id=assignments[key].assignment_id, enrolment_id=enrolment.enrolment_id, student_id=enrolment.student_id,
+            version_no=version, attempt_no=attempt_no, body_text=text, submitted_at=at(day, clock),
+            review_started_at=at(day, "22:30") if started_review else None,
+            review_started_by=assignments[key].reviewer_user_id if started_review else None)
+        db.session.add(submission)
+        db.session.flush()
+        return submission
+
+    def review(submission, outcome, feedback, day, marks=None, resubmit_due=None):
+        db.session.add(SubmissionReview(submission_id=submission.submission_id, reviewer_user_id=assignments_by_id[submission.assignment_id].reviewer_user_id,
+                                        outcome=outcome, feedback=feedback, marks=marks, resubmission_due_at=resubmit_due, reviewed_at=at(day, "17:00")))
+        db.session.flush()
+
+    assignments_by_id = {a.assignment_id: a for a in assignments.values()}
+
+    v1 = submit("asg06", "anvitha", 1, 1, "2026-08-18", "20:10", "Worksheet answers attached in the notebook.")
+    review(v1, "Resubmission Requested", "Dictionary questions 4 and 5 need working shown.", "2026-08-20", resubmit_due=at("2026-10-05", "23:59"))
+    submit("asg08", "anvitha", 1, 1, "2026-08-31", "21:00", "Cleaned the DataFrame; notebook link in the class folder.")
+    v1 = submit("asg09", "anvitha", 1, 1, "2026-09-05", "19:30", "First attempt at the window functions.")
+    review(v1, "Resubmission Requested", "Partitioning is right; rework questions 6-8.", "2026-09-06", resubmit_due=at("2026-09-10", "23:59"))
+    v2 = submit("asg09", "anvitha", 2, 2, "2026-09-08", "22:15", "Reworked answers.")
+    review(v2, "Reviewed", "Good partitioning; revisit RANK vs DENSE_RANK.", "2026-09-10", marks=18)
+    db.session.add(Result(enrolment_id=v2.enrolment_id, student_id=v2.student_id, batch_id=batch.batch_id, assignment_id=v2.assignment_id,
+                          submission_id=v2.submission_id, max_marks=20, provisional_marks=18, status="Published", final_marks=18,
+                          published_by=coord, published_at=at("2026-09-11", "11:00")))
+    submit("asg10", "anvitha", 1, 1, "2026-09-19", "20:40", "EDA report: sales by region and month.", started_review=True)
+    g1 = submit("asg11", "G", 1, 1, "2026-09-25", "21:05", "Linear regression with two features.")
+    h1 = submit("asg11", "H", 1, 1, "2026-09-24", "18:20", "Baseline model only.")
+    review(h1, "Resubmission Requested", "Add the assumptions write-up.", "2026-09-25", resubmit_due=at("2026-10-01", "23:59"))
+    submit("asg11", "H", 2, 2, "2026-09-26", "20:00", "Model plus assumptions write-up.")
+    assert g1.version_no == 1
+
+    # ---- tests
+    def add_test(code, title, kind, *, batch_row=batch, status, topic=None, duration=None, opens=None, closes=None, attempts=None, pass_marks=None,
+                 required=None, reviewer="trainer_g1", question_keys=(), marks_override=None, approved=False, instructions=None):
+        test = Test(test_code=code, batch_id=batch_row.batch_id, topic_id=ctx.topics[topic] if topic else None, title=title, kind=kind,
+                    instructions=instructions, is_required=kind in ("Module test", "Coding exercise", "Final test") if required is None else required,
+                    duration_minutes=duration, opens_at=opens, closes_at=closes, attempts_allowed=attempts, pass_marks=pass_marks,
+                    release_status=status, approved_by=coord if approved else None, approved_at=at("2026-09-20", "12:00") if approved else None,
+                    released_at=at("2026-09-20", "12:30") if status in ("Released", "Closed") else None,
+                    reviewer_user_id=ctx.users[reviewer], created_by=ctx.users[reviewer])
+        db.session.add(test)
+        db.session.flush()
+        for position, qkey in enumerate(question_keys, 1):
+            q = questions[qkey]
+            db.session.add(TestQuestion(test_id=test.test_id, question_id=q.question_id, position=position, question_version=q.version,
+                                        question_type=q.question_type, stem=q.stem, options=q.options, answer_key=q.answer_key,
+                                        marks=(marks_override or {}).get(qkey, q.marks)))
+        db.session.flush()
+        db.session.refresh(test)
+        return test
+
+    rules = "Answer every question. The timer runs on the server: closing the tab does not pause it."
+    add_test("TST-0001", "Regression practice quiz", "Practice quiz", status="Released", duration=20, topic=(TRACK_ML, "Linear & Logistic Regression"),
+             question_keys=("logistic", "slope", "metric", "regularisation"), instructions=rules)
+    add_test("TST-0002", "Supervised Learning module test", "Module test", status="Released", duration=60, attempts=1, pass_marks=4,
+             opens=at("2026-10-03", "10:00"), closes=at("2026-10-03", "13:00"), approved=True, reviewer="trainer_g2",
+             question_keys=("metric", "regularisation", "logistic", "slope", "ensemble"), instructions=rules)
+    sql_test = add_test("TST-0003", "SQL coding exercise", "Coding exercise", status="Released", duration=45, attempts=1, pass_marks=4,
+                        opens=at("2026-09-25", "09:00"), closes=at("2026-09-27", "18:00"), approved=True,
+                        question_keys=("dense_rank", "top_earner", "having"), instructions=rules)
+    add_test("TST-0004", "Data Science mock test", "Mock test", status="Not Released", duration=90, attempts=1, question_keys=("metric", "slope", "set_len"))
+    interview = add_test("TST-0005", "Mock interview — ML basics", "Mock interview", status="Released", duration=30, attempts=1, required=False,
+                         instructions="A 30-minute practice interview. It carries no marks and does not promise placement.")
+    add_test("TST-0006", "Final test — Track 1", "Final test", status="Configuration Pending", duration=120, attempts=1)
+    python_test = add_test("TST-0007", "Python Foundations module test", "Module test", status="Released", duration=60, attempts=1, pass_marks=25,
+                           opens=at("2026-09-20", "10:00"), closes=at("2026-09-22", "18:00"), approved=True,
+                           question_keys=("logistic", "slope", "ensemble", "metric", "set_len", "regularisation"),
+                           marks_override={"logistic": 10, "slope": 10, "ensemble": 10, "metric": 6, "set_len": 6, "regularisation": 8})
+    add_test("TST-0008", "AWS final test paper", "Final test", batch_row=ctx.batches["V1"], status="Configuration Pending", duration=60, attempts=1,
+             reviewer="trainer_v1")
+
+    # ---- attempts: answers are stored while the attempt is open, then the real deadline and the receipt are set
+    db.session.execute(text("INSERT INTO code_counters (counter_key, last_value) VALUES ('RCPT-T', 930) "
+                            "ON CONFLICT (counter_key) DO UPDATE SET last_value = 930"))
+
+    def attempt(test, who, day, clock, answers, grades=None):
+        enrolment = people[who]
+        started = at(day, clock)
+        row = TestAttempt(test_id=test.test_id, enrolment_id=enrolment.enrolment_id, student_id=enrolment.student_id, attempt_no=1,
+                          started_at=started, deadline_at=datetime.now(IST) + timedelta(hours=1))
+        db.session.add(row)
+        db.session.flush()
+        for qkey, value in answers.items():
+            db.session.add(AttemptAnswer(attempt_id=row.attempt_id, question_id=questions[qkey].question_id, answer=value))
+        db.session.flush()
+        row.deadline_at = started + timedelta(minutes=test.duration_minutes)
+        row.status, row.submit_reason, row.submitted_at = "Submitted", "Student", started + timedelta(minutes=test.duration_minutes - 11)
+        db.session.flush()
+        db.session.refresh(row)
+        saved = {a.question_id: a for a in db.session.execute(select(AttemptAnswer).where(AttemptAnswer.attempt_id == row.attempt_id)).scalars()}
+        auto_total = manual_total = Decimal("0")
+        for tq in test.questions:
+            given = saved.get(tq.question_id)
+            if given is None:
+                given = AttemptAnswer(attempt_id=row.attempt_id, question_id=tq.question_id, answer=None)
+                db.session.add(given)
+            score = score_answer(tq.question_type, tq.answer_key, given.answer, tq.marks)
+            if score is None:
+                qkey = next(k for k, q in questions.items() if q.question_id == tq.question_id)
+                given.awarded_marks = Decimal((grades or {}).get(qkey, 0))
+                given.graded_by, given.graded_at = ctx.users["trainer_g1"], row.submitted_at + timedelta(days=1)
+                given.grader_feedback = "Correct approach; check the empty-input case." if qkey in (grades or {}) else None
+                manual_total += given.awarded_marks
+            else:
+                given.awarded_marks, given.is_auto_graded = score, True
+                auto_total += score
+        row.auto_score, row.total_score = auto_total, auto_total + manual_total
+        row.grading_status, row.graded_by, row.graded_at = "Graded", ctx.users["trainer_g1"], row.submitted_at + timedelta(days=1)
+        db.session.flush()
+        return row
+
+    def test_result(test, row, status="Provisional", published_day=None):
+        db.session.add(Result(enrolment_id=row.enrolment_id, student_id=row.student_id, batch_id=test.batch_id, test_id=test.test_id,
+                              attempt_id=row.attempt_id, max_marks=sum((q.marks for q in test.questions), Decimal("0")),
+                              provisional_marks=row.total_score, status=status, final_marks=row.total_score if published_day else None,
+                              published_by=coord if published_day else None, published_at=at(published_day, "11:00") if published_day else None))
+
+    sql = "SELECT * FROM (SELECT *, RANK() OVER (PARTITION BY dept ORDER BY salary DESC) r FROM emp) t WHERE r = 1"
+    test_result(sql_test, attempt(sql_test, "anvitha", "2026-09-26", "10:00", {"dense_rank": "B", "top_earner": sql, "having": "having"},
+                                  grades={"top_earner": 4}))
+    test_result(sql_test, attempt(sql_test, "G", "2026-09-26", "11:30", {"dense_rank": "A", "top_earner": "SELECT max(salary) FROM emp", "having": "HAVING"},
+                                  grades={"top_earner": 2}))
+    test_result(sql_test, attempt(sql_test, "H", "2026-09-26", "14:00", {"dense_rank": "B", "top_earner": "window query", "having": "where"},
+                                  grades={"top_earner": 4}))
+    test_result(python_test, attempt(python_test, "anvitha", "2026-09-21", "10:30",
+                                     {"logistic": True, "slope": 3, "ensemble": "Random forest", "metric": "B", "set_len": "2", "regularisation": ["A"]}),
+                status="Published", published_day="2026-09-24")
+
+    # ---- mock interview slots: Anvitha booked the first and waits for the trainer to confirm
+    for day, clock, who in (("2026-10-02", "16:00", "anvitha"), ("2026-10-03", "16:00", None), ("2026-10-05", "11:00", None)):
+        starts = at(day, clock)
+        slot = InterviewSlot(test_id=interview.test_id, trainer_user_id=ctx.users["trainer_g1"], starts_at=starts, ends_at=starts + timedelta(minutes=30))
+        if who:
+            slot.status, slot.enrolment_id, slot.student_id = "Slot Confirmation Pending", people[who].enrolment_id, people[who].student_id
+            slot.booked_at = at("2026-09-29", "18:00")
+        db.session.add(slot)
+    db.session.commit()
+
 
 # Run in order; later slices append their own seeders here
 SEEDERS: list[Callable[[SeedContext], None]] = [
@@ -674,6 +917,7 @@ SEEDERS: list[Callable[[SeedContext], None]] = [
     seed_crm_inbox_examples,
     seed_delivery,
     seed_attendance,
+    seed_assessments,  # after seed_delivery: needs batches, sessions and curriculum topics
     seed_admin_readiness,  # last: it suspends a learner whose certificate the attendance seed works
 ]
 

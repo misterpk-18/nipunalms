@@ -74,5 +74,20 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Batch capacity waitlist | Full batches have no waiting list; the allocation queue just lists unseated enrolments |
 | Session reminders | Students are notified of changes but not reminded before a class (needs a job in `services/jobs.JOBS`) |
 | Topic-level self study progress | Topic pages show classes and resources; students cannot mark a topic as studied |
-| Duplicate date helpers | `shared/delivery-ui.tsx` and `shared/format.ts` both format IST dates in slightly different forms; unify when the design settles |
+| Duplicate date helpers | `shared/delivery-ui.tsx` and `shared/format.ts` format IST dates in slightly different forms; the datetime-local helpers (`toIstInput`, `fromIstInput`) now live once in `lib/format.ts` (delivery-ui re-exports them); unify the display formatters when the design settles |
 
+## Assessments (S3)
+
+| Item | Notes |
+|---|---|
+| Individual extensions | Module 19 section 5 (trainer up to 3 days, AC beyond) is not built; the AC can reopen a submission window with a reason, and the trainer can extend the batch due time |
+| Validation pending / failed | Submissions are accepted on receipt; there is no scanning or link verification, so `Received — Validation Pending` and `Validation Failed` states do not exist yet. The upload limit is the API's 10 MB, not the 50 MB of Module 19 |
+| Extra attempts, group projects, completion-only / pass-fail work | Only numeric marks with one initial attempt and 2 resubmissions; additional attempts by AC approval are not built |
+| Reminders | The 24 h / due date / +1 day assignment reminders and the 24 h / 1 h test reminders need a job in `services/jobs.JOBS` (`flask jobs run`, introduced by S2); none is registered yet |
+| Reassessment and answer release | A formal test has one attempt; authorised reassessments, a later better attempt after publication, and the separate answer-release step are not built. Correcting a published result (independent review) is not built |
+| Review clocks | The 3 / 5 / 7 working-day review targets need the academic working calendar; none is configured |
+| Tab-switch / similarity flags, question randomisation | Not built |
+| Coding runner | Coding answers are marked by a trainer; the isolated runner stays Pending Verification |
+| Question bank scope | One bank per branch; company-wide reuse by a global publisher is not built |
+| Assessment evidence in Completion Review | Required learning (S4) is topic coverage from attendance, not assessment work. Required assignments submitted / graded and published test results are not yet shown in the completion evidence or counted in any progress measure; decide the rule with the Completion profile per course |
+| asg-11 due date | Seeded due 02 Oct 2026 (prototype: 29 Sep) so it reads Due, not Overdue, on the prototype's "today" (30 Sep) |

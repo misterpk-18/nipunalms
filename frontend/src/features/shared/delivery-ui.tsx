@@ -27,18 +27,8 @@ export const fmtTime = (iso: string) => timeFormat.format(new Date(iso));
 export const fmtRange = (start: string, end: string) => `${fmtDate(start)} · ${fmtTime(start)}–${fmtTime(end)} IST`;
 export const fmtDay = (day: string | null) => (day ? dateFormat.format(new Date(`${day}T00:00:00+05:30`)) : "—");
 
-/** Value for an <input type="datetime-local"> showing this instant in IST. */
-export function toIstInput(iso: string): string {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-CA", { timeZone: IST, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
-      .formatToParts(new Date(iso))
-      .map((p) => [p.type, p.value]),
-  );
-  return `${parts["year"]}-${parts["month"]}-${parts["day"]}T${parts["hour"]}:${parts["minute"]}`;
-}
-
-/** An IST wall-clock value from a datetime-local input, as an ISO timestamp with the +05:30 offset. */
-export const fromIstInput = (value: string) => `${value}:00+05:30`;
+// The datetime-local helpers live in lib/format (shared with the assessment screens).
+export { fromIstInput, toIstInput } from "@/lib/format";
 
 // ---------------------------------------------------------------- display
 

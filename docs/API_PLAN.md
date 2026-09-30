@@ -314,3 +314,40 @@ Job: `flask --app app jobs run recording-check` (`jobs list` shows all jobs).
 - Access window (`services/access.py`): one calendar year from the enrolment's Joining Date through the end of the anniversary day in IST (29 Feb → 1 Mar), one extra year to the second anniversary on request (Recording, Material or Both), pending before joining. Settings `access_default_years` / `access_max_years`; the older `recording_access_days` is superseded by Module 17 §8 and unused.
 - Uploads: allow-list, 50 MB / 250 MB (datasets, archives) from `app_settings`, magic-number check, notebook JSON check, safe ZIP inspection (paths, nested archives, executables, expansion ratio). Local disk under `UPLOAD_DIR`; no malware scan yet (BACKLOG).
 - Recordings are references only; Google is never called. Escalation clock from class end: 4 h Academic Coordinator, 24 h Branch Manager + Super Admin, 48 h Founder (`escalation` on each exception; the job sends the notices once).
+### Assessments — S3 (`030_assessments.sql`)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/assignments?batch_id=&state=&status=&is_required=` | Scoped | Student: released tasks of their batches with `my.state` (Upcoming, Due, Overdue, Submitted, Under Review, Reviewed, Resubmission Requested), versions, submission window. Staff: assignments with counts |
+| GET | `/assignments/{id}` | Scoped | Student sees released work of their batch only (else 404) |
+| POST | `/assignments` | Trainer of the batch, AC, Super Admin | Draft; `release_now` releases at once. Reviewer defaults to the creating / lead trainer |
+| PATCH | `/assignments/{id}` | Same | Draft: any field. Released: brief, attachments, due time (later only), late policy, reviewer; `closes_at` (reopen window) is AC-only with a reason. Audited; students notified |
+| POST | `/assignments/{id}/release`, `/withdraw` | Same | Withdraw needs a reason; versions and results are kept |
+| POST | `/assignments/{id}/submissions` | Student | JSON or multipart (`file`, up to 10 MB). New version; replacement before the deadline, late first submission inside the 7-day window, instructed resubmission (up to 2) |
+| GET | `/submissions?assignment_id=&status=Awaiting Review&reviewer_me=true` | Staff | Newest version per student |
+| GET | `/submissions/{id}`, `/submissions/{id}/file` | Owner, batch staff | Other students and other batches: 404 |
+| POST | `/submissions/{id}/start-review`, `/review` | Staff of the batch | `outcome` Reviewed (marks up to the maximum) or Resubmission Requested (own deadline). Marks create a Provisional result |
+| GET | `/assessments/curriculum?batch_id=` | Staff | Modules and topics of the course's Active curriculum versions (for linking) |
+| GET/POST/PATCH | `/questions`, `/questions/{id}` | Trainer, AC, Super Admin (branch bank) | Type-specific answer key validation; keys never reach students |
+| POST | `/questions/{id}/approve`, `/retire`, `/new-version` | AC / Super Admin (the author cannot approve) | Approved questions are frozen; a change is a new version |
+| GET/POST/PATCH | `/tests`, `/tests/{id}` | Scoped | The student list shows every status of their batches' tests with their own state |
+| PUT | `/tests/{id}/questions` | Batch staff | Approved questions of the batch's course and branch, frozen into the test |
+| POST | `/tests/{id}/approve` | AC / Super Admin | Formal tests need it before release |
+| POST | `/tests/{id}/release`, `/close` | Batch staff | Not Released to Released (Scheduled / Available / Closed by window) |
+| POST | `/tests/{id}/attempts` | Student | 201 starts (deadline = min(start + duration, window end)); 200 resumes the open attempt |
+| GET | `/attempts/{id}` | Owner, batch staff | Reading past the deadline submits the saved answers once |
+| PUT | `/attempts/{id}/answers` | Student | Autosave; after the deadline `accepted: false` and the attempt is submitted |
+| POST | `/attempts/{id}/submit` | Student | Idempotent; receipt `RCPT-T-00931` |
+| GET | `/attempts?grading_status=Awaiting Grading&reviewer_me=true` | Staff | Grading queue |
+| POST | `/attempts/{id}/grade` | Batch staff | Marks for Descriptive / Coding answers; complete means Graded, and for a formal test a Provisional result |
+| GET/POST | `/tests/{id}/slots`, `/interview-slots/{id}/book`, `/confirm`, `/cancel`, `/complete` | Trainer offers, confirms, completes; student books | Open, Slot Confirmation Pending, Confirmed, Completed |
+| GET | `/me/results` | Student | Only Published results carry a score |
+| GET | `/results?batch_id=&assignment_id=&test_id=&status=` | Staff | Provisional, moderated and final marks |
+| GET | `/assessment-reviews` | Staff | Moderation queue per assessment and batch, plus tests not ready |
+| POST | `/results/{id}/moderate`, `/results/publish` | AC / Super Admin | Moderate needs a reason (audited); publish by ids or `assignment_id` / `test_id`; students notified |
+
+**As built (S3):**
+- Student-visible marks and feedback exist only after publication; the one exception is the feedback attached to a resubmission request. Practice quizzes and mock tests are non-credit: scored at once, no result row. Formal kinds (Module test, Coding exercise, Final test, or `is_required`) need pass marks, a closing time and AC approval.
+- The attempt clock is the server's: `started_at`, `deadline_at`, `submitted_at` (the deadline on timeout) and the receipt are set by the API and the database (a trigger rejects answers after the deadline or once submitted). Expiry is applied lazily on the next read or save.
+- Scoring: exact-set multiple choice, numeric tolerance, accepted short-answer variants, no negative marking; written and coding answers wait for the trainer. Code is never executed (`Integration Unavailable`).
+- New role groups in `services/context.py`: `ASSESSMENT_AUTHOR_ROLES`, `MODERATOR_ROLES`. Notification categories: Assignments, Reviews, Assessments, Results.

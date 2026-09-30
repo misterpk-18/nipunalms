@@ -24,6 +24,10 @@ from routes.batch_allocations import batch_allocations_bp
 from routes.curriculum import curriculum_bp
 from routes.enrolments import enrolments_bp
 from routes.my_courses import my_courses_bp
+from routes.assignments import assignments_bp
+from routes.questions import questions_bp
+from routes.results import results_bp
+from routes.tests import tests_bp
 
 BLUEPRINTS = [
     health_bp,
@@ -47,6 +51,10 @@ BLUEPRINTS = [
     curriculum_bp,
     enrolments_bp,
     my_courses_bp,
+    assignments_bp,
+    questions_bp,
+    tests_bp,
+    results_bp,
 ]
 
 

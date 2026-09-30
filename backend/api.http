@@ -121,6 +121,80 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ assignments
+### assignments.create_assignment
+POST {{base}}/api/v1/assignments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### assignments.curriculum_options
+GET {{base}}/api/v1/assessments/curriculum
+Authorization: Bearer {{token}}
+
+### assignments.download_submission
+GET {{base}}/api/v1/submissions/1/file
+Authorization: Bearer {{token}}
+
+### assignments.get_assignment
+GET {{base}}/api/v1/assignments/1
+Authorization: Bearer {{token}}
+
+### assignments.get_submission
+GET {{base}}/api/v1/submissions/1
+Authorization: Bearer {{token}}
+
+### assignments.list_assignments
+GET {{base}}/api/v1/assignments
+Authorization: Bearer {{token}}
+
+### assignments.list_submissions
+GET {{base}}/api/v1/submissions
+Authorization: Bearer {{token}}
+
+### assignments.release_assignment
+POST {{base}}/api/v1/assignments/1/release
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### assignments.review_submission
+POST {{base}}/api/v1/submissions/1/review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### assignments.start_review
+POST {{base}}/api/v1/submissions/1/start-review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### assignments.submit_assignment
+POST {{base}}/api/v1/assignments/1/submissions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### assignments.update_assignment
+PATCH {{base}}/api/v1/assignments/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### assignments.withdraw_assignment
+POST {{base}}/api/v1/assignments/1/withdraw
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ attendance
 ### attendance.complete_recovery
 POST {{base}}/api/v1/attendance/recoveries/1/completion
@@ -833,6 +907,50 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/me/progress
 Authorization: Bearer {{token}}
 
+# ================================================================ questions
+### questions.approve_question
+POST {{base}}/api/v1/questions/1/approve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### questions.create_question
+POST {{base}}/api/v1/questions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### questions.get_question
+GET {{base}}/api/v1/questions/1
+Authorization: Bearer {{token}}
+
+### questions.list_questions
+GET {{base}}/api/v1/questions
+Authorization: Bearer {{token}}
+
+### questions.new_version
+POST {{base}}/api/v1/questions/1/new-version
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### questions.retire_question
+POST {{base}}/api/v1/questions/1/retire
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### questions.update_question
+PATCH {{base}}/api/v1/questions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ recording_exceptions
 ### recording_exceptions.get_exception
 GET {{base}}/api/v1/recording-exceptions/1
@@ -938,6 +1056,33 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/reference/staff
 Authorization: Bearer {{token}}
 
+# ================================================================ results
+### results.list_results
+GET {{base}}/api/v1/results
+Authorization: Bearer {{token}}
+
+### results.moderate_result
+POST {{base}}/api/v1/results/1/moderate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### results.my_results
+GET {{base}}/api/v1/me/results
+Authorization: Bearer {{token}}
+
+### results.publish_results
+POST {{base}}/api/v1/results/publish
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### results.review_queue
+GET {{base}}/api/v1/assessment-reviews
+Authorization: Bearer {{token}}
+
 # ================================================================ security_controls
 ### security_controls.get_control
 GET {{base}}/api/v1/security-controls/1
@@ -974,6 +1119,132 @@ Authorization: Bearer {{token}}
 
 ### students.issue_activation
 POST {{base}}/api/v1/students/1/activation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ tests
+### tests.approve_test
+POST {{base}}/api/v1/tests/1/approve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.book_slot
+POST {{base}}/api/v1/interview-slots/1/book
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.cancel_slot
+POST {{base}}/api/v1/interview-slots/1/cancel
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.close_test
+POST {{base}}/api/v1/tests/1/close
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.complete_slot
+POST {{base}}/api/v1/interview-slots/1/complete
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.confirm_slot
+POST {{base}}/api/v1/interview-slots/1/confirm
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.create_test
+POST {{base}}/api/v1/tests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.get_attempt
+GET {{base}}/api/v1/attempts/1
+Authorization: Bearer {{token}}
+
+### tests.get_test
+GET {{base}}/api/v1/tests/1
+Authorization: Bearer {{token}}
+
+### tests.grade_attempt
+POST {{base}}/api/v1/attempts/1/grade
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.list_attempts
+GET {{base}}/api/v1/attempts
+Authorization: Bearer {{token}}
+
+### tests.list_slots
+GET {{base}}/api/v1/tests/1/slots
+Authorization: Bearer {{token}}
+
+### tests.list_tests
+GET {{base}}/api/v1/tests
+Authorization: Bearer {{token}}
+
+### tests.offer_slots
+POST {{base}}/api/v1/tests/1/slots
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.release_test
+POST {{base}}/api/v1/tests/1/release
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.save_answers
+PUT {{base}}/api/v1/attempts/1/answers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.set_questions
+PUT {{base}}/api/v1/tests/1/questions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.start_attempt
+POST {{base}}/api/v1/tests/1/attempts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.submit_attempt
+POST {{base}}/api/v1/attempts/1/submit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### tests.update_test
+PATCH {{base}}/api/v1/tests/1
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
