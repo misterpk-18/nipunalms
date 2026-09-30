@@ -52,3 +52,6 @@ BatchTrainerRole = _pg_enum("batch_trainer_role", BATCH_TRAINER_ROLES)
 AllocationStatus = _pg_enum("allocation_status", ALLOCATION_STATUSES)
 SessionState = _pg_enum("session_state", SESSION_STATES)
 MeetStatus = _pg_enum("meet_status", MEET_STATUSES)
+
+RESCHEDULE_REQUEST_STATUSES = ("Open", "Approved", "Rejected")
+RescheduleRequestStatus = _pg_enum("reschedule_request_status", RESCHEDULE_REQUEST_STATUSES)
