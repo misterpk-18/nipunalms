@@ -228,6 +228,21 @@ Added to the admin nav in `auth/access.ts`: Users & Access, Student Accounts, CR
 | `/academic/progress` | `academic/progress` | Table per student with batch / alert filters, recovery and correction queues |
 | `/academic/completion` | `academic/completion` | Evidence table, open review, recommend, decide |
 | `/academic/certificates`, `/branch/reports` | `shared/certificate-register` | One register component; the API's `actions` decide which buttons show (recommend / approve / issue / reissue / revoke) |
+## 6b. S1 — Delivery (built)
+
+| Screen | Feature file | Notes |
+|---|---|---|
+| `/my-courses`, `/courses/$enrolmentId`, `/courses/$enrolmentId/tracks/$trackId` | `student/my-courses`, `course-detail`, `track-detail` | Enrolment cards with gate / delivery state, combo tracks and booster, modules with delivery progress |
+| `/modules/$moduleId`, `/topics/$topicId` | `student/module-detail`, `topic-detail` | Topics, classes, resources (S2 `/me/resources?topic_id=`) and recordings |
+| `/sessions/$sessionId`, `/schedule` | `student/session-detail`, `student/schedule` | Class page with Meet join state; upcoming / past classes |
+| `/trainer/batches`, `/trainer/sessions` | `trainer/batches`, `trainer/sessions` | Own batches with roster; sessions with Start / Deliver / request reschedule |
+| `/academic/batches` | `academic/batches` + `academic/batch-panel`, `academic/allocation-queue` | Batch list and panel (roster, trainers, readiness, history), allocation queue with the per-check review dialog, transfer and deallocate |
+| `/academic/curriculum` | `academic/curriculum` | Overview, version editor (modules / topics), submit / return / approve / activate / retire |
+| `/academic/schedule`, `/branch/operations` | `academic/schedule`, `branch/operations` | Session table with create / reschedule / cancel / Meet actions and the request queue; branch view of batches, requests and Meet exceptions |
+| shared | `shared/delivery-ui.tsx`, `shared/sessions.tsx`, `api/delivery.ts` | IST helpers (`fmtDate` with weekday, `fmtRange` with date, datetime-local converters), DeliveryBar, MeetBadge, field-driven `ActionDialog`, session actions / table / requests panel / roster dialog |
+
+`shared/delivery-ui.tsx` keeps its own `fmtDate` / `fmtRange` (weekday and date-in-range forms); `shared/format.ts` (S4) holds the plain forms and `percent`. S5's `ist.ts`, if it duplicates either, should be folded into `format.ts` at the S5 merge.
+
 ## 7. S2 — Content & recordings (built)
 
 | Screen | Feature file | Notes |

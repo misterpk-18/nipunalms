@@ -22,6 +22,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
 | CRM alignment | ✅ Done | `005_crm_alignment.sql` — real CRM vocabulary and shapes; academic state and batches back to the CRM |
+| 2 / S1 — Delivery | ✅ Done | `010_delivery.sql` |
 | 2 — S6 Admin & security | ✅ Done | `060_admin_security.sql` |
 | CRM certificates | ✅ Done | `070_crm_certificates.sql` — certificates and completion authoriser to the CRM |
 | 2 — S4 Attendance, progress & certificates | ✅ Done | `040_attendance_certificates.sql` |
@@ -126,6 +127,18 @@ Checked against the CRM's schema (db 001–025) and docs; contract in [CRM_INTEG
 | `security_controls` | Security readiness register (seeded with 18 controls: scope enforcement, session idle / max, fresh auth, lockout, password policy, unique LMS login, activation token, audit immutability and decisions, temporary / emergency access, student MFA, file access, export scoping, AI data scope, HTTPS, backups); same Verified CHECK |
 
 Nothing is seeded as Verified. The status table above gains the row: `060_admin_security.sql` — S6 Admin & security ✅.
+
+## 010 — Delivery (S1) ✅
+
+| Object | Purpose |
+|---|---|
+| `curriculum_events` | Review trail per curriculum version (Created, Submitted, Returned, Approved, Activated, Retired) with from / to status, note and actor |
+| `batch_events` | Batch history: created, state changed, readiness, trainer and curriculum changes |
+| `session_changes` | Every reschedule, cancellation and substitute trainer: reason, original and new slot, notice hours, `short_notice` |
+| `session_change_requests` (+ type `reschedule_request_status`) | Trainer reschedule requests (Open / Approved / Rejected); one Open request per session (partial unique index) |
+| `meet_events` | Meet association log: requested, link associated, failed, reset; organizer email; the LMS never calls Google |
+
+No table from 001–005 is altered. Rules added as triggers on the Phase 1 tables: modules and topics of a non-Draft version cannot be updated or deleted; batch lifecycle transitions; class-session transitions (a Live / Delivered / Cancelled session cannot change time or trainer); a session topic must belong to the batch's course; one trainer cannot have two overlapping open sessions. These triggers apply to every later slice's tests and seeds (a Delivered session's times are fixed).
 
 ## 040 — Attendance, progress & certificates (S4) ✅
 

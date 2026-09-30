@@ -249,14 +249,94 @@ Content-Type: application/json
 DELETE {{base}}/api/v1/auth/sessions/1
 Authorization: Bearer {{token}}
 
+# ================================================================ batch_allocations
+### batch_allocations.allocate
+POST {{base}}/api/v1/batches/1/allocations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_allocations.deallocate
+POST {{base}}/api/v1/enrolments/1/deallocate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_allocations.review
+GET {{base}}/api/v1/batches/1/allocation-review
+Authorization: Bearer {{token}}
+
+### batch_allocations.roster
+GET {{base}}/api/v1/batches/1/allocations
+Authorization: Bearer {{token}}
+
+### batch_allocations.transfer
+POST {{base}}/api/v1/enrolments/1/transfer
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ batches
+### batches.assign_trainer
+POST {{base}}/api/v1/batches/1/trainers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batches.change_trainer_role
+PATCH {{base}}/api/v1/batches/1/trainers/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batches.create_batch
+POST {{base}}/api/v1/batches
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batches.end_trainer
+DELETE {{base}}/api/v1/batches/1/trainers/1
+Authorization: Bearer {{token}}
+
 ### batches.get_batch
 GET {{base}}/api/v1/batches/1
+Authorization: Bearer {{token}}
+
+### batches.get_readiness
+GET {{base}}/api/v1/batches/1/readiness
 Authorization: Bearer {{token}}
 
 ### batches.list_batches
 GET {{base}}/api/v1/batches
 Authorization: Bearer {{token}}
+
+### batches.set_readiness
+PATCH {{base}}/api/v1/batches/1/readiness
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batches.transition
+POST {{base}}/api/v1/batches/1/state
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batches.update_batch
+PATCH {{base}}/api/v1/batches/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 # ================================================================ certificates
 ### certificates.approve
@@ -325,9 +405,101 @@ GET {{base}}/api/v1/certificates/verify/1
 Authorization: Bearer {{token}}
 
 # ================================================================ class_sessions
+### class_sessions.approve_request
+POST {{base}}/api/v1/reschedule-requests/1/approve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.associate_meet
+PUT {{base}}/api/v1/class-sessions/1/meet
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.cancel
+POST {{base}}/api/v1/class-sessions/1/cancel
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.create_class_sessions
+POST {{base}}/api/v1/class-sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.deliver
+POST {{base}}/api/v1/class-sessions/1/deliver
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.get_class_session
+GET {{base}}/api/v1/class-sessions/1
+Authorization: Bearer {{token}}
+
 ### class_sessions.list_class_sessions
 GET {{base}}/api/v1/class-sessions
 Authorization: Bearer {{token}}
+
+### class_sessions.list_requests
+GET {{base}}/api/v1/reschedule-requests
+Authorization: Bearer {{token}}
+
+### class_sessions.mark_meet_failed
+POST {{base}}/api/v1/class-sessions/1/meet/fail
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.reject_request
+POST {{base}}/api/v1/reschedule-requests/1/reject
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.request_reschedule
+POST {{base}}/api/v1/class-sessions/1/reschedule-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.reschedule
+POST {{base}}/api/v1/class-sessions/1/reschedule
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.reset_meet
+POST {{base}}/api/v1/class-sessions/1/meet/reset
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.start
+POST {{base}}/api/v1/class-sessions/1/start
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.update_class_session
+PATCH {{base}}/api/v1/class-sessions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 # ================================================================ completion
 ### completion.decide
@@ -483,6 +655,117 @@ Content-Type: application/json
 GET {{base}}/api/v1/admin/crm-sync/summary
 Authorization: Bearer {{token}}
 
+# ================================================================ curriculum
+### curriculum.activate
+POST {{base}}/api/v1/curriculum-versions/1/activate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.add_module
+POST {{base}}/api/v1/curriculum-versions/1/modules
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.add_topic
+POST {{base}}/api/v1/curriculum-modules/1/topics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.approve
+POST {{base}}/api/v1/curriculum-versions/1/approve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.create_version
+POST {{base}}/api/v1/curriculum-versions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.delete_module
+DELETE {{base}}/api/v1/curriculum-modules/1
+Authorization: Bearer {{token}}
+
+### curriculum.delete_topic
+DELETE {{base}}/api/v1/curriculum-topics/1
+Authorization: Bearer {{token}}
+
+### curriculum.delete_version
+DELETE {{base}}/api/v1/curriculum-versions/1
+Authorization: Bearer {{token}}
+
+### curriculum.get_version
+GET {{base}}/api/v1/curriculum-versions/1
+Authorization: Bearer {{token}}
+
+### curriculum.list_versions
+GET {{base}}/api/v1/curriculum-versions
+Authorization: Bearer {{token}}
+
+### curriculum.overview
+GET {{base}}/api/v1/curriculum/overview
+Authorization: Bearer {{token}}
+
+### curriculum.retire
+POST {{base}}/api/v1/curriculum-versions/1/retire
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.return_to_draft
+POST {{base}}/api/v1/curriculum-versions/1/return
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.submit
+POST {{base}}/api/v1/curriculum-versions/1/submit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.update_module
+PATCH {{base}}/api/v1/curriculum-modules/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.update_topic
+PATCH {{base}}/api/v1/curriculum-topics/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.update_version
+PATCH {{base}}/api/v1/curriculum-versions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ enrolments
+### enrolments.allocation_queue
+GET {{base}}/api/v1/allocation-queue
+Authorization: Bearer {{token}}
+
+### enrolments.list_enrolments
+GET {{base}}/api/v1/enrolments
+Authorization: Bearer {{token}}
+
 # ================================================================ health
 ### health.get_health
 GET {{base}}/api/v1/health
@@ -507,6 +790,31 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ my_courses
+### my_courses.get_enrolment
+GET {{base}}/api/v1/me/enrolments/1
+Authorization: Bearer {{token}}
+
+### my_courses.get_module
+GET {{base}}/api/v1/modules/1
+Authorization: Bearer {{token}}
+
+### my_courses.get_topic
+GET {{base}}/api/v1/topics/1
+Authorization: Bearer {{token}}
+
+### my_courses.get_track
+GET {{base}}/api/v1/me/enrolments/1/tracks/1
+Authorization: Bearer {{token}}
+
+### my_courses.list_enrolments
+GET {{base}}/api/v1/me/enrolments
+Authorization: Bearer {{token}}
+
+### my_courses.schedule
+GET {{base}}/api/v1/me/schedule
+Authorization: Bearer {{token}}
 
 # ================================================================ progress
 ### progress.branch_summary

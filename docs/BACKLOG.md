@@ -59,3 +59,20 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 | Recording playback | Needs the verified Drive integration and a proxy with per-request entitlement (Module 17 §7); today `watch` records the view and returns the integration state |
 | Jobs runner | `flask jobs run` (S2) holds `recording-check`; other slices add their jobs to `services/jobs.JOBS` |
 | S2 seed adjusts two joining dates | Learners A and F (completed) get Joining Dates 2025-06-10 and 2024-08-19 so EXT-032 / EXT-033 show a request after the first / second anniversary |
+
+## Delivery (S1)
+
+| Item | Notes |
+|---|---|
+| Google Meet creation | Links are entered by hand; no Calendar / Meet API call until the organizer accounts are verified (Integrations) |
+| Substitute trainer on a single class | `session_changes` can record it, but the prototype's substitute picker with availability is not built |
+| Trainer availability and leave | Conflicts are only overlapping classes and rooms; leave calendars and working hours are not modelled |
+| Bulk timetable import | Sessions are created one batch at a time with a repeat rule; no CSV / calendar import as in the prototype's schedule screen |
+| Calendar month grid | Schedules are list / week tables; the prototype's month calendar view and iCal export are not built |
+| Curriculum diff between versions | The prototype shows what changed between versions; only the review trail is stored |
+| Re-mapping running batches to a new version | Activating a version maps pending enrolments and batches; moving Running batches to a newer version is manual |
+| Batch capacity waitlist | Full batches have no waiting list; the allocation queue just lists unseated enrolments |
+| Session reminders | Students are notified of changes but not reminded before a class (needs a job in `services/jobs.JOBS`) |
+| Topic-level self study progress | Topic pages show classes and resources; students cannot mark a topic as studied |
+| Duplicate date helpers | `shared/delivery-ui.tsx` and `shared/format.ts` both format IST dates in slightly different forms; unify when the design settles |
+

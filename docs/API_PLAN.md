@@ -251,6 +251,37 @@ Super Admin manages; the Founder / CEO can read every list (mutations are Super 
 - Joining date: `services/attendance.set_joining_date(enrolment, date)` — the first Present / Late moves "Allocated — awaiting first regular class" to Active and opens the enrolment's Certificate Register entry (Not Yet Eligible).
 - Progress is computed by SQL views (`enrolment_progress` and the views under it). Attendance % = (Present + Late) / marked classes delivered since joining; "Partial Data" while any delivered class is unmarked; the alert needs three marked classes and `attendance_alert_threshold`. Excused counts against the percentage; an approved or completed recovery is reported separately and counts towards required learning.
 - Certificates: the database validates transitions and allocates `NIT-CERT-YYYY-NNNNNN` at first issue; a reissue is a new version under the same number and supersedes the earlier one. Complimentary enrolments stay "Configuration Pending" until `complimentary_completion_rule_configured` is true.
+### S1 — Delivery: curriculum, enrolments, batch allocation, class sessions, student course pages (migration `010`)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/curriculum/overview` | Staff | One row per course: Active version, versions in review, mapped / pending enrolments (Curriculum Mapping Pending) |
+| GET / POST | `/curriculum-versions` | Staff / AC, Super Admin | List (filters `course_id`, `status`); create a Draft (optionally copied from an earlier version) |
+| GET / PATCH / DELETE | `/curriculum-versions/{id}` | Staff / AC, Super Admin | Detail with modules, topics, review trail and publish blockers; rename; delete only a never-published Draft |
+| POST | `/curriculum-versions/{id}/submit`, `/return`, `/approve`, `/activate`, `/retire` | AC, Super Admin (approval by someone other than the submitter) | Draft → Under Review → Approved → Active → Retired; `return` needs a reason. Activating maps Curriculum Mapping Pending enrolments and batches and returns the counts |
+| POST | `/curriculum-versions/{id}/modules`, `/curriculum-modules/{id}/topics` | AC, Super Admin | Add to a Draft (optional `position`) |
+| PATCH / DELETE | `/curriculum-modules/{id}`, `/curriculum-topics/{id}` | AC, Super Admin | Draft only; sort order re-sequenced |
+| GET | `/enrolments`, `/allocation-queue` | Staff / AC, BM, Super Admin | Branch-scoped enrolment list; the queue of Payment-cleared enrolments waiting for a seat |
+| GET / POST | `/batches/{id}/allocations` | Staff / AC, BM, Super Admin | Roster (filter `status`); allocate an enrolment |
+| GET | `/batches/{id}/allocation-review?enrolment_id=&transfer=` | AC, BM, Super Admin | The checks (branch, course, curriculum, capacity, state, gate, finance) as pass / warn / block |
+| POST | `/enrolments/{id}/transfer`, `/enrolments/{id}/deallocate` | AC, BM, Super Admin | Reason required; warnings need `acknowledge_warnings` |
+| POST / PATCH | `/batches`, `/batches/{id}`, `POST /batches/{id}/state`, `/trainers`, `/readiness` | AC, BM, Super Admin | Batch lifecycle with `batch_events` history (extends the Phase 1 batch endpoints) |
+| GET / POST / PATCH | `/class-sessions`, `/class-sessions/{id}` | Staff; create / edit AC, BM, Super Admin | Filters include `batch_id`, `trainer_id`, `state`, `from`, `to`; create accepts a weekly `recurrence` (weekdays, `until` / `count`) |
+| POST | `/class-sessions/{id}/start`, `/deliver`, `/cancel`, `/reschedule` | Trainer of the batch (start, deliver); AC, BM, Super Admin (cancel, reschedule) | Reason required for cancel / reschedule; `session_changes` row with notice hours and `short_notice` |
+| POST | `/class-sessions/{id}/reschedule-requests`; GET `/reschedule-requests`; POST `/reschedule-requests/{id}/approve`, `/reject` | Trainer (ask); AC, BM (decide) | One open request per session; approve applies the proposed time |
+| PUT / POST | `/class-sessions/{id}/meet`, `/meet/fail`, `/meet/reset` | AC, BM, Super Admin | Records the Meet association in `meet_events`; the LMS never calls Google |
+| GET | `/me/enrolments`, `/me/enrolments/{id}`, `/me/enrolments/{id}/tracks/{track_id}`, `/me/schedule` | Student | Own courses with delivery progress, combo tracks and upcoming / past classes |
+| GET | `/modules/{id}`, `/topics/{id}` | Student (own enrolments) / staff | Module and topic pages with their classes, resources and recordings |
+
+**As built (S1):**
+- Curriculum versions are snapshots: modules and topics change only while the version is a Draft (database trigger); an Active version is retired only when another takes over or with a reason. Approval by the submitter is refused.
+- Allocation is the only path to a seat: the review returns per-check results, a blocked check cannot be overridden, a warning needs the acknowledgement; transfers and deallocations keep the allocation row (history) and free the seat. A student is told of every seat change.
+- Batch lifecycle is enforced by trigger (Forming → Starting → Running <-> Full → Completed; Cancelled from any open state). Sessions: Scheduled / Rescheduled → Live → Delivered; Cancelled; a Live, Delivered or Cancelled session can no longer change time or trainer. A trainer cannot teach two overlapping classes (trigger + service message) and a room cannot be double-booked.
+- Rescheduling with less than 24 hours' notice is flagged `short_notice` and students of the batch are notified; every change is in `session_changes`.
+- The student "Join" state comes from `services/meet.join_state`: enabled only when the Meet link is associated and the class is Live or within 15 minutes of starting. Meet links are entered manually until the Google integration is verified.
+- Notifications go through `services/delivery_notices.py` so a repeated event never sends twice.
+- Attendance (S4) reuses `repositories/class_sessions.get_session`; there is one session lookup.
+
 ### S2 — Content library, recordings, recording exceptions, access extensions (migration `020`)
 
 | Method | Path | Who | Notes |
