@@ -121,6 +121,12 @@ def deliver(session_id: int):
     return ok(_session(class_sessions_service.deliver(session_id, v.validate().get("notes"))))
 
 
+def save_notes(session_id: int):
+    v = Validator(json_body())
+    v.string("notes", required=True, max_length=2000)
+    return ok(_session(class_sessions_service.save_notes(session_id, v.validate()["notes"])))
+
+
 # ---------------------------------------------------------------- Meet
 
 def associate_meet(session_id: int):
