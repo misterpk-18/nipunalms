@@ -222,7 +222,9 @@ def test_status_endpoint_returns_what_changed_since(client, catalog, crm_event, 
     (admission,) = data["admissions"]
     assert admission["crm_admission_id"] == "CRM-A-5" and admission["lms_status"] == "Active"
     assert admission["lms_last_activity_at"] is None and admission["lms_last_synced_at"]
-    assert data["batches"] == [{"crm_batch_id": "CRM-B-5", "lms_course_id": db.session.execute(select(Batch.batch_code)).scalar_one()}]
+    (batch,) = [b for b in data["batches"] if b["crm_batch_id"] == "CRM-B-5"]
+    assert batch["lms_course_id"] == db.session.execute(select(Batch.batch_code).where(Batch.crm_batch_id == "CRM-B-5")).scalar_one()
+    assert batch["course_code"] and batch["branch_code"] and batch["status"] in ("Planned", "Open", "In Progress")
 
 
 def test_status_endpoint_is_empty_when_nothing_changed_and_reports_new_activity(client, catalog, make_student, run_sql):

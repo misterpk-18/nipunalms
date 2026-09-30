@@ -180,16 +180,26 @@ def _course_upserted(event: CrmEvent, data: dict) -> Handled:
     course.source_version = event.source_version
     db.session.flush()
 
-    for item in data["components"]:
+    main_tracks = 0
+    for item in sorted(data["components"], key=lambda i: i["sort_order"]):
         component_course = _course(item["component_course_code"]) if item.get("component_course_code") else None
-        component = catalog_repo.get_component_by_track_code(item["track_code"])
+        role = item.get("role") or ("Included booster" if item["is_bonus"] else "Main track")
+        if role == "Main track":
+            main_tracks += 1
+        # The CRM names no tracks: a main track is '<combo>/T<n>', an included booster keeps its own course code
+        track_code = item.get("track_code") or (
+            component_course.course_code if role == "Included booster" else f"{course.course_code}/T{main_tracks}")
+
+        component = catalog_repo.get_component_by_track_code(track_code)
+        if component is None and component_course is not None:
+            component = catalog_repo.get_component_by_course(course.course_id, component_course.course_id)
         if component is not None and component.parent_course_id != course.course_id:
-            raise BusinessRule(f"Track {item['track_code']} already belongs to another course")
+            raise BusinessRule(f"Track {track_code} already belongs to another course")
         if component is None:
-            component = CourseComponent(parent_course_id=course.course_id, track_code=item["track_code"])
+            component = CourseComponent(parent_course_id=course.course_id, track_code=track_code)
             db.session.add(component)
-        component.track_name = item["track_name"]
-        component.role = item["role"]
+        component.track_name = item.get("track_name") or component_course.title
+        component.role = role
         component.sort_order = item["sort_order"]
         component.component_course_id = component_course.course_id if component_course else None
     db.session.flush()
@@ -208,8 +218,12 @@ def _admission_qualified(event: CrmEvent, data: dict) -> Handled:
     original, service, collecting = (_branch(adm["original_branch_code"]), _branch(adm["service_branch_code"]),
                                      _branch(adm["collecting_branch_code"]))
     course = _course(adm["course_code"])
+    paid = _admission(adm["complimentary_of_crm_admission_id"]) if adm.get("complimentary_of_crm_admission_id") else None
 
     student, token, warnings = _upsert_student(person, original.branch_id, service.branch_id)
+    if paid is not None and paid.student_id != student.student_id:
+        raise BusinessRule(f"Complimentary admission {adm['admission_code']} must belong to the same person as "
+                           f"its paid admission {paid.admission_code}")
 
     if admission is None:
         admission = Admission(crm_admission_id=adm["crm_admission_id"], student_id=student.student_id)
@@ -223,12 +237,15 @@ def _admission_qualified(event: CrmEvent, data: dict) -> Handled:
     admission.collecting_branch_id = collecting.branch_id
     admission.mode = adm["mode"]
     admission.admission_date = adm.get("admission_date")
+    admission.complimentary_of_admission_id = paid.admission_id if paid else None
+    admission.seat_type = adm.get("seat_type")
+    admission.planned_start_date = adm.get("planned_start_date")
     admission.source_version = event.source_version
     db.session.flush()
 
     # Paid enrolments first: a complimentary one links to its qualifying paid enrolment
-    items = sorted(data["enrolments"], key=lambda i: i.get("kind") == "Complimentary")
-    enrolments = [_ensure_enrolment(admission, student, item, warnings) for item in items]
+    items = sorted(data.get("enrolments") or [_default_enrolment(adm, paid)], key=lambda i: i.get("kind") == "Complimentary")
+    enrolments = [_ensure_enrolment(admission, student, item, warnings, paid) for item in items]
 
     pending = [f"{e.enrolment_code} {e.status}" for e in enrolments if e.status.endswith("Pending")]
     notify(category="Enrolment", event_key=f"admission-qualified:{admission.crm_admission_id}",
@@ -243,6 +260,16 @@ def _admission_qualified(event: CrmEvent, data: dict) -> Handled:
                    activation_token=token)
 
 
+def _default_enrolment(adm: dict, paid: Admission | None) -> dict:
+    """A CRM admission is one course. A complimentary CRM admission exists only once its qualifying payment was
+    verified, so its benefit gate is met."""
+    item = {"course_code": adm["course_code"], "crm_batch_id": adm.get("crm_batch_id"), "access_end": adm.get("access_until")}
+    if paid is not None:
+        item.update(kind="Complimentary", parent_course_code=paid.course.course_code,
+                    benefit_gate={"met": True, "note": f"Complimentary to {paid.admission_code} (CRM)"})
+    return item
+
+
 def _upsert_student(person: dict, original_branch_id: int, service_branch_id: int) -> tuple[Student, str | None, list[str]]:
     """One student per CRM Person; the LMS login is created the first time only. Returns the raw activation token of a new login."""
     warnings: list[str] = []
@@ -254,6 +281,8 @@ def _upsert_student(person: dict, original_branch_id: int, service_branch_id: in
     for field in ("full_name", "name_te", "email", "mobile", "preferred_language"):
         if person.get(field) is not None:
             setattr(student, field, person[field])
+    if person.get("person_code"):
+        student.crm_person_code = person["person_code"]
     db.session.flush()
 
     token = None
@@ -269,7 +298,8 @@ def _upsert_student(person: dict, original_branch_id: int, service_branch_id: in
     return student, token, warnings
 
 
-def _ensure_enrolment(admission: Admission, student: Student, item: dict, warnings: list[str]) -> Enrolment:
+def _ensure_enrolment(admission: Admission, student: Student, item: dict, warnings: list[str],
+                      paid: Admission | None = None) -> Enrolment:
     course = _course(item["course_code"])
     kind = item.get("kind") or ("Combo" if course.is_combo else "Standalone")
     gate = item.get("benefit_gate")
@@ -281,11 +311,14 @@ def _ensure_enrolment(admission: Admission, student: Student, item: dict, warnin
                               mode=item.get("mode") or admission.mode,
                               status="Provisioning Pending" if gate and not gate["met"] else "Curriculum Mapping Pending")
         if kind == "Complimentary":
+            # The qualifying paid enrolment: in this admission, or in the paid admission this one is complimentary to
             parent_course = _course(item["parent_course_code"])
             parent = students_repo.find_enrolment(admission.admission_id, parent_course.course_id)
+            if parent is None and paid is not None:
+                parent = students_repo.find_enrolment(paid.admission_id, parent_course.course_id)
             if parent is None:
                 raise BusinessRule(f"Complimentary course {course.course_code} needs its qualifying enrolment "
-                                   f"{parent_course.course_code} in the same admission")
+                                   f"{parent_course.course_code} in the same admission or its paid admission")
             enrolment.parent_enrolment_id = parent.enrolment_id
         db.session.add(enrolment)
     elif enrolment.status not in ("Curriculum Mapping Pending", "Provisioning Pending"):
@@ -488,6 +521,13 @@ def _finance_summary_updated(event: CrmEvent, data: dict) -> Handled:
     summary.next_due_amount = data.get("next_due_amount")
     summary.receipts = [{"receipt_number": r["receipt_number"], "date": r["date"].isoformat(), "amount": str(r["amount"])}
                         for r in data["receipts"]]
+    summary.pending_verification = data["pending_verification"]
+    summary.waived = data["waived"]
+    summary.refunded = data["refunded"]
+    summary.payment_completion = data.get("payment_completion")
+    summary.invoice_numbers = data["invoice_numbers"]
+    summary.installments = [{**i, "due_date": i["due_date"].isoformat(),
+                             **{k: str(i[k]) for k in ("amount", "covered", "balance")}} for i in data["installments"]]
     summary.as_of = data.get("as_of") or event.occurred_at
     summary.source_version = event.source_version
     db.session.flush()
@@ -507,8 +547,9 @@ HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
 # ---------------------------------------------------------------- what the CRM pulls back
 
 def status_since(since: datetime) -> dict:
-    """The values the CRM stores about the LMS that changed after `since`:
-    persons.lms_user_id / lms_provisioned_at, admissions.lms_status / lms_last_activity_at, batches.lms_course_id."""
+    """The values the CRM stores about the LMS that changed after `since` (see docs/CRM_INTEGRATION.md):
+    persons.lms_user_id / lms_provisioned_at; admissions.lms_status / lms_last_activity_at; the academic columns
+    the LMS now owns (enrolment_status, curriculum_status, allocations and joining date, completion); batches."""
     now = datetime.now(timezone.utc)
     return {
         "persons": [{"crm_person_id": s.crm_person_id, "lms_user_id": s.lms_user_id, "lms_provisioned_at": s.provisioned_at}
@@ -516,7 +557,7 @@ def status_since(since: datetime) -> dict:
         "admissions": [{"crm_admission_id": st.admission.crm_admission_id, "lms_status": st.lms_status,
                         "lms_last_activity_at": st.last_activity_at, "lms_last_synced_at": now}
                        for st in crm_repo.admission_states_changed_since(since)],
-        "batches": [{"crm_batch_id": b.crm_batch_id, "lms_course_id": b.batch_code}
-                    for b in crm_repo.batches_linked_since(since)],
+        "academics": [st.academic for st in crm_repo.academics_changed_since(since)],
+        "batches": [state.payload for state in crm_repo.batch_states_changed_since(since)],
         "as_of": now,
     }

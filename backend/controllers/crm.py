@@ -1,23 +1,45 @@
 """CRM event intake: envelope and per-type payload validation, then the service."""
+from decimal import Decimal
+
 from flask import request
 
 from controllers.common import Validator, get_page_params, json_body, ok, paginated
-from models.enums import ADMISSION_STATUSES, CRM_EVENT_STATUSES, COURSE_STATUSES, COMPONENT_ROLES, DELIVERY_MODES, ENROLMENT_KINDS
+from models.enums import (
+    ADMISSION_STATUSES, COMPONENT_ROLES, COURSE_STATUSES, CRM_EVENT_STATUSES, DELIVERY_MODES, ENROLMENT_KINDS,
+    PAYMENT_COMPLETIONS, SEAT_TYPES,
+)
 from services import crm as crm_service
 from services.errors import ValidationError
 
 EVENT_TYPES = tuple(crm_service.HANDLERS)
-ID_FIELDS = ("crm_person_id", "crm_admission_id", "crm_batch_id")
+ID_FIELDS = ("crm_person_id", "crm_admission_id", "crm_batch_id", "complimentary_of_crm_admission_id")
 LANGUAGES = ("en", "te")
+ZERO = Decimal("0.00")
+
+# The CRM's own column names and values (nipuna-crm db), accepted as sent and mapped to the LMS vocabulary
+FIELD_ALIASES = {"phone": "mobile", "course_title": "title", "delivery_mode": "mode"}
+VALUE_MAPS = {
+    "mode": {"Online": "Live Online"},                                   # CRM delivery_mode
+    "preferred_language": {"English": "en", "Telugu": "te"},             # CRM app_language
+}
 
 
-def _stringify_ids(value):
-    """The CRM may send numeric IDs; the LMS stores them as text."""
+def _from_crm(value):
+    """Numeric CRM IDs become text; CRM field names and values become the LMS's (e.g. mode 'Online' → 'Live Online')."""
     if isinstance(value, dict):
-        return {k: str(v) if k in ID_FIELDS and isinstance(v, int) and not isinstance(v, bool) else _stringify_ids(v)
-                for k, v in value.items()}
+        out = {}
+        for key, item in value.items():
+            alias = FIELD_ALIASES.get(key)
+            if alias and alias not in value:  # an LMS-named field sent alongside wins
+                key = alias
+            if key in ID_FIELDS and isinstance(item, int) and not isinstance(item, bool):
+                item = str(item)
+            elif key in VALUE_MAPS and isinstance(item, str):
+                item = VALUE_MAPS[key].get(item, item)
+            out[key] = _from_crm(item)
+        return out
     if isinstance(value, list):
-        return [_stringify_ids(v) for v in value]
+        return [_from_crm(v) for v in value]
     return value
 
 
@@ -31,11 +53,14 @@ def _course_upserted(v: Validator) -> None:
     v.choice("status", COURSE_STATUSES, default="Active")
 
     def component(c: Validator) -> None:
-        c.string("track_code", required=True, upper=True, max_length=50)
-        c.string("track_name", required=True, max_length=200)
-        c.choice("role", COMPONENT_ROLES, default="Main track")
-        c.integer("sort_order", default=0, min_value=0)
+        # The CRM's combo_courses rows carry only the component course (+ is_bonus); track code / name are derived
+        has_course = bool(c.data.get("component_course_code"))
         c.string("component_course_code", upper=True, max_length=30)
+        c.string("track_code", required=not has_course, upper=True, max_length=50)
+        c.string("track_name", required=not has_course, max_length=200)
+        c.boolean("is_bonus", default=False)
+        c.choice("role", COMPONENT_ROLES)
+        c.integer("sort_order", default=0, min_value=0)
 
     v.list_of("components", component)
 
@@ -61,6 +86,7 @@ def _benefit_gate(g: Validator) -> None:
 def _admission_qualified(v: Validator) -> None:
     def person(p: Validator) -> None:
         p.string("crm_person_id", required=True, max_length=100)
+        p.string("person_code", nullable=True, max_length=30)
         p.string("full_name", required=True, max_length=150)
         p.string("name_te", nullable=True, max_length=200)
         p.email("email", nullable=True)
@@ -76,10 +102,16 @@ def _admission_qualified(v: Validator) -> None:
         a.string("collecting_branch_code", required=True, upper=True, max_length=20)
         a.choice("mode", DELIVERY_MODES, default="Classroom")
         a.date("admission_date", nullable=True)
+        a.choice("seat_type", SEAT_TYPES, nullable=True)
+        a.date("planned_start_date", nullable=True)
+        a.string("complimentary_of_crm_admission_id", nullable=True, max_length=100)
+        a.date("access_until", nullable=True)          # complimentary access period (CRM admissions.access_until)
+        a.string("crm_batch_id", nullable=True, max_length=100)
 
     v.nested("person", person, required=True)
     v.nested("admission", admission, required=True)
-    v.list_of("enrolments", _enrolment_item, required=True, min_items=1)
+    # A CRM admission is one course: without enrolments the LMS enrols the admission's own course
+    v.list_of("enrolments", _enrolment_item, min_items=1)
 
 
 def _admission_updated(v: Validator) -> None:
@@ -111,7 +143,21 @@ def _finance_summary_updated(v: Validator) -> None:
     v.decimal("balance", required=True)
     v.date("next_due_date", nullable=True)
     v.decimal("next_due_amount", nullable=True, min_value=0)
+    def installment(i: Validator) -> None:
+        i.integer("installment_no", required=True, min_value=1)
+        i.date("due_date", required=True)
+        i.decimal("amount", required=True, min_value=0)
+        i.decimal("covered", default=ZERO, min_value=0)
+        i.decimal("balance", default=ZERO, min_value=0)
+        i.string("due_position", nullable=True, max_length=30)
+
     v.list_of("receipts", receipt)
+    v.decimal("pending_verification", default=ZERO, min_value=0)
+    v.decimal("waived", default=ZERO, min_value=0)
+    v.decimal("refunded", default=ZERO, min_value=0)
+    v.choice("payment_completion", PAYMENT_COMPLETIONS, nullable=True)
+    v.string_list("invoice_numbers")
+    v.list_of("installments", installment)
     v.datetime("as_of")
 
 
@@ -124,11 +170,11 @@ PAYLOAD_RULES = {
 }
 # Lists that may be left out of a payload
 OPTIONAL_LISTS = {"CourseUpserted": ("components",), "AdmissionUpdated": ("enrolments",),
-                  "FinanceSummaryUpdated": ("receipts",)}
+                  "FinanceSummaryUpdated": ("receipts", "invoice_numbers", "installments")}
 
 
 def parse_data(event_type: str, raw_data) -> dict:
-    v = Validator(_stringify_ids(raw_data))
+    v = Validator(_from_crm(raw_data))
     PAYLOAD_RULES[event_type](v)
     data = v.validate()
     for field in OPTIONAL_LISTS.get(event_type, ()):

@@ -203,12 +203,23 @@ SESSIONS = [
     ("V2", "trainer_v2", None, "Capstone review", "2026-10-08", "11:00", "13:00", "Classroom", "Scheduled", None),
 ]
 
-# person, admission, receipts: Anvitha's finance summaries as the CRM would send them
+# Anvitha's finance summaries as the CRM would send them (admission_balances + installment_dues + verified receipts).
+# Receipt numbers follow the collecting branch and the April–March financial year.
 FINANCE = [
     ("CRM-ADM-214", dict(fee_total=45000, verified_paid=30000, balance=15000, next_due_date="2026-10-10", next_due_amount=15000,
-                         receipts=[{"receipt_number": "GNT-R-2627-00014", "date": "2026-01-10", "amount": 15000},
+                         pending_verification=0, payment_completion="Part Paid", invoice_numbers=["INV-GNT-2526-0214"],
+                         installments=[{"installment_no": 1, "due_date": "2026-01-10", "amount": 15000, "covered": 15000, "balance": 0,
+                                        "due_position": "Paid"},
+                                       {"installment_no": 2, "due_date": "2026-04-10", "amount": 15000, "covered": 15000, "balance": 0,
+                                        "due_position": "Paid"},
+                                       {"installment_no": 3, "due_date": "2026-10-10", "amount": 15000, "covered": 0, "balance": 15000,
+                                        "due_position": "Due soon"}],
+                         receipts=[{"receipt_number": "GNT-R-2526-00148", "date": "2026-01-10", "amount": 15000},
                                    {"receipt_number": "GNT-R-2627-00031", "date": "2026-04-10", "amount": 15000}])),
     ("CRM-ADM-88", dict(fee_total=22000, verified_paid=22000, balance=0, next_due_date=None, next_due_amount=None,
+                        pending_verification=0, payment_completion="Paid", invoice_numbers=["INV-GNT-2627-0088"],
+                        installments=[{"installment_no": 1, "due_date": "2026-09-20", "amount": 22000, "covered": 22000, "balance": 0,
+                                       "due_position": "Paid"}],
                         receipts=[{"receipt_number": "GNT-R-2627-00102", "date": "2026-09-20", "amount": 22000}])),
 ]
 
@@ -320,8 +331,9 @@ def _qualify(ctx: SeedContext, key: str, *, person: str, name: str, email: str |
     combo = course == COMBO["course_code"]
     enrolment = {"course_code": course, **({"kind": "Combo"} if combo else {}), **({"crm_batch_id": crm_batch} if crm_batch else {})}
     data = ctx.crm_event("AdmissionQualified", {
-        "person": {"crm_person_id": person, "full_name": name, "name_te": name_te, "email": email, "mobile": mobile},
-        "admission": {"crm_admission_id": f"CRM-ADM-{number}", "admission_code": f"ADM-{code}-2026-{number:06d}",
+        "person": {"crm_person_id": person, "person_code": f"PER-{code}-{number:05d}", "full_name": name, "name_te": name_te,
+                   "email": email, "phone": mobile, "preferred_language": "English"},
+        "admission": {"crm_admission_id": f"CRM-ADM-{number}", "admission_code": f"NIT-{code}-2026-{number:06d}",
                       "course_code": course, "original_branch_code": branch_code, "service_branch_code": branch_code,
                       "collecting_branch_code": branch_code, "mode": "Classroom", "admission_date": "2026-09-01"},
         "enrolments": [enrolment],
@@ -339,24 +351,30 @@ def seed_students(ctx: SeedContext) -> None:
                             "ON CONFLICT (counter_key) DO UPDATE SET last_value = 4181"), {"k": f"STU-{year}"})
     db.session.commit()
 
-    person = {"crm_person_id": ANVITHA["person"], "full_name": ANVITHA["name"], "name_te": ANVITHA["name_te"],
-              "email": ANVITHA["email"], "mobile": ANVITHA["mobile"], "preferred_language": "en"}
+    # Sent the way the CRM sends it: its own field names and values (phone, English / Telugu, Online), one course per admission
+    person = {"crm_person_id": ANVITHA["person"], "person_code": "PER-GNT-00148", "full_name": ANVITHA["name"],
+              "name_te": ANVITHA["name_te"], "email": ANVITHA["email"], "phone": ANVITHA["mobile"], "preferred_language": "English"}
     combo = ctx.crm_event("AdmissionQualified", {
         "person": person,
-        "admission": {"crm_admission_id": "CRM-ADM-214", "admission_code": "ADM-GNT-2026-000214", "course_code": "NIT-CRS-018",
+        "admission": {"crm_admission_id": "CRM-ADM-214", "admission_code": "NIT-GNT-2026-000214", "course_code": "NIT-CRS-018",
                       "original_branch_code": "NIT-GNT", "service_branch_code": "NIT-GNT", "collecting_branch_code": "NIT-GNT",
-                      "mode": "Hybrid", "admission_date": "2026-01-10"},
-        "enrolments": [
-            {"course_code": "NIT-CRS-018", "kind": "Combo", "mode": "Hybrid", "crm_batch_id": "CRM-BAT-101"},
-            {"course_code": "NIT-CRS-052", "kind": "Complimentary", "mode": "Classroom", "parent_course_code": "NIT-CRS-018",
-             "benefit_gate": {"met": True, "note": "Promotional offer: qualifying payment verified on the paid combo admission"}},
-        ],
+                      "delivery_mode": "Hybrid", "seat_type": "Confirmed Seat", "admission_date": "2026-01-10",
+                      "crm_batch_id": "CRM-BAT-101"},
+    })
+    # The CRM grants a complimentary course as its own admission, linked to the paid one
+    ctx.crm_event("AdmissionQualified", {
+        "person": person,
+        "admission": {"crm_admission_id": "CRM-ADM-215", "admission_code": "NIT-GNT-2026-000215", "course_code": "NIT-CRS-052",
+                      "original_branch_code": "NIT-GNT", "service_branch_code": "NIT-GNT", "collecting_branch_code": "NIT-GNT",
+                      "delivery_mode": "Classroom", "admission_date": "2026-01-10",
+                      "complimentary_of_crm_admission_id": "CRM-ADM-214", "access_until": "2027-01-09"},
     })
     aws = ctx.crm_event("AdmissionQualified", {
         "person": person,
-        "admission": {"crm_admission_id": "CRM-ADM-88", "admission_code": "ADM-VIJ-2026-000088", "course_code": "NIT-CRS-007",
+        "admission": {"crm_admission_id": "CRM-ADM-88", "admission_code": "NIT-VIJ-2026-000088", "course_code": "NIT-CRS-007",
                       "original_branch_code": "NIT-GNT", "service_branch_code": "NIT-VIJ", "collecting_branch_code": "NIT-GNT",
-                      "mode": "Live Online", "admission_date": "2026-09-20"},
+                      "delivery_mode": "Online", "seat_type": "Future Plan", "planned_start_date": "2026-09-30",
+                      "admission_date": "2026-09-20"},
         "enrolments": [{"course_code": "NIT-CRS-007", "kind": "Separately purchased", "crm_batch_id": "CRM-BAT-201"}],
     })
     ctx.students["anvitha"] = {**combo["result"], "token": combo["activation_token"]}
@@ -430,7 +448,7 @@ def seed_crm_inbox_examples(ctx: SeedContext) -> None:
     """Two events for the CRM sync monitor: one that could not be applied yet, one that arrived late and was ignored."""
     ctx.crm_event("AdmissionQualified", {
         "person": {"crm_person_id": "CRM-PER-9001", "full_name": "Sample Learner Z.", "mobile": "9876599001"},
-        "admission": {"crm_admission_id": "CRM-ADM-999", "admission_code": "ADM-GNT-2026-000999", "course_code": "NIT-CRS-999",
+        "admission": {"crm_admission_id": "CRM-ADM-999", "admission_code": "NIT-GNT-2026-000999", "course_code": "NIT-CRS-999",
                       "original_branch_code": "NIT-GNT", "service_branch_code": "NIT-GNT", "collecting_branch_code": "NIT-GNT"},
         "enrolments": [{"course_code": "NIT-CRS-999"}],
     }, expect=(422,))

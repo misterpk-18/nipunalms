@@ -25,6 +25,14 @@ def get_component_by_track_code(track_code: str) -> CourseComponent | None:
     ).scalar_one_or_none()
 
 
+def get_component_by_course(parent_course_id: int, component_course_id: int) -> CourseComponent | None:
+    """The combo's track for a component course (how the CRM's combo_courses rows identify it)."""
+    return db.session.execute(
+        select(CourseComponent).where(CourseComponent.parent_course_id == parent_course_id,
+                                      CourseComponent.component_course_id == component_course_id)
+    ).scalar_one_or_none()
+
+
 def active_curriculum_version_id(course_id: int, component_id: int | None = None) -> int | None:
     """The Active curriculum version of a course (or of one of its tracks); None when none is mapped."""
     return db.session.execute(select(func.active_curriculum_version(course_id, component_id))).scalar()

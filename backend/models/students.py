@@ -22,6 +22,7 @@ class Student(db.Model):
     student_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     student_code: Mapped[str] = mapped_column(String(30), unique=True, server_default=FetchedValue())  # trigger
     crm_person_id: Mapped[str] = mapped_column(String(100), unique=True)
+    crm_person_code: Mapped[str | None] = mapped_column(String(30))  # the CRM's readable code, display only
     lms_user_id: Mapped[str] = mapped_column(String(100), unique=True, server_default=FetchedValue())  # trigger
     provisioned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     full_name: Mapped[str] = mapped_column(String(150))
@@ -58,6 +59,7 @@ class Student(db.Model):
         return {
             **self.to_profile(),
             "crm_person_id": self.crm_person_id,
+            "crm_person_code": self.crm_person_code,
             "lms_user_id": self.lms_user_id,
             "provisioned_at": self.provisioned_at,
             "email": self.email,
@@ -110,6 +112,9 @@ class Admission(db.Model):
     crm_status: Mapped[str] = mapped_column(AdmissionStatus, default="Active")
     mode: Mapped[str] = mapped_column(DeliveryMode, default="Classroom")
     admission_date: Mapped[date | None] = mapped_column(Date)
+    complimentary_of_admission_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("admissions.admission_id"))
+    seat_type: Mapped[str | None] = mapped_column(String(20))  # Confirmed Seat / Future Plan (CRM delivery plan)
+    planned_start_date: Mapped[date | None] = mapped_column(Date)
     source_version: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
@@ -137,6 +142,9 @@ class Admission(db.Model):
             "crm_status": self.crm_status,
             "mode": self.mode,
             "admission_date": self.admission_date,
+            "complimentary_of_admission_id": self.complimentary_of_admission_id,
+            "seat_type": self.seat_type,
+            "planned_start_date": self.planned_start_date,
             "lms_status": lms_status,
         }
 
@@ -156,6 +164,7 @@ class Enrolment(db.Model):
     mode: Mapped[str] = mapped_column(DeliveryMode, default="Classroom")
     status: Mapped[str] = mapped_column(EnrolmentStatus)
     joining_date: Mapped[date | None] = mapped_column(Date)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # set by trigger on Completed
     access_start: Mapped[date | None] = mapped_column(Date)
     access_end: Mapped[date | None] = mapped_column(Date)
     certificate_status: Mapped[str] = mapped_column(String(100), default="Not Yet Eligible")
@@ -238,6 +247,12 @@ class FinanceSummary(db.Model):
     next_due_date: Mapped[date | None] = mapped_column(Date)
     next_due_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     receipts: Mapped[list] = mapped_column(JSONB, default=list)
+    pending_verification: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)  # claims, never counted as paid
+    waived: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    refunded: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    payment_completion: Mapped[str | None] = mapped_column(String(20))
+    invoice_numbers: Mapped[list] = mapped_column(JSONB, default=list)
+    installments: Mapped[list] = mapped_column(JSONB, default=list)
     as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     source_version: Mapped[int] = mapped_column(Integer)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
@@ -251,6 +266,12 @@ class FinanceSummary(db.Model):
             "next_due_date": self.next_due_date,
             "next_due_amount": self.next_due_amount,
             "receipts": self.receipts,
+            "pending_verification": self.pending_verification,
+            "waived": self.waived,
+            "refunded": self.refunded,
+            "payment_completion": self.payment_completion,
+            "invoice_numbers": self.invoice_numbers,
+            "installments": self.installments,
             "as_of": self.as_of,
         }
 
@@ -264,6 +285,8 @@ class AdmissionLmsState(db.Model):
     lms_status: Mapped[str] = mapped_column(LmsStatus)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    academic: Mapped[dict | None] = mapped_column(JSONB)  # last academic state queued for the CRM (db 005)
+    academic_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     admission: Mapped[Admission] = relationship(lazy="joined")
 

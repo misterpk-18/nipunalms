@@ -2,6 +2,7 @@
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, FetchedValue, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
@@ -157,3 +158,14 @@ class ClassSession(db.Model):
             "delivered_at": self.delivered_at,
             "notes": self.notes,
         }
+
+
+class BatchCrmState(db.Model):
+    """Last batch state queued for the CRM (kept by triggers, db 005); what the CRM pull endpoint reads."""
+
+    __tablename__ = "batch_crm_state"
+
+    batch_id: Mapped[int] = mapped_column(Integer, ForeignKey("batches.batch_id"), primary_key=True)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+

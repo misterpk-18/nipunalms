@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import Select, or_, select
 
 from config.database import db
-from models import AdmissionLmsState, Batch, CrmEvent, CrmOutbox, Student
+from models import AdmissionLmsState, BatchCrmState, CrmEvent, CrmOutbox, Student
 
 
 def get_event_by_event_id(event_id: str) -> CrmEvent | None:
@@ -46,6 +46,17 @@ def admission_states_changed_since(since: datetime) -> list[AdmissionLmsState]:
     return list(db.session.execute(stmt).scalars())
 
 
-def batches_linked_since(since: datetime) -> list[Batch]:
-    stmt = select(Batch).where(Batch.crm_linked_at > since).order_by(Batch.crm_linked_at, Batch.batch_id)
+def academics_changed_since(since: datetime) -> list[AdmissionLmsState]:
+    """Admissions whose academic state (as the CRM stores it) changed after `since`."""
+    stmt = (
+        select(AdmissionLmsState)
+        .where(AdmissionLmsState.academic_changed_at > since)
+        .order_by(AdmissionLmsState.academic_changed_at, AdmissionLmsState.admission_id)
+    )
+    return list(db.session.execute(stmt).scalars())
+
+
+def batch_states_changed_since(since: datetime) -> list[BatchCrmState]:
+    """Batches whose CRM-facing state (incl. a new CRM link) changed after `since`."""
+    stmt = select(BatchCrmState).where(BatchCrmState.changed_at > since).order_by(BatchCrmState.changed_at, BatchCrmState.batch_id)
     return list(db.session.execute(stmt).scalars())

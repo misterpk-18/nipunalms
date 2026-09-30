@@ -7,6 +7,7 @@
 | [API_PLAN.md](API_PLAN.md) | Backend architecture, conventions, domain model, build order and every endpoint with "As built" notes |
 | [DB_PHASES.md](DB_PHASES.md) | Database build phases, migrations and the rules the schema enforces |
 | [FRONTEND_PLAN.md](FRONTEND_PLAN.md) | Frontend decisions, structure, screen → API map |
+| [CRM_INTEGRATION.md](CRM_INTEGRATION.md) | LMS ↔ CRM contract (events, status sync, vocabulary) and the changes required in the CRM |
 | [BACKLOG.md](BACKLOG.md) | Open product decisions and gaps |
 
 All Markdown documentation lives in this folder.

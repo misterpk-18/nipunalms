@@ -21,6 +21,7 @@ The dev replica (`nipunalms-dev`) and the pytest database (`nipunalms_test`) are
 | 1a — Catalogue & curriculum | ✅ Done | `002_catalog_curriculum.sql` |
 | 1a — Students, enrolments, CRM projection | ✅ Done | `003_students_enrolments.sql` |
 | 1a — Batches & class sessions | ✅ Done | `004_batches_sessions.sql` |
+| CRM alignment | ✅ Done | `005_crm_alignment.sql` — real CRM vocabulary and shapes; academic state and batches back to the CRM |
 
 ---
 
@@ -94,3 +95,20 @@ The CRM already has these columns (`nipuna-crm` db 005/006); the LMS is their so
 | `class_sessions` | Actual Class Sessions: batch, topic, trainer, scheduled start/end, mode, room, Meet link + status, state Scheduled / Live / Delivered / Cancelled / Rescheduled |
 
 **Rules enforced:** `batch_code` is immutable; capacity can't drop below allocated students; a trainer must hold the Trainer role at the batch's branch; allocation course and branch must match the enrolment; no allocation into a closed or full batch; the track must belong to the enrolment; the session trainer must be assigned to the batch; session end after start.
+
+## 005 — CRM alignment ✅
+
+Checked against the CRM's schema (db 001–025) and docs; contract in [CRM_INTEGRATION.md](CRM_INTEGRATION.md).
+
+| Change | Why |
+|---|---|
+| `course_status` + `Archived` | The CRM's course status has it |
+| `students.crm_person_code` | The CRM's `PER-GNT-00148`, for display |
+| `admissions.complimentary_of_admission_id`, `seat_type`, `planned_start_date` | The CRM grants a complimentary course as its own admission linked to the paid one; seat type / planned start come from its delivery plan |
+| `check_enrolment_links()` (replaced) | A complimentary enrolment may hang off the paid admission it is complimentary to |
+| `enrolments.completed_at` (trigger-stamped) | Feeds the CRM's `admissions.academic_completed_at` |
+| `finance_summaries` + pending verification, waived, refunded, payment completion, invoice numbers, instalments | The rest of the CRM's `admission_balances` / `installment_dues` |
+| `crm_enrolment_status()`, `crm_delivery_mode()`, `crm_batch_status()` | LMS → CRM vocabulary |
+| `admission_academic_state()`, `admission_lms_state.academic` + triggers → `AdmissionAcademicsChanged` | Enrolment status, curriculum status, allocations with joining date, completion — the CRM columns the LMS now owns |
+| `batch_crm_state()`, `batch_crm_state` table + triggers → `BatchUpserted` | The CRM's `batches` become a mirror keyed by `lms_course_id` |
+| `queue_crm_state()` | An undelivered outbox row for the same admission / batch is superseded by the latest state (the CRM needs the state, not every step) |
