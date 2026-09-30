@@ -180,3 +180,17 @@ test.describe("phone layout @mobile", () => {
     }
   });
 });
+
+test("the branch manager sees escalations and access-extension requests on one page", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop flow");
+  await login(page, USERS.bmGnt);
+  await page.goto("/branch/requests");
+  await expect(page.getByRole("heading", { level: 1, name: "Escalations & access-extension requests" })).toBeVisible();
+
+  await expect(page.getByRole("tab", { name: "Escalations" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("cell", { name: "SR-1051" }).first()).toBeVisible();
+
+  await page.getByRole("tab", { name: "Access extensions" }).click();
+  await expect(page.getByRole("cell", { name: "EXT-031" }).first()).toBeVisible();
+  await expect(page.getByText("Repeated extension requests do not stack years.")).toBeVisible();
+});

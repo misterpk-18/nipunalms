@@ -1,4 +1,4 @@
-/** Access-extension requests of the branch. Composed into the Branch Manager's requests page by the dashboards phase. */
+/** Access-extension requests of the branch (the "Access extensions" tab of the branch requests page). */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { contentApi, formatDate, type ExtensionRequest } from "@/api/content";
