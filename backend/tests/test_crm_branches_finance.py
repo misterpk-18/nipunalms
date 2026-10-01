@@ -160,3 +160,14 @@ def test_an_old_snapshot_is_flagged_stale(client, login, world, crm_event):
     crm_event("BranchFinanceSnapshot", snapshot("NIT-GNT", as_of=datetime.now(timezone.utc) - timedelta(hours=3)))
 
     assert _crm(client, login, world.people.bm_g, "/branch/summary")["verified_collections"]["stale"] is True
+
+
+def test_the_period_of_the_actuals_is_shown_without_a_target(client, login, world, crm_event):
+    """A2: with no approved target the CRM still sends the period its actuals cover."""
+    crm_event("BranchFinanceSnapshot", snapshot("NIT-GNT", collections={"verified": "0.00", "target": None},
+                                                paid_admissions={"count": 0, "target": None}))
+
+    collections = _crm(client, login, world.people.bm_g, "/branch/summary")["verified_collections"]
+
+    assert (collections["state"], collections["value"], collections["target"]) == ("Configured", "0.00", None)
+    assert collections["period"]["label"] == "Oct 2026"

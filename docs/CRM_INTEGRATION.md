@@ -58,12 +58,12 @@ before its complimentary one.
 | `CourseUpserted` | Course Master create / update; combo components change (`courses`, `combo_courses`) | `course_code`, `course_title` (≤ 255), `category`, `is_combo`, `status` (Active / Inactive / Archived), `components[]` = `{component_course_code, is_bonus, sort_order}` (track codes are derived: `<combo>/T1…`, the bonus keeps its course code). **The event is the whole catalog row**: components it leaves out are removed, and a single course (`is_combo: false`) keeps none (its `components` are ignored). A component still used by enrolment tracks or curriculum versions is never removed: the event is refused with 422 and changes nothing — no title, no `is_combo`, no `source_version`. The message names the tracks and counts |
 | `AdmissionQualified` | An admission is created: auto on `POST /payments/{id}/verify` and `/allocate`, manual `POST /admissions`, `POST /admissions/{id}/complimentary`. Not sent for cancelled admissions | `person`: `crm_person_id`, `person_code`, `full_name`, `phone`, `email` (optional), `name_te` (optional), `preferred_language` (English / Telugu). `admission`: `crm_admission_id`, `admission_code`, `course_code`, `original_branch_code`, `service_branch_code`, `collecting_branch_code` (the collecting branch of the admission's invoice; a complimentary admission uses its paid admission's invoice), `delivery_mode` (Classroom / Online / Hybrid), `seat_type`, `planned_start_date`, `admission_date`, `complimentary_of_crm_admission_id`, `access_until`. `enrolments` may be omitted (one course per admission). `person_id`, `admission_id` and `complimentary_of_admission_id` are accepted as aliases; the `crm_` name wins if both are sent |
 | `AdmissionQualified` (full refresh) | `planned_start_date` changes, or the person's `full_name`, `phone`, `email` or `preferred_language` is edited. Sent with the next `source_version` | Same shape. The LMS updates the person and admission, never creates a second login or token, and never resets an enrolment that is already being served. A present `null` clears `email` or `name_te`; a key left out keeps its value; `full_name` is never cleared. The student's existing login keeps the email it was created with |
-| `AdmissionUpdated` | `admission_transfers` insert (service branch), delivery mode change, pause / resume | `crm_admission_id`, `service_branch_code`, `delivery_mode`, `status` (Active / Paused). The CRM has no pause action yet, so `status` is not sent |
+| `AdmissionUpdated` | `admission_transfers` insert (service branch), delivery mode change, pause / resume | `crm_admission_id`, `service_branch_code`, `delivery_mode`, `status` (Active / Paused). `status` is sent by the CRM's `POST /admissions/{id}/pause` and `/resume` (since round 2) |
 | `AdmissionCancelled` | `POST /admissions/{id}/cancel` | `crm_admission_id`, `reason` (free text, no length limit). Withdraws only that admission's enrolments |
 | `FinanceSummaryUpdated` | Payment recorded (pending verification), verified, failed, allocated; correction approved (reversal); fee change applied; refund decided (waiver); refund payout; invoice cancelled; instalment due date changed. Sent for **every admission on the invoice** | From `admission_balances` + `installment_dues` + verified `payments`: `crm_admission_id`, `fee_total` (final fee), `verified_paid`, `pending_verification`, `waived`, `refunded`, `balance` (outstanding; 0 for a cancelled admission), `payment_completion`, `invoice_numbers[]`, `installments[]` = `{installment_no, due_date, amount, covered, balance, due_position}`, `next_due_date`, `next_due_amount` (the first instalment that still has a balance; it may already be overdue), `receipts[]` = `{receipt_number, date, amount}` (verified, non-reversed payments; `amount` is the part allocated to this course; `date` is the payment date), `as_of`, `installments_scope` (`admission` default / `invoice`), `invoice_course_count` (int ≥ 0, default 1) |
 
-| `BranchUpserted` | Branch created or edited in the CRM (`branches`). Versioned per branch (`branch:<id>`) | `branch_code`, `branch_name`, `city`, `receipt_prefix` (→ LMS `short_code`, used inside batch codes), `email` (→ the branch's shared `mailbox`), `is_active`. A new branch needs `receipt_prefix` and `email`; an existing branch keeps its short code (a different one is a 422), and a `null` email keeps the mailbox. Other CRM columns (`address`, `phone`, …) are ignored |
-| `BranchFinanceSnapshot` | A CRM job every 15 minutes, one per branch (`branch-finance:<id>`) | `branch_code`, `as_of`, `period` = `{label, start, end}` of the Approved target (`null` when there is none; then both targets must be `null`), `collections` = `{verified, target}`, `paid_admissions` = `{count, target}`, `overdue` = `{amount, count, by_age_band[] = {band, amount, count}}` (from `installment_dues`), `verifications` = `{pending_count, pending_amount, overdue_count (past the verification SLA), oldest_at}`, `followups` = `{overdue_count, broken_promises}`. Each snapshot replaces the branch's previous one |
+| `BranchUpserted` | A branch's name, city or email edited (`PATCH /branches/{id}`), and `flask lms backfill --branches` (a full backfill sends branches first). Versioned per branch (`branch:<id>`) | `branch_code`, `branch_name`, `city`, `receipt_prefix` (→ LMS `short_code`, used inside batch codes), `email` (→ the branch's shared `mailbox`), `is_active`. A new branch needs `receipt_prefix` and `email`; an existing branch keeps its short code (a different one is a 422), and a `null` email keeps the mailbox. Other CRM columns (`address`, `phone`, …) are ignored |
+| `BranchFinanceSnapshot` | A CRM job every 15 minutes, one per branch (`branch-finance:<id>`) | `branch_code`, `as_of`, `period` = `{label, start, end}`: the period the figures cover, always sent. It is the Approved target's period, or the current calendar month when the branch has no target, in which case both targets are `null`. A target without a period is a 422; `period: null` is still accepted, `collections` = `{verified, target}`, `paid_admissions` = `{count, target}`, `overdue` = `{amount, count, by_age_band[] = {band, amount, count}}` (from `installment_dues`), `verifications` = `{pending_count, pending_amount, overdue_count (past the verification SLA), oldest_at}`, `followups` = `{overdue_count, broken_promises}`. Each snapshot replaces the branch's previous one |
 
 **Instalments are per invoice.** With `installments_scope: "invoice"` every admission on the invoice carries the same
 schedule and `next_due_*`. The LMS shows and sums the schedule once per invoice (`invoice_numbers[0]`), never per
@@ -173,7 +173,7 @@ Built in the CRM (`nipuna-crm` db `026_lms_outbox.sql`, dev database only):
 ### 3.2 Receive LMS status (next)
 
 - Chosen in round 2: **pull**. A CRM job `lms-status-pull` calls `GET /integrations/crm/status?since=<last as_of>`
-  every few minutes (watermark in `app_settings`; rules in §2.2). The LMS outbox is not delivered.
+  every few minutes (watermark in the CRM table `lms_pull_state`; rules in §2.2). The LMS outbox is not delivered.
 - Apply: `persons.lms_user_id`, `lms_provisioned_at`; `admissions.lms_status`, `lms_last_activity_at`,
   `lms_last_synced_at`; the academic columns (3.3); batches (3.4); certificates (3.6).
 - `PATCH /admissions/{id}` must stop accepting `lms_status` from staff at the same time (it becomes LMS-owned); the
@@ -270,9 +270,16 @@ or that admission gets a 422 and is retried.
 ### 3.13 Dashboard finance figures (decided: CRM pushes `BranchFinanceSnapshot`)
 
 Decided in round 2 (D4). The LMS accepts `BranchFinanceSnapshot` (§2.1, db 096) and stores the latest one per branch.
-The CRM builds the job: every 15 minutes, one event per active branch, from `target_versions` / `target_lines`
-(Approved, current period), verified `payments`, `installment_dues` (overdue, by age band), pending `payments` (SLA
-task `PAYMENT_VERIFICATION`) and `payment_promises` / follow-up tasks.
+The CRM job `lms-finance-snapshot` sends one event per active branch every 15 minutes (built in CRM db 029). An
+unsent snapshot is superseded by the next one, so an LMS outage leaves no backlog. The figures follow the CRM
+dashboard's own rules (`nipuna crm-docs/CRM_ROUND2_FOLLOWUP.md` §2):
+
+- Collections: verified payments by collecting branch, net of reversals.
+- Paid Admissions: admissions whose first verified payment falls in the period, by original branch.
+- Overdue: `installment_dues` that are Overdue, by collecting branch, in the CRM's seven age bands (`1–3 days` …
+  `91+ days`).
+- Verifications: payments in *Pending Verification*; overdue means past the `PAYMENT_VERIFICATION` task's due time.
+- Follow-ups: leads past their next follow-up time, plus *Broken* promises on invoices that still have a balance.
 
 The dashboards sum the branches in view: verified collections and new paid Admissions against target (Branch,
 Founder), overdue amount by age band (Founder), overdue follow-ups = overdue follow-ups + broken promises (Branch),
@@ -296,8 +303,8 @@ older than 60 minutes is flagged stale. A target shows only when every branch in
 | CRM applies the status pull (§3.2) and the mirrors (§3.3, §3.4, §3.6); academic screens read-only (§3.5) | ✅ CRM, round 2 (`nipuna crm-docs/CRM_ROUND2_REPLY.md`) |
 | LMS outbox delivery worker | Not needed: the CRM pulls (§3.2) |
 | Activation link delivery (§3.7) | Decided: B now (LMS reissue), A later (CRM delivers) |
-| Branches (§3.12) | ✅ LMS accepts `BranchUpserted` (db 096); ⏳ CRM sends it |
-| Dashboard finance figures (§3.13) | ✅ LMS accepts `BranchFinanceSnapshot` and shows it (db 096); ⏳ CRM job |
+| Branches (§3.12) | ✅ LMS accepts `BranchUpserted` (db 096); ✅ CRM sends it on branch edit and backfill (CRM db 029) |
+| Dashboard finance figures (§3.13) | ✅ LMS accepts `BranchFinanceSnapshot` and shows it (db 096); ✅ CRM job `lms-finance-snapshot` (CRM db 029) |
 | Certificate number series (§3.6), placement owner (§3.9) | Decided: LMS series; the CRM owns placement (later round) |
 
 ## 5. Integration rounds
@@ -363,6 +370,7 @@ applied in place, without a rebuild.
 **CRM side (`nipuna crm-docs/CRM_ROUND2_REPLY.md`):** the pull job, all the mirrors, read-only academic screens (409
 `MANAGED_IN_LMS`), pause / resume, and *Deferred* removed. The first live pull applied 10 persons, 11 admissions and 11
 academics, with nothing held. For its request R1, the LMS activated `NIT-CRS-052` `CV 3.0` and created GNT batches
-`NIT-GNT-BAT-2026-000004` (047) and `…000005` (052), with CRM admissions 1 and 2 allocated. Still open on the CRM:
-sending `BranchUpserted` and the `BranchFinanceSnapshot` job (D3 / D4), and activation-link delivery (D1, once
-WhatsApp / email exists).
+`NIT-GNT-BAT-2026-000004` (047) and `…000005` (052), with CRM admissions 1 and 2 allocated. **Follow-up (`nipuna crm-docs/CRM_ROUND2_FOLLOWUP.md`):** the CRM sends `BranchUpserted` and the 15-minute
+`BranchFinanceSnapshot` (CRM db 029). At 22:29 IST both branches' events were Applied, and the R1 batches and
+allocations came through the pull with nothing held. Agreed afterwards: `period` is always sent (A2). Still open
+on the CRM: activation-link delivery (D1, once WhatsApp / email exists).
