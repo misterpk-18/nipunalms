@@ -4,12 +4,13 @@ Nothing here decides anything. Every figure is a count read from the slice that 
 the exception queue, the integrations register, CRM sync, Ask Nipuna status), restricted to the branches the user sees.
 
 CRM-authoritative figures (verified collections and paid Admissions against a target, overdue amounts, overdue payment
-verifications and follow-ups) are not held by the LMS: `finance_summaries` is a per-admission snapshot of fee, verified
-payment and the next instalment, with no targets, no admission-level "paid in period" and no verification or follow-up
-workflow. Those figures therefore answer `{"state": "Not Configured"}` and are never 0; `refreshed_at` says when the
-CRM last sent finance data so a screen can show how old the context is.
+verifications and follow-ups) come from the CRM's per-branch `BranchFinanceSnapshot` (db 096), summed over the branches
+in view. A figure is "Configured" when every branch in view has a snapshot, "Partial Data" (naming the missing branches)
+when only some do, and `{"state": "Not Configured"}` when none do: never 0. `stale` flags a snapshot older than the CRM's
+15-minute push allows.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from repositories import branches as branches_repo
 from repositories import dashboards as dash_repo
@@ -23,6 +24,8 @@ AWAITING_ALLOCATION = ("Curriculum Mapping Pending", "Allocation Pending")
 # Certificate register states that wait for a person to decide
 CERTIFICATE_REVIEW = ("Eligibility Review", "Awaiting Approval")
 AI_CEILING_SETTING = "ai_monthly_ceiling_inr"
+# The CRM pushes a snapshot every 15 minutes; older than this, the figure is shown as stale
+FINANCE_STALE_AFTER = timedelta(minutes=60)
 
 
 def _now() -> datetime:
@@ -51,8 +54,64 @@ def not_configured(reason: str) -> dict:
 CRM_REASON = "CRM-authoritative; the source is not connected"
 
 
-def _crm_figures(*names: str) -> dict:
-    return {name: not_configured(CRM_REASON) for name in names}
+def _sum(values) -> Decimal | int:
+    return sum(values, start=0)
+
+
+def _all_or_none(values: list):
+    """The total when every branch has a value (e.g. a target), else None: a partial target is no target."""
+    return None if any(v is None for v in values) else _sum(values)
+
+
+def _period(snapshots: list) -> dict | None:
+    periods = {(s.period_label, s.period_start, s.period_end) for s in snapshots}
+    if len(periods) != 1 or None in next(iter(periods)):
+        return None  # no approved target, or branches on different periods
+    label, start, end = periods.pop()
+    return {"label": label, "start": start, "end": end}
+
+
+def _merged_age_bands(snapshots: list) -> list[dict]:
+    bands: dict[str, dict] = {}
+    for snapshot in snapshots:
+        for band in snapshot.overdue_by_age_band:
+            total = bands.setdefault(band["band"], {"band": band["band"], "amount": Decimal("0.00"), "count": 0})
+            total["amount"] += Decimal(band["amount"])
+            total["count"] += band["count"]
+    return list(bands.values())
+
+
+FIGURES = {
+    "verified_collections": lambda s: {"unit": "INR", "value": _sum(x.collections_verified for x in s),
+                                       "target": _all_or_none([x.collections_target for x in s]), "period": _period(s)},
+    "new_paid_admissions": lambda s: {"unit": "count", "value": _sum(x.paid_admissions for x in s),
+                                      "target": _all_or_none([x.paid_admissions_target for x in s]), "period": _period(s)},
+    "overdue_amount": lambda s: {"unit": "INR", "value": _sum(x.overdue_amount for x in s),
+                                 "detail": {"count": _sum(x.overdue_count for x in s), "by_age_band": _merged_age_bands(s)}},
+    "overdue_followups": lambda s: {"unit": "count", "value": _sum(x.followups_overdue + x.broken_promises for x in s),
+                                    "detail": {"followups_overdue": _sum(x.followups_overdue for x in s),
+                                               "broken_promises": _sum(x.broken_promises for x in s)}},
+    "overdue_payment_verifications": lambda s: {
+        "unit": "count", "value": _sum(x.verifications_overdue for x in s),
+        "detail": {"pending_count": _sum(x.verifications_pending for x in s),
+                   "pending_amount": _sum(x.verifications_pending_amount for x in s),
+                   "oldest_at": min((x.verifications_oldest_at for x in s if x.verifications_oldest_at), default=None)}},
+}
+
+
+def _crm_figures(branch_ids: set[int] | None, *names: str) -> dict:
+    """The CRM's finance figures for the branches in view, from their latest BranchFinanceSnapshot."""
+    branches = branches_repo.list_active(branch_ids)
+    snapshots = dash_repo.finance_snapshots({b.branch_id for b in branches})
+    reported = [snapshots[b.branch_id] for b in branches if b.branch_id in snapshots]
+    if not reported:
+        return {name: not_configured(CRM_REASON) for name in names}
+    missing = [b.to_summary() for b in branches if b.branch_id not in snapshots]
+    as_of = min(x.as_of for x in reported)
+    common = {"state": "Partial Data" if missing else "Configured", "as_of": as_of,
+              "stale": _now() - as_of > FINANCE_STALE_AFTER, "missing_branches": missing,
+              "target": None, "period": None, "detail": None}
+    return {name: {**common, **FIGURES[name](reported)} for name in names}
 
 
 def _batch_risks(batches) -> list[dict]:
@@ -96,7 +155,7 @@ def branch_summary(branch_id: int | None = None) -> dict:
     return {
         "as_of": _now(),
         "scope": _scope_block(branch_ids),
-        "crm": _crm_figures("verified_collections", "new_paid_admissions", "overdue_followups"),
+        "crm": _crm_figures(branch_ids, "verified_collections", "new_paid_admissions", "overdue_followups"),
         "batches_running": {"count": len(running), "total_open": len(batches)},
         "schedule_and_recording_exceptions": {"count": recording + reschedule, "recording_exceptions": recording, "reschedule_requests": reschedule},
         "requests_open": {"count": escalations + extensions, "escalations": escalations, "extension_requests": extensions},
@@ -137,7 +196,7 @@ def admin_summary() -> dict:
     return {
         "as_of": _now(),
         "scope": _scope_block(None),
-        "crm": _crm_figures("overdue_payment_verifications"),
+        "crm": _crm_figures(None, "overdue_payment_verifications"),
         "integration_failures": {"count": len(integrations["failing"]), "codes": integrations["failing"],
                                  "source": "Readiness register; live monitoring is Configuration Pending"},
         "awaiting_owner": {"count": exceptions["awaiting_owner"]},
@@ -161,7 +220,7 @@ def founder_summary() -> dict:
     return {
         "as_of": _now(),
         "scope": _scope_block(None),
-        "crm": _crm_figures("verified_collections", "new_paid_admissions", "overdue_amount"),
+        "crm": _crm_figures(None, "verified_collections", "new_paid_admissions", "overdue_amount"),
         "active_enrolments": {"count": sum(by_branch.values()),
                               "by_branch": [{"branch": b.to_summary(), "count": by_branch.get(b.branch_id, 0)} for b in branches]},
         "batches_at_risk": {"count": len(risks), "items": risks},

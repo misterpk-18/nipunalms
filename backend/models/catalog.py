@@ -13,7 +13,7 @@ class Course(db.Model):
 
     course_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     course_code: Mapped[str] = mapped_column(String(30), unique=True)
-    title: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(String(255))
     category: Mapped[str | None] = mapped_column(String(100))
     is_combo: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(CourseStatus, default="Active")
@@ -50,7 +50,7 @@ class CourseComponent(db.Model):
     parent_course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.course_id"))
     component_course_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("courses.course_id"))
     track_code: Mapped[str] = mapped_column(String(50), unique=True)
-    track_name: Mapped[str] = mapped_column(String(200))
+    track_name: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(ComponentRole, default="Main track")
     sort_order: Mapped[int] = mapped_column(SmallInteger, default=0)
 

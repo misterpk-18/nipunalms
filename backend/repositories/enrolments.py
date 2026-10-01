@@ -1,8 +1,10 @@
 """Enrolment lists for staff (people lists, the allocation queue) and locked loads for seat changes."""
+from datetime import date
+
 from sqlalchemy import Select, select
 
 from config.database import db
-from models import BatchAllocation, Enrolment, Student
+from models import Admission, BatchAllocation, Enrolment, Student
 
 
 def get_enrolment_for_update(enrolment_id: int) -> Enrolment | None:
@@ -39,3 +41,15 @@ def list_stmt(filters: dict, branch_ids: set[int] | None, tied_enrolment_ids: se
         pattern = f"%{filters['q']}%"
         stmt = stmt.where(Student.full_name.ilike(pattern) | Student.student_code.ilike(pattern) | Enrolment.enrolment_code.ilike(pattern))
     return stmt
+
+
+def unallocated_starting_by(last_start: date, statuses: tuple[str, ...]) -> list[Enrolment]:
+    """Enrolments still waiting for a seat whose admission is planned to start on or before `last_start`."""
+    stmt = (
+        select(Enrolment)
+        .join(Admission, Admission.admission_id == Enrolment.admission_id)
+        .where(Enrolment.status.in_(statuses), Admission.crm_status != "Cancelled",
+               Admission.planned_start_date.is_not(None), Admission.planned_start_date <= last_start)
+        .order_by(Admission.planned_start_date, Enrolment.enrolment_id)
+    )
+    return list(db.session.execute(stmt).scalars())

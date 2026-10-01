@@ -5,7 +5,10 @@ delivery mode and the enrolment's own state. A failed check blocks; a warning (d
 needs the coordinator to acknowledge it. Ended and transferred allocations stay as history; nothing the student did
 in a previous batch is touched.
 """
+from datetime import datetime, timedelta
+
 from config.database import db
+from config.timezone import IST
 from models import Batch, BatchAllocation, Enrolment
 from repositories import batches as batches_repo
 from repositories import enrolments as enrolments_repo
@@ -16,9 +19,12 @@ from services import batches as batches_service
 from services.batches import CLOSED_STATES, load_managed_batch, sync_full
 from services.context import actor_id
 from services.errors import BusinessRule, Conflict, NotFound
+from services.notifications import notify
 
 # Statuses from which an enrolment can be given a first seat / can no longer be moved
 ALLOCATION_READY = "Allocation Pending"
+AWAITING_SEAT = ("Curriculum Mapping Pending", "Allocation Pending")
+ESCALATE_BEFORE_START = timedelta(hours=24)
 SEATED_STATUSES = ("Allocated — awaiting first regular class", "Active")
 
 
@@ -209,3 +215,23 @@ def roster(batch_id: int, status: str | None, page: int, per_page: int):
     enrolments = {e.enrolment_id: e for e in (students_repo.get_enrolment(r.enrolment_id) for r in rows)}
     students = enrolments_repo.students_by_id({e.student_id for e in enrolments.values()})
     return [(row, enrolments[row.enrolment_id], students[enrolments[row.enrolment_id].student_id]) for row in rows], meta
+
+
+# ---------------------------------------------------------------- escalation (job)
+
+def escalate_unallocated() -> int:
+    """Job: an enrolment still without a seat 24 hours before its admission's planned start (IST) is raised to the
+    service branch's Branch Managers, once per enrolment. This was the CRM's `batch-allocation` job; allocation is the
+    LMS's now. Returns how many enrolments were newly escalated."""
+    escalated = 0
+    for enrolment in enrolments_repo.unallocated_starting_by((datetime.now(IST) + ESCALATE_BEFORE_START).date(), AWAITING_SEAT):
+        admission = enrolment.admission
+        student = students_repo.get_student(enrolment.student_id)
+        sent = notify(category="Enrolment", event_key=f"allocation-escalate:{enrolment.enrolment_id}",
+                      title=f"Allocate a batch now: {student.full_name} ({admission.admission_code}) starts "
+                            f"{admission.planned_start_date.isoformat()}",
+                      body=f"{enrolment.enrolment_code} · {enrolment.course.course_code} · {enrolment.status}",
+                      link=f"/academic/students/{student.student_id}", role_code="BRANCH_MANAGER",
+                      branch_id=enrolment.service_branch_id, action_required=True)
+        escalated += 1 if sent else 0
+    return escalated

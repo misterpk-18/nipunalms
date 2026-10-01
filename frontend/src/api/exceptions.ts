@@ -1,4 +1,4 @@
-/** The exception queue: open exceptions from every slice and the recovery steps logged against them (API_PLAN §5, P3). */
+/** The exception queue: open exceptions from every slice and the recovery steps logged against them (docs/API.md §4.11). */
 import { useQuery } from "@tanstack/react-query";
 import { list, get, post, type Page, type Query } from "./client";
 import type { BranchRef, DateTime, UserRef } from "./types";

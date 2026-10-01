@@ -13,6 +13,12 @@ import { FilterField, FormDialog, Pager, SecretDialog } from "./shared";
 import { istDateTime, useCanAdminister } from "./format";
 
 const ACTIVATION_STATUSES = ["Account Created", "Activation Pending", "Activated", "Suspended"] as const;
+// Where the student's outstanding activation link came from. The CRM does not deliver its link yet, so a student whose
+// link is from CRM provisioning can only activate once a coordinator or Super Admin issues a new one.
+const ACTIVATION_CHANNELS = [
+  { value: "CRM provisioning", label: "CRM provisioning (not delivered)" },
+  { value: "Staff issued", label: "Staff issued" },
+];
 const ACTIVATION_TONE: Record<StudentAccount["activation_status"], Tone> = {
   "Account Created": "neutral",
   "Activation Pending": "warning",
@@ -50,6 +56,15 @@ export function AdminStudents() {
                 value={filters.activation_status ?? ""}
                 options={ACTIVATION_STATUSES.map((s) => ({ value: s, label: s }))}
                 onChange={(e) => setFilters({ ...filters, activation_status: e.target.value, page: 1 })}
+              />
+            </FilterField>
+            <FilterField label="Activation link from">
+              <NativeSelect
+                aria-label="Activation link from"
+                placeholder="Any"
+                value={filters.activation_channel ?? ""}
+                options={ACTIVATION_CHANNELS}
+                onChange={(e) => setFilters({ ...filters, activation_channel: e.target.value, page: 1 })}
               />
             </FilterField>
           </div>

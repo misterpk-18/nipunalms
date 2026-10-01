@@ -7,7 +7,7 @@ from sqlalchemy import Select, func, select
 
 from config.database import db
 from models import (
-    AccessExtensionRequest, Batch, Certificate, CompletionReview, ContentItem, Enrolment, FinanceSummary, Integration,
+    AccessExtensionRequest, Batch, BranchFinanceSnapshot, Certificate, CompletionReview, ContentItem, Enrolment, FinanceSummary, Integration,
     RecordingException, Result, SessionChangeRequest, SupportRequest,
 )
 from models.batches import ClassSession
@@ -90,6 +90,12 @@ def integration_counts() -> dict:
     failing = [i for i in rows if i.verification_status == "Failed" or i.configuration_status == "Misconfigured"]
     return {"total": len(rows), "verified": sum(1 for i in rows if i.verification_status == "Verified"),
             "failing": [i.integration_code for i in failing]}
+
+
+def finance_snapshots(branch_ids: set[int] | None) -> dict[int, BranchFinanceSnapshot]:
+    """The CRM's latest finance figures per branch (only branches the CRM has sent), keyed by branch_id."""
+    stmt = _branch(select(BranchFinanceSnapshot), BranchFinanceSnapshot.branch_id, branch_ids)
+    return {s.branch_id: s for s in db.session.execute(stmt).scalars()}
 
 
 def latest_finance_refresh() -> datetime | None:

@@ -25,7 +25,7 @@ test("student home shows the ranked tiles and every card for Anvitha, and switch
 
   // three ranked tiles
   for (const label of ["Next Class", "Due Work", "Current Course Progress"]) await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Curriculum delivered (NIT-CRS-018)")).toBeVisible();
+  await expect(page.getByText("Curriculum delivered (NIT-CRS-900)")).toBeVisible();
   await expect(page.getByText("Separate from attendance and required learning")).toBeVisible();
   await expect(page.getByRole("button", { name: "Join Class" })).toBeDisabled();
 

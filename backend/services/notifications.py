@@ -38,6 +38,7 @@ def notify(
             .values(recipient_user_id=user_id, branch_id=branch_id, category=category, title=title, body=body,
                     link=link, event_key=event_key, action_status="Open" if action_required else "None")
             .on_conflict_do_nothing(index_elements=["event_key", "recipient_user_id"])
+            .returning(Notification.notification_id)  # rowcount is -1 through the ORM session
         )
-        created += result.rowcount
+        created += len(result.all())
     return created

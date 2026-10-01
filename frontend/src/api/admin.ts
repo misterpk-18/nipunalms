@@ -120,7 +120,7 @@ export type ActivationIssued = {
   expires_at: DateTime;
   activation_status: string;
 };
-export type StudentFilters = { q?: string; activation_status?: string; branch_id?: string; page?: number };
+export type StudentFilters = { q?: string; activation_status?: string; activation_channel?: string; branch_id?: string; page?: number };
 
 // ---------------------------------------------------------------- CRM sync
 

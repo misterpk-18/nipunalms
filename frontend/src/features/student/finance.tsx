@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { profileApi, type FinanceEntry } from "@/api/profile";
+import { profileApi, type FinanceEntry, type FinanceSchedule } from "@/api/profile";
 import { DataTable, Note, PageHead, QueryView, Section, StatusNote } from "@/components/lms/ui";
 import { fmtDateTime, fmtDate } from "@/features/shared/format";
 import { formatMoney } from "@/lib/format";
@@ -27,9 +27,10 @@ function AdmissionFinance({ entry }: { entry: FinanceEntry }) {
             <Amount label="Verified receipts" value={formatMoney(summary.verified_paid)} />
             <Amount label="Dues" value={formatMoney(summary.balance)} />
           </div>
-          {summary.next_due_date && (
-            <p className="text-sm">
-              Next due: <strong>{formatMoney(summary.next_due_amount)}</strong> on <strong>{fmtDate(summary.next_due_date)}</strong>
+          {summary.installments_scope === "invoice" && summary.invoice_numbers[0] && (
+            <p className="text-sm text-muted-foreground">
+              Instalments are on invoice <span className="font-mono">{summary.invoice_numbers[0]}</span>
+              {summary.invoice_course_count > 1 ? `, shared by ${summary.invoice_course_count} courses` : ""}: see Instalments below.
             </p>
           )}
           <DataTable
@@ -52,6 +53,44 @@ function AdmissionFinance({ entry }: { entry: FinanceEntry }) {
   );
 }
 
+/** One schedule, shown once: an invoice's instalments cover every course on that invoice. */
+function ScheduleFinance({ schedule }: { schedule: FinanceSchedule }) {
+  const courses = schedule.admissions.map((a) => a.course.title).join(" + ");
+  const title = schedule.invoice_number ? `${schedule.invoice_number} · ${courses}` : `Instalments · ${courses}`;
+  return (
+    <Section title={title}>
+      <div className="space-y-3">
+        {schedule.next_due_date && (
+          <p className="text-sm">
+            Next due: <strong>{formatMoney(schedule.next_due_amount)}</strong> on <strong>{fmtDate(schedule.next_due_date)}</strong>
+            {Number(schedule.overdue_amount) > 0 && (
+              <>
+                {" "}
+                · Overdue: <strong>{formatMoney(schedule.overdue_amount)}</strong>
+              </>
+            )}
+          </p>
+        )}
+        <DataTable
+          caption={`Instalments for ${title}`}
+          rows={schedule.installments}
+          getKey={(i) => i.installment_no}
+          empty="No instalment schedule from the CRM."
+          cols={[
+            { h: "#", c: (i) => i.installment_no },
+            { h: "Due date", c: (i) => fmtDate(i.due_date) },
+            { h: "Amount", c: (i) => formatMoney(i.amount) },
+            { h: "Covered", c: (i) => formatMoney(i.covered) },
+            { h: "Balance", c: (i) => formatMoney(i.balance) },
+            { h: "Status", c: (i) => i.due_position ?? "—" },
+          ]}
+        />
+        <p className="text-xs text-muted-foreground">As of {fmtDateTime(schedule.as_of)}</p>
+      </div>
+    </Section>
+  );
+}
+
 export function Finance() {
   const t = useT();
   const query = useQuery({ queryKey: ["finance", "me"], queryFn: profileApi.finance });
@@ -64,6 +103,10 @@ export function Finance() {
             <StatusNote state="Pending Verification">{data.note}</StatusNote>
             {data.admissions.map((entry) => (
               <AdmissionFinance key={entry.admission.admission_id} entry={entry} />
+            ))}
+            {data.schedules.length > 0 && <h2 className="pt-2 text-lg font-semibold">Instalments</h2>}
+            {data.schedules.map((schedule) => (
+              <ScheduleFinance key={schedule.schedule_key} schedule={schedule} />
             ))}
           </>
         )}

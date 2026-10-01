@@ -11,11 +11,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable
 
+from sqlalchemy import func
 from sqlalchemy.exc import DBAPIError
 
 from config.database import db
 from models import (
-    Admission, Course, CourseComponent, CrmEvent, Enrolment, EnrolmentTrack, FinanceSummary, Student, User,
+    Admission, Branch, BranchFinanceSnapshot, Course, CourseComponent, CrmEvent, Enrolment, EnrolmentTrack,
+    FinanceSummary, Student, User,
 )
 from repositories import batches as batches_repo
 from repositories import branches as branches_repo
@@ -31,6 +33,7 @@ from services.notifications import notify
 logger = logging.getLogger(__name__)
 
 STALE = "Ignored — stale"
+CLEARABLE_PERSON_FIELDS = ("email", "name_te")
 OPEN_STATUSES = ("Allocation Pending", "Allocated — awaiting first regular class", "Active", "Paused",
                  "Curriculum Mapping Pending", "Provisioning Pending")
 
@@ -165,11 +168,33 @@ def _stale(event: CrmEvent, stored_version: int, what: str) -> Handled:
 
 # ---------------------------------------------------------------- CourseUpserted
 
+@dataclass
+class _PlannedComponent:
+    item: dict
+    track_code: str
+    role: str
+    component_course: Course | None
+    existing: CourseComponent | None
+
+
 def _course_upserted(event: CrmEvent, data: dict) -> Handled:
+    """The CRM's catalog row is the whole truth: components the event leaves out are removed from the combo, and a
+    single course keeps none. A component still used by enrolments or curriculum is never removed: the event is
+    refused (422) and changes nothing, so the CRM retries and raises it instead of the LMS drifting silently."""
     course = catalog_repo.get_course_by_code(data["course_code"])
     if course is not None and event.source_version < course.source_version:
         return _stale(event, course.source_version, f"Course {course.course_code}")
-    if course is None:
+
+    # The CRM sends components only for a combo; a single course keeps none
+    planned = _plan_components(data["course_code"], course, data["components"] if data["is_combo"] else [])
+    if course is not None:
+        kept = {p.existing.component_id for p in planned if p.existing is not None}
+        removed = [c for c in catalog_repo.components_of(course.course_id) if c.component_id not in kept]
+        _check_removable(course, removed)
+        for component in removed:
+            course.components.remove(component)  # delete-orphan
+        db.session.flush()  # before is_combo can turn false
+    else:
         course = Course(course_code=data["course_code"])
         db.session.add(course)
 
@@ -180,31 +205,53 @@ def _course_upserted(event: CrmEvent, data: dict) -> Handled:
     course.source_version = event.source_version
     db.session.flush()
 
+    for p in planned:
+        component = p.existing
+        if component is None:
+            component = CourseComponent(parent_course_id=course.course_id, track_code=p.track_code)
+            db.session.add(component)
+        component.track_name = p.item.get("track_name") or p.component_course.title
+        component.role = p.role
+        component.sort_order = p.item["sort_order"]
+        component.component_course_id = p.component_course.course_id if p.component_course else None
+    db.session.flush()
+    return Handled({"course_id": course.course_id, "course_code": course.course_code, "components": len(planned)})
+
+
+def _plan_components(course_code: str, course: Course | None, items: list[dict]) -> list[_PlannedComponent]:
+    """Resolve each component of the event to its track code and the existing track it updates (no writes)."""
+    planned: list[_PlannedComponent] = []
     main_tracks = 0
-    for item in sorted(data["components"], key=lambda i: i["sort_order"]):
+    for item in sorted(items, key=lambda i: i["sort_order"]):
         component_course = _course(item["component_course_code"]) if item.get("component_course_code") else None
         role = item.get("role") or ("Included booster" if item["is_bonus"] else "Main track")
         if role == "Main track":
             main_tracks += 1
         # The CRM names no tracks: a main track is '<combo>/T<n>', an included booster keeps its own course code
         track_code = item.get("track_code") or (
-            component_course.course_code if role == "Included booster" else f"{course.course_code}/T{main_tracks}")
+            component_course.course_code if role == "Included booster" else f"{course_code}/T{main_tracks}")
 
-        component = catalog_repo.get_component_by_track_code(track_code)
-        if component is None and component_course is not None:
-            component = catalog_repo.get_component_by_course(course.course_id, component_course.course_id)
-        if component is not None and component.parent_course_id != course.course_id:
+        existing = catalog_repo.get_component_by_track_code(track_code)
+        if existing is None and component_course is not None and course is not None:
+            existing = catalog_repo.get_component_by_course(course.course_id, component_course.course_id)
+        if existing is not None and (course is None or existing.parent_course_id != course.course_id):
             raise BusinessRule(f"Track {track_code} already belongs to another course")
-        if component is None:
-            component = CourseComponent(parent_course_id=course.course_id, track_code=track_code)
-            db.session.add(component)
-        component.track_name = item.get("track_name") or component_course.title
-        component.role = role
-        component.sort_order = item["sort_order"]
-        component.component_course_id = component_course.course_id if component_course else None
-    db.session.flush()
-    return Handled({"course_id": course.course_id, "course_code": course.course_code,
-                    "components": len(data["components"])})
+        planned.append(_PlannedComponent(item, track_code, role, component_course, existing))
+    return planned
+
+
+def _check_removable(course: Course, removed: list[CourseComponent]) -> None:
+    usage = catalog_repo.component_usage([c.component_id for c in removed])
+    blocked = [c for c in removed if any(usage[c.component_id].values())]
+    if not blocked:
+        return
+    ids = [c.component_id for c in blocked]
+    enrolments = catalog_repo.enrolments_using_components(ids)
+    versions = sum(usage[i]["curriculum_versions"] for i in ids)
+    raise BusinessRule(
+        f"Course {course.course_code}: track(s) {', '.join(c.track_code for c in blocked)} are still used by "
+        f"{enrolments} enrolment(s) and {versions} curriculum version(s); move or withdraw them before the CRM removes them",
+        {"tracks": [{"track_code": c.track_code, **usage[c.component_id]} for c in blocked]})
 
 
 # ---------------------------------------------------------------- AdmissionQualified
@@ -278,8 +325,10 @@ def _upsert_student(person: dict, original_branch_id: int, service_branch_id: in
         student = Student(crm_person_id=person["crm_person_id"], full_name=person["full_name"],
                           original_branch_id=original_branch_id, service_branch_id=service_branch_id)
         db.session.add(student)
+    # A repeated AdmissionQualified is a full refresh of the person. The CRM always sends its whole person object, so
+    # email / name_te sent as null mean "cleared in the CRM"; a field left out keeps its value (the CRM has no name_te).
     for field in ("full_name", "name_te", "email", "mobile", "preferred_language"):
-        if person.get(field) is not None:
+        if person.get(field) is not None or (field in CLEARABLE_PERSON_FIELDS and field in person):
             setattr(student, field, person[field])
     if person.get("person_code"):
         student.crm_person_code = person["person_code"]
@@ -293,7 +342,7 @@ def _upsert_student(person: dict, original_branch_id: int, service_branch_id: in
             email = None
         db.session.add(User(full_name=student.full_name, email=email, student_id=student.student_id))
         db.session.flush()
-        student.provisioned_at = datetime.now(timezone.utc)
+        student.provisioned_at = func.now()  # the database clock, like every other change the CRM pulls
         token = activation.issue(student, channel="CRM provisioning", issued_by=None).token
     return student, token, warnings
 
@@ -528,11 +577,90 @@ def _finance_summary_updated(event: CrmEvent, data: dict) -> Handled:
     summary.invoice_numbers = data["invoice_numbers"]
     summary.installments = [{**i, "due_date": i["due_date"].isoformat(),
                              **{k: str(i[k]) for k in ("amount", "covered", "balance")}} for i in data["installments"]]
+    summary.installments_scope = data["installments_scope"]
+    summary.invoice_course_count = data["invoice_course_count"]
     summary.as_of = data.get("as_of") or event.occurred_at
     summary.source_version = event.source_version
     db.session.flush()
     return Handled({"admission_id": admission.admission_id, "crm_admission_id": admission.crm_admission_id,
                     "balance": str(summary.balance)})
+
+
+# ---------------------------------------------------------------- BranchUpserted
+
+def _branch_upserted(event: CrmEvent, data: dict) -> Handled:
+    """The CRM's branch row. A new branch needs its short code (used inside batch codes) and shared mailbox; an
+    existing branch keeps its short code, because every batch code issued there contains it."""
+    branch = branches_repo.get_by_code(data["branch_code"])
+    if branch is not None and event.source_version < branch.source_version:
+        return _stale(event, branch.source_version, f"Branch {branch.branch_code}")
+
+    created = branch is None
+    if created:
+        missing = [f for f in ("short_code", "mailbox") if not data.get(f)]
+        if missing:
+            raise BusinessRule(f"New branch {data['branch_code']} needs {' and '.join(missing)}",
+                               {f: ["Required to create a branch"] for f in missing})
+        if branches_repo.get_by_short_code(data["short_code"]) is not None:
+            raise BusinessRule(f"Short code {data['short_code']} is already used by another branch")
+        branch = Branch(branch_code=data["branch_code"], short_code=data["short_code"])
+        db.session.add(branch)
+    elif data.get("short_code") and data["short_code"] != branch.short_code:
+        raise BusinessRule(f"Branch {branch.branch_code} keeps short code {branch.short_code}: it is part of every "
+                           f"batch code issued there", {"short_code": [f"Expected {branch.short_code}"]})
+
+    branch.branch_name = data["branch_name"]
+    branch.city = data["city"]
+    if data.get("mailbox"):
+        branch.mailbox = data["mailbox"]
+    branch.is_active = data["is_active"]
+    branch.source_version = event.source_version
+    db.session.flush()
+    return Handled({"branch_id": branch.branch_id, "branch_code": branch.branch_code, "created": created,
+                    "is_active": branch.is_active})
+
+
+# ---------------------------------------------------------------- BranchFinanceSnapshot
+
+def _branch_finance_snapshot(event: CrmEvent, data: dict) -> Handled:
+    """The CRM's finance figures for one branch replace the previous snapshot. The LMS only shows them."""
+    branch = _branch(data["branch_code"])
+    snapshot = branches_repo.get_finance_snapshot(branch.branch_id)
+    if snapshot is not None and event.source_version < snapshot.source_version:
+        return _stale(event, snapshot.source_version, f"The finance snapshot of {branch.branch_code}")
+
+    period = data.get("period")
+    collections, admissions = data["collections"], data["paid_admissions"]
+    if period is None and (collections.get("target") is not None or admissions.get("target") is not None):
+        raise BusinessRule("A target needs its period", {"period": ["Send the target period with the targets"]})
+    if period is not None and period["end"] < period["start"]:
+        raise BusinessRule("The target period ends before it starts", {"period": ["end is before start"]})
+
+    if snapshot is None:
+        snapshot = BranchFinanceSnapshot(branch_id=branch.branch_id)
+        db.session.add(snapshot)
+    overdue, verifications, followups = data["overdue"], data["verifications"], data["followups"]
+    snapshot.as_of = data["as_of"]
+    snapshot.period_label = period["label"] if period else None
+    snapshot.period_start = period["start"] if period else None
+    snapshot.period_end = period["end"] if period else None
+    snapshot.collections_verified = collections["verified"]
+    snapshot.collections_target = collections.get("target")
+    snapshot.paid_admissions = admissions["count"]
+    snapshot.paid_admissions_target = admissions.get("target")
+    snapshot.overdue_amount = overdue["amount"]
+    snapshot.overdue_count = overdue["count"]
+    snapshot.overdue_by_age_band = [{"band": b["band"], "amount": str(b["amount"]), "count": b["count"]}
+                                    for b in overdue.get("by_age_band", [])]
+    snapshot.verifications_pending = verifications["pending_count"]
+    snapshot.verifications_pending_amount = verifications["pending_amount"]
+    snapshot.verifications_overdue = verifications["overdue_count"]
+    snapshot.verifications_oldest_at = verifications.get("oldest_at")
+    snapshot.followups_overdue = followups["overdue_count"]
+    snapshot.broken_promises = followups["broken_promises"]
+    snapshot.source_version = event.source_version
+    db.session.flush()
+    return Handled({"branch_id": branch.branch_id, "branch_code": branch.branch_code, "as_of": data["as_of"].isoformat()})
 
 
 HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
@@ -541,6 +669,8 @@ HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
     "AdmissionUpdated": _admission_updated,
     "AdmissionCancelled": _admission_cancelled,
     "FinanceSummaryUpdated": _finance_summary_updated,
+    "BranchUpserted": _branch_upserted,
+    "BranchFinanceSnapshot": _branch_finance_snapshot,
 }
 
 
@@ -550,7 +680,11 @@ def status_since(since: datetime) -> dict:
     """The values the CRM stores about the LMS that changed after `since` (see docs/CRM_INTEGRATION.md):
     persons.lms_user_id / lms_provisioned_at; admissions.lms_status / lms_last_activity_at; the academic columns
     the LMS now owns (enrolment_status, curriculum_status, allocations and joining date, completion); batches;
-    certificates from the LMS Certificate Register."""
+    certificates from the LMS Certificate Register.
+
+    `as_of` is read before the rows, so storing it as the next `since` can repeat a row but never skip one. There is
+    no paging: one response holds everything changed since `since`."""
+    as_of = crm_repo.pull_as_of()
     now = datetime.now(timezone.utc)
     return {
         "persons": [{"crm_person_id": s.crm_person_id, "lms_user_id": s.lms_user_id, "lms_provisioned_at": s.provisioned_at}
@@ -561,5 +695,5 @@ def status_since(since: datetime) -> dict:
         "academics": [st.academic for st in crm_repo.academics_changed_since(since)],
         "batches": [state.payload for state in crm_repo.batch_states_changed_since(since)],
         "certificates": crm_repo.certificate_states_changed_since(since),
-        "as_of": now,
+        "as_of": as_of,
     }

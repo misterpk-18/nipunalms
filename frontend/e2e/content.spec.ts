@@ -26,7 +26,7 @@ test("trainer uploads and submits content, coordinator approves and releases it,
   await page.goto("/trainer/content");
   await page.getByRole("button", { name: "Upload content" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Batch").selectOption({ label: "NIT-GNT-BAT-2026-000001 · Data Science with Python, SQL, Machine Learning & Applied AI" });
+  await dialog.getByLabel("Batch").selectOption({ label: "NIT-GNT-BAT-2026-000001 · Data Science & Applied AI Combo (LMS seed)" });
   await dialog.getByLabel("Topic").selectOption({ index: 1 });
   await dialog.getByLabel("Title").fill(TITLE);
   await dialog.getByLabel("File", { exact: true }).setInputFiles({ name: "cheatsheet.pdf", mimeType: "application/pdf", buffer: PDF });

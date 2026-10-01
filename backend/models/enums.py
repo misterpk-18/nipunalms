@@ -15,6 +15,7 @@ COURSE_STATUSES = ("Active", "Inactive", "Archived")
 COMPONENT_ROLES = ("Main track", "Included booster")
 CURRICULUM_STATUSES = ("Draft", "Under Review", "Approved", "Active", "Retired")
 ACTIVATION_STATUSES = ("Account Created", "Activation Pending", "Activated", "Suspended")
+ACTIVATION_CHANNELS = ("CRM provisioning", "Staff issued")  # student_activations.channel
 ADMISSION_STATUSES = ("Active", "Paused", "Cancelled")
 ENROLMENT_KINDS = ("Combo", "Standalone", "Separately purchased", "Complimentary")
 ENROLMENT_STATUSES = (

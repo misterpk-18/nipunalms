@@ -234,7 +234,7 @@ def test_status_endpoint_is_empty_when_nothing_changed_and_reports_new_activity(
     assert (empty["persons"], empty["admissions"], empty["batches"]) == ([], [], [])
 
     # The status itself changed long ago; only new learning activity can make the admission show up again
-    run_sql("UPDATE admission_lms_state SET status_changed_at = now() - interval '1 hour'")
+    run_sql("UPDATE admission_lms_state SET status_changed_at = now() - interval '1 hour', changed_at = now() - interval '1 hour'")
     since = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
     assert client.get(STATUS, headers=HEADERS, query_string={"since": since}).get_json()["data"]["admissions"] == []
 

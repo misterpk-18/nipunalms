@@ -1,4 +1,4 @@
-/** P3 dashboards (API_PLAN): Student Home, Trainer Today, the trainer / academic reports and the staff summaries. Each screen makes one request. */
+/** Dashboards (docs/API.md §4.10–4.11): Student Home, Trainer Today, the trainer / academic reports and the staff summaries. Each screen makes one request. */
 import { useQuery } from "@tanstack/react-query";
 import { get, put } from "./client";
 import type { BranchRef, DateOnly, DateTime, UserRef } from "./types";
@@ -201,8 +201,21 @@ export const useTrainerReports = () => useQuery({ queryKey: dashboardKeys.traine
 export const useAcademicReports = () => useQuery({ queryKey: dashboardKeys.academicReports, queryFn: dashboardsApi.academicReports });
 
 // ---------------------------------------------------------------- Staff dashboards
-/** A CRM-authoritative figure the LMS does not hold: never a number, rendered as "Unavailable". */
+/** A CRM-authoritative figure the CRM has not sent: never a number, rendered as "Unavailable". */
 export type NotConfigured = { state: "Not Configured"; reason: string; refreshed_at: DateTime | null };
+/** A CRM figure from the branches' latest BranchFinanceSnapshot: money as a string, counts as numbers. */
+export type CrmValue = {
+  state: "Configured" | "Partial Data";
+  unit: "INR" | "count";
+  value: string | number;
+  target: string | number | null;
+  period: { label: string; start: DateOnly; end: DateOnly } | null;
+  as_of: DateTime;
+  stale: boolean;
+  missing_branches: BranchRef[];
+  detail: Record<string, unknown> | null;
+};
+export type CrmFigure = NotConfigured | CrmValue;
 
 type Scope = { branches: BranchRef[]; all_branches: boolean; label: string };
 export type BatchRisk = {
@@ -231,7 +244,7 @@ export type AcademicSummary = {
 export type BranchSummary = {
   as_of: DateTime;
   scope: Scope;
-  crm: { verified_collections: NotConfigured; new_paid_admissions: NotConfigured; overdue_followups: NotConfigured };
+  crm: { verified_collections: CrmFigure; new_paid_admissions: CrmFigure; overdue_followups: CrmFigure };
   batches_running: Count & { total_open: number };
   schedule_and_recording_exceptions: Count & { recording_exceptions: number; reschedule_requests: number };
   requests_open: Count & { escalations: number; extension_requests: number };
@@ -252,7 +265,7 @@ type QueueItem = {
 export type AdminSummary = {
   as_of: DateTime;
   scope: Scope;
-  crm: { overdue_payment_verifications: NotConfigured };
+  crm: { overdue_payment_verifications: CrmFigure };
   integration_failures: Count & { codes: string[]; source: string };
   awaiting_owner: Count;
   integrations_verified: { verified: number; total: number };
@@ -275,7 +288,7 @@ export type AdminSummary = {
 export type FounderSummary = {
   as_of: DateTime;
   scope: Scope;
-  crm: { verified_collections: NotConfigured; new_paid_admissions: NotConfigured; overdue_amount: NotConfigured };
+  crm: { verified_collections: CrmFigure; new_paid_admissions: CrmFigure; overdue_amount: CrmFigure };
   active_enrolments: Count & { by_branch: { branch: BranchRef; count: number }[] };
   batches_at_risk: Count & { items: BatchRisk[] };
   certificates_awaiting_approval: Count & { by_branch: { branch: BranchRef; count: number }[] };

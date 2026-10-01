@@ -30,16 +30,35 @@ export type FinanceEntry = {
   course: { course_id: number; course_code: string; title: string };
   service_branch: BranchRef;
   collecting_branch: BranchRef;
+  /** This course's own figures (safe to add up per admission). */
   summary: {
     fee_total: string;
     verified_paid: string;
     balance: string;
-    next_due_date: DateOnly | null;
-    next_due_amount: string | null;
+    pending_verification: string;
+    payment_completion: "Unpaid" | "Part Paid" | "Paid" | null;
+    invoice_numbers: string[];
+    installments_scope: "admission" | "invoice";
+    invoice_course_count: number;
     receipts: { receipt_number: string; date: DateOnly; amount: string }[];
     as_of: DateTime;
   } | null;
+  schedule_key: string | null;
   source: string;
+};
+
+/** An instalment schedule, shown once: the CRM keeps instalments per invoice, and one invoice can cover several courses. */
+export type FinanceSchedule = {
+  schedule_key: string;
+  invoice_number: string | null;
+  installments_scope: "admission" | "invoice";
+  invoice_course_count: number;
+  admissions: { admission_id: number; admission_code: string; course: { course_id: number; course_code: string; title: string } }[];
+  installments: { installment_no: number; due_date: DateOnly; amount: string; covered: string; balance: string; due_position: string | null }[];
+  next_due_date: DateOnly | null;
+  next_due_amount: string | null;
+  overdue_amount: string;
+  as_of: DateTime;
 };
 
 export const profileApi = {
@@ -47,5 +66,5 @@ export const profileApi = {
   setLanguage: (preferred_language: Language) => patch<MyProfile>("/me/profile", { preferred_language }),
   signOutDevice: (sessionId: string) => del<null>(`/auth/sessions/${sessionId}`),
   signOutOthers: () => post<{ signed_out: number }>("/me/devices/sign-out-others"),
-  finance: () => get<{ source: string; note: string; admissions: FinanceEntry[] }>("/me/finance"),
+  finance: () => get<{ source: string; note: string; admissions: FinanceEntry[]; schedules: FinanceSchedule[] }>("/me/finance"),
 };

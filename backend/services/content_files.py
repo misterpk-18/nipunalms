@@ -3,7 +3,7 @@
 Uploads are checked before they are kept: extension allow-list, size limit per kind (ordinary file / dataset or archive),
 a magic-number check of the formats that have one, and a safe-archive inspection for ZIP files (no unsafe paths, no
 nested archives, no executables, bounded expansion). Uploaded code and notebooks are stored and served, never executed.
-Malware scanning is not available yet (see docs/BACKLOG.md).
+Malware scanning is not available yet (see the backlog in docs/DEVELOPMENT.md).
 """
 import json
 import mimetypes

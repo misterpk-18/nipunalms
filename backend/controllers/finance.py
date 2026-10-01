@@ -15,12 +15,32 @@ def _entry(admission, summary) -> dict:
         "service_branch": admission.service_branch.to_summary(),
         "collecting_branch": admission.collecting_branch.to_summary(),
         "summary": summary.to_dict() if summary else None,
+        "schedule_key": finance_service.schedule_key(summary) if summary else None,
         "source": SOURCE,
     }
 
 
+def _schedule(schedule: finance_service.Schedule) -> dict:
+    """One instalment schedule, shown once: an invoice's lists every course (admission) it covers."""
+    source = schedule.source
+    return {
+        "schedule_key": schedule.key,
+        "invoice_number": schedule.invoice_number,
+        "installments_scope": schedule.scope,
+        "invoice_course_count": schedule.course_count,
+        "admissions": [{**a.to_summary(), "course": a.course.to_summary()} for a in schedule.admissions],
+        "installments": source.installments,
+        "next_due_date": source.next_due_date,
+        "next_due_amount": source.next_due_amount,
+        "overdue_amount": finance_service.overdue_amount(source),
+        "as_of": source.as_of,
+    }
+
+
 def my_finance():
-    return ok({"source": SOURCE, "note": PENDING_NOTE, "admissions": [_entry(a, s) for a, s in finance_service.my_summaries()]})
+    rows = finance_service.my_summaries()
+    return ok({"source": SOURCE, "note": PENDING_NOTE, "admissions": [_entry(a, s) for a, s in rows],
+               "schedules": [_schedule(s) for s in finance_service.schedules_of(rows)]})
 
 
 def list_summaries():
@@ -34,4 +54,5 @@ def list_summaries():
 
 
 def get_summary(admission_id: int):
-    return ok(_entry(*finance_service.get_summary(admission_id)))
+    admission, summary, schedule = finance_service.get_summary(admission_id)
+    return ok({**_entry(admission, summary), "schedule": _schedule(schedule) if schedule else None})

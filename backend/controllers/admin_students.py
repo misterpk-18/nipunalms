@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from flask import request
 
 from controllers.common import Validator, get_page_params, json_body, ok, paginated
-from models.enums import ACTIVATION_STATUSES
+from models.enums import ACTIVATION_CHANNELS, ACTIVATION_STATUSES
 from services import admin_students as students_service
 
 
@@ -32,6 +32,7 @@ def search():
     v = Validator(request.args.to_dict())
     v.string("q", max_length=100)
     v.choice("activation_status", ACTIVATION_STATUSES)
+    v.choice("activation_channel", ACTIVATION_CHANNELS)
     v.integer("branch_id", min_value=1)
     filters = v.validate()
 

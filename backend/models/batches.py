@@ -1,7 +1,7 @@
 """Batches, batch trainers, allocations and class sessions."""
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, FetchedValue, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, FetchedValue, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +35,7 @@ class Batch(db.Model):
     readiness: Mapped[str] = mapped_column(BatchReadiness, default="Ready")
     readiness_reason: Mapped[str | None] = mapped_column(Text)
     recovery_owner: Mapped[str | None] = mapped_column(String(100))
+    seed_data: Mapped[bool] = mapped_column(Boolean, default=False)  # made-up CRM batch ID from `flask seed-dev` (db 090)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 

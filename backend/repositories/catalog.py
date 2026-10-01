@@ -36,6 +36,28 @@ def get_component_by_course(parent_course_id: int, component_course_id: int) -> 
     ).scalar_one_or_none()
 
 
+def components_of(course_id: int) -> list[CourseComponent]:
+    stmt = select(CourseComponent).where(CourseComponent.parent_course_id == course_id).order_by(CourseComponent.sort_order)
+    return list(db.session.execute(stmt).scalars())
+
+
+def component_usage(component_ids: list[int]) -> dict[int, dict[str, int]]:
+    """Per component: enrolment tracks and curriculum versions that point at it (either blocks removing it)."""
+    usage = {cid: {"enrolment_tracks": 0, "curriculum_versions": 0} for cid in component_ids}
+    if not component_ids:
+        return usage
+    for column, key in ((EnrolmentTrack.component_id, "enrolment_tracks"), (CurriculumVersion.component_id, "curriculum_versions")):
+        for cid, n in db.session.execute(select(column, func.count()).where(column.in_(component_ids)).group_by(column)):
+            usage[cid][key] = n
+    return usage
+
+
+def enrolments_using_components(component_ids: list[int]) -> int:
+    return db.session.execute(
+        select(func.count(func.distinct(EnrolmentTrack.enrolment_id))).where(EnrolmentTrack.component_id.in_(component_ids))
+    ).scalar()
+
+
 def active_curriculum_version_id(course_id: int, component_id: int | None = None) -> int | None:
     """The Active curriculum version of a course (or of one of its tracks); None when none is mapped."""
     return db.session.execute(select(func.active_curriculum_version(course_id, component_id))).scalar()

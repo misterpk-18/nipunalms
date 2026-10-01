@@ -12,4 +12,4 @@ Source: https://nipuna-lms-prototype.lovable.app/ (Lovable, TanStack Start, samp
 | `reference/styles.css` | Compiled Tailwind theme (colour tokens: navy header, primary, sim) |
 
 Use it for layout and wording only. The prototype's role switcher, "Demo" buttons and banner are UAT aids and are not
-carried into the real app; behaviour comes from the approved modules and `docs/API_PLAN.md`.
+carried into the real app; behaviour comes from the approved modules and `docs/API.md`.

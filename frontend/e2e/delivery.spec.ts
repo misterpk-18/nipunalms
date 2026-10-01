@@ -51,7 +51,7 @@ test("learner navigates My Courses, a combo track, module, topic and session", a
   await expect(page.getByText("NIT-GNT-2026-000214 (CRM)")).toBeVisible();
   await expect(page.getByText("Combo programme — one paid Admission")).toBeVisible();
 
-  await page.getByRole("listitem").filter({ hasText: "NIT-CRS-018/T2" }).getByRole("link", { name: "Open track" }).click();
+  await page.getByRole("listitem").filter({ hasText: "NIT-CRS-900/T2" }).getByRole("link", { name: "Open track" }).click();
   await expect(page.getByRole("heading", { name: "Machine Learning" })).toBeVisible();
   await page.getByRole("link", { name: "Supervised Learning", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Supervised Learning" })).toBeVisible();

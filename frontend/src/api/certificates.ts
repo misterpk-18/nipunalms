@@ -1,4 +1,4 @@
-/** Completion review and the LMS Certificate Register (API_PLAN §5, slice S4). */
+/** Completion review and the LMS Certificate Register (docs/API.md §4.7). */
 import { useQuery } from "@tanstack/react-query";
 import { get, list, post, type Query } from "./client";
 import type { DateOnly, DateTime, UserRef } from "./types";

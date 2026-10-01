@@ -48,3 +48,19 @@ def summary_of_admission(admission_id: int) -> tuple[Admission, FinanceSummary |
 def admissions_by_id(admission_ids: list[int]) -> dict[int, Admission]:
     rows = db.session.execute(select(Admission).where(Admission.admission_id.in_(admission_ids))).scalars()
     return {a.admission_id: a for a in rows}
+
+
+def all_of(stmt: Select) -> list[FinanceSummary]:
+    """Every summary a branch_summaries_stmt matches (for totals across pages)."""
+    return list(db.session.execute(stmt.order_by(None)).scalars())
+
+
+def summaries_on_invoice(invoice_number: str) -> list[tuple[Admission, FinanceSummary]]:
+    """The admissions whose summary is on this CRM invoice (one invoice can cover several courses)."""
+    stmt = (
+        select(Admission, FinanceSummary)
+        .join(FinanceSummary, FinanceSummary.admission_id == Admission.admission_id)
+        .where(FinanceSummary.invoice_numbers.contains([invoice_number]))
+        .order_by(Admission.admission_id)
+    )
+    return [(row[0], row[1]) for row in db.session.execute(stmt).all()]

@@ -34,6 +34,7 @@ class Student(db.Model):
     preferred_language: Mapped[str] = mapped_column(String(2), default="en")
     activation_status: Mapped[str] = mapped_column(ActivationStatus, default="Account Created")
     mfa_status: Mapped[str] = mapped_column(String(30), default="Not Configured")
+    seed_data: Mapped[bool] = mapped_column(Boolean, default=False)  # made-up CRM IDs from `flask seed-dev` (db 090)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
@@ -116,6 +117,7 @@ class Admission(db.Model):
     seat_type: Mapped[str | None] = mapped_column(String(20))  # Confirmed Seat / Future Plan (CRM delivery plan)
     planned_start_date: Mapped[date | None] = mapped_column(Date)
     source_version: Mapped[int] = mapped_column(Integer)
+    seed_data: Mapped[bool] = mapped_column(Boolean, default=False)  # made-up CRM IDs from `flask seed-dev` (db 090)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
@@ -253,25 +255,28 @@ class FinanceSummary(db.Model):
     payment_completion: Mapped[str | None] = mapped_column(String(20))
     invoice_numbers: Mapped[list] = mapped_column(JSONB, default=list)
     installments: Mapped[list] = mapped_column(JSONB, default=list)
+    installments_scope: Mapped[str] = mapped_column(String(20), default="admission")  # 'invoice': the schedule is the invoice's
+    invoice_course_count: Mapped[int] = mapped_column(Integer, default=1)  # courses on that invoice; > 1 = a shared schedule
     as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     source_version: Mapped[int] = mapped_column(Integer)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
     def to_dict(self) -> dict:
+        """This course's own figures, safe to sum per admission. The instalment schedule and its next due are not
+        here: they can be the whole invoice's (services/finance.py shows them once per schedule)."""
         return {
             "admission_id": self.admission_id,
             "fee_total": self.fee_total,
             "verified_paid": self.verified_paid,
             "balance": self.balance,
-            "next_due_date": self.next_due_date,
-            "next_due_amount": self.next_due_amount,
             "receipts": self.receipts,
             "pending_verification": self.pending_verification,
             "waived": self.waived,
             "refunded": self.refunded,
             "payment_completion": self.payment_completion,
             "invoice_numbers": self.invoice_numbers,
-            "installments": self.installments,
+            "installments_scope": self.installments_scope,
+            "invoice_course_count": self.invoice_course_count,
             "as_of": self.as_of,
         }
 
@@ -285,6 +290,7 @@ class AdmissionLmsState(db.Model):
     lms_status: Mapped[str] = mapped_column(LmsStatus)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # lms_status or last_activity_at changed (db 095)
     academic: Mapped[dict | None] = mapped_column(JSONB)  # last academic state queued for the CRM (db 005)
     academic_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

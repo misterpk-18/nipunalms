@@ -2,7 +2,7 @@
 from sqlalchemy import select
 
 from config.database import db
-from models import Branch
+from models import Branch, BranchFinanceSnapshot
 
 
 def get_by_id(branch_id: int) -> Branch | None:
@@ -19,3 +19,11 @@ def list_active(branch_ids: set[int] | None = None) -> list[Branch]:
     if branch_ids is not None:
         stmt = stmt.where(Branch.branch_id.in_(branch_ids))
     return list(db.session.execute(stmt).scalars())
+
+
+def get_by_short_code(short_code: str) -> Branch | None:
+    return db.session.execute(select(Branch).where(Branch.short_code == short_code)).scalar_one_or_none()
+
+
+def get_finance_snapshot(branch_id: int) -> BranchFinanceSnapshot | None:
+    return db.session.get(BranchFinanceSnapshot, branch_id)

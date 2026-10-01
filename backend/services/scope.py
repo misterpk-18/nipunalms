@@ -1,6 +1,6 @@
 """Record-scope helpers: what the current user may see. Every slice's lists and details go through these.
 
-Scope rules (API_PLAN §2):
+Scope rules (docs/API.md §2):
   STUDENT               own student record, own enrolments, batches they are allocated to
   TRAINER               batches they are assigned to and the students allocated to those batches
   ACADEMIC_COORDINATOR  everything academic at their branch

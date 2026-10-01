@@ -2,7 +2,7 @@
 from sqlalchemy import Select, func, or_, select
 
 from config.database import db
-from models import ActiveSession, Course, Enrolment, Student, User
+from models import ActiveSession, Course, Enrolment, Student, StudentActivation, User
 
 
 def search_stmt(filters: dict) -> Select:
@@ -19,6 +19,11 @@ def search_stmt(filters: dict) -> Select:
         stmt = stmt.where(Student.activation_status == filters["activation_status"])
     if filters.get("branch_id"):
         stmt = stmt.where(Student.service_branch_id == filters["branch_id"])
+    if filters.get("activation_channel"):
+        # whose outstanding link came from this channel: 'CRM provisioning' = never delivered, a coordinator must reissue
+        stmt = stmt.where(select(StudentActivation.activation_id).where(
+            StudentActivation.student_id == Student.student_id, StudentActivation.used_at.is_(None),
+            StudentActivation.revoked_at.is_(None), StudentActivation.channel == filters["activation_channel"]).exists())
     return stmt
 
 

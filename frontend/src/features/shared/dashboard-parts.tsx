@@ -1,9 +1,10 @@
 /** Pieces the dashboard screens share: ranked tiles, the CRM "Unavailable" tile, quick links and the honest empty / unavailable line of a card. */
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import type { NotConfigured } from "@/api/dashboards";
+import type { CrmFigure, CrmValue } from "@/api/dashboards";
 import { Section, StatusNote } from "@/components/lms/ui";
 import { fmtDateTime } from "@/features/shared/format";
+import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** A headline figure. `rank` marks the approved priority order (Module 25; rank 1 is what to look at first); tiles without one are secondary widgets. */
@@ -51,21 +52,43 @@ export function Tile({
   );
 }
 
-/** A CRM-authoritative figure: "Unavailable" with the Not Configured hint, never 0. */
-export function CrmTile({ label, figure, rank }: { label: string; figure: NotConfigured; rank?: number }) {
+/** A CRM-authoritative figure: the CRM's snapshot when it has sent one, otherwise "Unavailable" with the Not Configured hint, never 0. */
+export function CrmTile({ label, figure, rank }: { label: string; figure: CrmFigure; rank?: number }) {
+  if (figure.state === "Not Configured") {
+    return (
+      <Tile
+        label={label}
+        rank={rank}
+        value="Unavailable"
+        hint={
+          <>
+            {figure.state} — {figure.reason}
+            {figure.refreshed_at && <> · CRM finance data last refreshed {fmtDateTime(figure.refreshed_at)}</>}
+          </>
+        }
+      />
+    );
+  }
   return (
     <Tile
       label={label}
       rank={rank}
-      value="Unavailable"
+      value={crmAmount(figure, figure.value)}
       hint={
         <>
-          {figure.state} — {figure.reason}
-          {figure.refreshed_at && <> · CRM finance data last refreshed {fmtDateTime(figure.refreshed_at)}</>}
+          {figure.target !== null && <>of {crmAmount(figure, figure.target)} target · </>}
+          {figure.period && <>{figure.period.label} · </>}
+          From CRM, {fmtDateTime(figure.as_of)}
+          {figure.stale && <> · Stale: the CRM has not refreshed this recently</>}
+          {figure.state === "Partial Data" && <> · Partial Data: no figures yet from {figure.missing_branches.map((b) => b.branch_name).join(", ")}</>}
         </>
       }
     />
   );
+}
+
+function crmAmount(figure: CrmValue, amount: string | number): string {
+  return figure.unit === "INR" ? formatMoney(String(amount)) : String(amount);
 }
 
 export function TileRow({ children, label }: { children: ReactNode; label: string }) {

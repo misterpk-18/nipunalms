@@ -57,50 +57,63 @@ STAFF = {
     "trainer_v2": ("Trainer P. Demo", "trainer.v2", [(TRAINER_ROLE, VIJ)]),
 }
 
-# code, title, category (prototype course list; NIT-CRS-019 first because NIT-CRS-018 includes it as a booster)
+# The CRM's catalog (nipunacrm-dev `courses`, 2026-10-01): code, title, category. All eight are single courses there; the
+# CRM owns them, and its CourseUpserted events overwrite these. NIT-CRS-019 first: the seed combo includes it as a booster.
 COURSES = [
     ("NIT-CRS-019", "Microsoft Power BI Data Analytics & Business Intelligence", "Data & Analytics"),
+    ("NIT-CRS-007", "AWS with DevOps", "Cloud & DevOps"),
+    ("NIT-CRS-018", "Data Science with Python, SQL, Machine Learning & Applied AI", "Data & Analytics"),
+    ("NIT-CRS-025", "Professional Graphic Design with AI Tools", "Design & Media"),
+    ("NIT-CRS-026", "Professional Video Editing with AI Tools", "Design & Media"),
+    ("NIT-CRS-028", "Complete Digital Marketing", "Digital Marketing"),
     ("NIT-CRS-047", "Java Full Stack Developer", "Software Development"),
     ("NIT-CRS-052", "Python Full Stack Developer", "Software Development"),
-    ("NIT-CRS-007", "AWS with DevOps", "Cloud & DevOps"),
 ]
+# The prototype's 3 + 1 combo, to exercise combo features. Seed data only: the CRM has no combo yet, so it gets a code the
+# CRM does not use (the CRM's NIT-CRS-018 is a single course).
 COMBO = {
-    "course_code": "NIT-CRS-018",
-    "title": "Data Science with Python, SQL, Machine Learning & Applied AI",
+    "course_code": "NIT-CRS-900",
+    "title": "Data Science & Applied AI Combo (LMS seed)",
     "category": "Data & Analytics",
     "is_combo": True,
     "components": [
-        {"track_code": "NIT-CRS-018/T1", "track_name": "Python & SQL Foundations", "sort_order": 1},
-        {"track_code": "NIT-CRS-018/T2", "track_name": "Machine Learning", "sort_order": 2},
-        {"track_code": "NIT-CRS-018/T3", "track_name": "Applied AI", "sort_order": 3},
+        {"track_code": "NIT-CRS-900/T1", "track_name": "Python & SQL Foundations", "sort_order": 1},
+        {"track_code": "NIT-CRS-900/T2", "track_name": "Machine Learning", "sort_order": 2},
+        {"track_code": "NIT-CRS-900/T3", "track_name": "Applied AI", "sort_order": 3},
         {"track_code": "NIT-CRS-019", "track_name": "Microsoft Power BI Data Analytics & Business Intelligence",
          "role": "Included booster", "sort_order": 4, "component_course_code": "NIT-CRS-019"},
     ],
 }
 
 # course, track (None = whole course), version label, [(module, module in Telugu, [topics])]. Every version is Active,
-# except that NIT-CRS-052 deliberately has none: its enrolments stay in Curriculum Mapping Pending.
+# except that NIT-CRS-052 deliberately has none: its enrolments stay in Curriculum Mapping Pending until its CV 3.0 draft
+# (under review) is activated, which the CRM's round 2 uses to test Mapping Pending → Mapped. NIT-CRS-028 has none either.
 CURRICULA = [
-    ("NIT-CRS-018", None, "Parent Programme v2026.1", [
+    ("NIT-CRS-018", None, "CV 2026.1", [
+        ("Python & SQL Foundations", None, ["Python Basics & Data Structures", "Joins, Window Functions"]),
+        ("Machine Learning", None, ["Linear & Logistic Regression", "Model Evaluation"]),
+        ("Applied AI", None, ["LLM Basics & Prompting", "Building a RAG Pipeline"]),
+    ]),
+    ("NIT-CRS-900", None, "Parent Programme v2026.1", [
         ("Programme Orientation & Learning Plan", None, ["Programme Roadmap & Assessment Scheme", "Learning Tools Setup"]),
         ("Capstone Project", None, ["Capstone Scoping", "Capstone Presentation"]),
     ]),
-    ("NIT-CRS-018", "NIT-CRS-018/T1", "Track CV 3.2", [
+    ("NIT-CRS-900", "NIT-CRS-900/T1", "Track CV 3.2", [
         ("Python Foundations", "పైథాన్ ఫౌండేషన్స్", ["Python Basics & Data Structures", "Functions & Modules", "DataFrames"]),
         ("Data Cleaning & EDA", None, ["Data Cleaning with Pandas", "Exploratory Data Analysis"]),
         ("SQL for Analytics", "అనలిటిక్స్ కోసం SQL", ["Aggregations & Subqueries", "Joins, Window Functions"]),
     ]),
-    ("NIT-CRS-018", "NIT-CRS-018/T2", "Track CV 2.4", [
+    ("NIT-CRS-900", "NIT-CRS-900/T2", "Track CV 2.4", [
         ("Supervised Learning", "సూపర్వైజ్డ్ లెర్నింగ్",
          ["Linear & Logistic Regression", "Decision Trees & Ensembles", "k-NN & Naive Bayes"]),
         ("Model Evaluation", "మోడల్ మూల్యాంకనం", ["Cross-validation & Metrics", "Hyperparameter Tuning"]),
         ("Unsupervised Learning", None, ["Clustering (K-Means)", "Dimensionality Reduction (PCA)"]),
     ]),
-    ("NIT-CRS-018", "NIT-CRS-018/T3", "Track CV 1.1", [
+    ("NIT-CRS-900", "NIT-CRS-900/T3", "Track CV 1.1", [
         ("Generative AI Foundations", None, ["LLM Basics & Prompting", "Embeddings & Vector Search"]),
         ("Building Applied AI Solutions", None, ["Building a RAG Pipeline", "Evaluating AI Applications"]),
     ]),
-    ("NIT-CRS-018", "NIT-CRS-019", "Booster CV 1.3", [
+    ("NIT-CRS-900", "NIT-CRS-019", "Booster CV 1.3", [
         ("Power BI Essentials", None, ["Getting Data & Power Query", "Data Modelling", "DAX Basics", "Building Dashboards"]),
     ]),
     ("NIT-CRS-019", None, "CV 1.3", [
@@ -112,6 +125,16 @@ CURRICULA = [
         ("Spring Boot", None, ["REST APIs with Spring Boot", "JPA & Hibernate"]),
         ("React Front End", None, ["Components & State"]),
     ]),
+    ("NIT-CRS-025", None, "CV 2.0", [
+        ("Design Foundations", None, ["Colour, Type & Layout", "Photoshop Essentials"]),
+        ("Brand & Print Design", None, ["Logo & Identity with Illustrator", "Print-ready Layouts in InDesign"]),
+        ("AI-assisted Design", None, ["Image Generation for Designers", "Portfolio Project"]),
+    ]),
+    ("NIT-CRS-026", None, "CV 1.2", [
+        ("Editing Foundations", None, ["Premiere Pro Timeline & Cuts", "Audio Clean-up"]),
+        ("Colour & Motion", None, ["Colour Grading", "Motion Graphics in After Effects"]),
+        ("AI-assisted Editing", None, ["AI Tools for Captions & Cut-downs", "Showreel Project"]),
+    ]),
     ("NIT-CRS-007", None, "CV 4.0", [
         ("AWS Core Services", None, ["EC2 & VPC Networking", "S3 & IAM Policies"]),
         ("DevOps on AWS", None, ["CI/CD with CodePipeline", "Docker & Containers", "Terraform Basics"]),
@@ -121,7 +144,7 @@ CURRICULA = [
 # key: code, course, branch, curriculum label, capacity, mode, state, readiness, reason, recovery owner, start, end,
 #      trainers (Lead first), crm batch id, seats to fill with sample learners
 BATCHES = {
-    "G1": dict(code="NIT-GNT-BAT-2026-000001", course="NIT-CRS-018", branch=GNT, version="Parent Programme v2026.1",
+    "G1": dict(code="NIT-GNT-BAT-2026-000001", course="NIT-CRS-900", branch=GNT, version="Parent Programme v2026.1",
                capacity=30, mode="Hybrid", state="Running", start=date(2026, 1, 12), end=date(2026, 12, 18),
                trainers=["trainer_g1", "trainer_g2"], crm="CRM-BAT-101", fillers=20),
     "G2": dict(code="NIT-GNT-BAT-2026-000002", course="NIT-CRS-047", branch=GNT, version="CV 5.1", capacity=30,
@@ -146,9 +169,9 @@ ANVITHA = dict(person="CRM-PER-1001", name="Anvitha K.", name_te="అన్వ�
 
 # key, name, email, branch, course, batch key (None = not allocated yet), outcome
 NAMED_LEARNERS = [
-    ("G", "Sample Learner G.", "learner.g@example.test", GNT, "NIT-CRS-018", "G1", None),
-    ("H", "Sample Learner H.", "learner.h@example.test", GNT, "NIT-CRS-018", "G1", None),
-    ("I", "Sample Learner I.", "learner.i@example.test", GNT, "NIT-CRS-018", "G1", None),
+    ("G", "Sample Learner G.", "learner.g@example.test", GNT, "NIT-CRS-900", "G1", None),
+    ("H", "Sample Learner H.", "learner.h@example.test", GNT, "NIT-CRS-900", "G1", None),
+    ("I", "Sample Learner I.", "learner.i@example.test", GNT, "NIT-CRS-900", "G1", None),
     ("J", "Sample Learner J.", "learner.j@example.test", VIJ, "NIT-CRS-007", "V1", "activation pending"),
     ("A", "Sample Learner A.", "learner.a@example.test", GNT, "NIT-CRS-047", None, "completed: certificate issued"),
     ("B", "Sample Learner B.", "learner.b@example.test", VIJ, "NIT-CRS-052", None, None),
@@ -365,7 +388,7 @@ def seed_students(ctx: SeedContext) -> None:
               "name_te": ANVITHA["name_te"], "email": ANVITHA["email"], "phone": ANVITHA["mobile"], "preferred_language": "English"}
     combo = ctx.crm_event("AdmissionQualified", {
         "person": person,
-        "admission": {"crm_admission_id": "CRM-ADM-214", "admission_code": "NIT-GNT-2026-000214", "course_code": "NIT-CRS-018",
+        "admission": {"crm_admission_id": "CRM-ADM-214", "admission_code": "NIT-GNT-2026-000214", "course_code": "NIT-CRS-900",
                       "original_branch_code": "NIT-GNT", "service_branch_code": "NIT-GNT", "collecting_branch_code": "NIT-GNT",
                       "delivery_mode": "Hybrid", "seat_type": "Confirmed Seat", "admission_date": "2026-01-10",
                       "crm_batch_id": "CRM-BAT-101"},
@@ -726,7 +749,7 @@ ASSIGNMENTS = [
 
 def _gnt_enrolment(ctx: SeedContext, key: str) -> Enrolment:
     """The student's Data Science (batch G1) enrolment."""
-    course = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-018")).scalar_one()
+    course = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-900")).scalar_one()
     return db.session.execute(select(Enrolment).where(Enrolment.student_id == ctx.students[key]["student_id"],
                                                       Enrolment.course_id == course.course_id)).scalar_one()
 
@@ -939,6 +962,11 @@ def seed_dev_command() -> None:
         seeder(ctx)
         db.session.commit()
         click.echo(f"  {seeder.__name__.removeprefix('seed_')} done")
+
+    # Every student, admission and batch so far carries made-up CRM IDs: keep them out of the CRM status pull
+    for table in ("students", "admissions", "batches"):
+        db.session.execute(text(f"UPDATE {table} SET seed_data = true"))
+    db.session.commit()
 
     student_count = db.session.execute(select(func.count()).select_from(Student)).scalar()
     click.echo(f"Seeded {len(STAFF)} staff, {student_count} students. Password for every account: {STAGING_PASSWORD}")

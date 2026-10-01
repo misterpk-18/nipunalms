@@ -61,9 +61,47 @@ class TestFinance:
         assert data["source"].startswith("CRM") and "not a receipt" in data["note"]
         [entry] = data["admissions"]
         assert entry["summary"]["fee_total"] == "30000.00" and entry["summary"]["verified_paid"] == "10000.00"
-        assert entry["summary"]["balance"] == "20000.00" and entry["summary"]["next_due_date"] == "2026-10-15"
+        assert entry["summary"]["balance"] == "20000.00" and entry["summary"]["installments_scope"] == "admission"
         assert entry["summary"]["receipts"][0]["receipt_number"] == "GNT-R-2627-00001" and entry["summary"]["as_of"]
+        [schedule] = data["schedules"]  # an admission's own schedule
+        assert schedule["schedule_key"] == entry["schedule_key"] and schedule["next_due_date"] == "2026-10-15"
         assert client.put(f"{API}/me/finance", headers=world.h(world.students.s1), json={}).status_code == 405
+
+    def test_a_shared_invoice_schedule_is_shown_and_summed_once(self, client, world, crm_event):
+        """F3: two courses on one CRM invoice: each summary carries the invoice's schedule; it counts once."""
+        second = helpers.admission_data(person_id="P-1", admission_id="A-1B", course="NIT-CRS-019", name="Student One",
+                                        email="student1@example.test")
+        assert crm_event("AdmissionQualified", second).status_code == 201
+        installments = [{"installment_no": 1, "due_date": "2026-09-15", "amount": 26000, "covered": 20000, "balance": 6000,
+                         "due_position": "Overdue"},
+                        {"installment_no": 2, "due_date": "2026-10-15", "amount": 26000, "covered": 0, "balance": 26000,
+                         "due_position": "Upcoming"}]
+        shared = dict(invoice_numbers=["INV-GNT-2627-0005"], installments_scope="invoice", invoice_course_count=2,
+                      installments=installments, next_due_date="2026-09-15", next_due_amount=6000)
+        assert self.send(crm_event, world, "A-1", **shared).status_code == 201
+        assert self.send(crm_event, world, "A-1B", fee_total=22000, verified_paid=10000, balance=12000, receipts=[], **shared).status_code == 201
+
+        data = client.get(f"{API}/me/finance", headers=world.h(world.students.s1)).get_json()["data"]
+        assert sorted(e["summary"]["balance"] for e in data["admissions"]) == ["12000.00", "20000.00"]  # per course
+        assert all("installments" not in e["summary"] and "next_due_amount" not in e["summary"] for e in data["admissions"])
+        [schedule] = data["schedules"]
+        assert schedule["invoice_number"] == "INV-GNT-2627-0005" and schedule["installments_scope"] == "invoice"
+        assert schedule["invoice_course_count"] == 2 and len(schedule["installments"]) == 2
+        assert sorted(a["course"]["course_code"] for a in schedule["admissions"]) == ["NIT-CRS-019", "NIT-CRS-047"]
+        assert (schedule["next_due_amount"], schedule["overdue_amount"]) == ("6000.00", "6000.00")
+
+        listed = client.get(f"{API}/finance-summaries", headers=world.h(world.people.bm),
+                            query_string={"student_id": world.students.s1.student_id}).get_json()
+        assert listed["meta"]["totals"] == {"admissions": 2, "balance": "32000.00", "schedules": 1,
+                                            "overdue_amount": "6000.00", "next_due_amount": "6000.00"}
+        assert len({r["schedule_key"] for r in listed["data"]}) == 1
+
+        detail = client.get(f"{API}/finance-summaries/{world.students.s1.admission_id}", headers=world.h(world.people.bm)).get_json()["data"]
+        assert detail["schedule"]["invoice_number"] == "INV-GNT-2627-0005" and len(detail["schedule"]["admissions"]) == 2
+
+    def test_the_installments_scope_is_validated(self, world, crm_event):
+        assert self.send(crm_event, world, "A-1", installments_scope="course").status_code == 400
+        assert self.send(crm_event, world, "A-1", invoice_course_count=-1).status_code == 400
 
     def test_an_admission_without_a_summary_is_listed_as_not_received(self, client, world):
         [entry] = client.get(f"{API}/me/finance", headers=world.h(world.students.s1)).get_json()["data"]["admissions"]

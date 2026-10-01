@@ -1,4 +1,4 @@
-/** Attendance, recovery, corrections and the four progress measures (API_PLAN §5, slice S4). */
+/** Attendance, recovery, corrections and the four progress measures (docs/API.md §4.7). */
 import { useQuery } from "@tanstack/react-query";
 import { get, list, post, put, type Page, type Query } from "./client";
 import type { DateOnly, DateTime, UserRef } from "./types";

@@ -14,10 +14,17 @@ from services.errors import ValidationError
 EVENT_TYPES = tuple(crm_service.HANDLERS)
 ID_FIELDS = ("crm_person_id", "crm_admission_id", "crm_batch_id", "complimentary_of_crm_admission_id")
 LANGUAGES = ("en", "te")
+INSTALLMENT_SCOPES = ("admission", "invoice")
 ZERO = Decimal("0.00")
 
-# The CRM's own column names and values (nipuna-crm db), accepted as sent and mapped to the LMS vocabulary
-FIELD_ALIASES = {"phone": "mobile", "course_title": "title", "delivery_mode": "mode"}
+# The CRM's own column names and values (nipuna-crm db), accepted as sent and mapped to the LMS vocabulary.
+# person_id / admission_id are the names docs/CRM_INTEGRATION.md documents for the CRM's IDs.
+FIELD_ALIASES = {"phone": "mobile", "course_title": "title", "delivery_mode": "mode",
+                 "person_id": "crm_person_id", "admission_id": "crm_admission_id",
+                 "complimentary_of_admission_id": "complimentary_of_crm_admission_id"}
+# Top-level names of one event type only. A CRM branch's receipt_prefix (e.g. 'GNT') is the short code the LMS puts
+# inside batch codes, and its email is the branch's shared mailbox (a person's email stays `email`).
+EVENT_ALIASES = {"BranchUpserted": {"receipt_prefix": "short_code", "email": "mailbox"}}
 VALUE_MAPS = {
     "mode": {"Online": "Live Online"},                                   # CRM delivery_mode
     "preferred_language": {"English": "en", "Telugu": "te"},             # CRM app_language
@@ -47,7 +54,7 @@ def _from_crm(value):
 
 def _course_upserted(v: Validator) -> None:
     v.string("course_code", required=True, upper=True, max_length=30)
-    v.string("title", required=True, max_length=200)
+    v.string("title", required=True, max_length=255)  # CRM courses.course_title is varchar(255)
     v.string("category", nullable=True, max_length=100)
     v.boolean("is_combo", default=False)
     v.choice("status", COURSE_STATUSES, default="Active")
@@ -57,7 +64,7 @@ def _course_upserted(v: Validator) -> None:
         has_course = bool(c.data.get("component_course_code"))
         c.string("component_course_code", upper=True, max_length=30)
         c.string("track_code", required=not has_course, upper=True, max_length=50)
-        c.string("track_name", required=not has_course, max_length=200)
+        c.string("track_name", required=not has_course, max_length=255)
         c.boolean("is_bonus", default=False)
         c.choice("role", COMPONENT_ROLES)
         c.integer("sort_order", default=0, min_value=0)
@@ -128,7 +135,7 @@ def _admission_updated(v: Validator) -> None:
 
 def _admission_cancelled(v: Validator) -> None:
     v.string("crm_admission_id", required=True, max_length=100)
-    v.string("reason", nullable=True, max_length=500)
+    v.string("reason", nullable=True)  # the CRM's free-text cancellation reason has no length limit
 
 
 def _finance_summary_updated(v: Validator) -> None:
@@ -158,7 +165,63 @@ def _finance_summary_updated(v: Validator) -> None:
     v.choice("payment_completion", PAYMENT_COMPLETIONS, nullable=True)
     v.string_list("invoice_numbers")
     v.list_of("installments", installment)
+    v.choice("installments_scope", INSTALLMENT_SCOPES, default="admission")  # 'invoice': the invoice's schedule
+    v.integer("invoice_course_count", default=1, min_value=0)
     v.datetime("as_of")
+
+
+def _branch_upserted(v: Validator) -> None:
+    # short_code and mailbox are needed to create a branch; the service says so when they are missing
+    v.string("branch_code", required=True, upper=True, max_length=20)
+    v.string("branch_name", required=True, max_length=100)
+    v.string("city", required=True, max_length=100)
+    v.string("short_code", upper=True, max_length=10)
+    v.email("mailbox", nullable=True)
+    v.boolean("is_active", default=True)
+
+
+def _branch_finance_snapshot(v: Validator) -> None:
+    def period(p: Validator) -> None:
+        p.string("label", required=True, max_length=50)
+        p.date("start", required=True)
+        p.date("end", required=True)
+
+    def collections(c: Validator) -> None:
+        c.decimal("verified", required=True, min_value=0)
+        c.decimal("target", nullable=True, min_value=0)
+
+    def paid_admissions(a: Validator) -> None:
+        a.integer("count", required=True, min_value=0)
+        a.integer("target", nullable=True, min_value=0)
+
+    def age_band(b: Validator) -> None:
+        b.string("band", required=True, max_length=30)
+        b.decimal("amount", required=True, min_value=0)
+        b.integer("count", required=True, min_value=0)
+
+    def overdue(o: Validator) -> None:
+        o.decimal("amount", required=True, min_value=0)
+        o.integer("count", required=True, min_value=0)
+        o.list_of("by_age_band", age_band)
+
+    def verifications(r: Validator) -> None:
+        r.integer("pending_count", required=True, min_value=0)
+        r.decimal("pending_amount", required=True, min_value=0)
+        r.integer("overdue_count", required=True, min_value=0)
+        r.datetime("oldest_at", nullable=True)
+
+    def followups(f: Validator) -> None:
+        f.integer("overdue_count", required=True, min_value=0)
+        f.integer("broken_promises", required=True, min_value=0)
+
+    v.string("branch_code", required=True, upper=True, max_length=20)
+    v.datetime("as_of", required=True)
+    v.nested("period", period, nullable=True)        # null: the branch has no approved target for now
+    v.nested("collections", collections, required=True)
+    v.nested("paid_admissions", paid_admissions, required=True)
+    v.nested("overdue", overdue, required=True)
+    v.nested("verifications", verifications, required=True)
+    v.nested("followups", followups, required=True)
 
 
 PAYLOAD_RULES = {
@@ -167,14 +230,23 @@ PAYLOAD_RULES = {
     "AdmissionUpdated": _admission_updated,
     "AdmissionCancelled": _admission_cancelled,
     "FinanceSummaryUpdated": _finance_summary_updated,
+    "BranchUpserted": _branch_upserted,
+    "BranchFinanceSnapshot": _branch_finance_snapshot,
 }
 # Lists that may be left out of a payload
 OPTIONAL_LISTS = {"CourseUpserted": ("components",), "AdmissionUpdated": ("enrolments",),
                   "FinanceSummaryUpdated": ("receipts", "invoice_numbers", "installments")}
 
 
+def _event_aliases(event_type: str, raw_data):
+    aliases = EVENT_ALIASES.get(event_type)
+    if not aliases or not isinstance(raw_data, dict):
+        return raw_data
+    return {(aliases[k] if k in aliases and aliases[k] not in raw_data else k): item for k, item in raw_data.items()}
+
+
 def parse_data(event_type: str, raw_data) -> dict:
-    v = Validator(_from_crm(raw_data))
+    v = Validator(_from_crm(_event_aliases(event_type, raw_data)))
     PAYLOAD_RULES[event_type](v)
     data = v.validate()
     for field in OPTIONAL_LISTS.get(event_type, ()):
