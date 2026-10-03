@@ -24,8 +24,8 @@ export function TrainerSessions() {
       </Section>
       <div className="mt-4">
         <Note>
-          Start opens up to 60 minutes before the class. A session only counts as taught once you mark it Delivered; a class that is cancelled or moved is never
-          a student absence.
+          Start opens up to 60 minutes before the class. A session only counts as taught once you save its class log (Held or Partially Held); a class that is
+          cancelled or moved is never a student absence.
         </Note>
       </div>
     </>

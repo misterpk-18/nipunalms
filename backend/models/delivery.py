@@ -85,6 +85,8 @@ class SessionChange(db.Model):
     notice_hours: Mapped[Decimal] = mapped_column(Numeric(8, 1))
     short_notice: Mapped[bool] = mapped_column(Boolean, default=False)
     changed_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    emergency_reason: Mapped[str | None] = mapped_column(Text)  # why notice under 24 hours was unavoidable (db 103)
+    next_action: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
     old_trainer: Mapped[User | None] = relationship(foreign_keys=[old_trainer_user_id], lazy="joined")
@@ -104,6 +106,8 @@ class SessionChange(db.Model):
             "new_trainer": self.new_trainer.to_summary() if self.new_trainer else None,
             "notice_hours": self.notice_hours,
             "short_notice": self.short_notice,
+            "emergency_reason": self.emergency_reason,
+            "next_action": self.next_action,
             "changed_by": self.changer.to_summary() if self.changer else None,
             "created_at": self.created_at,
         }

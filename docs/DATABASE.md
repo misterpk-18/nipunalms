@@ -51,6 +51,7 @@ Vijayawada).
 | `100_governance.sql` | Gap fix plan phase 3: certificate requests and fee exceptions, status history and reinstatement, AI controls | ✅ |
 | `101_academic_calendar.sql` | Gap fix plan phase 4: company holidays and branch closures, working weekdays | ✅ |
 | `102_curriculum_model.sql` | Gap fix plan phase 5: the Module 14 curriculum model | ✅ |
+| `103_batches_delivery.sql` | Gap fix plan phase 6: batch lifecycle and requests, class logs, live-class operations (Modules 15, 16) | ✅ |
 
 ---
 
@@ -360,3 +361,31 @@ Phase 5 of the gap fix plan ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
 | `curriculum_variations` | Branch and batch variations; a required-topic constraint needs a remedial plan (G060) |
 | `library_modules`, `library_module_versions`, `curriculum_modules.library_version_id` | Reusable modules with explicit, independently approved versions (G059) |
 
+## 103 — Batches and delivery operations (Modules 15 and 16)
+
+Phase 6 of the gap fix plan ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)). Stored state names are kept, for the CRM and the views;
+the API adds Module 15's labels (`state_label`).
+
+| Change | Why |
+|---|---|
+| `batch_state` + `Proposed`, `On Hold`, `Archived`; `check_batch_transition` rewritten (Forming → Proposed → Starting needs `confirmed_at`; On Hold returns to `held_from_state`; Archived only after Completed / Cancelled) | Module 15 §5 lifecycle and the Branch Manager's confirmation (G015) |
+| `batches`: `proposed_by / _at`, `proposal_note`, `confirmed_by / _at` (≠ proposer), `confirmation_checklist` | The 7-point readiness record as confirmed |
+| `batches`: `display_name`, `batch_type`, `schedule_pattern`, `creating_branch_id` (permanent; `branch_id` is the service branch) | Type, pattern, display name (G062) |
+| `batches`: `classroom_capacity`, `lab_capacity`, `online_capacity`; `batch_capacity_requests` | Verified capacity per side; an increase is reviewed and approved independently (G103) |
+| `batches.recording_provision` / `recording_terms`; `meet_series_link`, `meet_space_id`, `calendar_series_id` | The recording commitment; the recurring batch-series Meet link (G070) |
+| `batches.component_id`; `check_batch_allocation` rewritten (track seats, interbranch track placement, no seats while On Hold / Archived) | Track batches and track-level allocation (G016) |
+| `batch_transfer_requests` | Transfers approved by the Branch Manager, never the requester; a track placed at another branch after the destination confirms (G017) |
+| `material_changes`, `material_change_responses` | The old and new plan, independent approval and each student's agreement before a material change applies (G018) |
+| `batch_successions`, `batch_handovers` | Merge / split with successor links; completion needs a named owner, plan and destination for students still owed teaching (G069) |
+| `class_sessions`: `original_starts_at / _ends_at`, `confirmed_at / _by`, `live_at`, `delivery_outcome` (Held / Partially Held; defaulted to Held by `trg_class_sessions_default_outcome`), `actual_start / _end`, `break_minutes`, `delivered_minutes`, `unfulfilled_note`, `log_overdue_at` | Planned / Confirmed / Held / Partially Held, the class log and the same-day log check (G065) |
+| `class_sessions`: `purpose`, `replaces_session_id`, `purpose_reference`, `approval_status`, `proposed_by`, `approved_by / _at`, `owner_user_id`, `due_on`, `replacement_waiver` | Replacement, remedial and extra classes with their links, approval, owner and deadline (G066) |
+| `class_sessions`: `room_override_reason`, `hosting_branch_id`, `meet_space_id`, `calendar_event_id`, `calendar_series_id`, `conference_record_id`; `session_changes.emergency_reason`, `next_action` | Documented overrides (G068); Meet identifiers (G070); emergency notices (G018) |
+| `session_cover_requests`; `class_sessions_before_write` accepts an applied substitute | Cover approved by the Branch Manager and verified by the coordinator (G101) |
+| `session_people`, `meet_incidents`, `meet_participation` | Hosts, backups, approved guests, compromised-link history (G071); join / leave evidence and unmatched identities, never attendance (G104) |
+| `session_disruptions`, `class_sessions.delay_notice_at` | Delayed starts (5 / 15 minutes) and undelivered minutes (G019) |
+| `session_rosters`, view `session_batches`; `attendance_grid`, `enrolment_delivery` and their dependants recreated over it; `check_attendance_record` accepts any batch of the class | Shared classes: one class, one attendance row per person, counted once (G067) |
+| `slot_preferences` | Student preferred slots, Requested / Waitlisted / Confirmed (G102) |
+| `job_runs` | Last run and last success of each background job (Meet operations view, G072) |
+| `exception_queue` + `DISRUPTION`, `CLASS_LOG`, `REPLACEMENT` | Disruptions, missing class logs and replacements owed reach the queue |
+| `crm_batch_status`: Proposed, On Hold and Archived pass through | Round 4 request A5 |
+| Settings `session_delay_notice_minutes` (5), `session_disruption_minutes` (15), `material_end_extension_days` (7), `class_log_lookback_days` (14) | |

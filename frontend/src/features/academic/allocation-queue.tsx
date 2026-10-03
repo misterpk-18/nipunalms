@@ -20,13 +20,15 @@ function AllocateDialog({ row }: { row: EnrolmentRow }) {
   const batchId = chosen ?? row.open_batches?.[0]?.batch_id ?? 0;
   const [reason, setReason] = useState("");
   const [ack, setAck] = useState(false);
+  const [track, setTrack] = useState("");
+  const trackId = track ? Number(track) : null;
   const review = useQuery({
-    queryKey: ["delivery", "review", batchId, row.enrolment_id],
-    queryFn: () => deliveryApi.review(batchId, row.enrolment_id),
+    queryKey: ["delivery", "review", batchId, row.enrolment_id, trackId],
+    queryFn: () => deliveryApi.review(batchId, row.enrolment_id, { enrolment_track_id: trackId }),
     enabled: open && batchId > 0,
   });
   const allocate = useDelivery(
-    (v: { batch_id: number }) => deliveryApi.allocate(v.batch_id, { enrolment_id: row.enrolment_id, reason: reason || undefined, acknowledge_warnings: ack }),
+    (v: { batch_id: number }) => deliveryApi.allocate(v.batch_id, { enrolment_id: row.enrolment_id, enrolment_track_id: trackId, reason: reason || undefined, acknowledge_warnings: ack }),
     "Student allocated — they have been told",
   );
   const blocked = review.data?.result === "Blocked";
@@ -47,10 +49,24 @@ function AllocateDialog({ row }: { row: EnrolmentRow }) {
           <Note>No open batch exists for this course at {row.service_branch.branch_name}. Create a batch first.</Note>
         ) : (
           <div className="space-y-3">
+            {(row.tracks ?? []).length > 0 && (
+              <Field label="Combo track" htmlFor="alloc-track" hint="A track batch takes only its own track. Leave on the whole enrolment for the parent programme batch.">
+                <NativeSelect
+                  id="alloc-track"
+                  placeholder="Whole enrolment"
+                  options={(row.tracks ?? []).map((t) => ({ value: t.enrolment_track_id, label: `${t.track_code} — ${t.track_name}` }))}
+                  value={track}
+                  onChange={(e) => {
+                    setTrack(e.target.value);
+                    setAck(false);
+                  }}
+                />
+              </Field>
+            )}
             <Field label="Batch" htmlFor="alloc-batch">
               <NativeSelect
                 id="alloc-batch"
-                options={(row.open_batches ?? []).map((b) => ({ value: b.batch_id, label: `${b.batch_code} (${b.state}, capacity ${b.capacity})` }))}
+                options={(row.open_batches ?? []).map((b) => ({ value: b.batch_id, label: `${b.display_name ? `${b.display_name} · ` : ""}${b.batch_code} (${b.state}, capacity ${b.capacity})` }))}
                 value={batchId}
                 onChange={(e) => {
                   setChosen(Number(e.target.value));

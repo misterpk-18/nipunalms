@@ -29,13 +29,6 @@ def allocate(batch_id: int):
     return allocations_controller.allocate(batch_id)
 
 
-@batch_allocations_bp.post("/enrolments/<int:enrolment_id>/transfer")
-@login_required
-@require_roles(*MANAGE_ROLES)
-def transfer(enrolment_id: int):
-    return allocations_controller.transfer(enrolment_id)
-
-
 @batch_allocations_bp.post("/enrolments/<int:enrolment_id>/deallocate")
 @login_required
 @require_roles(*MANAGE_ROLES)

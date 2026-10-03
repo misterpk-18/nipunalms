@@ -1,21 +1,43 @@
 import { AcademicCalendar } from "@/features/shared/academic-calendar";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { deliveryApi } from "@/api/delivery";
+import { deliveryApi, type Batch } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/lms/forms";
 import { Note, PageHead, QueryView, Section } from "@/components/lms/ui";
-import { ActionDialog, fromIstInput, toIstInput, useCanManage } from "@/features/shared/delivery-ui";
+import { ActionDialog, fromIstInput, toIstInput, useCanManage, useIsManager } from "@/features/shared/delivery-ui";
 import { RequestsPanel, SessionsTable, useDelivery } from "@/features/shared/sessions";
 import { useAuth } from "@/auth/auth";
 
-const STATES = ["Scheduled", "Rescheduled", "Live", "Delivered", "Cancelled"];
+/** The API filters on the stored state; the label says what each covers. */
+const STATES = [
+  { value: "Scheduled", label: "Planned / Confirmed" },
+  { value: "Rescheduled", label: "Rescheduled" },
+  { value: "Live", label: "In Progress" },
+  { value: "Delivered", label: "Held / Partially Held" },
+  { value: "Cancelled", label: "Cancelled" },
+];
+const PURPOSES = ["Regular", "Replacement", "Remedial", "Extra"].map((p) => ({ value: p, label: p }));
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Schedule one class or a weekly series for a batch: the trainer, topic and room are chosen from what the batch actually has. */
-function NewSessionDialog({ batches }: { batches: { batch_id: number; batch_code: string; course: { course_id: number; title: string }; mode: string }[] }) {
+function NewSessionDialog({ batches }: { batches: Batch[] }) {
+  const { profile } = useAuth();
+  const approver = useIsManager();
   const [batchId, setBatchId] = useState(batches[0]?.batch_id ?? 0);
   const batch = batches.find((b) => b.batch_id === batchId);
+  const batchSessions = useQuery({ queryKey: ["delivery", "sessions", "batch", batchId], queryFn: () => deliveryApi.sessions({ batch_id: batchId }), enabled: batchId > 0 });
+  const owners = useQuery({
+    queryKey: ["delivery", "staff", "ACADEMIC_COORDINATOR", batch?.branch.branch_id],
+    queryFn: () => deliveryApi.staff("ACADEMIC_COORDINATOR", batch!.branch.branch_id),
+    enabled: !!batch,
+  });
+  const owed = (batchSessions.data?.data ?? []).filter((x) => x.state === "Cancelled" || x.delivery_outcome === "Partially Held");
+  const me = profile?.user.user_id ?? 0;
+  const ownerOptions = [
+    { value: me, label: "Me" },
+    ...(owners.data ?? []).filter((o) => o.user_id !== me).map((o) => ({ value: o.user_id, label: o.full_name })),
+  ];
   const detail = useQuery({ queryKey: ["delivery", "batch", batchId], queryFn: () => deliveryApi.batch(batchId), enabled: batchId > 0 });
   const versions = useQuery({
     queryKey: ["delivery", "versions", "active", batch?.course.course_id],
@@ -32,7 +54,7 @@ function NewSessionDialog({ batches }: { batches: { batch_id: number; batch_code
     <ActionDialog
       trigger={<Button>New class session</Button>}
       title="Schedule a class session"
-      description="One class, or repeat it weekly. Times are IST."
+      description="One class, or repeat it weekly. Times are IST. A booked room or a student clash is a warning; only a Branch Manager can override it."
       submitLabel="Schedule"
       onFieldChange={(name, value) => name === "batch_id" && setBatchId(Number(value))}
       fields={[
@@ -79,7 +101,28 @@ function NewSessionDialog({ batches }: { batches: { batch_id: number; batch_code
           value: "none",
         },
         { name: "count", label: "Number of weekly sessions", type: "number", min: 2, value: "4", hint: "Used when repeating weekly (2–60)" },
-        { name: "ack", label: "Room conflict", type: "checkbox", hint: "Allow a room that is already booked" },
+        { name: "purpose", label: "Purpose", type: "select", options: PURPOSES, value: "Regular", hint: "Replacement, remedial and extra classes need a Branch Manager's approval before students see them" },
+        {
+          name: "replaces_session_id",
+          label: "Class being replaced",
+          type: "select",
+          required: true,
+          showIf: (v) => v["purpose"] === "Replacement",
+          options: owed.map((x) => ({ value: x.session_id, label: `${x.session_code} · ${x.title} (${x.state_label})` })),
+        },
+        {
+          name: "purpose_reference",
+          label: "What it is for",
+          type: "textarea",
+          required: true,
+          showIf: (v) => v["purpose"] === "Remedial" || v["purpose"] === "Extra",
+          hint: "The class, topic or reason this one follows up",
+        },
+        { name: "owner_user_id", label: "Owner", type: "select", options: ownerOptions, value: String(me), showIf: (v) => v["purpose"] !== "Regular" },
+        { name: "due_on", label: "Due by", type: "date", required: true, showIf: (v) => v["purpose"] !== "Regular" },
+        { name: "meet_space_id", label: "Meet space ID", hint: "Optional; recorded as given" },
+        { name: "calendar_series_id", label: "Calendar series ID", hint: "Optional; recorded as given" },
+        ...(approver ? [{ name: "override_reason", label: "Reason to override the warning", type: "textarea" as const, required: true, afterWarnings: true }] : []),
       ]}
       onSubmit={(v) =>
         create.mutateAsync({
@@ -92,7 +135,14 @@ function NewSessionDialog({ batches }: { batches: { batch_id: number; batch_code
           mode: v["mode"] || undefined,
           room: v["room"] || undefined,
           recurrence: v["repeat"] === "weekly" ? { count: Number(v["count"] || 4) } : undefined,
-          acknowledge_room_conflict: v["ack"] === "true",
+          purpose: v["purpose"] || undefined,
+          replaces_session_id: v["replaces_session_id"] ? Number(v["replaces_session_id"]) : undefined,
+          purpose_reference: v["purpose_reference"] || undefined,
+          owner_user_id: v["owner_user_id"] ? Number(v["owner_user_id"]) : undefined,
+          due_on: v["due_on"] || undefined,
+          meet_space_id: v["meet_space_id"] || undefined,
+          calendar_series_id: v["calendar_series_id"] || undefined,
+          override_reason: v["override_reason"] || undefined,
         })
       }
     />
@@ -109,7 +159,7 @@ export function AcademicSchedule() {
     queryKey: ["delivery", "sessions", "academic", batch, state],
     queryFn: () => deliveryApi.sessions({ batch_id: batch || undefined, state: state || undefined }),
   });
-  const open = (batches.data?.data ?? []).filter((b) => b.state !== "Completed" && b.state !== "Cancelled");
+  const open = (batches.data?.data ?? []).filter((b) => !["Completed", "Cancelled", "Archived", "On Hold"].includes(b.state));
   return (
     <>
       <PageHead
@@ -128,7 +178,7 @@ export function AcademicSchedule() {
         <NativeSelect
           aria-label="Filter by state"
           placeholder="All states"
-          options={STATES.map((s) => ({ value: s, label: s }))}
+          options={STATES}
           value={state}
           onChange={(e) => setState(e.target.value)}
         />

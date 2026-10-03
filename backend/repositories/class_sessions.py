@@ -2,12 +2,13 @@
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import DateTime, Select, cast, exists, func, or_, select
+from sqlalchemy.orm import aliased
 
 from config.database import db
 from config.timezone import IST
 from models import (
-    Batch, BatchAllocation, ClassSession, CurriculumModule, CurriculumTopic, MeetEvent, SessionChange,
-    SessionChangeRequest,
+    Batch, BatchAllocation, ClassSession, CurriculumModule, Enrolment, CurriculumTopic, MeetEvent, SessionChange,
+    SessionChangeRequest, SessionPerson, SessionRoster,
 )
 
 
@@ -41,6 +42,10 @@ def list_stmt(filters: dict, branch_ids: set[int] | None, trainer_batch_ids: set
         stmt = stmt.where(ClassSession.meet_status == filters["meet_status"])
     if filters.get("topic_ids"):
         stmt = stmt.where(ClassSession.topic_id.in_(filters["topic_ids"]))
+    if filters.get("purpose"):
+        stmt = stmt.where(ClassSession.purpose == filters["purpose"])
+    if filters.get("approval_status"):
+        stmt = stmt.where(ClassSession.approval_status == filters["approval_status"])
     if filters.get("upcoming"):
         stmt = stmt.where(ClassSession.state.in_(("Scheduled", "Rescheduled", "Live")), ClassSession.ends_at >= func.now())
     if filters.get("from"):
@@ -73,6 +78,34 @@ def trainer_conflict(trainer_user_id: int, starts_at: datetime, ends_at: datetim
     if exclude_session_id:
         stmt = stmt.where(ClassSession.session_id != exclude_session_id)
     return db.session.execute(stmt.limit(1)).scalars().first()
+
+
+def people_conflict(user_ids: list[int], starts_at: datetime, ends_at: datetime, exclude_session_id: int | None = None) -> ClassSession | None:
+    """An open class overlapping the window that one of these people teaches, hosts, backs up or assists."""
+    if not user_ids:
+        return None
+    stmt = select(ClassSession).where(
+        ClassSession.state.in_(("Scheduled", "Live", "Rescheduled")), ClassSession.starts_at < ends_at, ClassSession.ends_at > starts_at,
+        or_(ClassSession.trainer_user_id.in_(user_ids),
+            ClassSession.session_id.in_(select(SessionPerson.session_id).where(
+                SessionPerson.user_id.in_(user_ids), SessionPerson.removed_at.is_(None), SessionPerson.role != "Guest"))))
+    if exclude_session_id:
+        stmt = stmt.where(ClassSession.session_id != exclude_session_id)
+    return db.session.execute(stmt.limit(1)).scalars().first()
+
+
+def student_conflicts(batch_ids: list[int], starts_at: datetime, ends_at: datetime, exclude_session_id: int | None = None) -> list[ClassSession]:
+    """Open classes of other batches at the same time that students seated in these batches also attend."""
+    students = (select(Enrolment.student_id).join(BatchAllocation, BatchAllocation.enrolment_id == Enrolment.enrolment_id)
+                .where(BatchAllocation.batch_id.in_(batch_ids), BatchAllocation.status == "Active"))
+    their_batches = (select(BatchAllocation.batch_id).join(Enrolment, Enrolment.enrolment_id == BatchAllocation.enrolment_id)
+                     .where(Enrolment.student_id.in_(students), BatchAllocation.status == "Active", BatchAllocation.batch_id.notin_(batch_ids)))
+    stmt = select(ClassSession).where(
+        ClassSession.batch_id.in_(their_batches), ClassSession.state.in_(("Scheduled", "Live", "Rescheduled")),
+        ClassSession.starts_at < ends_at, ClassSession.ends_at > starts_at)
+    if exclude_session_id:
+        stmt = stmt.where(ClassSession.session_id != exclude_session_id)
+    return list(db.session.execute(stmt.order_by(ClassSession.starts_at).limit(5)).scalars())
 
 
 def room_conflict(branch_id: int, room: str, starts_at: datetime, ends_at: datetime, exclude_session_id: int | None = None) -> ClassSession | None:
@@ -176,6 +209,30 @@ def state_counts_by_batch(batch_ids: list[int]) -> dict[int, dict[str, int]]:
     return result
 
 
+def session_batch_ids(session_id: int) -> list[int]:
+    """Every batch the class serves: its own and any batch joined to it as a shared class (host first)."""
+    host = db.session.execute(select(ClassSession.batch_id).where(ClassSession.session_id == session_id)).scalar_one()
+    joined = db.session.execute(select(SessionRoster.batch_id).where(SessionRoster.session_id == session_id)
+                                .order_by(SessionRoster.batch_id)).scalars().all()
+    return [host, *joined]
+
+
+# A cancelled regular or remedial class owes a replacement; a cancelled replacement leaves its original owing, and an extra
+# class owes nothing (Module 15 §16)
+OWES_REPLACEMENT = ("Regular", "Remedial")
+
+
+def replacements_owed(batch_id: int) -> list[str]:
+    """Codes of the batch's cancelled classes with neither a live replacement nor a recorded waiver (Module 15 §16)."""
+    replacement = aliased(ClassSession)
+    stmt = select(ClassSession.session_code).where(
+        ClassSession.batch_id == batch_id, ClassSession.state == "Cancelled", ClassSession.replacement_waiver.is_(None),
+        ClassSession.purpose.in_(OWES_REPLACEMENT), ClassSession.approval_status != "Rejected",
+        ~exists().where(replacement.replaces_session_id == ClassSession.session_id, replacement.state != "Cancelled"),
+    ).order_by(ClassSession.starts_at)
+    return list(db.session.execute(stmt).scalars())
+
+
 def trainer_open_sessions(batch_id: int, trainer_user_id: int) -> list[ClassSession]:
     """Sessions of the batch this trainer has yet to teach (Scheduled / Rescheduled / Live)."""
     stmt = select(ClassSession).where(ClassSession.batch_id == batch_id, ClassSession.trainer_user_id == trainer_user_id,
@@ -200,13 +257,15 @@ def upcoming_in_window(stmt: Select, start: datetime, end: datetime, limit: int,
 # ---------------------------------------------------------------- what a student may see
 
 def _student_allocation_condition(enrolment_ids):
-    """The session's batch holds (or held, up to the day the allocation ended) one of these enrolments."""
+    """A batch the class serves (its own, or one joined to it as a shared class) holds (or held, up to the day the allocation
+    ended) one of these enrolments. A replacement, remedial or extra class still waiting for approval is not shown."""
     ended_at = func.timezone("Asia/Kolkata", cast(BatchAllocation.effective_to + timedelta(days=1), DateTime))
+    joined = select(SessionRoster.batch_id).where(SessionRoster.session_id == ClassSession.session_id)
     return exists().where(
         BatchAllocation.enrolment_id.in_(enrolment_ids),
-        BatchAllocation.batch_id == ClassSession.batch_id,
+        or_(BatchAllocation.batch_id == ClassSession.batch_id, BatchAllocation.batch_id.in_(joined)),
         or_(BatchAllocation.status == "Active", ClassSession.starts_at < ended_at),
-    )
+    ) & ClassSession.approval_status.in_(("Not Required", "Approved"))
 
 
 def student_sessions_stmt(enrolment_ids: set[int] | list[int]) -> Select:

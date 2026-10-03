@@ -77,3 +77,13 @@ from models.academic import (  # noqa: E402
 
 __all__ += ["AcademicMapping", "AssessmentRequirement", "CurriculumVariation", "EquivalenceRule", "LearningCredit", "LibraryModule",
             "LibraryModuleVersion", "VersionComponent"]
+
+# Gap fix plan phase 6: batches and delivery operations, Modules 15 and 16 (103)
+from models.delivery_ops import (  # noqa: E402
+    BatchCapacityRequest, BatchHandover, BatchSuccession, BatchTransferRequest, JobRun, MaterialChange, MaterialChangeResponse,
+    MeetIncident, MeetParticipation, SessionCoverRequest, SessionDisruption, SessionPerson, SessionRoster, SlotPreference,
+)
+
+__all__ += ["BatchCapacityRequest", "BatchHandover", "BatchSuccession", "BatchTransferRequest", "JobRun", "MaterialChange",
+            "MaterialChangeResponse", "MeetIncident", "MeetParticipation", "SessionCoverRequest", "SessionDisruption", "SessionPerson",
+            "SessionRoster", "SlotPreference"]

@@ -22,9 +22,9 @@ from sqlalchemy import func, select, text
 from sqlalchemy.engine import make_url
 
 from config.database import db
-from config.timezone import IST
+from config.timezone import IST, today_ist
 from models import (
-    ActivityEvent, AttendanceRecord, AttendanceRecovery, Batch, BatchEvent, BatchTrainer, Certificate, ClassSession, Course, CourseComponent,
+    ActivityEvent, AttendanceRecord, AttendanceRecovery, Batch, BatchAllocation, BatchEvent, BatchTrainer, Certificate, ClassSession, Course, CourseComponent,
     CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion, Enrolment, MeetEvent, SessionChange, SessionChangeRequest, Student, User,
 )
 from models import (
@@ -1153,3 +1153,109 @@ def seed_access_extensions(ctx: SeedContext) -> None:
 
 
 SEEDERS += [seed_content_library, seed_recordings, seed_access_extensions]
+
+
+# ---------------------------------------------------------------- gap fix phase 6: batches and delivery operations
+
+# display name, type, pattern, verified capacity (classroom, lab, online), recording provision (and terms), timetable
+BATCH_DETAILS = {
+    "G1": ("Data Science · Guntur · Jan 2026 · Mon/Wed 10 AM", "Group", "Regular", (30, None, 20), ("Included", None),
+           ([1, 3], "10:00", "12:00", "Lab 1")),
+    "G2": ("Java Full Stack · Guntur · Jun 2026 · Tue/Thu 4 PM", "Group", "Regular", (30, 30, None), ("Not Included", None),
+           ([2, 4], "16:00", "18:00", "Lab 2")),
+    "G3": ("Python Full Stack · Guntur · Oct 2026", "Group", "Regular", (25, None, None), (None, None), (None, None, None, None)),
+    "V1": ("AWS with DevOps · Vijayawada · Online", "Group", "Regular", (None, None, 25),
+           ("Limited", "Live online classes only; available for 30 days after each class"), ([1, 4], "18:00", "20:00", None)),
+    "V2": ("Power BI · Vijayawada · Weekend", "Group", "Weekend", (20, None, None), ("Not Included", None), ([6, 7], "10:00", "13:00", "Room 2")),
+}
+
+
+def seed_batch_operations(ctx: SeedContext) -> None:
+    """Module 15 and 16 samples: batch type, pattern, display names, verified capacity and recording provision on every
+    batch (confirmed batches carry their Branch Manager's confirmation); a weekend Java batch Proposed and waiting for the
+    Branch Manager; a timetable change waiting for the G1 students' agreement; a capacity request, a transfer request and a
+    replacement class waiting for decisions; a substitute cover request; a backup host on an online class; an open class
+    disruption; and Anvitha's preferred-slot request on the waitlist."""
+    for key, (name, kind, pattern, (classroom, lab, online), (provision, terms), (days, start, end, room)) in BATCH_DETAILS.items():
+        batch = ctx.batches[key]
+        batch.display_name, batch.batch_type, batch.schedule_pattern = name, kind, pattern
+        batch.classroom_capacity, batch.lab_capacity, batch.online_capacity = classroom, lab, online
+        batch.recording_provision, batch.recording_terms = provision, terms
+        if days:
+            batch.schedule_days, batch.location = days, room
+            batch.start_time, batch.end_time = time.fromisoformat(start), time.fromisoformat(end)
+        if batch.state in ("Starting", "Running", "Full"):
+            coordinator, manager = ("coord_gnt", "bm_gnt") if batch.branch_id == GNT else ("coord_vij", "bm_vij")
+            batch.proposed_by, batch.proposed_at = ctx.users[coordinator], datetime.combine(BATCHES[key]["start"] - timedelta(days=10), time(11, 0), tzinfo=IST)
+            batch.confirmed_by, batch.confirmed_at = ctx.users[manager], datetime.combine(BATCHES[key]["start"] - timedelta(days=7), time(12, 0), tzinfo=IST)
+    db.session.commit()
+
+    # A weekend Java batch: reviewed by the coordinator, waiting for the Branch Manager's confirmation
+    java = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-047")).scalar_one()
+    weekend = Batch(course_id=java.course_id, branch_id=GNT, curriculum_version_id=ctx.versions["CV 5.1"], capacity=20, mode="Classroom",
+                    planned_start=date(2026, 11, 7), planned_end=date(2027, 2, 27), schedule_days=[6, 7], start_time=time(10, 0),
+                    end_time=time(13, 0), location="Lab 3", classroom_capacity=24, display_name="Java Full Stack · Guntur · Nov 2026 · Weekend",
+                    schedule_pattern="Weekend", recording_provision="Not Included", state="Forming")
+    db.session.add(weekend)
+    db.session.flush()
+    db.session.add(BatchTrainer(batch_id=weekend.batch_id, trainer_user_id=ctx.users["trainer_g3"], role="Lead", from_date=date(2026, 11, 7)))
+    db.session.commit()
+    ctx.batches["G4"] = weekend
+    _staff_call(ctx, "coord_gnt", f"/batches/{weekend.batch_id}/proposal", {"note": "Lab 3 checked; trainer free at weekends"})
+
+    # G1's students are asked to agree to an afternoon timetable from November (Module 15 §14)
+    g1 = ctx.batches["G1"]
+    change = _staff_call(ctx, "coord_gnt", f"/batches/{g1.batch_id}/material-changes", {
+        "kind": "Teaching days / times", "proposed_plan": "Mon, Wed 14:00–16:00 from November",
+        "reason": "Lab 1 is needed for the new Java weekday batch in the mornings", "changes": {"start_time": "14:00", "end_time": "16:00"},
+        "alternative": "Join the online cohort of the same track at 10:00"})
+    _staff_call(ctx, "bm_gnt", f"/material-changes/{change['change_id']}/decision", {"decision": "Approved", "note": "Agreed with the lab plan"})
+    filler = next(r["enrolment_id"] for r in _staff_call_get(ctx, "coord_gnt", f"/material-changes/{change['change_id']}")["responses"]
+                  if r["enrolment_id"] != _enrolment_of(ctx, "anvitha", "Combo").enrolment_id)
+    _staff_call(ctx, "coord_gnt", f"/material-changes/{change['change_id']}/responses",
+                {"enrolment_id": filler, "response": "Agreed", "note": "Confirmed by phone on 2 Oct"})
+
+    # Capacity and transfer requests waiting for the Guntur Branch Manager
+    g2 = ctx.batches["G2"]
+    _staff_call(ctx, "coord_gnt", f"/batches/{g2.batch_id}/capacity-requests", {
+        "to_capacity": 32, "classroom_capacity": 32, "lab_capacity": 32,
+        "resource_validation": "Two more lab benches installed and tested", "academic_review": "Trainer K. Sample can support 32 for the project phase"})
+    mover = db.session.execute(select(BatchAllocation.enrolment_id).where(BatchAllocation.batch_id == g2.batch_id, BatchAllocation.status == "Active")
+                               .order_by(BatchAllocation.allocation_id.desc()).limit(1)).scalar_one()
+    _staff_call(ctx, "coord_gnt", f"/enrolments/{mover}/transfer-requests",
+                {"to_batch_id": weekend.batch_id, "reason": "Started a weekday job; asked for the weekend batch", "acknowledge_warnings": True})
+
+    # A replacement for the cancelled Vijayawada class, waiting for approval
+    cancelled = db.session.execute(select(ClassSession).where(ClassSession.title == "Capstone check-in")).scalar_one()
+    start = datetime.combine(today_ist() + timedelta(days=10), time(7, 0), tzinfo=IST)
+    _staff_call(ctx, "coord_vij", "/class-sessions", {
+        "batch_id": cancelled.batch_id, "title": "Capstone check-in (replacement)", "purpose": "Replacement", "replaces_session_id": cancelled.session_id,
+        "starts_at": start.isoformat(), "ends_at": (start + timedelta(hours=1)).isoformat(), "owner_user_id": ctx.users["coord_vij"],
+        "due_on": (today_ist() + timedelta(days=14)).isoformat()})
+
+    # Online class operations at Guntur: a substitute requested, a backup host named, a connection failure to recover
+    tuning = db.session.execute(select(ClassSession).where(ClassSession.title == "Hyperparameter tuning")).scalar_one()
+    _staff_call(ctx, "coord_gnt", f"/class-sessions/{tuning.session_id}/cover-requests", {
+        "cover_role": "Substitute", "cover_user_id": ctx.users["trainer_g3"], "reason": "Trainer M. Demo at a conference",
+        "scope": "Teach the planned topic; no assessment changes", "handover": "Notebook and slides shared; attendance on the register"})
+    forests = db.session.execute(select(ClassSession).where(ClassSession.title == "Random forests & boosting")).scalar_one()
+    _staff_call(ctx, "coord_gnt", f"/class-sessions/{forests.session_id}/people", {"role": "Backup", "user_id": ctx.users["trainer_g1"]})
+    dropped = db.session.execute(select(ClassSession).where(ClassSession.title == "Naive Bayes and k-NN")).scalar_one()
+    _call(ctx, "post", f"/class-sessions/{dropped.session_id}/disruptions", _bearer(ctx, "trainer.g2@nipuna.test"), json={
+        "kind": "Connection failure", "cause": "Provider", "delay_minutes": 20, "detail": "Meet dropped for 20 minutes mid-class"})
+
+    # Anvitha asks for a Saturday slot; the coordinator waitlists it (a request reserves no seat)
+    anvitha = _bearer(ctx, ctx.students["anvitha"]["student_code"])
+    preference = _call(ctx, "post", "/me/slot-preferences", anvitha, json={
+        "enrolment_id": _enrolment_of(ctx, "anvitha", "Combo").enrolment_id, "preferred_days": ["Sat"], "preferred_start": "10:00",
+        "preferred_end": "13:00", "note": "Weekday mornings clash with my internship from December"})
+    _call(ctx, "patch", f"/slot-preferences/{preference['preference_id']}", _bearer(ctx, f"{STAFF_LOGINS['coord_gnt']}@nipuna.test"),
+          json={"status": "Waitlisted", "status_note": "No Saturday Data Science batch yet; we'll tell you when one is proposed"})
+    db.session.commit()
+
+
+def _staff_call_get(ctx: SeedContext, staff_key: str, path: str) -> dict:
+    return _call(ctx, "get", path, _bearer(ctx, f"{STAFF_LOGINS[staff_key]}@nipuna.test"))
+
+
+SEEDERS += [seed_batch_operations]

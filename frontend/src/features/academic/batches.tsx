@@ -1,15 +1,28 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { deliveryApi } from "@/api/delivery";
+import { BATCH_STATES, deliveryApi } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/lms/forms";
 import { DataTable, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
-import { ActionDialog, mono, useCanManage } from "@/features/shared/delivery-ui";
+import { ActionDialog, StateBadge, mono, useCanManage } from "@/features/shared/delivery-ui";
 import { timetableBody } from "@/features/academic/timetable";
 import { useDelivery } from "@/features/shared/sessions";
 import { AllocationQueue } from "./allocation-queue";
 import { BatchPanel } from "./batch-panel";
+
+/** The API filters on the stored state; the label is what people call it. */
+const STATE_FILTER: Record<(typeof BATCH_STATES)[number], string> = {
+  Forming: "Draft",
+  Proposed: "Proposed",
+  Starting: "Confirmed",
+  Running: "In Progress",
+  Full: "In Progress (Full)",
+  "On Hold": "On Hold",
+  Completed: "Completed",
+  Cancelled: "Cancelled",
+  Archived: "Archived",
+};
 
 function NewBatchDialog() {
   const { profile } = useAuth();
@@ -19,7 +32,7 @@ function NewBatchDialog() {
     <ActionDialog
       trigger={<Button>New batch</Button>}
       title="Create a batch"
-      description="The Active curriculum version of the course is used. A batch starts in Forming; add a lead trainer, then start it."
+      description="The Active curriculum version of the course is used. A batch starts as a Draft; add a lead trainer, complete the readiness record, then propose it to the Branch Manager."
       submitLabel="Create batch"
       fields={[
         {
@@ -91,7 +104,7 @@ export function AcademicBatches() {
         <NativeSelect
           aria-label="Filter by state"
           placeholder="All states"
-          options={["Forming", "Starting", "Running", "Full", "Completed", "Cancelled"].map((s) => ({ value: s, label: s }))}
+          options={BATCH_STATES.map((s) => ({ value: s, label: STATE_FILTER[s] }))}
           value={state}
           onChange={(e) => setState(e.target.value)}
         />
@@ -103,13 +116,21 @@ export function AcademicBatches() {
             rows={page.data}
             getKey={(b) => b.batch_id}
             cols={[
-              { h: "Batch ID", c: (b) => mono(b.batch_code) },
+              {
+                h: "Batch ID",
+                c: (b) => (
+                  <>
+                    {mono(b.batch_code)}
+                    {b.display_name && <div className="text-xs text-muted-foreground">{b.display_name}</div>}
+                  </>
+                ),
+              },
               { h: "Course", c: (b) => `${b.course.course_code} — ${b.course.title}` },
               ...(branches.length > 1 ? [{ h: "Branch", c: (b: (typeof page.data)[number]) => b.branch.branch_name }] : []),
               { h: "Curriculum", c: (b) => b.curriculum_version?.version_label ?? "Curriculum Mapping Pending" },
               { h: "Capacity", c: (b) => `${b.allocated_count} / ${b.capacity}` },
               { h: "Trainer", c: (b) => b.trainers.map((t) => t.full_name).join(", ") || "Unassigned" },
-              { h: "State", c: (b) => <StatusBadge>{b.state}</StatusBadge> },
+              { h: "State", c: (b) => <StateBadge label={b.state_label} /> },
               { h: "Readiness", c: (b) => <StatusBadge>{b.readiness}</StatusBadge> },
               {
                 h: "",

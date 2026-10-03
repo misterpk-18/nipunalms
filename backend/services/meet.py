@@ -6,7 +6,10 @@ retried. Classroom sessions need no Meet ('Not Required'). Every step is written
 """
 from datetime import datetime, timedelta
 
-from models import ClassSession, MeetEvent
+from sqlalchemy import select
+
+from config.database import db
+from models import ClassSession, MeetEvent, SessionRoster
 from models.batches import MEET_STATUS_LABELS
 from repositories import meet as meet_repo
 from services.context import actor_id
@@ -54,6 +57,15 @@ def join_state(session: ClassSession, now: datetime) -> dict:
     if now < session.starts_at:
         return {"enabled": False, "reason": "Joining opens 15 minutes before the class starts."}
     return {"enabled": False, "reason": "The class time has passed."}
+
+
+def link_used_elsewhere(meet_link: str, session: ClassSession) -> ClassSession | None:
+    """An open class of another batch (not joined to this class as a shared class) already using the link."""
+    batch_ids = [session.batch_id, *db.session.execute(select(SessionRoster.batch_id).where(
+        SessionRoster.session_id == session.session_id)).scalars()]
+    return db.session.execute(select(ClassSession).where(
+        ClassSession.meet_link == meet_link, ClassSession.batch_id.notin_(batch_ids), ClassSession.session_id != session.session_id,
+        ClassSession.state.in_(("Scheduled", "Rescheduled", "Live"))).limit(1)).scalars().first()
 
 
 def record(session: ClassSession, event_type: str, detail: str | None = None) -> MeetEvent:

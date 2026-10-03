@@ -132,6 +132,7 @@ const ACADEMIC_NAV: NavItem[] = [
   { to: "/academic/exceptions", label: "Exceptions", icon: TriangleAlert },
   { to: "/academic/curriculum", label: "Curriculum", icon: Library },
   { to: "/academic/schedule", label: "Schedule", icon: CalendarDays },
+  { to: "/academic/meet-operations", label: "Meet Operations", icon: Video },
   { to: "/academic/content-review", label: "Content Review", icon: FolderOpen },
   { to: "/academic/recording-exceptions", label: "Recording Exceptions", icon: Video },
   { to: "/academic/progress", label: "Attendance & Progress", icon: TrendingUp },
@@ -145,6 +146,9 @@ const ACADEMIC_NAV: NavItem[] = [
 const BRANCH_NAV: NavItem[] = [
   { to: "/branch", label: "Branch Dashboard", icon: Building2 },
   { to: "/branch/operations", label: "Batches, Schedule & People", icon: Users },
+  { to: "/branch/batches", label: "Batch Decisions", icon: ClipboardCheck },
+  { to: "/branch/schedule", label: "Class Schedule", icon: CalendarDays },
+  { to: "/branch/meet-operations", label: "Meet Operations", icon: Video },
   { to: "/branch/requests", label: "Escalations & Extensions", icon: LifeBuoy },
   { to: "/branch/reports", label: "Certificates & Reports", icon: Award },
   { to: "/branch/notifications", label: "Notifications", icon: Bell },

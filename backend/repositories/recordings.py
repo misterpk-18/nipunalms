@@ -80,10 +80,13 @@ def for_batches(batch_ids: set[int], filters: dict) -> list[Recording]:
 
 
 def delivered_sessions_without_recording(cutoff: datetime) -> list[ClassSession]:
-    """Delivered sessions that ended (were marked delivered) before the cutoff and have no recording of any status."""
+    """Delivered sessions that ended (were marked delivered) before the cutoff and have no recording of any status. A batch
+    whose recording provision is Not Included promises none, so it raises no false alert (Module 16 §8)."""
     stmt = (
         select(ClassSession)
+        .join(Batch, Batch.batch_id == ClassSession.batch_id)
         .where(ClassSession.state == "Delivered", ClassSession.delivered_at <= cutoff,
+               Batch.recording_provision.is_distinct_from("Not Included"),
                ~exists().where(Recording.session_id == ClassSession.session_id))
         .order_by(ClassSession.delivered_at, ClassSession.session_id)
     )

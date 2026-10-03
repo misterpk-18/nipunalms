@@ -10,6 +10,100 @@ Content-Type: application/json
 
 {"login": "admin@nipuna.test", "password": "Nipuna-staging-1"}
 
+# ================================================================ academic_records
+### academic_records.assign_mapping_owner
+PUT {{base}}/api/v1/enrolments/1/mapping-owner
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.create_variation
+POST {{base}}/api/v1/curriculum-variations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.decide_library_version
+POST {{base}}/api/v1/curriculum-library-versions/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.decide_mapping
+POST {{base}}/api/v1/academic-mappings/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.decide_rule
+POST {{base}}/api/v1/equivalence-rules/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.decide_variation
+POST {{base}}/api/v1/curriculum-variations/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.insert_library_module
+POST {{base}}/api/v1/curriculum-versions/1/library-modules
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.list_library
+GET {{base}}/api/v1/curriculum-library
+Authorization: Bearer {{token}}
+
+### academic_records.list_mappings
+GET {{base}}/api/v1/academic-mappings
+Authorization: Bearer {{token}}
+
+### academic_records.list_rules
+GET {{base}}/api/v1/equivalence-rules
+Authorization: Bearer {{token}}
+
+### academic_records.list_variations
+GET {{base}}/api/v1/curriculum-variations
+Authorization: Bearer {{token}}
+
+### academic_records.propose_library_version
+POST {{base}}/api/v1/curriculum-library/1/versions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.request_mapping
+POST {{base}}/api/v1/enrolments/1/academic-mappings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.request_rule
+POST {{base}}/api/v1/equivalence-rules
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### academic_records.save_to_library
+POST {{base}}/api/v1/curriculum-modules/1/library
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ access_extensions
 ### access_extensions.create_request
 POST {{base}}/api/v1/access-extension-requests
@@ -116,6 +210,25 @@ Content-Type: application/json
 
 ### admin_users.update_user
 PATCH {{base}}/api/v1/admin/users/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ ai_controls
+### ai_controls.disable
+POST {{base}}/api/v1/ai-controls
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### ai_controls.list_controls
+GET {{base}}/api/v1/ai-controls
+Authorization: Bearer {{token}}
+
+### ai_controls.restore
+POST {{base}}/api/v1/ai-controls/1/restore
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -369,8 +482,150 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/batches/1/allocations
 Authorization: Bearer {{token}}
 
-### batch_allocations.transfer
-POST {{base}}/api/v1/enrolments/1/transfer
+# ================================================================ batch_operations
+### batch_operations.apply_change
+POST {{base}}/api/v1/material-changes/1/apply
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.confirm_destination
+POST {{base}}/api/v1/batch-transfer-requests/1/destination
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.create_preference
+POST {{base}}/api/v1/me/slot-preferences
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.decide_capacity
+POST {{base}}/api/v1/batch-capacity-requests/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.decide_change
+POST {{base}}/api/v1/material-changes/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.decide_succession
+POST {{base}}/api/v1/batch-successions/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.decide_transfer
+POST {{base}}/api/v1/batch-transfer-requests/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.get_change
+GET {{base}}/api/v1/material-changes/1
+Authorization: Bearer {{token}}
+
+### batch_operations.list_capacity_requests
+GET {{base}}/api/v1/batch-capacity-requests
+Authorization: Bearer {{token}}
+
+### batch_operations.list_changes
+GET {{base}}/api/v1/material-changes
+Authorization: Bearer {{token}}
+
+### batch_operations.list_preferences
+GET {{base}}/api/v1/slot-preferences
+Authorization: Bearer {{token}}
+
+### batch_operations.list_successions
+GET {{base}}/api/v1/batch-successions
+Authorization: Bearer {{token}}
+
+### batch_operations.list_transfer_requests
+GET {{base}}/api/v1/batch-transfer-requests
+Authorization: Bearer {{token}}
+
+### batch_operations.my_changes
+GET {{base}}/api/v1/me/material-changes
+Authorization: Bearer {{token}}
+
+### batch_operations.my_preferences
+GET {{base}}/api/v1/me/slot-preferences
+Authorization: Bearer {{token}}
+
+### batch_operations.propose_change
+POST {{base}}/api/v1/batches/1/material-changes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.record_response
+POST {{base}}/api/v1/material-changes/1/responses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.request_capacity
+POST {{base}}/api/v1/batches/1/capacity-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.request_succession
+POST {{base}}/api/v1/batch-successions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.request_transfer
+POST {{base}}/api/v1/enrolments/1/transfer-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.respond_as_student
+POST {{base}}/api/v1/me/material-changes/1/response
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.set_preference_status
+PATCH {{base}}/api/v1/slot-preferences/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.slot_options
+GET {{base}}/api/v1/me/slot-options
+Authorization: Bearer {{token}}
+
+### batch_operations.withdraw_change
+POST {{base}}/api/v1/material-changes/1/withdraw
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batch_operations.withdraw_preference
+POST {{base}}/api/v1/me/slot-preferences/1/withdraw
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -398,6 +653,13 @@ Content-Type: application/json
 
 {}
 
+### batches.decide_confirmation
+POST {{base}}/api/v1/batches/1/confirmation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### batches.end_trainer
 DELETE {{base}}/api/v1/batches/1/trainers/1
 Authorization: Bearer {{token}}
@@ -413,6 +675,20 @@ Authorization: Bearer {{token}}
 ### batches.list_batches
 GET {{base}}/api/v1/batches
 Authorization: Bearer {{token}}
+
+### batches.propose
+POST {{base}}/api/v1/batches/1/proposal
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### batches.record_handover
+POST {{base}}/api/v1/batches/1/handovers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 ### batches.set_readiness
 PATCH {{base}}/api/v1/batches/1/readiness
@@ -434,6 +710,29 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ calendar
+### calendar.create_closure
+POST {{base}}/api/v1/calendar/closures
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### calendar.decide_closure
+POST {{base}}/api/v1/calendar/closures/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### calendar.get_closure
+GET {{base}}/api/v1/calendar/closures/1
+Authorization: Bearer {{token}}
+
+### calendar.list_closures
+GET {{base}}/api/v1/calendar/closures
+Authorization: Bearer {{token}}
 
 # ================================================================ career
 ### career.apply
@@ -589,6 +888,20 @@ Content-Type: application/json
 
 {}
 
+### certificates.decide_exception
+POST {{base}}/api/v1/certificate-financial-exceptions/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.decide_request
+POST {{base}}/api/v1/certificate-requests/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### certificates.get_certificate
 GET {{base}}/api/v1/certificates/1
 Authorization: Bearer {{token}}
@@ -600,8 +913,16 @@ Content-Type: application/json
 
 {}
 
+### certificates.list_exceptions
+GET {{base}}/api/v1/certificate-financial-exceptions
+Authorization: Bearer {{token}}
+
 ### certificates.list_register
 GET {{base}}/api/v1/certificates
+Authorization: Bearer {{token}}
+
+### certificates.list_requests
+GET {{base}}/api/v1/certificate-requests
 Authorization: Bearer {{token}}
 
 ### certificates.my_certificates
@@ -615,8 +936,15 @@ Content-Type: application/json
 
 {}
 
-### certificates.reissue
-POST {{base}}/api/v1/certificates/1/reissue
+### certificates.request_change
+POST {{base}}/api/v1/certificates/1/change-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### certificates.request_exception
+POST {{base}}/api/v1/certificates/1/financial-exception
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -624,13 +952,6 @@ Content-Type: application/json
 
 ### certificates.return_to_review
 POST {{base}}/api/v1/certificates/1/return
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{}
-
-### certificates.revoke
-POST {{base}}/api/v1/certificates/1/revocation
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -662,8 +983,22 @@ Content-Type: application/json
 
 {}
 
+### class_sessions.confirm
+POST {{base}}/api/v1/class-sessions/1/confirm
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### class_sessions.create_class_sessions
 POST {{base}}/api/v1/class-sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.decide_purpose
+POST {{base}}/api/v1/class-sessions/1/approval
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -739,6 +1074,13 @@ Content-Type: application/json
 
 ### class_sessions.update_class_session
 PATCH {{base}}/api/v1/class-sessions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.waive_replacement
+POST {{base}}/api/v1/class-sessions/1/replacement-waiver
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -913,6 +1255,13 @@ Content-Type: application/json
 
 {}
 
+### curriculum.add_requirement
+POST {{base}}/api/v1/curriculum-versions/1/assessment-requirements
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### curriculum.add_topic
 POST {{base}}/api/v1/curriculum-modules/1/topics
 Authorization: Bearer {{token}}
@@ -938,6 +1287,10 @@ Content-Type: application/json
 DELETE {{base}}/api/v1/curriculum-modules/1
 Authorization: Bearer {{token}}
 
+### curriculum.delete_requirement
+DELETE {{base}}/api/v1/assessment-requirements/1
+Authorization: Bearer {{token}}
+
 ### curriculum.delete_topic
 DELETE {{base}}/api/v1/curriculum-topics/1
 Authorization: Bearer {{token}}
@@ -958,6 +1311,13 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/curriculum/overview
 Authorization: Bearer {{token}}
 
+### curriculum.pin_component
+PUT {{base}}/api/v1/curriculum-versions/1/components
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### curriculum.retire
 POST {{base}}/api/v1/curriculum-versions/1/retire
 Authorization: Bearer {{token}}
@@ -967,6 +1327,20 @@ Content-Type: application/json
 
 ### curriculum.return_to_draft
 POST {{base}}/api/v1/curriculum-versions/1/return
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.review_equivalence
+POST {{base}}/api/v1/course-components/1/equivalence
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.set_completion_profile
+PUT {{base}}/api/v1/curriculum-versions/1/completion-profile
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -995,6 +1369,13 @@ Content-Type: application/json
 
 ### curriculum.update_version
 PATCH {{base}}/api/v1/curriculum-versions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### curriculum.verify_hours
+POST {{base}}/api/v1/curriculum-versions/1/hours-verification
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -1394,6 +1775,112 @@ Authorization: Bearer {{token}}
 
 ### security_controls.update_control
 PATCH {{base}}/api/v1/security-controls/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+# ================================================================ session_operations
+### session_operations.add_person
+POST {{base}}/api/v1/class-sessions/1/people
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.add_roster
+POST {{base}}/api/v1/class-sessions/1/rosters
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.decide_cover
+POST {{base}}/api/v1/session-cover-requests/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.decide_guest
+POST {{base}}/api/v1/session-people/1/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.list_cover
+GET {{base}}/api/v1/session-cover-requests
+Authorization: Bearer {{token}}
+
+### session_operations.list_disruptions
+GET {{base}}/api/v1/session-disruptions
+Authorization: Bearer {{token}}
+
+### session_operations.list_unmatched
+GET {{base}}/api/v1/meet-participation/unmatched
+Authorization: Bearer {{token}}
+
+### session_operations.operations_detail
+GET {{base}}/api/v1/class-sessions/1/operations
+Authorization: Bearer {{token}}
+
+### session_operations.operations_view
+GET {{base}}/api/v1/meet-operations
+Authorization: Bearer {{token}}
+
+### session_operations.record_disruption
+POST {{base}}/api/v1/class-sessions/1/disruptions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.record_participation
+POST {{base}}/api/v1/class-sessions/1/participation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.remove_person
+DELETE {{base}}/api/v1/session-people/1
+Authorization: Bearer {{token}}
+
+### session_operations.remove_roster
+DELETE {{base}}/api/v1/class-sessions/1/rosters/1
+Authorization: Bearer {{token}}
+
+### session_operations.report_incident
+POST {{base}}/api/v1/class-sessions/1/meet-incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.request_cover
+POST {{base}}/api/v1/class-sessions/1/cover-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.resolve_disruption
+POST {{base}}/api/v1/session-disruptions/1/resolve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.review_participation
+POST {{base}}/api/v1/meet-participation/1/review
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### session_operations.verify_cover
+POST {{base}}/api/v1/session-cover-requests/1/verification
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

@@ -4,7 +4,7 @@ import { deliveryApi, type ClassSession } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { KeyValue, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { useT } from "@/lib/i18n";
-import { MeetBadge, fmtDate, fmtTime } from "@/features/shared/delivery-ui";
+import { MeetBadge, StateBadge, fmtDate, fmtTime } from "@/features/shared/delivery-ui";
 
 /** The Join Class button: enabled only while the class is Live or about to start and Meet is Associated. */
 export function JoinButton({ session }: { session: ClassSession }) {
@@ -47,7 +47,7 @@ export function SessionDetail() {
               )}{" "}
               / {s.title}
             </nav>
-            <PageHead title={s.title} description={`Actual Class Session · ${s.session_code}`} actions={<StatusBadge>{s.state}</StatusBadge>} />
+            <PageHead title={s.title} description={`Actual Class Session · ${s.session_code}`} actions={<StateBadge label={s.state_label} />} />
             <Section>
               <KeyValue
                 items={[

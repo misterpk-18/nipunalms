@@ -84,7 +84,13 @@ until the next rebuild.
   **NIT-CRS-900** (3 + 1: tracks T1–T3 and the Power BI booster NIT-CRS-019; the CRM has no combo yet).
 - Curriculum versions with modules and topics for every course except NIT-CRS-028 and NIT-CRS-052. NIT-CRS-052 has a
   `CV 3.0` draft under review, so its enrolments wait in *Curriculum Mapping Pending*.
-- Five batches across both branches and class sessions for Sep–Oct 2026.
+- Five batches across both branches and class sessions for Sep–Oct 2026, with display names, type and pattern, verified
+  capacity and recording provision; a sixth, the weekend Java batch NIT-GNT-BAT-2026-000004, is **Proposed** and waits for
+  the Guntur Branch Manager's confirmation.
+- Phase 6 samples: G1's afternoon timetable change waiting for its students' agreement (Anvitha has not answered), a
+  capacity request on G2, a transfer request into the weekend batch, a replacement for the cancelled Vijayawada class
+  waiting for approval, a substitute cover request, a backup host on an online class, an open connection-failure
+  disruption, and Anvitha's waitlisted Saturday slot request.
 - The sample student **Anvitha K.** with her combo, separately purchased and complimentary enrolments, and the other
   sample learners.
 - Finance summaries, one student in *Activation Pending* (its activation link is printed) and a failed CRM event for
@@ -138,7 +144,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-admin` | First Super Admin on a fresh database |
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
-| `jobs list`, `jobs run [name]` | Background jobs: `recording-check`, `support-escalate-overdue`, `allocation-escalation`. No scheduler runs them yet |
+| `jobs list`, `jobs run [name]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`. Each run is recorded in `job_runs`. Locally nothing runs them on a schedule |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 
 ### 6. Testing
@@ -282,7 +288,7 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 | Route | Feature | API | Notes |
 |---|---|---|---|
 | `/dashboard` | `dashboard` | `/me/home` | Header (name EN / తెలుగు, Master ID, service branch), three ranked tiles (Next Class, Due Work, Current Course Progress), Join Class (disabled with the reason; Meet organizer Pending Verification), eight cards, engagement freshness note (Stale, never zero). Each card shows its own Empty / Unavailable text via `CardGap` |
-| `/my-courses` | `my-courses` | `/me/enrolments` | Enrolment cards with gate / delivery state |
+| `/my-courses` | `my-courses`, `batch-changes` | `/me/enrolments`, `/me/material-changes`, `/me/slot-options`, `/me/slot-preferences` | Enrolment cards with gate / delivery state; changes needing the student's agreement (Agree / Decline; reading a notice is not agreement); the preferred-slot request and its status (a request reserves no seat) |
 | `/courses/$enrolmentId` | `course-detail` | `/me/enrolments/{id}` | Programme, combo tracks and booster, modules with delivery progress |
 | `/courses/$enrolmentId/tracks/$trackId` | `track-detail` | `/me/enrolments/{id}/tracks/{track_id}` | |
 | `/modules/$moduleId`, `/topics/$topicId` | `module-detail`, `topic-detail` | `/modules/{id}`, `/topics/{id}`, `/me/resources?topic_id=` | Topics, classes, resources and recordings |
@@ -324,9 +330,10 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 | Route | Feature | API | Notes |
 |---|---|---|---|
 | `/academic` | `dashboard` | `/academic/summary` | Ranked tiles (allocation queue, results awaiting review, unfulfilled recording promises), widgets (batches delivery-ready, reviews awaiting, open exceptions), a note for each batch that is not ready, quick links, the "four distinct records" note |
-| `/academic/batches` | `batches` + `batch-panel`, `allocation-queue` | `/batches/*`, `/allocation-queue` | Batch list and panel (roster, trainers, readiness, history), allocation queue with the per-check review dialog, transfer and deallocate |
+| `/academic/batches` | `batches` + `batch-panel`, `batch-operations`, `allocation-queue` | `/batches/*`, `/allocation-queue`, `/batch-*-requests`, `/material-changes`, `/batch-successions` | Batch list (state labels, display names) and panel: overview, readiness checks and the 7-point readiness record, trainers, roster with transfer requests, handovers and deallocate, the Requests tab (capacity, transfers, material changes and student answers, merge / split, handovers) and the lifecycle buttons (propose, confirm / return, start, hold / resume, complete, cancel, archive); allocation queue with the per-check review dialog and a combo track choice |
 | `/academic/curriculum` | `curriculum` | `/curriculum/*`, `/curriculum-versions/*` | Overview, version editor (modules / topics), submit / return / approve / activate / retire |
-| `/academic/schedule` | `schedule` | `/class-sessions/*`, `/reschedule-requests` | Session table with create / reschedule / cancel / Meet actions and the request queue |
+| `/academic/schedule` | `schedule` | `/class-sessions/*`, `/reschedule-requests` | Session table (state labels, purpose, approval) with create (purpose, replacement link, owner, deadline, Meet ids), confirm, class log, reschedule / cancel (emergency reason and next action inside 24 hours), approve a replacement / remedial / extra class (Branch Manager), replacement waiver, Meet actions and the request queue. A scheduling warning shows the Branch Manager an override reason field |
+| `/academic/meet-operations` | `meet-operations`, `class-operations` | `/meet-operations`, `/class-sessions/{id}/operations` and its actions | One day of classes: link and host readiness, delays and disruptions, attendance awaiting, recordings; open disruptions (resolve), replacements owed, classes awaiting approval, missing logs, evidence to review, Meet integration and the last background checks. Per class: hosts, backups and guests, incidents, disruptions, cover requests, shared batches, participation |
 | `/academic/assessments` | `assessments` | `/assessment-reviews`, `/results` | Moderate, publish, approve tests and questions |
 | `/academic/exceptions` | `exceptions` | `/exceptions` | "Exception / Recovery queue": one table (branch column only when rows span branches), type filter, recovery owner ("Awaiting named owner" + the role that should own it), **Update** logs a recovery step. Read only for the Branch Manager |
 | `/academic/content-review` | `content-review` | `/content-items/*` | Tabs Awaiting review / Ready to release / Released / Changes requested / All; review dialog (approve, approve & release, request changes, reject), retire |
@@ -344,6 +351,7 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 |---|---|---|---|
 | `/branch` | `branch/dashboard` | `/branch/summary` | Three CRM tiles rendered **Unavailable** with the Not Configured hint (never 0); running batches, schedule and recording exceptions, escalations and extension requests; "Go to" links; locked-branch note |
 | `/branch/operations` | `branch/operations` | `/batches`, `/class-sessions`, `/reschedule-requests` | Branch view of batches, requests and Meet exceptions |
+| `/branch/batches`, `/branch/schedule`, `/branch/meet-operations` | the academic screens above | as above | Where the Branch Manager confirms proposed batches and decides transfers, capacity increases, material changes, merges / splits, replacement classes, cover and guests |
 | `/branch/requests` | `branch/requests` | `/support-requests?escalated=true`, `/access-extension-requests` | Tabs Escalations (`BranchEscalations`) and Access extensions (`AccessExtensions`, with the note that repeated requests do not stack years) |
 | `/branch/reports` | `shared/certificate-register` + summary | `/progress/summary`, `/certificates` | |
 | `/branch/notifications` | `shared/notification-centre` | | |
@@ -467,7 +475,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
 | WhatsApp / email / telephony | In-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire` and `attendance-unconfirmed`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check` and `class-log-check`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 
@@ -483,15 +491,19 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Item | Notes |
 |---|---|
 | Google Meet creation | Links are entered by hand; no Calendar / Meet API call until the organizer accounts are verified |
-| Substitute trainer on a single class | `session_changes` can record it, but the prototype's substitute picker with availability is not built |
-| Trainer availability and leave | Conflicts are only overlapping classes and rooms; leave calendars and working hours are not modelled |
+| Pre-approved cover arrangements | Cover is requested, approved and verified per class (`session_cover_requests`). A standing cover rota with documented limits (Module 15 §11) is not modelled |
+| Trainer availability, leave and travel buffers | Conflicts cover overlapping classes of the trainer, backup or assistant, booked rooms and the students' other classes; leave calendars, working hours and cross-branch travel buffers are not modelled |
+| Material changes and future classes | Applying a material change updates the batch's plan (dates, mode, days / times); classes already scheduled are not re-timed automatically, the coordinator reschedules them |
+| Shared classes beyond attendance | A joined batch's students see the class, are notified and are on its register; its recordings and content still follow the host batch |
+| Phase 6 screens: API only or thin | No staff screen for slot requests (`GET / PATCH /slot-preferences`); an interbranch track placement has no target picker for another branch's batches; cover pickers list the class's branch only; shared-class topics, participant matching and disruption replacement / owner are typed as ids. Session reminders 24 h / 1 h before a class are not sent |
+| Meet participation import | Join / leave evidence is entered through `POST /class-sessions/{id}/participation` (manual or a future Meet API feed); nothing imports it from Google yet |
 | Bulk timetable import | Sessions are created one batch at a time with a repeat rule; no CSV / calendar import as in the prototype's schedule screen |
 | Calendar month grid | Schedules are list / week tables; the prototype's month calendar view and iCal export are not built |
 | Curriculum diff between versions | The prototype shows what changed between versions; only the review trail is stored |
 | Re-mapping running batches to a new version | Activating a version maps pending enrolments and batches. A student moves through an individual academic mapping (`/academic-mappings`); moving a whole Running batch at once is not built |
 | Academic mapping credits in the UI | The allocation queue's "Academic mapping" dialog prepares a version move without credits; credited topics are API only (`credits` with an approved `rule_id`). Proposing an equivalence rule is API only |
-| Batch capacity waitlist | Full batches have no waiting list; the allocation queue just lists unseated enrolments |
-| Session reminders | Students are notified of changes but not reminded before a class (needs a job) |
+| Batch capacity waitlist | Students' slot requests can be marked Waitlisted, but there is no ordered waiting list or automatic offer when a seat frees up |
+| Session reminders | Students are notified of changes and told when a class is 5 minutes late, but not reminded 24 hours / 1 hour before a class (Module 15 §20; needs a job) |
 | Topic-level self study progress | Topic pages show classes and resources; students cannot mark a topic as studied |
 | Duplicate date helpers | `shared/delivery-ui.tsx` and `shared/format.ts` format IST dates in slightly different forms; the datetime-local helpers (`toIstInput`, `fromIstInput`) live once in `lib/format.ts`. Unify the display formatters when the design settles |
 
@@ -505,7 +517,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Selected-student and company-wide audiences | Audience is branch + course (+ batch). Selected students and cross-branch publishing need the explicit company-wide permission Module 18 §3–4 describes |
 | "Report a problem" on a resource | Module 18 §10; would create a support request tied to the item and enrolment |
 | Recording access after a delayed release | Module 17 §8: at least 30 days of access after a substantially delayed release is not applied; access is Joining Date based only |
-| Batch recording commitment | Included / Not Included / Limited terms per batch (Module 17 §2) are not modelled; the check job flags every Delivered session without a recording |
+| Batch recording commitment | `batches.recording_provision` (Included / Not Included / Limited + terms) is stored and a Not Included batch raises no missing-recording alert; per-session coverage of a Limited promise and the recording milestones (Configured … Playback Ready, Review Required, Failed) are phase 9 |
 | Student notices on 24 h delay | Module 17 §6 asks to update affected students at 24 h; only staff escalation notices are sent |
 | Recording playback | Needs the verified Drive integration and a proxy with per-request entitlement (Module 17 §7); today `watch` records the view and returns the integration state |
 

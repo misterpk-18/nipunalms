@@ -118,3 +118,24 @@ def approve_request(request_id: int):
 @require_roles(*MANAGE_ROLES)
 def reject_request(request_id: int):
     return class_sessions_controller.reject_request(request_id)
+
+
+@class_sessions_bp.post("/class-sessions/<int:session_id>/confirm")
+@login_required
+@require_roles(*MANAGE_ROLES)
+def confirm(session_id: int):
+    return class_sessions_controller.confirm(session_id)
+
+
+@class_sessions_bp.post("/class-sessions/<int:session_id>/approval")
+@login_required
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+def decide_purpose(session_id: int):
+    return class_sessions_controller.decide_purpose(session_id)
+
+
+@class_sessions_bp.post("/class-sessions/<int:session_id>/replacement-waiver")
+@login_required
+@require_roles(*MANAGE_ROLES)
+def waive_replacement(session_id: int):
+    return class_sessions_controller.waive_replacement(session_id)

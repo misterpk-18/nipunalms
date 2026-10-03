@@ -540,7 +540,7 @@ def _transfer(event: CrmEvent, admission: Admission, student: Student, enrolment
     old_branch_id = admission.service_branch_id
     admission.service_branch_id = new_branch.branch_id
     for enrolment in enrolments:
-        allocations.end(enrolment, "Transferred", reason=f"Service branch transferred to {new_branch.branch_code}")
+        allocations.end_all(enrolment, "Transferred", reason=f"Service branch transferred to {new_branch.branch_code}")
         enrolment.service_branch_id = new_branch.branch_id
         certificates.follow_transfer(enrolment)
     audit.record("ADMISSION_TRANSFERRED", "admission", admission.admission_code, branch_id=new_branch.branch_id,
@@ -562,7 +562,7 @@ def _admission_cancelled(event: CrmEvent, data: dict) -> Handled:
     withdrawn = 0
     for enrolment in students_repo.enrolments_of_admission(admission.admission_id):
         if enrolment.status not in ("Withdrawn", "Completed"):
-            allocations.end(enrolment, reason="Admission cancelled")
+            allocations.end_all(enrolment, reason="Admission cancelled")
             enrolment.status = "Withdrawn"
             withdrawn += 1
     if admission.crm_status != "Cancelled":

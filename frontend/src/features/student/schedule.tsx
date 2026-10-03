@@ -5,7 +5,7 @@ import { deliveryApi } from "@/api/delivery";
 import { NativeSelect } from "@/components/lms/forms";
 import { PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
 import { useT } from "@/lib/i18n";
-import { MeetBadge, fmtDate, fmtTime, mono } from "@/features/shared/delivery-ui";
+import { MeetBadge, StateBadge, fmtDate, fmtTime, mono } from "@/features/shared/delivery-ui";
 import { JoinButton } from "./session-detail";
 
 export function Schedule() {
@@ -44,7 +44,7 @@ export function Schedule() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <StatusBadge>{s.state}</StatusBadge>
+                    <StateBadge label={s.state_label} />
                     {s.mode !== "Classroom" && <MeetBadge session={s} />}
                   </div>
                 </div>

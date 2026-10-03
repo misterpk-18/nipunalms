@@ -212,15 +212,18 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 | GET | `/enrolments`, `/allocation-queue` | Staff / AC, BM, Super Admin | Branch-scoped enrolment list; the queue of payment-cleared enrolments waiting for a seat, each with `allocation_due_on` (Module 15 §6: one working day after Admission for a confirmed seat, 48 hours before the first class for a future plan, never after the first class) |
 | GET / POST | `/calendar/closures`, `/calendar/closures/{id}` | Staff / Founder, SA (company holiday); AC, BM, SA (branch closure) | The Academic Calendar. A company holiday and a Branch Manager's own closure are Approved at once; a coordinator's closure is Pending. The detail lists `affected_sessions` (Scheduled / Live classes inside it) |
 | POST | `/calendar/closures/{id}/decision` | BM, SA | `{decision, note}` (note to reject). Approving asks the affected branches' coordinators to prepare replacements; no class is moved automatically |
-| GET / POST | `/batches/{id}/allocations` | Staff / AC, BM, Super Admin | Roster (filter `status`); allocate an enrolment |
-| GET | `/batches/{id}/allocation-review?enrolment_id=&transfer=` | AC, BM, Super Admin | The checks (branch, course, curriculum, capacity, state, gate, finance) as pass / warn / block |
-| POST | `/enrolments/{id}/transfer`, `/enrolments/{id}/deallocate` | AC, BM, Super Admin | Reason required; warnings need `acknowledge_warnings` |
-| POST / PATCH | `/batches`, `/batches/{id}`, `POST /batches/{id}/state`, `/trainers`, `/readiness` | AC, BM, Super Admin | Batch lifecycle with `batch_events` history. The timetable: `schedule_days` (`["Mon", "Wed", "Fri"]`), `start_time` / `end_time` (`"HH:MM"` IST, both or neither), `location` (dropped for Live Online); each nullable |
-| GET / POST / PATCH | `/class-sessions`, `/class-sessions/{id}` | Staff; create / edit AC, BM, Super Admin | Filters include `batch_id`, `trainer_id`, `state`, `from`, `to`; create accepts a weekly `recurrence` (weekdays, `until` / `count`) |
-| POST | `/class-sessions/{id}/start`, `/deliver`, `/cancel`, `/reschedule` | Trainer of the batch (start, deliver); AC, BM, Super Admin (cancel, reschedule) | Reason required for cancel / reschedule; `session_changes` row with notice hours and `short_notice` |
+| GET / POST | `/batches/{id}/allocations` | Staff / AC, BM, Super Admin | Roster (filter `status`); allocate an enrolment, or one combo track with `enrolment_track_id` (a track batch takes only its track) |
+| GET | `/batches/{id}/allocation-review?enrolment_id=&enrolment_track_id=&transfer=` | AC, BM, Super Admin | The checks (branch, course / track, curriculum, capacity, mode, student timetable, batch state, enrolment state) as pass / warn / fail |
+| POST | `/enrolments/{id}/deallocate` | AC, BM, Super Admin | `{reason, enrolment_track_id?}`. Moving a seat is a transfer request (§4.4.1) |
+| POST / PATCH | `/batches`, `/batches/{id}`, `/trainers`, `/readiness` | AC, BM, Super Admin | Batch with `batch_events` history. The timetable: `schedule_days` (`["Mon", "Wed", "Fri"]`), `start_time` / `end_time` (`"HH:MM"` IST, both or neither), `location` (dropped for Live Online); each nullable. Module 15 fields: `display_name`, `batch_type` (Group / Individual / Corporate), `schedule_pattern` (Regular / Weekend / Fast-track), `component_id` (a track batch, Draft only), `classroom_capacity` / `lab_capacity` / `online_capacity`, `recording_provision` (Included / Not Included / Limited + `recording_terms`), `meet_series_link`, `meet_space_id`, `calendar_series_id`. Responses add `state_label`, `creating_branch`, `component`, `proposed_by` / `confirmed_by`; the detail adds `successions` and `handovers`. `GET /readiness` adds the 7-point `checklist` |
+| POST | `/batches/{id}/proposal`, `/batches/{id}/confirmation`, `/batches/{id}/state` | proposal: AC, BM, SA; confirmation: BM, SA; state: see rules | `proposal {note?}`: Draft → Proposed once points 1–6 pass. `confirmation {decision: Confirmed / Returned, note?, override_reason?}`: never the proposer; warnings need `override_reason`. `state {state: Running / On Hold / Resume / Completed / Cancelled / Archived, reason?}`: On Hold, Resume and Archived by BM / SA; reason for On Hold and Cancelled |
+| POST | `/batches/{id}/handovers` | AC, BM, SA | `{enrolment_id, owner_user_id, plan, destination, destination_batch_id?}`: a student the batch still owes teaching (paused, not started), needed before Completed |
+| GET / POST / PATCH | `/class-sessions`, `/class-sessions/{id}` | Staff; create / edit AC, BM, Super Admin | Filters include `batch_id`, `trainer_id`, `state`, `purpose`, `approval_status`, `from`, `to`; create accepts a weekly `recurrence` (weekdays, `until` / `count`), `purpose` (Regular / Replacement / Remedial / Extra) with `replaces_session_id`, `purpose_reference`, `owner_user_id`, `due_on`, the Meet ids, and `override_reason` for an advisory clash. Changing the trainer by PATCH is the Branch Manager's (others request cover). Responses add `state_label`, `original_starts_at` / `original_ends_at`, `confirmed_at`, `approval_status`, the delivery log and the Meet ids (staff) |
+| POST | `/class-sessions/{id}/start`, `/deliver`, `/cancel`, `/reschedule` | Trainer of the class (start, deliver); AC, BM, Super Admin (cancel, reschedule) | Reason required for cancel / reschedule; `session_changes` row with notice hours and `short_notice`; inside 24 hours also `emergency_reason` and `next_action`. Deliver is the class log: `{outcome: Held / Partially Held, actual_start?, actual_end?, break_minutes?, unfulfilled_note?, notes?}` (missing times default to the start and scheduled end) |
+| POST | `/class-sessions/{id}/confirm`, `/approval`, `/replacement-waiver` | confirm, waiver: AC, BM, SA; approval: BM, SA (never the proposer) | `confirm`: Planned → Confirmed (room; online also a Meet link and a named backup host). `approval {decision, note?}`: a replacement, remedial or extra class; until approved students don't see it and it cannot start. `replacement-waiver {reason}`: a cancelled class that owes no replacement |
 | PUT | `/class-sessions/{id}/notes` | Teaching trainer, AC, BM, Super Admin | `{notes}`; only while the class is Live or Delivered; audited (`SESSION_NOTES_SAVED`). The Trainer Today close-out |
 | POST | `/class-sessions/{id}/reschedule-requests`; GET `/reschedule-requests`; POST `/reschedule-requests/{id}/approve`, `/reject` | Trainer (ask); AC, BM (decide) | One open request per session; approve applies the proposed time |
-| PUT / POST | `/class-sessions/{id}/meet`, `/meet/fail`, `/meet/reset` | AC, BM, Super Admin | Records the Meet association in `meet_events`; the LMS never calls Google |
+| PUT / POST | `/class-sessions/{id}/meet`, `/meet/fail`, `/meet/reset` | AC, BM, Super Admin | Records the Meet association in `meet_events`; the LMS never calls Google. `meet` also takes `meet_space_id`, `calendar_event_id`, `calendar_series_id`, `conference_record_id`; a link used by another batch's open class is refused |
 | GET | `/me/enrolments`, `/me/enrolments/{id}`, `/me/enrolments/{id}/tracks/{track_id}`, `/me/schedule` | Student | Own courses with delivery progress, combo tracks and upcoming / past classes |
 | GET | `/modules/{id}`, `/topics/{id}` | Student (own enrolments) / staff | Module and topic pages with their classes, resources and recordings |
 
@@ -241,17 +244,72 @@ default; Module 15 §9 assumes no weekend is closed) and no approved company hol
 - Allocation is the only path to a seat: the review returns per-check results, a blocked check cannot be overridden, a
   warning needs the acknowledgement; transfers and deallocations keep the allocation row (history) and free the seat. A
   student is told of every seat change.
-- Batch lifecycle is enforced by trigger (Forming → Starting → Running ↔ Full → Completed; Cancelled from any open
-  state). Sessions: Scheduled / Rescheduled → Live → Delivered; Cancelled; a Live, Delivered or Cancelled session can no
-  longer change time or trainer. A trainer cannot teach two overlapping classes (trigger + service message) and a room
-  cannot be double-booked.
-- Rescheduling with less than 24 hours' notice is flagged `short_notice` and students of the batch are notified; every
-  change is in `session_changes`.
+- Batch lifecycle is enforced by trigger (Module 15 §5): Forming (Draft) → Proposed → Starting (Confirmed, needs
+  `confirmed_at`) → Running (In Progress) ↔ Full → Completed; On Hold from Proposed / Starting / Running / Full and back to
+  the held state; Cancelled while no seat is held; Archived only after Completed or Cancelled. The CRM sees Planned,
+  Proposed, Open, In Progress, On Hold, Completed, Cancelled, Archived. Completed also needs (service): no open class, no
+  replacement owed, no open disruption, no pending request, and a handover for every student still owed teaching.
+  Archived needs every seated student Completed or Withdrawn and no open recording issue.
+- Sessions: Scheduled / Rescheduled → Live → Delivered; Cancelled; a Live, Delivered or Cancelled session can no longer
+  change time or trainer. Labels follow Module 15 §15: Planned / Confirmed / Rescheduled / In Progress / Held / Partially
+  Held / Cancelled. Blocked (never overridden): a trainer, backup or assistant already busy. Advisory (Branch Manager
+  with `override_reason`, stored on the class): a booked room, or the class's students attending another class then.
+- Rescheduling or cancelling with less than 24 hours' notice is flagged `short_notice`, needs `emergency_reason` and
+  `next_action`, and students of every batch the class serves are notified; every change is in `session_changes`. A
+  reschedule clears the confirmation and keeps `original_starts_at`.
+- Capacity: seats never exceed the verified side of the mode (classroom and lab for Classroom, online for Live Online,
+  classroom + online for Hybrid). An increase after Draft is a capacity request (§4.4.1).
+- A material change (start, mode, teaching days / times, an end extension over `material_end_extension_days`) on a
+  confirmed batch with students is refused by PATCH: it goes through `/material-changes` (§4.4.1).
 - The student "Join" state comes from `services/meet.join_state`: enabled only when the Meet link is associated and the
   class is Live or within 15 minutes of starting. Meet links are entered manually until the Google integration is
   verified.
 - Notifications go through `services/delivery_notices.py` so a repeated event never sends twice.
 - Attendance reuses `repositories/class_sessions.get_session`; there is one session lookup.
+
+### 4.4.1 Batch and live-class operations, Modules 15 and 16 (`103`)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| POST | `/batches/{id}/capacity-requests` | AC, BM, SA | `{to_capacity, classroom_capacity?, lab_capacity?, online_capacity?, resource_validation, academic_review}`; one open per batch |
+| GET / POST | `/batch-capacity-requests`, `/{id}/decision` | AC, BM, SA, Founder (list) / BM, SA (decide, never the requester) | `{decision, note?}` (note to reject); approving sets the capacity |
+| POST | `/enrolments/{id}/transfer-requests` | AC, BM, SA (student's service branch) | `{to_batch_id, enrolment_track_id?, reason, acknowledge_warnings?}`, after the allocation review. A batch at another branch is allowed only for one track (`interbranch`) |
+| GET | `/batch-transfer-requests?status=&batch_id=` | AC, BM, SA, Founder | Requests touching the user's branches (the student's or the destination's) |
+| POST | `/batch-transfer-requests/{id}/destination` | AC, BM, SA of the destination branch | `{decision: Confirmed / Rejected, note?}`: the destination can deliver the placed track |
+| POST | `/batch-transfer-requests/{id}/decision` | BM, SA of the student's branch, never the requester | `{decision, note?}`; approving re-runs the review and moves the seat (interbranch only after the destination confirmed) |
+| POST | `/batches/{id}/material-changes` | AC, BM, SA | `{kind, proposed_plan, reason, changes?, alternative?}`. Kinds and what they set: Start date (`planned_start`), Delivery mode (`mode`), Teaching days / times (`schedule_days`, `start_time`, `end_time`), End date extension (`planned_end`), Instructional hours (nothing), Batch move (`target_batch_id`, for a merge / split onto another timetable). Every seated student gets a Pending response |
+| GET | `/material-changes`, `/material-changes/{id}` | Staff | Filters `status` (Pending Approval / Awaiting Agreement / Applied / Rejected / Withdrawn), `batch_id`; detail has the responses |
+| POST | `/material-changes/{id}/decision` | BM, SA, never the requester | Approving asks each student to agree (action-required notice) |
+| POST | `/material-changes/{id}/responses` | AC, BM, SA | `{enrolment_id, response: Agreed / Declined, note, alternative_arranged?}`: an answer given outside the LMS, with its evidence; a decline needs the agreed alternative |
+| POST | `/material-changes/{id}/apply`, `/withdraw` | AC, BM, SA | Apply once every student agreed or declined with an alternative; `withdraw {note}` |
+| GET / POST | `/me/material-changes`, `/me/material-changes/{id}/response` | Student | Own requests for agreement; `{response, note?}` |
+| GET / POST | `/batch-successions`, `/batch-successions/{id}/decision` | AC, BM, SA (request) / BM, SA (decide, never the requester) | `{kind: Merge / Split, from_batch_id, to_batch_id, enrolment_ids (split), effective_from, reason, academic_review}`; same branch, course / track and curriculum version; a different mode or timetable needs an applied Batch move material change |
+| GET / POST | `/me/slot-options?enrolment_id=`, `/me/slot-preferences`, `/me/slot-preferences/{id}/withdraw` | Student | Open batches of the course at the service branch (labelled honestly); `{enrolment_id, batch_id?, preferred_days?, preferred_start?, preferred_end?, preferred_mode?, note?}`; one open request; `reserves_seat` is always false |
+| GET / PATCH | `/slot-preferences`, `/slot-preferences/{id}` | AC, BM, SA (Founder reads) | `{status: Waitlisted / Confirmed / Not Possible, status_note?, batch_id?}`; Confirmed only once the student holds a seat there (an allocation to the requested batch confirms it) |
+| GET | `/meet-operations?date=&branch_id=&batch_id=&trainer_user_id=` | Staff (trainers: their batches) | One IST day: per class link and host readiness, delay / disruption, attendance awaiting the trainer, recording state; open disruptions, replacements owed, classes awaiting approval, missing logs, open recording issues, unmatched participants, Meet integration status and `last_runs` of the background checks |
+| GET | `/class-sessions/{id}/operations` | Staff | People, incidents, disruptions, cover requests, joined batches, participation and replacements of one class |
+| POST / DELETE | `/class-sessions/{id}/people`, `/session-people/{id}`; POST `/session-people/{id}/decision` | AC, BM, SA (guest decision: never the proposer) | `{role: Host / Backup / Guest, user_id? , guest_name?, guest_email?, purpose?, student_agreement?}`. Host and backup are staff not busy then; a guest starts Pending and gets no LMS rights |
+| POST | `/class-sessions/{id}/meet-incidents` | Trainer of the class, AC, BM, SA | `{kind, description, actions_taken, replace_link?}`: alerts the coordinators and Branch Managers; replacing the link clears it (Link removed) and tells the participants |
+| POST | `/class-sessions/{id}/participation`; GET `/meet-participation/unmatched`; POST `/meet-participation/{id}/review` | AC, BM, SA | `{source, entries: [{participant_name?, participant_email?, joined_at, left_at?}]}`; matched by email to staff or a seated student, else Unmatched; review `{match_status: Matched / Dismissed, user_id?, note?}`. Never attendance |
+| GET / POST | `/session-disruptions`, `/class-sessions/{id}/disruptions`, `/session-disruptions/{id}/resolve` | Staff / trainer of the class, AC, BM, SA / AC, BM, SA | `{kind, cause?, delay_minutes?, detail?}`; resolve `{recovery_plan, undelivered_minutes, cause?, replacement_session_id?, owner_user_id?}` tells the students the plan |
+| POST / GET | `/class-sessions/{id}/cover-requests`, `/session-cover-requests` | AC, BM, SA / staff (a cover sees their own) | `{cover_role: Substitute / Assistant, cover_user_id, reason, scope, handover}`; the cover holds the Trainer role (any branch) and is free then |
+| POST | `/session-cover-requests/{id}/decision`, `/verification` | BM, SA (never the requester) / AC, SA | Approved and verified (either order) applies it: a substitute becomes the class trainer (a `Trainer changed` change; access to that class only), an assistant joins the class; students are told |
+| POST / DELETE | `/class-sessions/{id}/rosters`, `/class-sessions/{id}/rosters/{batch_id}` | AC, SA | `{batch_id, topic_id?, coverage_note}`: a shared class. Distinct people may not exceed the class's verified seats; removing is refused once attendance is marked |
+
+Jobs: `session-delay-check` (online and hybrid classes; students told at `session_delay_notice_minutes`, a disruption recorded and the
+coordinators and Branch Managers alerted at `session_disruption_minutes`, once per class) and `class-log-check` (a class not
+Delivered or Cancelled after its working day raises a coordinator task once, looking back `class_log_lookback_days`). Every
+job run is recorded in `job_runs`.
+
+**Rules:**
+- Shared classes: one class row, one attendance entry per person (`attendance_grid` reads `session_batches`), hours and
+  trainer time counted once; students of every joined batch see the class and are told of changes; the register lists the
+  seats of every batch it serves.
+- A replacement names a cancelled or partially held class of the same batch; remedial and extra classes name their
+  reference; all three need an owner and `due_on`. A cancelled regular or remedial class owes a replacement (exception
+  source `REPLACEMENT`) until a non-cancelled replacement exists or a waiver is recorded; a cancelled replacement leaves its
+  original owing; an extra class or a rejected proposal owes nothing. A late classroom class is recorded by hand.
+- Exception queue sources added: `DISRUPTION` (open disruptions), `CLASS_LOG` (missing logs), `REPLACEMENT`.
 
 ### 4.5 Content library, recordings, recording exceptions, access extensions (`020`)
 

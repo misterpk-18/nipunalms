@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi } from "@/api/delivery";
 import { DataTable, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
-import { fmtDay, mono } from "@/features/shared/delivery-ui";
+import { StateBadge, fmtDay, mono } from "@/features/shared/delivery-ui";
 import { RosterDialog } from "@/features/shared/sessions";
 
 export function TrainerBatches() {
@@ -23,7 +23,7 @@ export function TrainerBatches() {
               { h: "Mode", c: (b) => b.mode },
               { h: "Dates", c: (b) => `${fmtDay(b.planned_start)} → ${fmtDay(b.planned_end)}` },
               { h: "Students", c: (b) => <RosterDialog batch={b} /> },
-              { h: "State", c: (b) => <StatusBadge>{b.state}</StatusBadge> },
+              { h: "State", c: (b) => <StateBadge label={b.state_label} /> },
               { h: "Readiness", c: (b) => <StatusBadge>{b.readiness}</StatusBadge> },
             ]}
           />

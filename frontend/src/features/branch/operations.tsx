@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { deliveryApi } from "@/api/delivery";
 import { Input } from "@/components/ui/input";
 import { DataTable, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
-import { fmtRange, mono, useCanManage } from "@/features/shared/delivery-ui";
+import { StateBadge, fmtRange, mono, useCanManage } from "@/features/shared/delivery-ui";
 import { RequestsPanel, RosterDialog, SessionsTable } from "@/features/shared/sessions";
 
 /** Branch Manager: batches, schedule exceptions, trainers and students of the branch. */
@@ -32,7 +32,7 @@ export function BranchOperations() {
                   { h: "Course", c: (b) => b.course.title },
                   { h: "Trainer", c: (b) => b.trainers.map((t) => t.full_name).join(", ") || "Unassigned" },
                   { h: "Seats", c: (b) => <RosterDialog batch={b} /> },
-                  { h: "State", c: (b) => <StatusBadge>{b.state}</StatusBadge> },
+                  { h: "State", c: (b) => <StateBadge label={b.state_label} /> },
                   {
                     h: "Readiness",
                     c: (b) => (

@@ -74,3 +74,24 @@ def change_trainer_role(batch_id: int, batch_trainer_id: int):
 @require_roles(*MANAGE_ROLES)
 def end_trainer(batch_id: int, batch_trainer_id: int):
     return batches_controller.end_trainer(batch_id, batch_trainer_id)
+
+
+@batches_bp.post("/<int:batch_id>/proposal")
+@login_required
+@require_roles(*MANAGE_ROLES)
+def propose(batch_id: int):
+    return batches_controller.propose(batch_id)
+
+
+@batches_bp.post("/<int:batch_id>/confirmation")
+@login_required
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+def decide_confirmation(batch_id: int):
+    return batches_controller.decide_confirmation(batch_id)
+
+
+@batches_bp.post("/<int:batch_id>/handovers")
+@login_required
+@require_roles(*MANAGE_ROLES)
+def record_handover(batch_id: int):
+    return batches_controller.record_handover(batch_id)

@@ -96,8 +96,10 @@ def enrolment_ids_in_batches(batch_ids: set[int]) -> set[int]:
 
 
 def active_allocation(enrolment_id: int) -> BatchAllocation | None:
+    """The enrolment's whole-enrolment seat, or (when only its tracks are seated) its first track seat."""
     return db.session.execute(
         select(BatchAllocation).where(BatchAllocation.enrolment_id == enrolment_id, BatchAllocation.status == "Active")
+        .order_by(BatchAllocation.enrolment_track_id.nulls_first(), BatchAllocation.allocation_id)
     ).scalars().first()
 
 
@@ -106,7 +108,7 @@ def active_allocations(enrolment_ids: list[int]) -> dict[int, BatchAllocation]:
         return {}
     stmt = select(BatchAllocation).where(
         BatchAllocation.enrolment_id.in_(enrolment_ids), BatchAllocation.status == "Active"
-    )
+    ).order_by(BatchAllocation.enrolment_track_id.nulls_last())  # the whole-enrolment seat, when there is one, wins
     return {a.enrolment_id: a for a in db.session.execute(stmt).scalars()}
 
 
@@ -175,6 +177,65 @@ def allocations_of_enrolment(enrolment_id: int) -> list[BatchAllocation]:
 def open_batches_for(course_id: int, branch_id: int) -> list[Batch]:
     """Batches of this course at this branch that can still take students."""
     stmt = select(Batch).where(
-        Batch.course_id == course_id, Batch.branch_id == branch_id, Batch.state.in_(("Forming", "Starting", "Running", "Full"))
+        Batch.course_id == course_id, Batch.branch_id == branch_id, Batch.state.in_(("Forming", "Proposed", "Starting", "Running", "Full"))
     ).order_by(Batch.batch_code)
     return list(db.session.execute(stmt).scalars())
+
+
+# ---------------------------------------------------------------- timetable overlaps (Module 15 §10)
+
+LIVE_STATES = ("Forming", "Proposed", "Starting", "Running", "Full", "On Hold")
+
+
+def timetable_overlaps(batch: Batch, candidates: Select | None = None) -> list[Batch]:
+    """Other live batches whose recurring timetable overlaps this batch's: a shared weekday, overlapping IST times and
+    overlapping planned dates (an open end overlaps everything after the start). Narrowed to `candidates` (batch ids)."""
+    if not batch.schedule_days or batch.start_time is None:
+        return []
+    stmt = select(Batch).where(
+        Batch.batch_id != batch.batch_id, Batch.state.in_(LIVE_STATES),
+        Batch.schedule_days.op("&&")(batch.schedule_days),
+        Batch.start_time < batch.end_time, Batch.end_time > batch.start_time,
+    )
+    if batch.planned_end is not None:
+        stmt = stmt.where(or_(Batch.planned_start.is_(None), Batch.planned_start <= batch.planned_end))
+    if batch.planned_start is not None:
+        stmt = stmt.where(or_(Batch.planned_end.is_(None), Batch.planned_end >= batch.planned_start))
+    if candidates is not None:
+        stmt = stmt.where(Batch.batch_id.in_(candidates))
+    return list(db.session.execute(stmt.order_by(Batch.batch_code)).scalars())
+
+
+def batch_ids_taught_by(trainer_user_ids: list[int]) -> Select:
+    return select(BatchTrainer.batch_id).where(BatchTrainer.trainer_user_id.in_(trainer_user_ids), BatchTrainer.to_date.is_(None))
+
+
+def batch_ids_in_room(branch_id: int, location: str) -> Select:
+    return select(Batch.batch_id).where(Batch.branch_id == branch_id, func.lower(Batch.location) == location.lower())
+
+
+def batch_ids_of_students(student_ids: list[int], exclude_batch_id: int) -> Select:
+    """Batches where any of these students (through any of their enrolments) holds a seat now."""
+    return (select(BatchAllocation.batch_id)
+            .join(Enrolment, Enrolment.enrolment_id == BatchAllocation.enrolment_id)
+            .where(Enrolment.student_id.in_(student_ids), BatchAllocation.status == "Active", BatchAllocation.batch_id != exclude_batch_id))
+
+
+def active_allocation_rows(batch_id: int) -> list[tuple[BatchAllocation, Enrolment]]:
+    """The seats held in the batch now, with their enrolments."""
+    stmt = (select(BatchAllocation, Enrolment).join(Enrolment, Enrolment.enrolment_id == BatchAllocation.enrolment_id)
+            .where(BatchAllocation.batch_id == batch_id, BatchAllocation.status == "Active").order_by(BatchAllocation.allocation_id))
+    return [(a, e) for a, e in db.session.execute(stmt).all()]
+
+
+def active_allocations_of(enrolment_id: int) -> list[BatchAllocation]:
+    """Every seat the enrolment holds now: the whole enrolment and / or single tracks."""
+    stmt = (select(BatchAllocation).where(BatchAllocation.enrolment_id == enrolment_id, BatchAllocation.status == "Active")
+            .order_by(BatchAllocation.enrolment_track_id.nulls_first(), BatchAllocation.allocation_id))
+    return list(db.session.execute(stmt).scalars())
+
+
+def active_track_allocation(enrolment_id: int, enrolment_track_id: int) -> BatchAllocation | None:
+    return db.session.execute(select(BatchAllocation).where(
+        BatchAllocation.enrolment_id == enrolment_id, BatchAllocation.enrolment_track_id == enrolment_track_id,
+        BatchAllocation.status == "Active")).scalars().first()

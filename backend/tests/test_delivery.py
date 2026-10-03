@@ -180,8 +180,9 @@ def test_batch_create_update_state_and_readiness(world, client, login):
     assert call(client, login, people["ac_vij"], "patch", f"/batches/{bid}", json={"capacity": 5}).status_code == 404
     assert call(client, login, people["g1"], "patch", f"/batches/{bid}", json={"capacity": 5}).status_code == 403
 
-    # cannot start without a lead trainer; trainer must be a Guntur trainer
-    assert call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Starting"}).status_code == 422
+    # cannot be proposed without a lead trainer (and the rest of the readiness record); trainer must be a Guntur trainer
+    assert call(client, login, people["ac"], "post", f"/batches/{bid}/proposal", json={}).status_code == 422
+    assert call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Starting"}).status_code == 400
     assert call(client, login, people["ac"], "post", f"/batches/{bid}/trainers", json={"trainer_user_id": people["v1"].user_id, "role": "Lead"}).status_code == 422
     lead = data(call(client, login, people["ac"], "post", f"/batches/{bid}/trainers", json={"trainer_user_id": people["g1"].user_id, "role": "Lead"}), 201)
     assert call(client, login, people["ac"], "post", f"/batches/{bid}/trainers", json={"trainer_user_id": people["g2"].user_id, "role": "Lead"}).status_code == 422
@@ -197,9 +198,19 @@ def test_batch_create_update_state_and_readiness(world, client, login):
     assert call(client, login, people["ac"], "patch", f"/batches/{bid}/readiness", json={"readiness": "Blocked", "readiness_reason": "x"}).status_code == 400
     data(call(client, login, people["ac"], "patch", f"/batches/{bid}/readiness", json={"readiness": "Ready"}), 200)
 
-    data(call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Starting"}), 200)
+    # the readiness record (Module 15 §5): timetable, verified online capacity and the recording commitment are still missing
+    checklist = {c["key"]: c["status"] for c in data(call(client, login, people["ac"], "get", f"/batches/{bid}/readiness"), 200)["checklist"]}
+    assert checklist["timetable"] == "pending" and checklist["resources"] == "pending" and checklist["recording"] == "pending"
+    data(call(client, login, people["ac"], "patch", f"/batches/{bid}", json={
+        "planned_start": (future(10)).date().isoformat(), "planned_end": (future(100)).date().isoformat(), "schedule_days": ["Mon", "Wed"],
+        "start_time": "10:00", "end_time": "12:00", "online_capacity": 3, "recording_provision": "Included"}), 200)
+    proposed = data(call(client, login, people["ac"], "post", f"/batches/{bid}/proposal", json={"note": "Reviewed"}), 200)
+    assert proposed["state"] == "Proposed" and proposed["state_label"] == "Proposed"
+    assert call(client, login, people["ac"], "post", f"/batches/{bid}/confirmation", json={"decision": "Confirmed"}).status_code == 403
+    confirmed = data(call(client, login, people["bm"], "post", f"/batches/{bid}/confirmation", json={"decision": "Confirmed"}), 200)
+    assert confirmed["state"] == "Starting" and confirmed["state_label"] == "Confirmed" and confirmed["confirmed_by"]
     data(call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Running"}), 200)
-    assert call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Starting"}).status_code == 422
+    assert call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Starting"}).status_code == 400
     assert call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Cancelled"}).status_code == 400  # reason required
     data(call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Completed"}), 200)
     assert call(client, login, people["ac"], "patch", f"/batches/{bid}", json={"capacity": 9}).status_code == 422
@@ -247,8 +258,12 @@ def test_allocation_review_allocate_transfer_deallocate(world, client, login, ma
     assert call(client, login, people["ac"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid}).status_code == 422
 
     other = make_batch(1, trainers=[people["g2"]], capacity=5, state="Running", curriculum_version_id=_java_version())
-    t = data(call(client, login, people["ac"], "post", f"/enrolments/{eid}/transfer", json={"batch_id": other.batch_id, "reason": "timing"}), 200)
-    assert t["batch"]["batch_id"] == other.batch_id
+    # a within-branch move is requested, then approved by the Branch Manager (never the requester)
+    req = data(call(client, login, people["ac"], "post", f"/enrolments/{eid}/transfer-requests", json={"to_batch_id": other.batch_id, "reason": "timing"}), 201)
+    assert req["status"] == "Pending" and req["from_batch"]["batch_id"] == good.batch_id
+    assert call(client, login, people["ac"], "post", f"/batch-transfer-requests/{req['request_id']}/decision", json={"decision": "Approved"}).status_code == 403
+    t = data(call(client, login, people["bm"], "post", f"/batch-transfer-requests/{req['request_id']}/decision", json={"decision": "Approved"}), 200)
+    assert t["status"] == "Approved" and t["applied_allocation_id"]
     assert data(call(client, login, people["ac"], "get", f"/batches/{good.batch_id}"), 200)["state"] == "Running"
     history = data(call(client, login, people["ac"], "get", f"/batches/{good.batch_id}/allocations?status=Transferred"), 200)
     assert history and "Moved to" in history[0]["reason"]
@@ -424,8 +439,10 @@ def test_trainer_substitute_needs_reason_and_assignment(world, client, login):
     start = future(3)
     sid = data(call(client, login, people["ac"], "post", "/class-sessions", json={"batch_id": batch.batch_id, "title": "Cover", "starts_at": iso(start), "ends_at": iso(start + timedelta(hours=1))}), 201)[0]["session_id"]
     call(client, login, people["ac"], "post", f"/batches/{batch.batch_id}/trainers", json={"trainer_user_id": people["g2"].user_id})
-    assert call(client, login, people["ac"], "patch", f"/class-sessions/{sid}", json={"trainer_user_id": people["g2"].user_id}).status_code == 400
-    updated = data(call(client, login, people["ac"], "patch", f"/class-sessions/{sid}", json={"trainer_user_id": people["g2"].user_id, "reason": "Leave"}), 200)
+    assert call(client, login, people["bm"], "patch", f"/class-sessions/{sid}", json={"trainer_user_id": people["g2"].user_id}).status_code == 400
+    # the Branch Manager approves a change of trainer; a coordinator requests cover instead (Module 15 §11)
+    assert call(client, login, people["ac"], "patch", f"/class-sessions/{sid}", json={"trainer_user_id": people["g2"].user_id, "reason": "Leave"}).status_code == 403
+    updated = data(call(client, login, people["bm"], "patch", f"/class-sessions/{sid}", json={"trainer_user_id": people["g2"].user_id, "reason": "Leave"}), 200)
     assert updated["trainer"]["full_name"] == "Trainer G2"
     detail = data(call(client, login, people["ac"], "get", f"/class-sessions/{sid}"), 200)
     assert detail["changes"][0]["change_type"] == "Trainer changed"

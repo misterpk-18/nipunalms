@@ -22,11 +22,11 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G012](#g012) | High | Module 14 | Academic Coordinators can approve and activate global curriculum; Founder cannot | 3 | Done (phase 3) |
 | [G013](#g013) | High | Module 14 | Curriculum versions have no outcomes, hours, effort, weights, evidence, activities or dependencies | 5 | Done (phase 5) |
 | [G014](#g014) | High | Module 14 | No individual academic mapping, credit or equivalence records; no migration plan | 5 | Done (phase 5) |
-| [G015](#g015) | High | Module 15 | Batch lifecycle differs from spec: no Proposed/Confirmed, In Progress, On Hold or Archive, and no Branch Manager confirmation | 6 | Open |
-| [G016](#g016) | High | Module 15 | Component (track) batches and track-level allocation cannot be created | 6 | Open |
-| [G017](#g017) | High | Module 15 | No LMS interbranch or component-only transfer; within-branch transfer needs no Branch Manager approval | 6 | Open |
-| [G018](#g018) | High | Module 15 | No material-change record or student affirmative agreement | 6 | Open |
-| [G019](#g019) | High | Module 16 | No 5-minute / 15-minute delayed-start thresholds, disruption record or undelivered-minutes capture | 6 | Open |
+| [G015](#g015) | High | Module 15 | Batch lifecycle differs from spec: no Proposed/Confirmed, In Progress, On Hold or Archive, and no Branch Manager confirmation | 6 | Done (phase 6) |
+| [G016](#g016) | High | Module 15 | Component (track) batches and track-level allocation cannot be created | 6 | Done (phase 6) |
+| [G017](#g017) | High | Module 15 | No LMS interbranch or component-only transfer; within-branch transfer needs no Branch Manager approval | 6 | Done (phase 6) |
+| [G018](#g018) | High | Module 15 | No material-change record or student affirmative agreement | 6 | Done (phase 6) |
+| [G019](#g019) | High | Module 16 | No 5-minute / 15-minute delayed-start thresholds, disruption record or undelivered-minutes capture | 6 | Done (phase 6) |
 | [G020](#g020) | High | Module 17 | No recording notice, student/trainer acknowledgement or guardian authorisation | 9 | Open |
 | [G021](#g021) | High | Module 17 | Release gate is two checks, and the milestone/status model is missing the spec's states | 9 | Open |
 | [G022](#g022) | High | Module 18 | No staff-only audience, so answer keys, marking guides and trainer notes cannot be kept from students | 1 | Done (phase 1) |
@@ -69,17 +69,17 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G059](#g059) | Medium | Module 14 | No stable, separately versioned reusable modules, topics or assessment definitions | 5 | Done (phase 5) |
 | [G060](#g060) | Medium | Module 14 | Branch/batch academic variations are not recorded | 5 | Done (phase 5) |
 | [G061](#g061) | Medium | Module 14 | Mapping-pending enrolments have no named owner or recovery task | 5 | Done (phase 5) |
-| [G062](#g062) | Medium | Module 15 | Batch type (Group/Individual/Corporate), schedule pattern (Regular/Weekend/Fast-track) and editable display name are not stored | 6 | Open |
+| [G062](#g062) | Medium | Module 15 | Batch type (Group/Individual/Corporate), schedule pattern (Regular/Weekend/Fast-track) and editable display name are not stored | 6 | Done (phase 6) |
 | [G063](#g063) | Medium | Module 15 | 24-hour allocation escalation goes to Branch Managers, not Founder/Super Admin; deadlines are not tracked | 4 | Done (phase 4) |
 | [G064](#g064) | Medium | Module 15 | No Nipuna Academic Calendar, company holidays or branch closures | 4 | Done (phase 4) |
-| [G065](#g065) | Medium | Module 15 | Class states lack Partially Held and Confirmed; no replacement link, actual start/end/breaks or unfulfilled portion | 6 | Open |
-| [G066](#g066) | Medium | Module 15 | No session purpose type (Replacement/Remedial/Extra) or linkage | 6 | Open |
-| [G067](#g067) | Medium | Module 15 | A class cannot be shared across courses, tracks or batches | 6 | Open |
-| [G068](#g068) | Medium | Module 15 | Conflict checks omit student timetable, assistant and online capacity; room override has no documented reason | 6 | Open |
-| [G069](#g069) | Medium | Module 15 | No batch merge/split/successor history, and Completed/Archive rules are minimal | 6 | Open |
-| [G070](#g070) | Medium | Module 16 | Meet/Calendar/recording identifiers, recurring-series link and hosting branch are not stored | 6 | Open |
-| [G071](#g071) | Medium | Module 16 | No host/cohost, named backup for live online classes, guest approval or compromised-link incident record | 6 | Open |
-| [G072](#g072) | Medium | Module 16 | No Meet operations view for link/host readiness, delayed starts, disruptions or unconfirmed attendance | 6 | Open |
+| [G065](#g065) | Medium | Module 15 | Class states lack Partially Held and Confirmed; no replacement link, actual start/end/breaks or unfulfilled portion | 6 | Done (phase 6) |
+| [G066](#g066) | Medium | Module 15 | No session purpose type (Replacement/Remedial/Extra) or linkage | 6 | Done (phase 6) |
+| [G067](#g067) | Medium | Module 15 | A class cannot be shared across courses, tracks or batches | 6 | Done (phase 6) |
+| [G068](#g068) | Medium | Module 15 | Conflict checks omit student timetable, assistant and online capacity; room override has no documented reason | 6 | Done (phase 6) |
+| [G069](#g069) | Medium | Module 15 | No batch merge/split/successor history, and Completed/Archive rules are minimal | 6 | Done (phase 6) |
+| [G070](#g070) | Medium | Module 16 | Meet/Calendar/recording identifiers, recurring-series link and hosting branch are not stored | 6 | Done (phase 6) |
+| [G071](#g071) | Medium | Module 16 | No host/cohost, named backup for live online classes, guest approval or compromised-link incident record | 6 | Done (phase 6) |
+| [G072](#g072) | Medium | Module 16 | No Meet operations view for link/host readiness, delayed starts, disruptions or unconfirmed attendance | 6 | Done (phase 6) |
 | [G073](#g073) | Medium | Module 17 | Published recordings can be edited, re-released or unheld by one manager with no version history or independent review | 9 | Open |
 | [G074](#g074) | Medium | Module 17 | Download permission on a recording is a plain boolean flip with no documented exception or approval | 9 | Open |
 | [G075](#g075) | Medium | Module 17 / 18 | Staff cannot record a second-year extension request on behalf of a student | 9 | Open |
@@ -108,10 +108,10 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G098](#g098) | Medium | Module 22 Certificates | Certificate state model lacks processing, document-version and delivery dimensions | 8 | Open |
 | [G099](#g099) | Low | 24 AI Requirements | Ask Nipuna has no placement, certificate or fee sources and answers career questions with a canned text | 11 | Open |
 | [G100](#g100) | Low | 26 Notifications | No task is created when an assignment is three days overdue | 7 | Open |
-| [G101](#g101) | Low | Module 15 | No assistant/substitute cover role or approval; substitute must already be an assigned batch trainer | 6 | Open |
-| [G102](#g102) | Low | Module 15 | Students cannot submit preferred slots (Requested / Waitlisted / Confirmed) | 6 | Open |
-| [G103](#g103) | Low | Module 15 | Capacity is one integer; no separate classroom, lab and online capacity, and no review for increases | 6 | Open |
-| [G104](#g104) | Low | Module 16 | No Meet participation evidence or unmatched-identity review; recording states lack Configured/Started/File Generated/Playback Ready and Review Required/Failed | 6 | Open |
+| [G101](#g101) | Low | Module 15 | No assistant/substitute cover role or approval; substitute must already be an assigned batch trainer | 6 | Done (phase 6) |
+| [G102](#g102) | Low | Module 15 | Students cannot submit preferred slots (Requested / Waitlisted / Confirmed) | 6 | Done (phase 6) |
+| [G103](#g103) | Low | Module 15 | Capacity is one integer; no separate classroom, lab and online capacity, and no review for increases | 6 | Done (phase 6) |
+| [G104](#g104) | Low | Module 16 | No Meet participation evidence or unmatched-identity review; recording states lack Configured/Started/File Generated/Playback Ready and Review Required/Failed | 6, 9 | Partly done (phase 6): participation evidence; recording states in phase 9 |
 | [G105](#g105) | Low | Module 17 / 18 | Expiry is shown as a date only, and there is no 'approaching expiry' notice | 9 | Open |
 | [G106](#g106) | Low | Module 18 | Only 'opened' is recorded: no download event, playback position or Not Recorded display | 9 | Open |
 | [G107](#g107) | Low | Module 19 | The task AI-use rule and the student's AI disclosure are never enforced | 7 | Open |

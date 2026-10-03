@@ -20,22 +20,25 @@ def _start_of_day(day: date) -> datetime:
 get_session = class_sessions_repo.get_session  # one implementation, in the delivery repository
 
 
-def allocated_enrolments(batch_id: int) -> list[Enrolment]:
-    """Enrolments holding a seat in the batch now, in student-name order (the register's rows)."""
+def allocated_enrolments(batch_ids: int | list[int]) -> list[Enrolment]:
+    """Enrolments holding a seat now in the batch (or any of the batches a shared class serves), once each, in student-name
+    order (the register's rows)."""
+    ids = [batch_ids] if isinstance(batch_ids, int) else list(batch_ids)
     stmt = (
         select(Enrolment)
-        .join(BatchAllocation, BatchAllocation.enrolment_id == Enrolment.enrolment_id)
         .join(Student, Student.student_id == Enrolment.student_id)
-        .where(BatchAllocation.batch_id == batch_id, BatchAllocation.status == "Active")
+        .where(Enrolment.enrolment_id.in_(select(BatchAllocation.enrolment_id).where(
+            BatchAllocation.batch_id.in_(ids), BatchAllocation.status == "Active")))
         .order_by(Student.full_name, Enrolment.enrolment_id)
     )
     return list(db.session.execute(stmt).unique().scalars())
 
 
-def has_seat_history(enrolment_id: int, batch_id: int) -> bool:
-    """The enrolment holds, or once held, a seat in the batch."""
+def has_seat_history(enrolment_id: int, batch_ids: int | list[int]) -> bool:
+    """The enrolment holds, or once held, a seat in the batch (or one of the batches)."""
+    ids = [batch_ids] if isinstance(batch_ids, int) else list(batch_ids)
     return db.session.execute(
-        select(BatchAllocation.allocation_id).where(BatchAllocation.enrolment_id == enrolment_id, BatchAllocation.batch_id == batch_id).limit(1)
+        select(BatchAllocation.allocation_id).where(BatchAllocation.enrolment_id == enrolment_id, BatchAllocation.batch_id.in_(ids)).limit(1)
     ).first() is not None
 
 

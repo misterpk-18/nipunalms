@@ -4,11 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type BatchDetail, type Check } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { DataTable, KeyValue, Note, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
-import { ActionDialog, fmtDate, fmtDay, useCanManage } from "@/features/shared/delivery-ui";
-import { timetableBody, timetableLabel } from "@/features/academic/timetable";
+import { ActionDialog, StateBadge, fmtDate, fmtDay, useCanManage } from "@/features/shared/delivery-ui";
+import { timetableLabel } from "@/features/academic/timetable";
 import { RosterDialog, useDelivery } from "@/features/shared/sessions";
+import { EditBatchDialog, HandoverDialog, LifecycleActions, RequestTransferDialog, RequestsTab } from "./batch-operations";
 
-const TABS = ["Overview", "Readiness", "Trainers", "Students", "History"] as const;
+const TABS = ["Overview", "Readiness", "Trainers", "Students", "Requests", "History"] as const;
 const CHECK_TONE = { pass: "success", fail: "danger", pending: "warning", warn: "warning" } as const;
 const CHECK_WORD = { pass: "Pass", fail: "Fail", pending: "Pending", warn: "Review" } as const;
 
@@ -28,20 +29,13 @@ export function CheckList({ checks }: { checks: Check[] }) {
   );
 }
 
-const NEXT_STATES: Record<string, { state: string; label: string }[]> = {
-  Forming: [
-    { state: "Starting", label: "Mark Starting" },
-    { state: "Running", label: "Start running" },
-  ],
-  Starting: [{ state: "Running", label: "Start running" }],
-  Running: [{ state: "Completed", label: "Complete batch" }],
-  Full: [{ state: "Completed", label: "Complete batch" }],
-};
-
 function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
-  const update = useDelivery((body: Record<string, unknown>) => deliveryApi.updateBatch(batch.batch_id, body), "Batch updated");
-  const move = useDelivery((v: { state: string; reason?: string }) => deliveryApi.batchState(batch.batch_id, v), "Batch state updated");
-  const closed = batch.state === "Completed" || batch.state === "Cancelled";
+  const closed = ["Completed", "Cancelled", "Archived"].includes(batch.state);
+  const sides = [
+    batch.classroom_capacity != null && `classroom ${batch.classroom_capacity}`,
+    batch.lab_capacity != null && `lab ${batch.lab_capacity}`,
+    batch.online_capacity != null && `online ${batch.online_capacity}`,
+  ].filter(Boolean);
   return (
     <>
       <KeyValue
@@ -52,72 +46,37 @@ function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) 
               {batch.batch_code}
             </span>,
           ],
-          ["Course", `${batch.course.course_code} — ${batch.course.title}`],
+          ["Display name", batch.display_name ?? "—"],
+          ["Course", `${batch.course.course_code} — ${batch.course.title}${batch.component ? ` (${batch.component.track_name} track)` : ""}`],
           ["Branch", batch.branch.branch_name],
+          ["Created at", batch.creating_branch.branch_name],
+          ["Type and pattern", `${batch.batch_type} · ${batch.schedule_pattern}`],
           ["Curriculum version", batch.curriculum_version?.version_label ?? "Curriculum Mapping Pending"],
-          ["Seats", `${batch.allocated_count} of ${batch.capacity}${batch.is_full ? " (full)" : ""}`],
+          ["Seats", `${batch.allocated_count} of ${batch.capacity}${batch.is_full ? " (full)" : ""}${sides.length ? ` · ${sides.join(" · ")}` : ""}`],
           ["Mode", batch.mode],
           ["Planned dates", `${fmtDay(batch.planned_start)} → ${fmtDay(batch.planned_end)}`],
           ["Timetable", timetableLabel(batch)],
+          ["Recording", batch.recording_provision ? `${batch.recording_provision}${batch.recording_terms ? ` — ${batch.recording_terms}` : ""}` : "Not set"],
+          ["Meet series", batch.meet_series_link ?? "Not set"],
           ["Sessions", `${batch.session_counts.delivered} delivered · ${batch.session_counts.upcoming} upcoming · ${batch.session_counts.cancelled} cancelled`],
-          ["State", <StatusBadge key="s">{batch.state}</StatusBadge>],
+          [
+            "State",
+            <span key="s" className="inline-flex flex-wrap items-center gap-2">
+              <StateBadge label={batch.state_label} />
+              {batch.state === "On Hold" && batch.held_from_state && <span className="text-xs text-muted-foreground">held from {batch.held_from_state}</span>}
+            </span>,
+          ],
+          ["Proposed", batch.proposed_by ? `${batch.proposed_by.full_name}, ${batch.proposed_at ? fmtDate(batch.proposed_at) : ""}${batch.proposal_note ? ` — ${batch.proposal_note}` : ""}` : "—"],
+          ["Confirmed", batch.confirmed_by ? `${batch.confirmed_by.full_name}, ${batch.confirmed_at ? fmtDate(batch.confirmed_at) : ""}` : "—"],
           ["Readiness", <StatusBadge key="r">{batch.readiness}</StatusBadge>],
         ]}
       />
       {manager && !closed && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          <ActionDialog
-            trigger={
-              <Button size="sm" variant="outline">
-                Edit batch
-              </Button>
-            }
-            title={`Edit ${batch.batch_code}`}
-            fields={[
-              { name: "capacity", label: "Capacity", type: "number", min: 1, required: true, value: String(batch.capacity) },
-              {
-                name: "mode",
-                label: "Mode",
-                type: "select",
-                options: ["Classroom", "Live Online", "Hybrid"].map((m) => ({ value: m, label: m })),
-                value: batch.mode,
-              },
-              { name: "planned_start", label: "Planned start", type: "date", value: batch.planned_start ?? "" },
-              { name: "planned_end", label: "Planned end", type: "date", value: batch.planned_end ?? "" },
-              { name: "schedule_days", label: "Days", type: "days", value: batch.schedule_days.join(",") },
-              { name: "start_time", label: "Start time (IST)", type: "time", value: batch.start_time ?? "" },
-              { name: "end_time", label: "End time (IST)", type: "time", value: batch.end_time ?? "" },
-              { name: "location", label: "Room", hint: "Classroom or lab; not used for Live Online", value: batch.location ?? "" },
-            ]}
-            onSubmit={(v) =>
-              update.mutateAsync({
-                capacity: Number(v["capacity"]),
-                mode: v["mode"],
-                planned_start: v["planned_start"] || null,
-                planned_end: v["planned_end"] || null,
-                ...timetableBody(v),
-              })
-            }
-          />
-          {(NEXT_STATES[batch.state] ?? []).map((n) => (
-            <Button key={n.state} size="sm" onClick={() => move.mutate({ state: n.state })}>
-              {n.label}
-            </Button>
-          ))}
-          <ActionDialog
-            trigger={
-              <Button size="sm" variant="outline">
-                Cancel batch
-              </Button>
-            }
-            title={`Cancel ${batch.batch_code}`}
-            description="Only possible once nobody holds a seat."
-            fields={[{ name: "reason", label: "Reason", type: "textarea", required: true }]}
-            submitLabel="Cancel batch"
-            onSubmit={(v) => move.mutateAsync({ state: "Cancelled", reason: v["reason"] })}
-          />
+        <div className="mt-4">
+          <EditBatchDialog batch={batch} />
         </div>
       )}
+      <LifecycleActions batch={batch} />
     </>
   );
 }
@@ -138,6 +97,9 @@ function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean
             {r.recovery_owner && <span className="ml-2 text-muted-foreground">· Recovery owner: {r.recovery_owner}</span>}
           </p>
           <CheckList checks={r.checks} />
+          <h3 className="pt-2 text-sm font-semibold">Readiness record (7 points)</h3>
+          <p className="text-sm text-muted-foreground">Points 1 to 6 must pass before the batch can be proposed; point 7 is advisory.</p>
+          <CheckList checks={r.checklist} />
           <p className="text-sm">
             The checks suggest: <StatusBadge>{r.suggested.readiness}</StatusBadge>
           </p>
@@ -267,16 +229,16 @@ function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
     queryFn: () => deliveryApi.batches({ course_id: batch.course.course_id, branch_id: batch.branch.branch_id }),
     enabled: manager,
   });
-  const transfer = useDelivery(
-    (v: { enrolmentId: number; batch_id: number; reason: string; ack: boolean }) =>
-      deliveryApi.transfer(v.enrolmentId, { batch_id: v.batch_id, reason: v.reason, acknowledge_warnings: v.ack }),
-    "Student transferred — history kept",
-  );
   const deallocate = useDelivery(
-    (v: { enrolmentId: number; reason: string }) => deliveryApi.deallocate(v.enrolmentId, v.reason),
+    (v: { enrolmentId: number; reason: string; trackId: number | null }) => deliveryApi.deallocate(v.enrolmentId, v.reason, v.trackId),
     "Student removed from the batch",
   );
-  const targets = (others.data?.data ?? []).filter((b) => b.batch_id !== batch.batch_id && b.state !== "Completed" && b.state !== "Cancelled");
+  const enrolments = useQuery({
+    queryKey: ["delivery", "enrolments", "batch", batch.batch_id],
+    queryFn: () => deliveryApi.enrolments({ batch_id: batch.batch_id }),
+    enabled: manager,
+  });
+  const targets = (others.data?.data ?? []).filter((b) => b.batch_id !== batch.batch_id && !["Completed", "Cancelled", "Archived"].includes(b.state));
   return (
     <>
       <label className="mb-3 flex items-center gap-2 text-sm">
@@ -291,7 +253,7 @@ function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
             empty="No students allocated yet."
             cols={[
               { h: "Student", c: (r) => `${r.student.full_name} (${r.student.student_code})` },
-              { h: "Enrolment", c: (r) => `${r.enrolment.enrolment_code} · ${r.enrolment.status}` },
+              { h: "Enrolment", c: (r) => `${r.enrolment.enrolment_code} · ${r.enrolment.status}${r.enrolment_track_id ? " · track seat" : ""}` },
               {
                 h: "Seat",
                 c: (r) => (
@@ -312,35 +274,12 @@ function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
                       c: (r: (typeof page.data)[number]) =>
                         r.status === "Active" ? (
                           <div className="flex flex-wrap gap-1.5">
-                            <ActionDialog
-                              trigger={
-                                <Button size="sm" variant="outline">
-                                  Transfer
-                                </Button>
-                              }
-                              title={`Transfer ${r.student.full_name}`}
-                              description="The current allocation is kept as history; earlier classes and records stay with the old batch."
-                              fields={[
-                                {
-                                  name: "batch_id",
-                                  label: "To batch",
-                                  type: "select",
-                                  required: true,
-                                  options: targets.map((b) => ({ value: b.batch_id, label: `${b.batch_code} (${b.allocated_count}/${b.capacity})` })),
-                                },
-                                { name: "reason", label: "Reason", type: "textarea", required: true },
-                                { name: "ack", label: "Warnings", type: "checkbox", hint: "I have reviewed the allocation warnings" },
-                              ]}
-                              submitLabel="Transfer"
-                              onSubmit={(v) =>
-                                transfer.mutateAsync({
-                                  enrolmentId: r.enrolment_id,
-                                  batch_id: Number(v["batch_id"]),
-                                  reason: v["reason"]!,
-                                  ack: v["ack"] === "true",
-                                })
-                              }
+                            <RequestTransferDialog
+                              row={r}
+                              targets={targets}
+                              enrolment={enrolments.data?.data.find((e) => e.enrolment_id === r.enrolment_id)}
                             />
+                            <HandoverDialog batch={batch} row={r} targets={targets} />
                             <ActionDialog
                               trigger={
                                 <Button size="sm" variant="outline">
@@ -350,7 +289,7 @@ function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
                               title={`Remove ${r.student.full_name} from ${batch.batch_code}`}
                               fields={[{ name: "reason", label: "Reason", type: "textarea", required: true }]}
                               submitLabel="Deallocate"
-                              onSubmit={(v) => deallocate.mutateAsync({ enrolmentId: r.enrolment_id, reason: v["reason"]! })}
+                              onSubmit={(v) => deallocate.mutateAsync({ enrolmentId: r.enrolment_id, reason: v["reason"]!, trackId: r.enrolment_track_id })}
                             />
                           </div>
                         ) : (
@@ -374,7 +313,7 @@ export function BatchPanel({ batchId }: { batchId: number }) {
   return (
     <QueryView query={query}>
       {(batch) => (
-        <Section title={`${batch.batch_code} — ${batch.course.title}`} actions={<RosterDialog batch={batch} />}>
+        <Section title={`${batch.batch_code} — ${batch.display_name ?? batch.course.title}`} actions={<RosterDialog batch={batch} />}>
           {batch.readiness !== "Ready" && (
             <p className="mb-3 text-sm">
               <StatusBadge>{batch.readiness}</StatusBadge> {batch.readiness_reason} {batch.recovery_owner && `· Recovery owner: ${batch.recovery_owner}`}
@@ -385,6 +324,7 @@ export function BatchPanel({ batchId }: { batchId: number }) {
           {tab === "Readiness" && <ReadinessTab batch={batch} manager={manager} />}
           {tab === "Trainers" && <TrainersTab batch={batch} manager={manager} />}
           {tab === "Students" && <StudentsTab batch={batch} manager={manager} />}
+          {tab === "Requests" && <RequestsTab batch={batch} />}
           {tab === "History" && (
             <>
               <ul className="space-y-1 text-sm">

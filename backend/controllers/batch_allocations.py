@@ -20,31 +20,27 @@ def roster(batch_id: int):
 def review(batch_id: int):
     v = Validator(request.args.to_dict())
     v.integer("enrolment_id", required=True, min_value=1)
+    v.integer("enrolment_track_id", min_value=1)
     v.boolean("transfer", default=False)
     data = v.validate()
-    return ok(allocations_service.review_for_enrolment(batch_id, data["enrolment_id"], data["transfer"]))
+    return ok(allocations_service.review_for_enrolment(batch_id, data["enrolment_id"], data["transfer"], data.get("enrolment_track_id")))
 
 
 def allocate(batch_id: int):
     v = Validator(json_body())
     v.integer("enrolment_id", required=True, min_value=1)
+    v.integer("enrolment_track_id", nullable=True, min_value=1)
     v.string("reason", nullable=True, max_length=500)
     v.boolean("acknowledge_warnings", default=False)
     data = v.validate()
-    allocation = allocations_service.allocate(batch_id, data["enrolment_id"], data.get("reason"), data["acknowledge_warnings"])
+    allocation = allocations_service.allocate(batch_id, data["enrolment_id"], data.get("reason"), data["acknowledge_warnings"],
+                                              data.get("enrolment_track_id"))
     return created(allocation.to_dict())
-
-
-def transfer(enrolment_id: int):
-    v = Validator(json_body())
-    v.integer("batch_id", required=True, min_value=1)
-    v.string("reason", required=True, max_length=500)
-    v.boolean("acknowledge_warnings", default=False)
-    data = v.validate()
-    return ok(allocations_service.transfer(enrolment_id, data["batch_id"], data["reason"], data["acknowledge_warnings"]).to_dict())
 
 
 def deallocate(enrolment_id: int):
     v = Validator(json_body())
     v.string("reason", required=True, max_length=500)
-    return ok(allocations_service.deallocate(enrolment_id, v.validate()["reason"]).to_dict())
+    v.integer("enrolment_track_id", nullable=True, min_value=1)
+    data = v.validate()
+    return ok(allocations_service.deallocate(enrolment_id, data["reason"], data.get("enrolment_track_id")).to_dict())

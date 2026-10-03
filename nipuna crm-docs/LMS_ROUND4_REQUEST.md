@@ -79,7 +79,13 @@ Shapes are open for discussion. A later round is fine.
 
 Module 15 adds batch states. `batches[].status` will be able to carry `Proposed` (waiting for Branch Manager
 confirmation), `On Hold` and `Archived`, on top of today's values. Please map them in the CRM mirror (Front Office
-offers neither On Hold nor Archived batches). The LMS will confirm the exact values before phase 6 ships.
+offers neither On Hold nor Archived batches).
+
+**Confirmed (LMS phase 6, db 103):** `batches[].status` and `BatchUpserted.status` are exactly one of `Planned`,
+`Proposed`, `Open`, `In Progress`, `On Hold`, `Completed`, `Cancelled`, `Archived`. `Planned` is a draft; `Proposed`
+waits for the Branch Manager and is not confirmed (do not offer it as a confirmed batch); `Open` is confirmed;
+`On Hold` returns to its earlier status when resumed; `Archived` follows `Completed` or `Cancelled` and has no live
+activity. No other field changes shape.
 
 ---
 

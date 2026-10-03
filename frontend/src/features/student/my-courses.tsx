@@ -4,6 +4,7 @@ import { deliveryApi, type MyEnrolment } from "@/api/delivery";
 import { Note, PageHead, QueryView, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { useT } from "@/lib/i18n";
 import { DeliveryBar, mono } from "@/features/shared/delivery-ui";
+import { MaterialChangesCard, SlotPreferenceCard } from "./batch-changes";
 
 const KIND_LABEL: Record<string, string> = {
   Combo: "Combo (3 + 1)",
@@ -70,6 +71,10 @@ export function MyCourses() {
           </div>
         )}
       </QueryView>
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <MaterialChangesCard />
+        <SlotPreferenceCard />
+      </div>
       <div className="mt-4">
         <Note>Your second course reuses the same student identity. Admission and finance records remain in the CRM.</Note>
       </div>

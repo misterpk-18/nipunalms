@@ -15,6 +15,7 @@ from config.timezone import IST, today_ist
 from models import AttendanceCorrection, AttendanceRecord, AttendanceRecovery, ClassSession, Enrolment
 from repositories import attendance as attendance_repo
 from repositories import batches as batches_repo
+from repositories import class_sessions as sessions_repo
 from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
@@ -112,26 +113,29 @@ class Register:
                 **{status.lower(): n for status, n in counts.items()}}
 
 
-def _can_mark(session: ClassSession) -> bool:
+def _teaches(session: ClassSession) -> bool:
+    """The class's trainer (an approved substitute too) or a trainer of its batch."""
     user = current_user()
-    batch = session.batch
-    if user.has_role("TRAINER") and batch.batch_id in scope.trainer_batch_ids():
-        return True
-    return user.has_role(*MARKERS, branch_id=batch.branch_id)
+    return user.has_role("TRAINER") and (session.trainer_user_id == user.user_id or session.batch_id in scope.trainer_batch_ids())
+
+
+def _can_mark(session: ClassSession) -> bool:
+    return _teaches(session) or current_user().has_role(*MARKERS, branch_id=session.batch.branch_id)
 
 
 def _visible_session(session_id: int) -> ClassSession:
     session = attendance_repo.get_session(session_id)
     if session is None:
         raise NotFound("Class session not found")
-    scope.assert_can_view_batch(session.batch)
+    if not _teaches(session):
+        scope.assert_can_view_batch(session.batch)
     return session
 
 
 def get_register(session_id: int) -> Register:
     session = _visible_session(session_id)
     records = attendance_repo.records_for_session(session_id)
-    enrolments = attendance_repo.allocated_enrolments(session.batch_id)
+    enrolments = attendance_repo.allocated_enrolments(sessions_repo.session_batch_ids(session.session_id))
     seated = {e.enrolment_id for e in enrolments}
     # Someone who moved to another batch after being marked keeps their entry on this session's register
     enrolments += [r.enrolment for r in records.values() if r.enrolment_id not in seated]
@@ -181,7 +185,7 @@ def mark_attendance(session_id: int, entries: list[dict], default_status: str | 
         raise BusinessRule(f"Attendance for {session.session_code} is locked ({lock_days()} days after the session). "
                            "Request a correction; an independent reviewer approves it")
 
-    seats = {e.enrolment_id: e for e in attendance_repo.allocated_enrolments(session.batch_id)}
+    seats = {e.enrolment_id: e for e in attendance_repo.allocated_enrolments(sessions_repo.session_batch_ids(session.session_id))}
     entered = {entry["enrolment_id"] for entry in entries}
     if len(entered) != len(entries):
         raise ValidationError("Invalid request data", {"entries": ["An enrolment appears twice"]})
@@ -380,7 +384,7 @@ def request_correction(session_id: int, enrolment_id: int, requested_status: str
     """A student's dispute, or a trainer / coordinator's change to an entry that is locked (or was never marked)."""
     enrolment = progress.get_visible_enrolment(enrolment_id)
     session = attendance_repo.get_session(session_id)
-    if session is None or not attendance_repo.has_seat_history(enrolment_id, session.batch_id):
+    if session is None or not attendance_repo.has_seat_history(enrolment_id, sessions_repo.session_batch_ids(session.session_id)):
         raise NotFound("Class session not found for this enrolment")
     if session.state not in ("Live", "Delivered"):
         raise BusinessRule("Only a Live or Delivered session has attendance to correct")

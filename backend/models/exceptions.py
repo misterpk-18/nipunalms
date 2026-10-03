@@ -8,9 +8,10 @@ from config.database import db
 from models.access import User
 from models.masters import Branch
 
-# Must match the `source` values in db/080_exception_queue.sql
+# Must match the `source` values of the exception_queue view (db/080, last recreated in db/103)
 EXCEPTION_SOURCES = (
     "CURRICULUM_MAPPING", "ALLOCATION", "PROVISIONING", "RECORDING", "CRM_EVENT", "SUPPORT", "RESULTS", "ACCESS_EXCEPTION", "INTEGRATION",
+    "DISRUPTION", "CLASS_LOG", "REPLACEMENT",
 )
 
 

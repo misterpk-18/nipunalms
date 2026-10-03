@@ -110,3 +110,9 @@ BLUEPRINTS += [calendar_bp]
 from routes.academic_records import academic_records_bp  # noqa: E402
 
 BLUEPRINTS += [academic_records_bp]
+
+# Gap fix plan phase 6: batches and delivery operations (Modules 15 and 16)
+from routes.batch_operations import batch_operations_bp  # noqa: E402
+from routes.session_operations import session_operations_bp  # noqa: E402
+
+BLUEPRINTS += [batch_operations_bp, session_operations_bp]

@@ -1,20 +1,23 @@
-"""Putting students into batches: the review checks shown before allocating, allocate, transfer, deallocate, the roster.
+"""Putting students into batches: the review checks shown before allocating, allocate, deallocate, the roster. Moving a
+seat between batches is a transfer request (services/batch_transfers.py).
 
-A seat is only given after the batch allocation review: service branch, course, curriculum mapping / version, capacity,
-delivery mode and the enrolment's own state. A failed check blocks; a warning (different curriculum version or mode)
-needs the coordinator to acknowledge it. Ended and transferred allocations stay as history; nothing the student did
-in a previous batch is touched.
+A seat is only given after the batch allocation review: service branch, course or track, curriculum mapping / version,
+capacity, delivery mode, the student's other classes and the enrolment's own state. A failed check blocks; a warning
+(different mode, a timetable clash) needs the coordinator to acknowledge it. Ended and transferred allocations stay as
+history; nothing the student did in a previous batch is touched.
 """
 from datetime import date, datetime, timedelta
 
 from config.database import db
 from config.timezone import IST
 from models import Batch, BatchAllocation, Enrolment
+from models.batches import BATCH_STATE_LABELS
 from repositories import batches as batches_repo
+from repositories import catalog as catalog_repo
 from repositories import enrolments as enrolments_repo
 from repositories import students as students_repo
 from repositories.common import paginate
-from services import allocations, audit, delivery_access, delivery_notices, scope, working_days
+from services import allocations, audit, delivery_access, delivery_notices, scope, slot_preferences, working_days
 from services import batches as batches_service
 from services.batches import CLOSED_STATES, load_managed_batch, sync_full
 from services.context import actor_id
@@ -32,34 +35,57 @@ def _check(key: str, label: str, status: str, detail: str) -> dict:
     return {"key": key, "label": label, "status": status, "detail": detail}
 
 
-def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False) -> dict:
-    """The batch allocation review for one enrolment and one batch. Status per check: pass, warn or fail."""
-    taken = batches_repo.allocated_counts([batch.batch_id]).get(batch.batch_id, 0)
-    current = batches_repo.active_allocation(enrolment.enrolment_id)
-    already_here = current is not None and current.batch_id == batch.batch_id
-    checks = [
-        _check("branch", "Service branch", "pass" if batch.branch_id == enrolment.service_branch_id else "fail",
-               f"Enrolment is serviced at {enrolment.service_branch.branch_name}; batch is at {batch.branch.branch_name}"
-               if batch.branch_id != enrolment.service_branch_id else f"{batch.branch.branch_name}"),
-        _check("course", "Course / track", "pass" if batch.course_id == enrolment.course_id else "fail",
-               f"{enrolment.course.course_code}" + (f" — combo with {len(enrolment.tracks)} tracks" if enrolment.tracks else "")
-               if batch.course_id == enrolment.course_id else f"Batch is for {batch.course.course_code}, enrolment is for {enrolment.course.course_code}"),
-    ]
+def _track(enrolment: Enrolment, enrolment_track_id: int | None):
+    return next((t for t in enrolment.tracks if t.enrolment_track_id == enrolment_track_id), None) if enrolment_track_id else None
 
-    unmapped_tracks = [t.component.track_code for t in enrolment.tracks if t.curriculum_version_id is None]
-    if enrolment.curriculum_version_id is None or unmapped_tracks:
-        missing = "the course" if enrolment.curriculum_version_id is None else ", ".join(unmapped_tracks)
-        checks.append(_check("curriculum", "Curriculum mapping / version", "fail", f"Curriculum Mapping Pending ({missing})"))
+
+def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False, enrolment_track_id: int | None = None,
+           interbranch: bool = False) -> dict:
+    """The batch allocation review for one enrolment (or one combo track of it) and one batch. Status per check: pass, warn
+    or fail. `interbranch`: a component placed at another branch, which its own approvals cover (Module 15 §4, §13)."""
+    taken = batches_repo.allocated_counts([batch.batch_id]).get(batch.batch_id, 0)
+    track = _track(enrolment, enrolment_track_id)
+    current = allocations.current_seat(enrolment, enrolment_track_id)
+    seats = batches_repo.active_allocations_of(enrolment.enrolment_id)
+    already_here = current is not None and current.batch_id == batch.batch_id
+    same_branch = batch.branch_id == enrolment.service_branch_id
+    if same_branch:
+        branch_check = _check("branch", "Service branch", "pass", batch.branch.branch_name)
+    elif interbranch and track is not None:
+        branch_check = _check("branch", "Service branch", "pass",
+                              f"{track.component.track_code} placed at {batch.branch.branch_name}; the admission stays at "
+                              f"{enrolment.service_branch.branch_name} (needs the destination's confirmation and the Branch Manager's approval)")
+    else:
+        branch_check = _check("branch", "Service branch", "fail",
+                              f"Enrolment is serviced at {enrolment.service_branch.branch_name}; batch is at {batch.branch.branch_name}"
+                              + ("" if track else ". Only a single track can be placed at another branch"))
+    problem = allocations.teaches(batch, enrolment, enrolment_track_id)
+    what = (f"{enrolment.course.course_code} track {track.component.track_code}" if track else
+            f"{enrolment.course.course_code}" + (f" — combo with {len(enrolment.tracks)} tracks" if enrolment.tracks else ""))
+    checks = [branch_check, _check("course", "Course / track", "fail" if problem else "pass", problem or what)]
+
+    if track is not None:
+        learner_version, learner_label = track.curriculum_version_id, track.component.track_code
+        unmapped = learner_version is None
+    else:
+        unmapped_tracks = [t.component.track_code for t in enrolment.tracks if t.curriculum_version_id is None]
+        learner_version, learner_label = enrolment.curriculum_version_id, "the course"
+        unmapped = enrolment.curriculum_version_id is None or bool(unmapped_tracks)
+        if enrolment.curriculum_version_id is not None and unmapped_tracks:
+            learner_label = ", ".join(unmapped_tracks)
+    if unmapped:
+        checks.append(_check("curriculum", "Curriculum mapping / version", "fail", f"Curriculum Mapping Pending ({learner_label})"))
     elif batch.curriculum_version_id is None:
         checks.append(_check("curriculum", "Curriculum mapping / version", "fail", "The batch has no curriculum version yet"))
-    elif batch.curriculum_version_id != enrolment.curriculum_version_id:
+    elif batch.curriculum_version_id != learner_version:
+        own = catalog_repo.get_curriculum_version(learner_version)
         checks.append(_check("curriculum", "Curriculum mapping / version", "fail",
-                             f"Enrolment is on {enrolment.curriculum_version.version_label}; the batch runs {batch.curriculum_version.version_label}. "
+                             f"The learner is on {own.version_label}; the batch runs {batch.curriculum_version.version_label}. "
                              "An approved academic mapping must move the student first (Module 14 §8)"))
     else:
         checks.append(_check("curriculum", "Curriculum mapping / version", "pass", batch.curriculum_version.version_label))
 
-    if already_here:
+    if already_here or any(a.batch_id == batch.batch_id for a in seats):
         checks.append(_check("capacity", "Capacity", "pass", f"{taken} of {batch.capacity} seats taken (already holds a seat)"))
     elif taken >= batch.capacity:
         checks.append(_check("capacity", "Capacity", "fail", f"{taken} of {batch.capacity} seats taken — the batch is full"))
@@ -72,10 +98,20 @@ def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False) -> dic
         checks.append(_check("mode", "Delivery mode", "warn",
                              f"Enrolment is {enrolment.mode}; batch is {batch.mode}. A change of delivery mode needs the student's agreement"))
 
-    if batch.state in CLOSED_STATES:
+    leaving = {current.batch_id} if current is not None else set()
+    clashes = [b for b in batches_repo.timetable_overlaps(batch, batches_repo.batch_ids_of_students([enrolment.student_id], batch.batch_id))
+               if b.batch_id not in leaving]
+    if clashes:
+        checks.append(_check("timetable", "Student timetable", "warn",
+                             "The student already has classes at these times in " + ", ".join(b.batch_code for b in clashes)))
+    else:
+        checks.append(_check("timetable", "Student timetable", "pass",
+                             "No clash with the student's other classes" if batch.schedule_days else "The batch has no timetable to compare yet"))
+
+    if batch.state in allocations.NO_NEW_SEATS:
         checks.append(_check("batch_state", "Batch state", "fail", f"Batch is {batch.state}"))
     else:
-        checks.append(_check("batch_state", "Batch state", "pass", batch.state))
+        checks.append(_check("batch_state", "Batch state", "pass", BATCH_STATE_LABELS[batch.state]))
 
     if transfer:
         if current is None:
@@ -86,10 +122,12 @@ def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False) -> dic
             checks.append(_check("enrolment_state", "Enrolment state", "pass", f"{enrolment.status}; moves from {current.batch.batch_code}"))
         else:
             checks.append(_check("enrolment_state", "Enrolment state", "fail", enrolment.status))
-    elif enrolment.status == ALLOCATION_READY and current is None:
-        checks.append(_check("enrolment_state", "Enrolment state", "pass", "Admission verified (CRM); waiting for a batch"))
     elif current is not None:
         checks.append(_check("enrolment_state", "Enrolment state", "fail", f"Already allocated to {current.batch.batch_code}; use transfer"))
+    elif track is not None and enrolment.status in (ALLOCATION_READY, *SEATED_STATUSES):
+        checks.append(_check("enrolment_state", "Enrolment state", "pass", f"{enrolment.status}; track not yet seated"))
+    elif enrolment.status == ALLOCATION_READY:
+        checks.append(_check("enrolment_state", "Enrolment state", "pass", "Admission verified (CRM); waiting for a batch"))
     else:
         checks.append(_check("enrolment_state", "Enrolment state", "fail", enrolment.status))
 
@@ -97,6 +135,7 @@ def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False) -> dic
     warnings = [c["detail"] for c in checks if c["status"] == "warn"]
     return {
         "enrolment": enrolment.to_summary(),
+        "enrolment_track_id": enrolment_track_id,
         "batch": batch.to_summary(),
         "checks": checks,
         "result": "Blocked" if blocking else "Review needed" if warnings else "Ready to allocate",
@@ -106,11 +145,19 @@ def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False) -> dic
     }
 
 
-def review_for_enrolment(batch_id: int, enrolment_id: int, transfer: bool = False) -> dict:
-    batch, _ = batches_service.get_batch(batch_id)
-    delivery_access.assert_can_manage_branch(batch.branch_id)
+def review_for_enrolment(batch_id: int, enrolment_id: int, transfer: bool = False, enrolment_track_id: int | None = None) -> dict:
     enrolment = _viewable_enrolment(enrolment_id)
-    return review(batch, enrolment, transfer=transfer)
+    batch = batches_repo.get_batch(batch_id)
+    if batch is None:
+        raise NotFound("Batch not found")
+    interbranch = enrolment_track_id is not None and batch.branch_id != enrolment.service_branch_id
+    if interbranch:
+        # a component placed elsewhere: the requester manages the student's service branch
+        delivery_access.assert_can_manage_branch(enrolment.service_branch_id)
+    else:
+        scope.assert_can_view_batch(batch)
+        delivery_access.assert_can_manage_branch(batch.branch_id)
+    return review(batch, enrolment, transfer=transfer, enrolment_track_id=enrolment_track_id, interbranch=interbranch)
 
 
 def _viewable_enrolment(enrolment_id: int) -> Enrolment:
@@ -135,67 +182,46 @@ def _notify_seat(enrolment: Enrolment, batch: Batch, title: str, body: str, key:
 
 # ---------------------------------------------------------------- seat changes
 
-def allocate(batch_id: int, enrolment_id: int, reason: str | None, acknowledge_warnings: bool) -> BatchAllocation:
-    """Give an enrolment in Allocation Pending its seat, after the review. Moves it to 'Allocated — awaiting first regular class'."""
+def allocate(batch_id: int, enrolment_id: int, reason: str | None, acknowledge_warnings: bool,
+             enrolment_track_id: int | None = None) -> BatchAllocation:
+    """Give an enrolment its first seat (or a combo track its seat in a track batch), after the review. The enrolment moves to
+    'Allocated — awaiting first regular class'. Moving a seat that already exists is a transfer request."""
     batch = load_managed_batch(batch_id)
     enrolment = enrolments_repo.get_enrolment_for_update(enrolment_id)
     if enrolment is None:
         raise NotFound("Enrolment not found")
     scope.assert_can_view_enrolment(enrolment)
-    report = review(batch, enrolment)
+    report = review(batch, enrolment, enrolment_track_id=enrolment_track_id)
     _enforce(report, acknowledge_warnings)
 
-    allocation = allocations.allocate(enrolment, batch, created_by=actor_id(), reason=reason)
+    allocation = allocations.allocate(enrolment, batch, created_by=actor_id(), reason=reason, enrolment_track_id=enrolment_track_id)
     sync_full(batch)
+    slot_preferences.seat_taken(enrolment.enrolment_id, batch.batch_id)
     audit.record("BATCH_ALLOCATED", "batch_allocation", allocation.allocation_id, branch_id=batch.branch_id, reason=reason,
-                 new={"enrolment_id": enrolment.enrolment_id, "batch_id": batch.batch_id, "acknowledged_warnings": report["warnings"]})
+                 new={"enrolment_id": enrolment.enrolment_id, "enrolment_track_id": enrolment_track_id, "batch_id": batch.batch_id,
+                      "acknowledged_warnings": report["warnings"]})
     _notify_seat(enrolment, batch, f"You are allocated to batch {batch.batch_code}",
                  f"{enrolment.course.title}. Your Joining Date is set when you attend your first confirmed regular class.",
                  f"allocation-{allocation.allocation_id}")
     return allocation
 
 
-def transfer(enrolment_id: int, to_batch_id: int, reason: str, acknowledge_warnings: bool) -> BatchAllocation:
-    """Move an allocated enrolment to another batch of the same course and branch. The previous allocation is kept as history."""
+def deallocate(enrolment_id: int, reason: str, enrolment_track_id: int | None = None) -> BatchAllocation:
+    """Take an enrolment (or one track) out of its batch (with a reason). An enrolment left without a seat while awaiting its
+    first class returns to Allocation Pending."""
     enrolment = enrolments_repo.get_enrolment_for_update(enrolment_id)
     if enrolment is None:
         raise NotFound("Enrolment not found")
     scope.assert_can_view_enrolment(enrolment)
-    current = batches_repo.active_allocation(enrolment.enrolment_id)
+    current = allocations.current_seat(enrolment, enrolment_track_id)
     if current is None:
-        raise Conflict("The enrolment is not allocated to a batch; allocate it instead")
-    delivery_access.assert_can_manage_branch(current.batch.branch_id)
-    old_batch = batches_repo.get_batch_for_update(current.batch_id)
-    new_batch = load_managed_batch(to_batch_id)
-    _enforce(review(new_batch, enrolment, transfer=True), acknowledge_warnings)
-
-    allocation = allocations.allocate(enrolment, new_batch, created_by=actor_id(), reason=reason)
-    current.reason = f"Moved to {new_batch.batch_code}: {reason}"
-    db.session.flush()
-    sync_full(old_batch)
-    sync_full(new_batch)
-    audit.record("BATCH_TRANSFERRED", "batch_allocation", allocation.allocation_id, branch_id=new_batch.branch_id, reason=reason,
-                 old={"batch_id": old_batch.batch_id}, new={"batch_id": new_batch.batch_id, "enrolment_id": enrolment.enrolment_id})
-    _notify_seat(enrolment, new_batch, f"You have moved to batch {new_batch.batch_code}", f"{enrolment.course.title}. Reason: {reason}",
-                 f"allocation-{allocation.allocation_id}")
-    return allocation
-
-
-def deallocate(enrolment_id: int, reason: str) -> BatchAllocation:
-    """Take an enrolment out of its batch (with a reason). An enrolment awaiting its first class returns to Allocation Pending."""
-    enrolment = enrolments_repo.get_enrolment_for_update(enrolment_id)
-    if enrolment is None:
-        raise NotFound("Enrolment not found")
-    scope.assert_can_view_enrolment(enrolment)
-    current = batches_repo.active_allocation(enrolment.enrolment_id)
-    if current is None:
-        raise Conflict("The enrolment is not allocated to a batch")
-    delivery_access.assert_can_manage_branch(current.batch.branch_id)
+        raise Conflict("The enrolment is not allocated to a batch" if enrolment_track_id is None else "The track holds no seat")
+    delivery_access.assert_can_manage_branch(enrolment.service_branch_id)
     if enrolment.status in ("Completed", "Withdrawn"):
         raise BusinessRule(f"A {enrolment.status} enrolment keeps its batch history")
     batch = batches_repo.get_batch_for_update(current.batch_id)
 
-    allocations.end(enrolment, "Ended", reason=reason)
+    allocations.end(enrolment, "Ended", reason=reason, enrolment_track_id=enrolment_track_id)
     sync_full(batch)
     audit.record("BATCH_DEALLOCATED", "batch_allocation", current.allocation_id, branch_id=batch.branch_id, reason=reason,
                  old={"batch_id": batch.batch_id, "enrolment_id": enrolment.enrolment_id})

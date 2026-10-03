@@ -20,6 +20,8 @@ def list_class_sessions():
     v.integer("trainer_user_id", min_value=1)
     v.choice("state", SESSION_STATES)
     v.choice("meet_status", MEET_STATUSES)
+    v.choice("purpose", class_sessions_service.PURPOSES)
+    v.choice("approval_status", ("Not Required", "Pending", "Approved", "Rejected"))
     v.boolean("upcoming", default=False)
     v.boolean("mine", default=False)
     v.date("from")
@@ -60,7 +62,13 @@ def create_class_sessions():
     v.integer("trainer_user_id", min_value=1)
     v.string("room", nullable=True, max_length=100)
     v.string("notes", nullable=True, max_length=2000)
-    v.boolean("acknowledge_room_conflict", default=False)
+    v.string("override_reason", nullable=True, max_length=500)
+    v.choice("purpose", class_sessions_service.PURPOSES, default="Regular")
+    v.integer("replaces_session_id", nullable=True, min_value=1)
+    v.string("purpose_reference", nullable=True, max_length=2000)
+    v.integer("owner_user_id", nullable=True, min_value=1)
+    v.date("due_on", nullable=True)
+    _meet_ids(v)
 
     def recurrence_rules(r: Validator) -> None:
         r.int_list("weekdays")
@@ -88,10 +96,22 @@ def update_class_session(session_id: int):
     v.choice("mode", DELIVERY_MODES)
     v.integer("trainer_user_id", min_value=1)
     v.string("reason", nullable=True, max_length=500)
-    v.boolean("acknowledge_room_conflict", default=False)
+    v.string("override_reason", nullable=True, max_length=500)
+    _meet_ids(v)
     data = v.validate()
-    require_changes({k: x for k, x in data.items() if k not in ("acknowledge_room_conflict",)})
+    require_changes({k: x for k, x in data.items() if k not in ("override_reason",)})
     return ok(_session(class_sessions_service.update_session(session_id, data)))
+
+
+def _meet_ids(v: Validator) -> None:
+    for key in class_sessions_service.MEET_IDS:
+        v.string(key, nullable=True, max_length=200)
+
+
+def _emergency(v: Validator) -> None:
+    """Needed when the change comes less than 24 hours before the class (Module 15 §14)."""
+    v.string("emergency_reason", nullable=True, max_length=1000)
+    v.string("next_action", nullable=True, max_length=1000)
 
 
 def reschedule(session_id: int):
@@ -99,16 +119,20 @@ def reschedule(session_id: int):
     v.datetime("starts_at", required=True)
     v.datetime("ends_at", required=True)
     v.string("reason", required=True, max_length=500)
-    v.boolean("acknowledge_room_conflict", default=False)
+    v.string("override_reason", nullable=True, max_length=500)
+    _emergency(v)
     data = v.validate()
-    session = class_sessions_service.reschedule(session_id, data["starts_at"], data["ends_at"], data["reason"], data["acknowledge_room_conflict"])
+    session = class_sessions_service.reschedule(session_id, data["starts_at"], data["ends_at"], data["reason"], data.get("override_reason"),
+                                                emergency=data)
     return ok(_session(session))
 
 
 def cancel(session_id: int):
     v = Validator(json_body())
     v.string("reason", required=True, max_length=500)
-    return ok(_session(class_sessions_service.cancel(session_id, v.validate()["reason"])))
+    _emergency(v)
+    data = v.validate()
+    return ok(_session(class_sessions_service.cancel(session_id, data["reason"], emergency=data)))
 
 
 def start(session_id: int):
@@ -118,7 +142,30 @@ def start(session_id: int):
 def deliver(session_id: int):
     v = Validator(json_body())
     v.string("notes", nullable=True, max_length=2000)
-    return ok(_session(class_sessions_service.deliver(session_id, v.validate().get("notes"))))
+    v.choice("outcome", ("Held", "Partially Held"), default="Held")
+    v.datetime("actual_start", nullable=True)
+    v.datetime("actual_end", nullable=True)
+    v.integer("break_minutes", nullable=True, min_value=0, max_value=600)
+    v.string("unfulfilled_note", nullable=True, max_length=2000)
+    return ok(_session(class_sessions_service.deliver(session_id, v.validate())))
+
+
+def confirm(session_id: int):
+    return ok(_session(class_sessions_service.confirm(session_id)))
+
+
+def decide_purpose(session_id: int):
+    v = Validator(json_body())
+    v.choice("decision", ("Approved", "Rejected"), required=True)
+    v.string("note", nullable=True, max_length=1000)
+    data = v.validate()
+    return ok(_session(class_sessions_service.decide_purpose(session_id, data["decision"], data.get("note"))))
+
+
+def waive_replacement(session_id: int):
+    v = Validator(json_body())
+    v.string("reason", required=True, max_length=1000)
+    return ok(_session(class_sessions_service.waive_replacement(session_id, v.validate()["reason"])))
 
 
 def save_notes(session_id: int):
@@ -132,7 +179,9 @@ def save_notes(session_id: int):
 def associate_meet(session_id: int):
     v = Validator(json_body())
     v.string("meet_link", required=True, max_length=500)
-    return ok(_session(class_sessions_service.associate_meet(session_id, v.validate()["meet_link"])))
+    _meet_ids(v)
+    data = v.validate()
+    return ok(_session(class_sessions_service.associate_meet(session_id, data["meet_link"], data)))
 
 
 def mark_meet_failed(session_id: int):
@@ -170,9 +219,10 @@ def request_reschedule(session_id: int):
 def approve_request(request_id: int):
     v = Validator(json_body())
     v.string("note", nullable=True, max_length=500)
-    v.boolean("acknowledge_room_conflict", default=False)
+    v.string("override_reason", nullable=True, max_length=500)
+    _emergency(v)
     data = v.validate()
-    return ok(class_sessions_service.approve_request(request_id, data.get("note"), data["acknowledge_room_conflict"]).to_dict())
+    return ok(class_sessions_service.approve_request(request_id, data.get("note"), data.get("override_reason"), emergency=data).to_dict())
 
 
 def reject_request(request_id: int):

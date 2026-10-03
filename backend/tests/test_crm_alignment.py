@@ -187,8 +187,12 @@ def test_batch_is_mirrored_to_the_crm_in_its_vocabulary(client, catalog, make_ba
                       "curriculum_version_label": None, "lead_trainer_email": "trainer.g1@nipuna.test",
                       "trainer_emails": ["trainer.g1@nipuna.test"]}
 
-    run_sql("UPDATE batches SET state = 'Running' WHERE batch_id = :id", id=batch.batch_id)
+    run_sql("UPDATE batches SET state = 'Proposed' WHERE batch_id = :id", id=batch.batch_id)
     (latest,) = _outbox("BatchUpserted")  # not yet delivered: the pending row now carries the latest state
+    assert latest["status"] == "Proposed"  # round 4 request A5
+    run_sql("UPDATE batches SET state = 'Starting', confirmed_at = now(), confirmed_by = :u WHERE batch_id = :id", id=batch.batch_id, u=trainer.user_id)
+    run_sql("UPDATE batches SET state = 'Running' WHERE batch_id = :id", id=batch.batch_id)
+    (latest,) = _outbox("BatchUpserted")
     assert latest["status"] == "In Progress"
 
     run_sql("UPDATE crm_outbox SET status = 'Delivered', delivered_at = now()")

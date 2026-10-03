@@ -104,7 +104,7 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   await dialog(page).getByLabel("Ends (IST)").fill(istInput(75));
   await dialog(page).getByRole("button", { name: "Schedule" }).click();
   await expect(page.getByText("Session(s) scheduled")).toBeVisible();
-  await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Scheduled");
+  await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Planned");
 
   // A weekly series for a later day
   await page.getByRole("button", { name: "New class session" }).click();
@@ -128,7 +128,7 @@ test("trainer starts and delivers the class, and requests a reschedule", async (
   const live = page.getByRole("row", { name: /E2E live class/ });
   await live.getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Class started")).toBeVisible();
-  await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Live");
+  await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("In Progress");
   await page
     .getByRole("row", { name: /E2E live class/ })
     .getByRole("button", { name: "Mark delivered" })
@@ -137,7 +137,7 @@ test("trainer starts and delivers the class, and requests a reschedule", async (
   await dialog(page).getByRole("button", { name: "Mark delivered" }).click();
   await expect(page.getByText("Marked as delivered")).toBeVisible();
   await page.getByRole("tab", { name: "Delivered / closed" }).click();
-  await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Delivered");
+  await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Held");
 
   await page.getByRole("tab", { name: "Upcoming" }).click();
   const target = page.getByRole("row", { name: /PCA lab/ });
