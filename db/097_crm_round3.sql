@@ -1,5 +1,4 @@
--- 097: round 3, curriculum mapping from the CRM ("nipuna crm-docs/CRM_ROUND3_LMS_CHANGES.md", answered in
--- CRM_ROUND3_LMS_REPLY.md)
+-- 097: round 3, curriculum mapping from the CRM (docs/CRM_INTEGRATION.md §5)
 -- Depends on: 002 (curriculum_versions), 003 (admissions), 010 (curriculum_events), 095
 --   curriculum_versions[] in the status pull: every version of every course, with its own change stamp
 --   AdmissionCurriculumMapped: the CRM maps an admission; versioned separately from the admission (curriculum:<id>)

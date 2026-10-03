@@ -1,7 +1,7 @@
 """Health check: is the app up and can it reach the database?
 
 The CRM's worker polls GET /api/v1/health every 10 s while events wait because the LMS was unreachable, and releases
-them as soon as it answers 200 (CRM_ROUND3_JOINT_TESTS_RESULTS.md §3). Keep it unauthenticated and to one cheap query."""
+them as soon as it answers 200 (docs/CRM_INTEGRATION.md §5, round 3). Keep it unauthenticated and to one cheap query."""
 import logging
 
 from sqlalchemy import text

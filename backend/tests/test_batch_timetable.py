@@ -1,5 +1,5 @@
 """db 098: the batch timetable (days, times, room) set by the coordinator, and what the CRM's sales staff pull: timetable,
-readiness and seats left ("nipuna crm-docs/CRM_PLAYBOOK_LMS_ASKS.md")."""
+readiness and seats left (the CRM's sales playbook, round 3)."""
 from datetime import datetime, timedelta, timezone
 
 import pytest

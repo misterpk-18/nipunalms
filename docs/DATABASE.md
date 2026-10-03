@@ -257,7 +257,7 @@ owner is the source record's own owner, else the last person who logged a step. 
 
 ## 090 — CRM round-1 fixes
 
-The fixes from the CRM's first live run (`nipuna crm-docs/CRM_TO_LMS_FIXES_ROUND1.md`).
+The fixes from the CRM's first live run (round 1, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -268,7 +268,7 @@ The fixes from the CRM's first live run (`nipuna crm-docs/CRM_TO_LMS_FIXES_ROUND
 
 ## 095 — CRM round 2: the status pull
 
-The CRM's round-2 questions (`nipuna crm-docs/CRM_ROUND2_BRIEF.md`, answered in `CRM_ROUND2_LMS_REPLY.md`).
+What the CRM needed before applying the pull (round 2, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -280,7 +280,7 @@ The CRM's round-2 questions (`nipuna crm-docs/CRM_ROUND2_BRIEF.md`, answered in 
 
 ## 096 — CRM branches and finance snapshots
 
-Round-2 owner decisions D3 and D4 (`nipuna crm-docs/CRM_ROUND2_LMS_REPLY.md` §3).
+Round-2 owner decisions D3 and D4 ([CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -290,7 +290,7 @@ Round-2 owner decisions D3 and D4 (`nipuna crm-docs/CRM_ROUND2_LMS_REPLY.md` §3
 
 ## 097 — CRM round 3: curriculum mapping
 
-The CRM maps admissions to curricula; the LMS reports its catalogue (`nipuna crm-docs/CRM_ROUND3_LMS_CHANGES.md`).
+The CRM maps admissions to curricula; the LMS reports its catalogue (round 3, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -300,7 +300,7 @@ The CRM maps admissions to curricula; the LMS reports its catalogue (`nipuna crm
 
 ## 098 — Batch timetable
 
-The CRM's sales playbook needs real timings before promising a batch (`nipuna crm-docs/CRM_PLAYBOOK_LMS_ASKS.md`).
+The CRM's sales playbook needs real timings before promising a batch (round 3, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|

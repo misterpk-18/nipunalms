@@ -1,4 +1,4 @@
-"""Fixes from the CRM's round-1 run ("nipuna crm-docs/CRM_TO_LMS_FIXES_ROUND1.md", F2–F8)."""
+"""Fixes from the CRM's round-1 run (docs/CRM_INTEGRATION.md §5, round 1, F2–F8)."""
 from datetime import datetime, timedelta, timezone
 
 import pytest

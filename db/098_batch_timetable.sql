@@ -1,5 +1,4 @@
--- 098: the batch timetable for CRM sales ("nipuna crm-docs/CRM_PLAYBOOK_LMS_ASKS.md", answered in
--- CRM_PLAYBOOK_LMS_REPLY.md)
+-- 098: the batch timetable for the CRM's sales playbook (docs/CRM_INTEGRATION.md §5, round 3)
 -- Depends on: 004 (batches, batch_allocations), 005 (batch_crm_state)
 --   The days, times and room a batch meets, set by the coordinator before any class is scheduled (Planned batches
 --   have no sessions yet), so the CRM's Front Office can check real timings before promising a batch.

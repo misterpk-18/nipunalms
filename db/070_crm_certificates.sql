@@ -1,4 +1,4 @@
--- 070: certificates and completion authorisation for the CRM (docs/CRM_INTEGRATION.md §2.2, §3.3, §3.6)
+-- 070: certificates and completion authorisation for the CRM (docs/CRM_INTEGRATION.md §2.2)
 -- Depends on: 005_crm_alignment.sql, 040_attendance_certificates.sql
 --
 -- The LMS Certificate Register is the single source of certificates; the CRM mirrors them read-only. The CRM's

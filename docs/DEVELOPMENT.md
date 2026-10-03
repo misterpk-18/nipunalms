@@ -26,8 +26,9 @@ nipunalms/
 ├── frontend/         React SPA (Vite + TanStack Router/Query), Playwright e2e tests
 ├── db/               Numbered SQL migrations — the source of truth for the schema
 ├── prototype/        Readable copy of the Lovable LMS prototype — reference only for layout and wording
-├── docs/             The four project docs (this folder)
-├── nipuna crm-docs/  Copy of the CRM's docs and its integration-round replies (owned by the CRM side; read only)
+├── docs/             The four project docs (this folder) and the content data request (PDF)
+├── nipuna crm-docs/  Only while a CRM integration round is open: the round's brief, replies and test results (see
+│                     CRM_INTEGRATION.md §5; deleted once the round is recorded there)
 └── venv/             Python virtualenv
 ```
 
@@ -63,7 +64,12 @@ APP_ENV=development ../venv/bin/flask --app app seed-dev              # staging 
 ```
 
 Rebuilding drops every event the local CRM has sent; ask the CRM side to run `flask lms backfill --force` afterwards
-(Part C).
+(Part C). When the CRM's test data must survive, apply a new migration in place instead:
+`psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/<file>.sql`.
+
+`nipunalms-dev` is shared by the e2e suite and the local CRM. The e2e specs assume a freshly seeded database, so CRM
+joint tests (curricula activated, finance snapshots, extra batches) can make a few delivery and dashboard specs fail
+until the next rebuild.
 
 ### 4. Staging data
 
@@ -73,8 +79,8 @@ Rebuilding drops every event the local CRM has sent; ask the CRM side to run `fl
 - 11 staff accounts.
 - The CRM's eight courses (codes, titles and categories as in the CRM, all single courses) plus the seed-only combo
   **NIT-CRS-900** (3 + 1: tracks T1–T3 and the Power BI booster NIT-CRS-019; the CRM has no combo yet).
-- Curriculum versions with modules and topics. NIT-CRS-052 deliberately has no active version → *Curriculum Mapping
-  Pending*.
+- Curriculum versions with modules and topics for every course except NIT-CRS-028 and NIT-CRS-052. NIT-CRS-052 has a
+  `CV 3.0` draft under review, so its enrolments wait in *Curriculum Mapping Pending*.
 - Five batches across both branches and class sessions for Sep–Oct 2026.
 - The sample student **Anvitha K.** with her combo, separately purchased and complimentary enrolments, and the other
   sample learners.
@@ -128,7 +134,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 |---|---|
 | `create-admin` | First Super Admin on a fresh database |
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
-| `crm-outbox list` | Values waiting for the CRM |
+| `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
 | `jobs list`, `jobs run [name]` | Background jobs: `recording-check`, `support-escalate-overdue`, `allocation-escalation`. No scheduler runs them yet |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 
@@ -355,9 +361,9 @@ formatter, `useCanAdminister`).
 
 ## Part C — Running with the local CRM
 
-Both systems on one laptop, each with its own dev database: CRM `nipunacrm-dev` on :5050 → LMS `nipunalms-dev` on
-:5060. The CRM never touches the LMS database; everything goes through `POST /api/v1/integrations/crm/events`. The
-contract is [CRM_INTEGRATION.md](CRM_INTEGRATION.md).
+Both systems on one laptop, each with its own dev database: CRM `nipunacrm-dev` on :5050 ↔ LMS `nipunalms-dev` on
+:5060. The CRM never touches the LMS database: it posts events to `POST /api/v1/integrations/crm/events` and pulls
+`GET /api/v1/integrations/crm/status`. The contract is [CRM_INTEGRATION.md](CRM_INTEGRATION.md).
 
 ### 1. Connection
 
@@ -374,10 +380,11 @@ contract is [CRM_INTEGRATION.md](CRM_INTEGRATION.md).
 APP_ENV=development ../venv/bin/flask --app app run --port 5060
 
 # CRM (from nipuna-crm/backend, APP_ENV=development)
-flask --app app lms backfill            # write events for everything that exists (--force after an LMS rebuild)
-flask --app app lms deliver --loop      # deliver them (or: flask jobs run lms-sync)
-flask --app app lms outbox --failed     # counts and errors
-flask --app app lms status-check        # call the LMS status pull once
+flask --app app lms backfill            # events for everything that exists, branches first (--force after an LMS rebuild)
+flask --app app lms worker              # deliver every 10 s and pull every minute (--duration N stops after N seconds)
+flask --app app lms pull [--full]       # one pull now
+flask --app app lms reconcile           # compare both sides per admission (--admission ID, --fix)
+flask --app app lms outbox --failed     # counts and errors; lms holds lists pulled records waiting to apply
 ```
 
 ### 3. Smoke test
@@ -407,17 +414,14 @@ Expect `201` with `"status":"Applied"`. Run it again: `200` with `"replayed":tru
 
 Every screen in the prototype is built on `main`: foundation and CRM intake, delivery, content and recordings,
 assessments, attendance / progress / certificates, student services, admin and security, the exception queue, the six
-dashboards, both reports pages, staff notifications and `/account/profile`. The CRM round-1 fixes are in (db 090), and
-the LMS side of round 2 (db 095; `nipuna crm-docs/CRM_ROUND2_LMS_REPLY.md`).
+dashboards, both reports pages, staff notifications and `/account/profile`. CRM integration rounds 1–3 are done on both
+sides (db 090–098; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
 Still to do:
 
 | Item | Notes |
 |---|---|
-| Remove the agent worktrees | Nine under `.claude/worktrees/agent-*`, each with a `worktree-agent-*` branch, all merged. `git worktree remove <path>` then `git branch -d <branch>` |
-| Drop the per-module databases | `nipunalms-{admin,assessments,attendance,content,delivery,services,p3a,p3b,p3c}-dev` and the matching `nipunalms_*_test`. Keep `nipunalms`, `nipunalms-dev`, `nipunalms_test` |
 | Validation pass | A cross-role acceptance run (desktop + mobile) against the merged app, and a product / role guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
-| CRM round 2 | See [CRM_INTEGRATION.md §4](CRM_INTEGRATION.md#4-status) |
 
 ---
 
@@ -427,20 +431,13 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 
 ### CRM connection
 
-Details and options are in [CRM_INTEGRATION.md](CRM_INTEGRATION.md).
+Open items and decisions are in [CRM_INTEGRATION.md §4](CRM_INTEGRATION.md#4-open-items) (activation link delivery,
+placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 
 | Item | Notes |
 |---|---|
-| CRM applies the LMS status | Round 2: the CRM's `lms-status-pull` job and the academic, batch and certificate mirrors (§3.2–3.4, §3.6). LMS answers and the CRM's to-do list: `nipuna crm-docs/CRM_ROUND2_LMS_REPLY.md` |
-| Push or pull | The CRM plans to pull `/integrations/crm/status`. The LMS `crm_outbox` rows are queued but not delivered; a push worker is only needed if push is chosen (§3.2) |
-| `lms_last_synced_at` | Set by the CRM when it applies a pull; the LMS reports `now` at pull time (`as_of` can be slightly earlier: it stays below any open transaction) |
-| Activation link delivery | Decided: B now, A later. The CRM discards the token; coordinators reissue with the "Activation link from: CRM provisioning" filter until the CRM delivers links (§3.7) |
-| Branches | The LMS accepts `BranchUpserted` (db 096); the CRM still has to send it (§3.12) |
-| Dashboard finance figures | The LMS accepts `BranchFinanceSnapshot` and shows it (db 096); the tiles stay Not Configured until the CRM's 15-minute job sends one (§3.13) |
-| Certificate numbering | Decided: the LMS series `NIT-CERT-2026-000001`; the CRM mirrors it (§3.6) |
-| Placement owner | Decided: the CRM keeps employers / openings / applications; the LMS Career screen reads and submits through the CRM, in a later round (§3.9) |
-| Course fee and branches | `CourseUpserted` carries neither; ask the CRM if needed (§3.11) |
 | One course per admission | `enrolments` is unique on (admission, course), so the schema still accepts a second course under one admission. The CRM never sends that and no row in the dev data does it; a migration could require `enrolments.course_id = admissions.course_id` |
+| Batch timetable vs class sessions | The batch timetable (days, times, room) is what sales promises; class sessions are scheduled separately and are not checked against it |
 
 ### Integrations (not connected)
 

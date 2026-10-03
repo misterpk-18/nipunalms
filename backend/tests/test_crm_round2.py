@@ -1,4 +1,4 @@
-"""The status pull the CRM applies in round 2 ("nipuna crm-docs/CRM_ROUND2_BRIEF.md", db 095)."""
+"""The status pull the CRM applies in round 2 (docs/CRM_INTEGRATION.md §5, db 095)."""
 from datetime import datetime, timedelta, timezone
 
 import pytest

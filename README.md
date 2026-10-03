@@ -19,4 +19,5 @@ Admission and finance; the LMS receives admissions from it and shows read-only f
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Start here: setup, databases, staging accounts, running and testing, the frontend, running with the local CRM, status and backlog |
 | [docs/API.md](docs/API.md) | Backend architecture, conventions, domain model and every endpoint with its rules |
 | [docs/DATABASE.md](docs/DATABASE.md) | Migrations and the rules the schema enforces |
-| [docs/CRM_INTEGRATION.md](docs/CRM_INTEGRATION.md) | The LMS ↔ CRM contract, the work on the CRM side, status and integration rounds |
+| [docs/CRM_INTEGRATION.md](docs/CRM_INTEGRATION.md) | The LMS ↔ CRM contract, how each side runs it, open items and the history of the integration rounds |
+| [docs/Nipuna_LMS_Content_Data_Request.pdf](docs/Nipuna_LMS_Content_Data_Request.pdf) | The content data request (reference document) |

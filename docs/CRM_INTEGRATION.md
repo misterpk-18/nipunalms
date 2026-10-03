@@ -1,11 +1,11 @@
 # Nipuna LMS ↔ CRM integration
 
-How the LMS and the CRM (`nipuna-crm`) are connected. Part 1 says who owns what, Part 2 is the wire contract, Part 3
-lists the work on the CRM side (done and still open), Part 4 is the status, and Part 5 records the integration rounds.
+How the LMS and the CRM (`nipuna-crm`) are connected: who owns what (§1), the wire contract (§2), how each side runs it
+(§3), what is still open (§4) and the history of the integration rounds (§5).
 
 How to run both systems together on one laptop is in [DEVELOPMENT.md Part C](DEVELOPMENT.md#part-c--running-with-the-local-crm).
-The CRM's own docs (copied into `nipuna crm-docs/`) describe its side: `API.md` Step 22 and `DATABASE.md` "LMS outbox
-(026)".
+The CRM's side is documented in its own repo (`nipuna-crm/docs`: `API.md` "LMS" steps, `DATABASE.md` from "LMS outbox
+(026)" on).
 
 ---
 
@@ -23,8 +23,8 @@ progress and published results. Certificates come from one LMS Certificate Regis
 | Curriculum versions, batches, trainers, allocation, joining date, class sessions, attendance, progress, completion | **LMS** (Modules 14, 15, 21) | CRM mirrors the columns it already has (enrolment / curriculum status, batches, allocations, joining date, completion) and the curriculum catalogue |
 | Curriculum **mapping** of an admission | **Both** (round 3): the LMS maps automatically (a new admission, an activation), and a CRM coordinator can map an admission to the Active version (`AdmissionCurriculumMapped`) | The pull reports the result |
 | Certificates | **LMS** Certificate Register (Module 22) | CRM `certificates` becomes a mirror |
-| Placement (employers, openings, applications) | **CRM** (decided in round 2, §3.9) | LMS Career screen reads and submits through the CRM (later round) |
-| Support | CRM `support_cases` for money / admission; LMS support requests for academic / LMS | Cross-link (§3.10) |
+| Placement (employers, openings, applications) | **CRM** (decided in round 2, §4) | LMS Career screen reads and submits through the CRM (later round) |
+| Support | CRM `support_cases` for money / admission; LMS support requests for academic / LMS | Cross-link (§4) |
 
 **One admission = one course.** The CRM creates one admission per course. A complimentary course is its own admission,
 linked to the paid one (`complimentary_of_crm_admission_id`). Several courses bought together share one invoice, not
@@ -71,6 +71,15 @@ before its complimentary one.
 schedule and `next_due_*`. The LMS shows and sums the schedule once per invoice (`invoice_numbers[0]`), never per
 admission; the per-course figures (`fee_total` … `balance`, `receipts`) stay per admission.
 
+**Finance snapshot figures** follow the CRM dashboard's own rules: collections are verified payments by collecting
+branch, net of reversals; paid Admissions are admissions whose first verified payment falls in the period, by original
+branch; overdue is `installment_dues` past due, by collecting branch, in the CRM's seven age bands (`1–3 days` …
+`91+ days`); verifications are payments in *Pending Verification*, overdue once past the `PAYMENT_VERIFICATION` task's
+due time; follow-ups are leads past their next follow-up time plus *Broken* promises on invoices with a balance. The
+LMS dashboards sum the branches in view: a figure is *Configured* when every branch has a snapshot, *Partial Data*
+(naming the missing branches) when only some do, *Not Configured* when none do, never 0. A snapshot older than 60
+minutes is flagged stale, and a target shows only when every branch in view has one for the same period.
+
 Minimal `AdmissionQualified` `data` that is accepted:
 
 ```json
@@ -88,7 +97,7 @@ Minimal `AdmissionQualified` `data` that is accepted:
 The body is `{"data": {"status": "Applied" | "Ignored — stale" | "Failed", "result": {...}, "replayed": bool,
 "activation_token": ...}}`. The `AdmissionQualified` result carries `lms_user_id`, `lms_status` and the enrolment
 status, and — once, for a new login only — `activation_token`. The token is a secret: never log it or store it in
-plaintext (§3.7).
+plaintext (§4, activation link delivery).
 
 | HTTP | Meaning | What the CRM worker does |
 |---|---|---|
@@ -103,11 +112,11 @@ plaintext (§3.7).
 
 ### 2.2 LMS → CRM: what the CRM stores about the LMS
 
-Two ways, both built in the LMS: **pull** `GET {LMS}/api/v1/integrations/crm/status?since=<ISO time>` (service key;
+The CRM **pulls** `GET {LMS}/api/v1/integrations/crm/status?since=<ISO time>` (service key;
 returns `persons[]`, `admissions[]`, `academics[]`, `batches[]`, `certificates[]`, `curriculum_versions[]` and `as_of`,
-the next `since`), or
-**push** from the LMS `crm_outbox` (rows written in the same transaction as the change; no delivery worker yet — §3.2).
-Undelivered rows for the same admission / batch are superseded by the latest state. Rows written by the dev seed
+the next `since`). The same values are also written to the LMS `crm_outbox` in the transaction of each change
+(undelivered rows for the same admission / batch superseded by the latest state), but nothing delivers it: the pull is
+the transport. Rows written by the dev seed
 (`seed_data`) are left out of the pull, because the CRM knows none of their IDs.
 
 **Pull rules** (db 095):
@@ -158,268 +167,67 @@ a course of the admission is running; **Inactive** — student suspended, or all
 
 ---
 
-## 3. Work on the CRM side
+## 3. How each side runs it
 
-Numbered so they can be tracked. 3.1 is done; 3.2–3.4 are next; the rest remove double entry and conflicts.
+### 3.1 CRM
 
-### 3.1 Send events to the LMS ✅ (round 1)
+- **Outbox and worker** (CRM db 026, 029, 030). Every change writes its event in the same transaction; a trigger makes
+  a written envelope immutable, so a retry is byte-for-byte the same request. Records are versioned per key (`course:`,
+  `admission:`, `finance:`, `branch:`, `branch-finance:`, `curriculum:`). An admission's events share one queue, so its
+  finance or mapping never overtakes its `AdmissionQualified`.
+- **Delivery.** Pushed in a background thread right after the request commits (3 s timeout); the worker
+  (`flask lms worker`, cron every minute on a server) retries every 10 s with backoff (§2.1 responses). Events held back
+  because the LMS was unreachable are released as soon as `GET /api/v1/health` answers 200, so health stays
+  unauthenticated and to one cheap query (`tests/test_health.py`).
+- **Pull** about once a minute (`lms-status-pull`, watermark in `lms_pull_state`), applied in the order batches →
+  persons → admissions → academics → certificates → curriculum versions, one transaction per record. A record that
+  can't be applied yet (unknown batch, course, branch) is held and retried on every pull. LMS-confirmed facts bypass the
+  CRM's own validation triggers (`SET LOCAL app.sync_source = 'LMS'`).
+- **Mirrors.** `lms_user_id` / `lms_status`, academics with one allocation row per track, batches (trainer and
+  authoriser emails stored as text when no CRM user matches), certificates (with *Superseded*), the curriculum catalogue.
+  The CRM's academic screens are read-only (409 `MANAGED_IN_LMS`); `PATCH /admissions` refuses `lms_status`.
+- **What the CRM still writes:** admissions, persons, money, branches, finance snapshots, pause / resume, and curriculum
+  mapping of an admission (to the Active version, never once allocated).
+- **Tools:** `flask lms backfill [--branches] [--admission ID --force]`, `deliver`, `outbox --failed`, `requeue`,
+  `pull [--full]`, `refresh <admission>`, `reconcile [--admission ID] [--fix]` (also a daily drift job), `holds`.
+- `activation_token` is never logged or stored; the CRM keeps only `activation_token_issued` on the outbox row.
 
-Built in the CRM (`nipuna-crm` db `026_lms_outbox.sql`, dev database only):
+### 3.2 LMS
 
-- `lms_outbox` table and `lms_sync_versions` counters (`course:<id>`, `admission:<id>`, `finance:<id>`). A trigger makes
-  a written envelope immutable, so every retry is byte-for-byte the same request; a changed record gets a new event with
-  a higher version.
-- Events are written in the same transaction as the change, for every path in §2.1.
-- Worker: job `lms-sync` in `flask jobs run`, or `flask --app app lms deliver --loop`. Each run takes the oldest
-  Pending row of each record (an admission together with its finance), so an admission's finance never overtakes its
-  `AdmissionQualified` and one waiting admission never blocks another. Rows are claimed with a 5-minute lease; no
-  transaction is held open during the HTTP call. A Failed row does not hold back later rows of the same admission.
-- Config: `LMS_BASE_URL` (dev `http://127.0.0.1:5060`) and `LMS_SERVICE_KEY` (= the LMS `CRM_SERVICE_KEY`) in the CRM
-  `backend/.env` / `.env.example`.
-- Backfill: `flask --app app lms backfill` (courses, then every non-cancelled admission with its finance;
-  `--include-cancelled` also sends cancelled ones, qualified first; `--admission <id> --force` resends one record as a
-  new event). Other commands: `lms outbox --failed`, `lms requeue [id…]`, `lms status-check`.
-- `activation_token` is never logged or stored; the CRM keeps only `activation_token_issued = true` on the outbox row.
-
-### 3.2 Receive LMS status (next)
-
-- Chosen in round 2: **pull**. A CRM job `lms-status-pull` calls `GET /integrations/crm/status?since=<last as_of>`
-  every few minutes (watermark in the CRM table `lms_pull_state`; rules in §2.2). The LMS outbox is not delivered.
-- Apply: `persons.lms_user_id`, `lms_provisioned_at`; `admissions.lms_status`, `lms_last_activity_at`,
-  `lms_last_synced_at`; the academic columns (3.3); batches (3.4); certificates (3.6).
-- `PATCH /admissions/{id}` must stop accepting `lms_status` from staff at the same time (it becomes LMS-owned); the
-  **LMS access** screen (`/lms-access`) keeps its read-only list, now with real values and a "last synced" time.
-
-### 3.3 Academic columns become an LMS mirror
-
-Apply `AdmissionAcademicsChanged` to `admissions.enrolment_status`, `curriculum_status`, `curriculum_version_id`
-(match `curriculum_version_label` + course, creating a Published mirror row if missing), `batch_allocations`
-(`joining_date`, status, `ended_at`, `end_reason`), `academic_completed_at`. The CRM's triggers need a system path:
-
-- `admissions_completion` requires `completion_authorised_by` (a CRM user): allow a sync source (e.g.
-  `completion_source = 'LMS'` + the LMS authoriser's email) or map the email to the CRM user.
-- Allocation triggers (same service branch, curriculum Mapped, capacity, one active per course) must accept
-  LMS-confirmed allocations as facts, not re-validate them.
-- The "first allocation → Scheduled, joining date → In Progress" triggers must not fight the mirrored status (apply the
-  status after the allocation, or disable those triggers for the sync session, e.g. `SET LOCAL app.sync_source = 'LMS'`).
-
-### 3.4 Batches become an LMS mirror
-
-- Upsert CRM `batches` from `BatchUpserted` keyed by `lms_course_id` (= LMS `batch_code`); map `lead_trainer_email` →
-  `trainer_user_id`; status / mode vocabularies per §2.3. `batch_code` stays the CRM's own (`GNT-B-0001`).
-- A combo's tracks are allocated to batches **of the combo course** (the LMS refuses a batch of another course), so
-  the CRM must accept a mirrored batch on a combo course. Store one allocation per track (`track_code`).
-- Existing CRM batches: dropped, not linked (dev data only; agreed in round 2). The CRM stops sending `crm_batch_id`.
-- `lead_trainer_email` with no matching CRM user: store the email as text and leave the user id empty.
-
-### 3.5 Retire double entry in the CRM (after 3.3 / 3.4)
-
-Make these read-only (or remove the buttons) and link to the LMS: `POST/PATCH /batches`, `POST /admissions/{id}/allocations`,
-`POST /batch-allocations/{id}/close`, `POST /batch-allocations/{id}/joining-date`, `POST /curriculum-versions`, `/publish`,
-`POST /admissions/{id}/curricula`, `POST /admissions/{id}/complete`, `POST /admissions/{id}/certificates`,
-`/certificates/{id}/issue`, `/revoke`. Jobs: `batch-allocation` escalation moves to the LMS (its
-`allocation-escalation` job is built: 24 hours before `planned_start_date`, to the service branch's Branch Managers). The Academic Coordinator
-and Trainer screens in the CRM (Batches, allocation queue, joining date) become views; their academic work happens in
-the LMS. Update the CRM ROLE_GUIDE / PRODUCT_GUIDE accordingly.
-
-### 3.6 Certificates
-
-The LMS register numbers certificates `NIT-CERT-2026-000001` (prototype); the CRM numbers `GNT-C-2627-00001`. Decide
-one series (decided in round 2, D2: **the LMS register's**, since it owns issue, reissue and revoke) and mirror LMS certificates into
-CRM `certificates` read-only, for Student 360 and alumni (CRM `certificate_status` has no *Superseded*: add it, or keep
-only the latest version per number).
-
-### 3.7 Student activation delivery (decided: B now, A later)
-
-A new LMS login comes with a one-time activation token in the `AdmissionQualified` response. Today the CRM discards it,
-so these students can only activate after an LMS reissue: a coordinator or Super Admin uses Student Accounts →
-"Activation link from: CRM provisioning (not delivered)" (`?activation_channel=CRM provisioning`) and reissues the link;
-the old token stops working.
-
-- **Option A:** the CRM delivers `{LMS}/activate?token=…` by WhatsApp or email. Needs a CRM template and task, and a
-  decision on whether the token may sit in the CRM outbox until sent.
-- **Option B:** activation stays supervised in the LMS, and the LMS stops returning `activation_token`.
-
-Decided in round 2 (D1): **B now, A later.** Coordinators reissue links in the LMS until the CRM's WhatsApp / email
-delivery is live; then the CRM switches to A. The LMS keeps returning `activation_token` meanwhile (the CRM discards it),
-so the switch needs no LMS change.
-
-### 3.8 Staff accounts
-
-Trainers, Academic Coordinators, Branch Managers and admins need LMS accounts too. Use the **same email** in both
-systems (the LMS reports trainers and authorisers by email). Later: single sign-on or user provisioning from the CRM.
-
-### 3.9 Placement (decided: the CRM owns it)
-
-The CRM already runs placement (companies, job openings, placement profiles, applications, alumni) for the Placement
-Team; the LMS has a student-facing Career screen (profile, CVs, opportunities, applications). Recommended: the CRM stays
-the owner of employers, openings and applications; the LMS Career screen reads approved openings and submits
-applications / CVs to the CRM (new CRM service endpoints), so there is one placement record. Decided in round 2 (D5);
-built in a later round.
-
-### 3.10 Support
-
-CRM `support_cases` (money, admission, complaints) and LMS support requests (academic, LMS, recordings, devices) stay
-separate but should cross-link: an LMS request that is really a fee question is routed to a CRM support case (and vice
-versa) with both references stored.
-
-### 3.11 Small points
-
-- Keep `admission_code`, `person_code`, `receipt_number` in payloads for display.
-- `curriculum_versions` in the CRM are per course only; LMS combos have per-track versions — the mirror should store the
-  parent programme label.
-- `CourseUpserted` does not carry the standard fee or the branches offering a course; both are in the CRM Course
-  Master. Ask the CRM if the LMS needs them.
-
-### 3.12 Branches (decided: `BranchUpserted`)
-
-Decided in round 2 (D3). The LMS accepts `BranchUpserted` (§2.1, db 096). The CRM writes one in its outbox when a branch
-is created or edited, and backfills its existing branches once (`NIT-GNT` / `NIT-VIJ` already match: the LMS short codes
-equal the CRM's `receipt_prefix`). A `BranchUpserted` must be delivered before the first admission of a new branch,
-or that admission gets a 422 and is retried.
-
-### 3.13 Dashboard finance figures (decided: CRM pushes `BranchFinanceSnapshot`)
-
-Decided in round 2 (D4). The LMS accepts `BranchFinanceSnapshot` (§2.1, db 096) and stores the latest one per branch.
-The CRM job `lms-finance-snapshot` sends one event per active branch every 15 minutes (built in CRM db 029). An
-unsent snapshot is superseded by the next one, so an LMS outage leaves no backlog. The figures follow the CRM
-dashboard's own rules (`nipuna crm-docs/CRM_ROUND2_FOLLOWUP.md` §2):
-
-- Collections: verified payments by collecting branch, net of reversals.
-- Paid Admissions: admissions whose first verified payment falls in the period, by original branch.
-- Overdue: `installment_dues` that are Overdue, by collecting branch, in the CRM's seven age bands (`1–3 days` …
-  `91+ days`).
-- Verifications: payments in *Pending Verification*; overdue means past the `PAYMENT_VERIFICATION` task's due time.
-- Follow-ups: leads past their next follow-up time, plus *Broken* promises on invoices that still have a balance.
-
-The dashboards sum the branches in view: verified collections and new paid Admissions against target (Branch,
-Founder), overdue amount by age band (Founder), overdue follow-ups = overdue follow-ups + broken promises (Branch),
-overdue payment verifications (Super Admin). A figure is *Configured* when every branch in view has a snapshot,
-*Partial Data* (naming the missing branches) when only some do, and *Not Configured* when none do: never 0. A snapshot
-older than 60 minutes is flagged stale. A target shows only when every branch in view has one for the same period.
+- Every event is stored in `crm_events` (Super Admin → **CRM sync**, `/admin/crm-sync`, with retry). Rules in §2.1.
+- **Auto-mapping stays on** (round 3): a new admission gets its course's Active curriculum version, and activating a
+  version moves every enrolment still waiting onto it. Only one version per course or track can be Active, so the
+  CRM's mapping and the LMS's never disagree; a CRM mapping confirms it, or moves an unallocated admission off a
+  retired version.
+- **Jobs** (`flask jobs run`): `allocation-escalation` raises an enrolment still without a batch 24 hours before its
+  admission's planned start to the service branch's Branch Managers (it replaced the CRM's `batch-allocation` job).
+- **Rules the CRM relies on:** nothing pulled is ever deleted; a Blocked batch is not offered for sale; the LMS sends no
+  promotional messages (in-app service notifications only), so the CRM's "stop contact" stays CRM-only.
+- **Staff** use the same email in both systems: the pull names trainers and completion authorisers by email.
 
 ---
 
-## 4. Status
+## 4. Open items
 
-| Item | Status |
+| Item | Notes |
 |---|---|
-| Event intake, idempotency, versions, retry, inbox screen (`/admin/crm-sync`) | ✅ LMS (db 003) |
-| CRM vocabulary and shapes (Online, English / Telugu, `phone`, `course_title`, `combo_courses` components, Archived, one course per admission, complimentary as its own admission, seat type, planned start, access until, full finance balances + instalments) | ✅ LMS (db 005, `tests/test_crm_alignment.py`) |
-| LMS → CRM: provisioning, `lms_status`, academics, batches (pull + outbox) | ✅ LMS (db 003, 005) |
-| Certificates and completion authoriser to the CRM | ✅ LMS (db 070, `tests/test_crm_certificates.py`) |
-| Round-1 fixes F1–F10 (§5) | ✅ LMS (db 090, `tests/test_crm_round1.py`, `tests/test_profile_finance.py`) |
-| Round-2 answers Q1–Q9 and pull fixes L1–L7 (§5) | ✅ LMS (db 095, `tests/test_crm_round2.py`) |
-| Round 3: curriculum catalogue, `AdmissionCurriculumMapped`, pull filter (§5) | ✅ LMS (db 097, `tests/test_crm_round3.py`); ✅ CRM (CRM db 030) |
-| CRM outbox, worker, backfill (§3.1) | ✅ CRM (db 026, dev only) |
-| CRM applies the status pull (§3.2) and the mirrors (§3.3, §3.4, §3.6); academic screens read-only (§3.5) | ✅ CRM, round 2 (`nipuna crm-docs/CRM_ROUND2_REPLY.md`) |
-| LMS outbox delivery worker | Not needed: the CRM pulls (§3.2) |
-| Activation link delivery (§3.7) | Decided: B now (LMS reissue), A later (CRM delivers) |
-| Branches (§3.12) | ✅ LMS accepts `BranchUpserted` (db 096); ✅ CRM sends it on branch edit and backfill (CRM db 029) |
-| Dashboard finance figures (§3.13) | ✅ LMS accepts `BranchFinanceSnapshot` and shows it (db 096); ✅ CRM job `lms-finance-snapshot` (CRM db 029) |
-| Certificate number series (§3.6), placement owner (§3.9) | Decided: LMS series; the CRM owns placement (later round) |
+| Activation link delivery | Decided (D1): coordinators reissue links in the LMS ("Activation link from: CRM provisioning" filter on Student Accounts) until the CRM can send WhatsApp / email; then the CRM delivers `{LMS}/activate?token=…`, storing the token encrypted until sent. No LMS change needed |
+| Placement | Decided (D5): the CRM owns employers, openings and applications. The LMS Career screen will read approved openings and submit applications / CVs through new CRM service endpoints. Later round |
+| Support cross-link | CRM `support_cases` (money, admission) and LMS support requests (academic, LMS) stay separate; a request that belongs to the other side should be routed with both references stored. Not designed yet |
+| Staff accounts | Same email in both systems today; single sign-on or provisioning from the CRM later |
+| Course fee and branches | `CourseUpserted` carries neither the standard fee nor the branches offering a course; ask the CRM if the LMS needs them |
+| Real data | Everything runs on dev databases only. Never point it at real student data until the service key, transport and retention are agreed |
+
+---
 
 ## 5. Integration rounds
 
-Each round runs locally only: CRM `nipunacrm-dev` on :5050 → LMS `nipunalms-dev` on :5060. Never point this at real
-student data until the service key, transport and retention are agreed.
+Each round is a brief from the CRM, an LMS reply and a joint test, exchanged as files in `nipuna crm-docs/` (both sides
+drop them there; they are deleted once the round is recorded here, and stay in git history). Local only: CRM
+`nipunacrm-dev` on :5050 ↔ LMS `nipunalms-dev` on :5060.
 
-### Round 1 — 1 Oct 2026
-
-**CRM run:** backfill of 8 courses, 10 admissions and 10 finance summaries, plus one live payment verification. All 30
-events were Applied; no 400 or 422. The CRM's fix list is `nipuna crm-docs/CRM_TO_LMS_FIXES_ROUND1.md`.
-
-**LMS fixes (all done):**
-
-| ID | Fix |
-|---|---|
-| F1 | The dev catalog holds the CRM's 8 courses with the CRM's codes, titles, categories, `is_combo = false` and status. The seed-only combo moved to `NIT-CRS-900` (tracks `NIT-CRS-900/T1`–`T3` + the `NIT-CRS-019` booster), a code the CRM doesn't use |
-| F2 | `CourseUpserted` reconciles components (422 while in use) and a trigger keeps a single course from holding components |
-| F3 | Instalments per invoice: `installments_scope`, `invoice_course_count`; one schedule per invoice on Fees & Receipts and in `GET /finance-summaries` `meta.totals` |
-| F4 | `person_id`, `admission_id`, `complimentary_of_admission_id` aliases |
-| F5 | Course title 255 characters; cancel reason unlimited |
-| F6 | `seed_data` rows left out of the status pull (right after a rebuild the pull returns 0 of each) |
-| F7 | "Activation link from" filter on Student Accounts; the reissue path is tested (§3.7 decision still open) |
-| F8 | Full refresh confirmed and tested; `null` clears `email` / `name_te` |
-| F9 | No change; see §3.12 |
-| F10 | This document updated to the wire format |
-
-`nipunalms-dev` was rebuilt and reseeded after the fixes, so the round-1 LMS student and enrolment codes are gone; the
-CRM's next `flask lms backfill --force` creates new ones. Expected after it: 11 admissions, 10 students and 11 finance
-summaries with numeric CRM IDs; 9 courses (the CRM's 8 + `NIT-CRS-900`). Admissions on `NIT-CRS-025`, `NIT-CRS-026` and
-`NIT-CRS-052` wait in *Curriculum Mapping Pending* (no Active curriculum in the LMS). CRM admissions 6 and 7 share
-invoice `INV-GNT-2627-0005` (`installments_scope = 'invoice'`, `invoice_course_count = 2`): Meera Joshi's Fees &
-Receipts shows one schedule, with balances of ₹20,000 and ₹12,000.
-
-### Round 2 — 1 Oct 2026
-
-**CRM brief:** `nipuna crm-docs/CRM_ROUND2_BRIEF.md`: the CRM starts applying the status pull. **LMS reply:**
-`nipuna crm-docs/CRM_ROUND2_LMS_REPLY.md`, which answers Q1–Q9, gives the LMS view on D1–D5 and lists what is pending on
-the CRM side.
-
-| ID | LMS change (db 095) |
-|---|---|
-| L1 | `as_of` comes from `crm_pull_as_of()`, below the oldest open transaction. Before, a change committing during a pull could be skipped forever |
-| L2 | `admissions[]` filters on `admission_lms_state.changed_at` (status or last activity), so late-recorded activity is pulled |
-| L3 | `lms_provisioned_at` uses the database clock |
-| L4 | Batches, allocations and numbered certificates can't be deleted |
-| L5 | `allocations[].track_code` |
-| L6 | Indexes on the pull's change stamps |
-| L7 | Seed curricula for `NIT-CRS-025` (`CV 2.0`) and `NIT-CRS-026` (`CV 1.2`); `NIT-CRS-052` stays unmapped (draft `CV 3.0` under review) |
-
-Owner decisions (D1–D5): activation B now, A later; the LMS certificate series; `BranchUpserted`; the CRM pushes
-`BranchFinanceSnapshot`; the CRM owns placement. The LMS side of D3 and D4 is built (db 096,
-`tests/test_crm_branches_finance.py`).
-
-Also built: the `allocation-escalation` job (§3.5), and a fix to `notify()`, which returned -1 instead of the number of
-new recipients. Agreed with the CRM: pull, not push; drop and mirror the CRM's dev batches; no CRM-only *Deferred*;
-trainer and authoriser emails stored as text when no CRM user matches.
-
-`nipunalms-dev` was rebuilt and reseeded for db 095. The CRM then backfilled again (14:11 IST, 30 events, all Applied):
-admissions 9 and 10 arrived *Mapped*, and admission 2 stays *Mapping Pending* until `CV 3.0` is activated. db 096 was
-applied in place, without a rebuild.
-
-**CRM side (`nipuna crm-docs/CRM_ROUND2_REPLY.md`):** the pull job, all the mirrors, read-only academic screens (409
-`MANAGED_IN_LMS`), pause / resume, and *Deferred* removed. The first live pull applied 10 persons, 11 admissions and 11
-academics, with nothing held. For its request R1, the LMS activated `NIT-CRS-052` `CV 3.0` and created GNT batches
-`NIT-GNT-BAT-2026-000004` (047) and `…000005` (052), with CRM admissions 1 and 2 allocated. **Follow-up (`nipuna crm-docs/CRM_ROUND2_FOLLOWUP.md`):** the CRM sends `BranchUpserted` and the 15-minute
-`BranchFinanceSnapshot` (CRM db 029). At 22:29 IST both branches' events were Applied, and the R1 batches and
-allocations came through the pull with nothing held. Agreed afterwards: `period` is always sent (A2). Still open
-on the CRM: activation-link delivery (D1, once WhatsApp / email exists).
-
-### Round 3 — 2 Oct 2026: curriculum mapping from the CRM
-
-**Owner decision:** the CRM can map an admission's curriculum; the LMS keeps owning curricula, batches, allocation,
-joining dates, completion and certificates. **CRM:** `nipuna crm-docs/CRM_ROUND3_BRIEF.md` and
-`CRM_ROUND3_LMS_CHANGES.md`. It pushes events right after each commit and pulls about once a minute, and has a
-refresh button and a drift check (CRM db 030). **LMS reply:** `CRM_ROUND3_LMS_REPLY.md`.
-
-| LMS change (db 097) | |
-|---|---|
-| `curriculum_versions[]` in the pull | The whole catalogue in the CRM's three statuses (plus `lms_status`), with its own change stamp. A deleted Draft comes back as a Retired tombstone |
-| `AdmissionCurriculumMapped` | Maps the enrolment or a combo track to the Active version; a change is refused (409) once that course or track has an active allocation. Versioned per admission (`admissions.curriculum_source_version`) |
-| `NOT_YET_APPLIED` | The 422 code for "a course, branch or admission hasn't arrived yet", on every CRM event |
-| Pull filter | `crm_admission_id` / `crm_person_id`, echoed as `filter` |
-
-Agreed: the LMS **keeps auto-mapping** (a new admission gets the course's Active version; activating a version maps
-everything waiting). Only one version per course or track can be Active, so the CRM's choice and the LMS's can't
-disagree. The CRM's mapping confirms it, or moves an unallocated admission off a retired version.
-
-**Joint tests and the sales playbook (same day).** The owner approved the CRM's remaining joint-test script on
-`NIT-CRS-007` (`CRM_ROUND3_JOINT_TESTS.md`, reply `CRM_ROUND3_JOINT_TESTS_LMS_REPLY.md`). `CV 4.1` is Active; `CV 4.2`
-is Approved, to be activated at step 3 on request; the LMS API outage for test 5 is done on request. For the CRM's sales
-playbook (`CRM_PLAYBOOK_LMS_ASKS.md`, reply `CRM_PLAYBOOK_LMS_REPLY.md`), batches gained a timetable set by the
-coordinator (db 098). `batches[]` carries it with `readiness` and `seats_left`, and a Blocked batch is not offered.
-
-**Results (`CRM_ROUND3_JOINT_TESTS_RESULTS.md`, 3 Oct): round 3 is closed.** Every step of both scripts passed. The
-refusal test went as planned: admission 13 (Y) → retired `CV 4.1` got a 422, shown to staff word for word. In the outage
-test, admission 8 → `CV 4.2` waited in the CRM and was *Applied* on its first delivery after the restart (#155). The
-timetable set, change and clear each arrived in the next pull, and drift checks were clean.
-
-The CRM now releases events held back by an outage as soon as `GET /api/v1/health` answers 200 (polled every 10 s), so
-**health must stay unauthenticated and to one cheap query** (`tests/test_health.py`). Left on dev:
-
-- admission Y (`NIT-GNT-2026-000009`), test data that only the CRM can cancel;
-- `NIT-CRS-007` on `CV 4.2`;
-- both Guntur R1 batches Blocked until a lead trainer is assigned.
-
+| Round | Date | What changed |
+|---|---|---|
+| 1 | 1 Oct 2026 | First live CRM → LMS run: backfill of 8 courses, 10 admissions and finance, all 30 events Applied. LMS fixes F1–F10 (db 090): the CRM's catalogue and codes in the seed, `CourseUpserted` reconciles components, instalments per invoice, CRM ID aliases, longer titles, seed rows left out of the pull, the "Activation link from" filter |
+| 2 | 1 Oct 2026 | The CRM applies the pull and becomes a read-only mirror of academics, batches and certificates. LMS (db 095): a gap-free `as_of`, one change stamp per admission, nothing pulled ever deleted, `track_code` on allocations, the `allocation-escalation` job. Owner decisions D1–D5 (§4); `BranchUpserted` and `BranchFinanceSnapshot` built on both sides (db 096) |
+| 3 | 2–3 Oct 2026 | Curriculum mapping writable from the CRM; the CRM pushes after commit and pulls every minute. LMS (db 097): `curriculum_versions[]`, `AdmissionCurriculumMapped`, `NOT_YET_APPLIED`, the pull filter. For the CRM's sales playbook (db 098): batch timetable, `readiness` and `seats_left` in `batches[]`. Joint tests all passed, including an LMS outage |

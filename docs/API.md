@@ -551,6 +551,6 @@ Nothing here calls an external system.
   `BranchFinanceSnapshot`: `{state: "Configured" | "Partial Data", unit ("INR" money as a string, or "count"), value,
   target, period, as_of, stale, missing_branches, detail}`. With no snapshot for any branch in view they stay
   `{"state": "Not Configured", "reason", "refreshed_at"}`, never 0
-  ([CRM_INTEGRATION.md §3.13](CRM_INTEGRATION.md#313-dashboard-finance-figures-decided-crm-pushes-branchfinancesnapshot)).
+  ([CRM_INTEGRATION.md §2.1](CRM_INTEGRATION.md#21-crm--lms-events), finance snapshot figures).
 - The AI rupee ceiling is `app_settings.ai_monthly_ceiling_inr`; absent = `Configuration Pending` (Founder decision).
   "Critical integration failures" counts the readiness register (Failed / Misconfigured), not live monitoring.

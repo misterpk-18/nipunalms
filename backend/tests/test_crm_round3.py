@@ -1,4 +1,4 @@
-"""Round 3: curriculum mapping from the CRM ("nipuna crm-docs/CRM_ROUND3_LMS_CHANGES.md", db 097): the catalogue in
+"""Round 3: curriculum mapping from the CRM (docs/CRM_INTEGRATION.md §5, db 097): the catalogue in
 the status pull, AdmissionCurriculumMapped, and the crm_admission_id / crm_person_id filter on the pull."""
 from datetime import datetime, timedelta, timezone
 

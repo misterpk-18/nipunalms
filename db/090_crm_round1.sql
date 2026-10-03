@@ -1,4 +1,4 @@
--- 090: fixes from the CRM's round-1 integration run ("nipuna crm-docs/CRM_TO_LMS_FIXES_ROUND1.md")
+-- 090: fixes from the CRM's round-1 integration run (docs/CRM_INTEGRATION.md §5, round 1)
 -- Depends on: 002 (courses, course_components), 003 (students, admissions, finance_summaries), 004 (batches)
 --   F3: a finance summary says whether its instalment schedule belongs to the admission or to the whole invoice
 --   F5: course titles as long as the CRM's (varchar 255)

@@ -1,5 +1,4 @@
--- 095: the status pull the CRM applies in round 2 ("nipuna crm-docs/CRM_ROUND2_BRIEF.md", answered in
--- CRM_ROUND2_LMS_REPLY.md)
+-- 095: the status pull the CRM applies in round 2 (docs/CRM_INTEGRATION.md §5)
 -- Depends on: 003 (admission_lms_state), 005 (academic state, batch_crm_state), 040 + 070 (certificates), 090
 --   Q1: `as_of` can be stored as the next `since` without missing a change still being committed during the pull
 --   Q1: every CRM-facing admission value (status, last activity) moves one change stamp, set by the database

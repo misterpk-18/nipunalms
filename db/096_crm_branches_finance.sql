@@ -1,4 +1,4 @@
--- 096: two CRM events agreed in round 2 ("nipuna crm-docs/CRM_ROUND2_LMS_REPLY.md" §3, decisions D3 and D4)
+-- 096: two CRM events agreed in round 2 (owner decisions D3 and D4; docs/CRM_INTEGRATION.md §5)
 -- Depends on: 001 (branches), 003 (crm_events)
 --   BranchUpserted: the CRM creates and updates branches; the LMS no longer needs one made by hand first
 --   BranchFinanceSnapshot: per-branch finance figures for the dashboards (collections and paid Admissions against
