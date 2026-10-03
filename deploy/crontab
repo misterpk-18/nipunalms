@@ -1,0 +1,10 @@
+# ubuntu user's crontab on the LMS server (docs/DEVELOPMENT.md Part F). Install with: crontab deploy/crontab
+# Times are IST (the server timezone is Asia/Kolkata).
+SHELL=/bin/bash
+
+# Background jobs (services/jobs.JOBS): attempts-expire, recording-check, support-escalate-overdue, allocation-escalation.
+# Each is idempotent, so running all of them every 5 minutes is safe; a failed job doesn't stop the others.
+*/5 * * * * cd /srv/nipunalms/backend && APP_ENV=production ../venv/bin/flask --app app jobs run >> /srv/nipunalms/jobs.log 2>&1
+
+# Nightly backup at 02:30: database dump + uploaded files, 14 days kept
+30 2 * * * /srv/nipunalms/deploy/backup.sh >> /srv/nipunalms/backups/backup.log 2>&1

@@ -9,6 +9,7 @@ Admission and finance; the LMS receives admissions from it and shows read-only f
 | `backend/` | Flask API (routes → controllers → services → repositories → models), pytest suite, CLI |
 | `frontend/` | React SPA (Vite + TanStack Router/Query), Playwright e2e tests |
 | `db/` | Numbered SQL migrations — the source of truth for the schema |
+| `deploy/` | Server templates: systemd unit, nginx site, crontab, backup script ([DEVELOPMENT.md Part F](docs/DEVELOPMENT.md#part-f--deployment)) |
 | `prototype/` | Readable copy of the Lovable LMS prototype — reference only for layout and wording |
 | `docs/` | All project documentation — start with [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 
@@ -16,7 +17,7 @@ Admission and finance; the LMS receives admissions from it and shows read-only f
 
 | Doc | What it covers |
 |---|---|
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Start here: setup, databases, staging accounts, running and testing, the frontend, running with the local CRM, status and backlog |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Start here: setup, databases, staging accounts, running and testing, the frontend, running with the local CRM, status, backlog and deployment |
 | [docs/API.md](docs/API.md) | Backend architecture, conventions, domain model and every endpoint with its rules |
 | [docs/DATABASE.md](docs/DATABASE.md) | Migrations and the rules the schema enforces |
 | [docs/CRM_INTEGRATION.md](docs/CRM_INTEGRATION.md) | The LMS ↔ CRM contract, how each side runs it, open items and the history of the integration rounds |

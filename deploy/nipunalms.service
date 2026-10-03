@@ -1,0 +1,18 @@
+# systemd unit for the LMS API (docs/DEVELOPMENT.md Part F). Install as /etc/systemd/system/nipunalms.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now nipunalms
+# The CRM uses 127.0.0.1:5050 on its server; the LMS keeps 5060 so both can share one host.
+[Unit]
+Description=Nipuna LMS API (gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/srv/nipunalms/backend
+Environment=APP_ENV=production
+ExecStart=/srv/nipunalms/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5060 --timeout 120 --access-logfile - "app:create_app()"
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

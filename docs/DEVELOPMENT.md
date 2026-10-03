@@ -10,9 +10,11 @@ clean up, and the backlog of open gaps and decisions.
 | [C — Running with the local CRM](#part-c--running-with-the-local-crm) | Both systems on one laptop, the smoke test, checking received events |
 | [D — Status and clean-up](#part-d--status-and-clean-up) | What is built, what is left to tidy |
 | [E — Backlog](#part-e--backlog) | Open product decisions and gaps found while building |
+| [F — Deployment](#part-f--deployment) | The server templates in `deploy/`: API service, nginx, cron jobs, backups, redeploy and migrations |
 
 The other docs: [API.md](API.md) (backend architecture, conventions, every endpoint), [DATABASE.md](DATABASE.md)
-(migrations and schema rules), [CRM_INTEGRATION.md](CRM_INTEGRATION.md) (the LMS ↔ CRM contract).
+(migrations and schema rules), [CRM_INTEGRATION.md](CRM_INTEGRATION.md) (the LMS ↔ CRM contract),
+[GAP_FIX_PLAN.md](GAP_FIX_PLAN.md) and [GAPS.md](GAPS.md) (the gaps against the approved modules and the plan to close them).
 
 ---
 
@@ -25,8 +27,9 @@ nipunalms/
 ├── backend/          Flask API (routes → controllers → services → repositories → models), pytest suite, CLI
 ├── frontend/         React SPA (Vite + TanStack Router/Query), Playwright e2e tests
 ├── db/               Numbered SQL migrations — the source of truth for the schema
+├── deploy/           Server templates: systemd unit, nginx site, crontab, backup script (Part F)
 ├── prototype/        Readable copy of the Lovable LMS prototype — reference only for layout and wording
-├── docs/             The four project docs (this folder) and the content data request (PDF)
+├── docs/             The project docs (this folder) and the content data request (PDF)
 ├── nipuna crm-docs/  Only while a CRM integration round is open: the round's brief, replies and test results (see
 │                     CRM_INTEGRATION.md §5; deleted once the round is recorded there)
 └── venv/             Python virtualenv
@@ -445,7 +448,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
 | WhatsApp / email / telephony | In-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation` and `attempts-expire`; no cron runs it yet. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation` and `attempts-expire`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 
@@ -552,3 +555,83 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Provisioning | "Provisioning" means an enrolment held in `Provisioning Pending` (complimentary offer, unmet payment gate). The seed has none, so the Provisioning table on `/admin` is empty in staging; a failed LMS-account creation has no stored state to list |
 | Dashboard freshness | Summaries are read live on each visit (no caching, no auto-refresh); `as_of` is returned but not shown |
 | Academic "reviews awaiting" | Counts content awaiting review, open completion reviews and certificates in Eligibility Review / Awaiting Approval; assessment moderation is shown separately as "results awaiting publication review" |
+
+---
+
+## Part F — Deployment
+
+The LMS is not deployed yet. `deploy/` holds the templates for a server laid out like the CRM's EC2 test server
+(`~/nipuna-crm/docs/DEVELOPMENT.md` Part C): nginx serves the built frontend and proxies `/api` to gunicorn, Postgres
+runs on the same machine, cron runs the jobs and the nightly backup. **Which host it runs on (the CRM's instance or its
+own) is not decided, and nothing is deployed without the owner's go-ahead.** On a shared host the LMS keeps
+`127.0.0.1:5060` and the CRM `5050`; a t3.micro (1 GB) is tight for both.
+
+### 1. Layout on the server
+
+| Path / unit | What | Template |
+|---|---|---|
+| `/srv/nipunalms/backend` | Flask app (no tests, no local `.env`) | — |
+| `/srv/nipunalms/backend/.env` | Server-only, mode 600, generated on the server: `APP_ENV=production`, `DATABASE_URL`, `SECRET_KEY`, `CRM_SERVICE_KEY`, `UPLOAD_DIR`, optionally `ANTHROPIC_API_KEY`. Production refuses to start with the default `SECRET_KEY` or without `CRM_SERVICE_KEY` | — |
+| `/srv/nipunalms/backend/uploads` | Content files, submissions, CVs (local disk until production storage is decided) | — |
+| `/srv/nipunalms/db`, `/srv/nipunalms/deploy` | SQL migrations; these templates and `backup.sh` | — |
+| `/srv/nipunalms/frontend` | Built frontend (`frontend/dist` contents) | — |
+| `/srv/nipunalms/venv` | Python venv: `requirements.txt` + `gunicorn` | — |
+| `nipunalms.service` (systemd) | gunicorn, 2 workers, `127.0.0.1:5060`, `app:create_app()`, restarts automatically | `deploy/nipunalms.service` |
+| `/etc/nginx/sites-available/nipunalms` | Static frontend with SPA fallback, `/api/` → `127.0.0.1:5060`, 260 MB upload limit (the API applies the per-type limits); certbot adds TLS and the HTTP → HTTPS redirect | `deploy/nginx-nipunalms.conf` |
+| `ubuntu` crontab | `flask --app app jobs run` every 5 minutes → `/srv/nipunalms/jobs.log`; `backup.sh` at 02:30 | `deploy/crontab` |
+| `/srv/nipunalms/backups` | Nightly `pg_dump -Fc` and an uploads tarball, 14 days kept (`RETENTION_DAYS`) | `deploy/backup.sh` |
+
+### 2. First install
+
+```bash
+sudo mkdir -p /srv/nipunalms && sudo chown ubuntu: /srv/nipunalms
+python3 -m venv /srv/nipunalms/venv
+# copy the code (section 3), then:
+/srv/nipunalms/venv/bin/pip install -r /srv/nipunalms/backend/requirements.txt gunicorn
+createdb nipunalms   # as the database owner; then apply every db/*.sql in order (section 4)
+sudo cp /srv/nipunalms/deploy/nipunalms.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now nipunalms
+sudo cp /srv/nipunalms/deploy/nginx-nipunalms.conf /etc/nginx/sites-available/nipunalms   # set LMS_HOST
+sudo ln -s /etc/nginx/sites-available/nipunalms /etc/nginx/sites-enabled/ && sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d <LMS_HOST>
+crontab /srv/nipunalms/deploy/crontab
+```
+
+### 3. Redeploy code
+
+```bash
+(cd frontend && npm run build)    # build on the laptop
+rsync -az --delete -e "$KEY" --exclude '.env' --exclude '__pycache__' --exclude '.pytest_cache' \
+  --exclude 'uploads/' --exclude 'tests/' --exclude 'api.http' backend db deploy ubuntu@$IP:/srv/nipunalms/
+rsync -az --delete -e "$KEY" frontend/dist/ ubuntu@$IP:/srv/nipunalms/frontend/
+$KEY ubuntu@$IP 'sudo systemctl restart nipunalms && systemctl is-active nipunalms'
+```
+
+### 4. Migrations
+
+Locally every rebuild replays all of `db/*.sql`; a server database is never rebuilt. There is no migrations table, so
+**apply only the new files, once each, in order, after a backup**:
+
+```bash
+$KEY ubuntu@$IP '/srv/nipunalms/deploy/backup.sh'
+$KEY ubuntu@$IP 'cd /srv/nipunalms && set -a && . backend/.env && set +a &&
+  psql "${DATABASE_URL/+psycopg/}" -v ON_ERROR_STOP=1 --single-transaction -f db/099_gap_fixes.sql'
+```
+
+Keep a list of the files applied on each server here once one exists.
+
+### 5. Check it works, backups
+
+```bash
+curl -s https://<LMS_HOST>/api/v1/health                  # {"data":{"status":"ok","database":"ok"}}
+$KEY ubuntu@$IP 'sudo journalctl -u nipunalms -n 50 --no-pager; tail -20 /srv/nipunalms/jobs.log'
+$KEY ubuntu@$IP 'ls -lh /srv/nipunalms/backups; tail -3 /srv/nipunalms/backups/backup.log'
+```
+
+A restore is `pg_restore --clean --if-exists -d <database> nipunalms-<stamp>.dump` plus the uploads tarball. Copy a dump
+off the server now and then: the backups share the instance disk. The security controls `BACKUPS` and `HTTPS` stay
+Pending Verification until a real server has run a backup, a restore drill and certbot.
+
+Checked locally (3 Oct 2026): the API under gunicorn with the unit's command and `APP_ENV=production` answers
+`/api/v1/health`, production refuses the default secret, and `backup.sh` (with `LMS_ROOT` pointing at a scratch folder)
+writes a restorable dump and an uploads tarball and prunes old files. nginx was not tested (not installed locally).
+
