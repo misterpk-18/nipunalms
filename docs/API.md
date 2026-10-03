@@ -196,7 +196,8 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 | GET | `/curriculum/overview` | Staff | One row per course: Active version, versions in review, mapped / pending enrolments (Curriculum Mapping Pending) |
 | GET / POST | `/curriculum-versions` | Staff / AC, Super Admin | List (filters `course_id`, `status`); create a Draft (optionally copied from an earlier version) |
 | GET / PATCH / DELETE | `/curriculum-versions/{id}` | Staff / AC, Super Admin | Detail with modules, topics, review trail and publish blockers; rename; delete only a never-published Draft |
-| POST | `/curriculum-versions/{id}/submit`, `/return`, `/approve`, `/activate`, `/retire` | AC, Super Admin (approval by someone other than the submitter) | Draft → Under Review → Approved → Active → Retired; `return` needs a reason. Activating maps Curriculum Mapping Pending enrolments and batches and returns the counts |
+| POST | `/curriculum-versions/{id}/submit`, `/return` | AC, Super Admin (`return` also Founder / CEO) | Draft → Under Review; `return` (back to Draft) needs a reason. Submitting notifies the Founder / CEO (link `/founder/curriculum`) and Super Admin |
+| POST | `/curriculum-versions/{id}/approve`, `/activate`, `/retire` | Founder / CEO, Super Admin (fresh auth; never the submitter, Module 14 §5) | Under Review → Approved → Active → Retired. Activating maps Curriculum Mapping Pending enrolments and batches and returns the counts |
 | POST | `/curriculum-versions/{id}/modules`, `/curriculum-modules/{id}/topics` | AC, Super Admin | Add to a Draft (optional `position`) |
 | PATCH / DELETE | `/curriculum-modules/{id}`, `/curriculum-topics/{id}` | AC, Super Admin | Draft only; sort order re-sequenced |
 | GET | `/enrolments`, `/allocation-queue` | Staff / AC, BM, Super Admin | Branch-scoped enrolment list; the queue of payment-cleared enrolments waiting for a seat |
@@ -344,11 +345,16 @@ Job: `flask --app app jobs run attempts-expire`: submits attempts still open pas
 | GET | `/completion-reviews` | Staff (scoped) | Running / completed enrolments with evidence, latest review, certificate status |
 | POST | `/completion-reviews` | Trainer, AC, SA | `{enrolment_id}` opens a review (201, or 200 with the open one) |
 | POST | `/completion-reviews/{id}/recommendation` | Trainer of the batch, AC, SA | `{recommendation, comment?}` |
-| POST | `/completion-reviews/{id}/decision` | AC, SA (fresh auth) | `{decision: Complete\|Not Yet\|Needs Recovery, reason?}`; Complete → enrolment Completed + Course Completion Certificate eligibility. An Internship Certificate entry stays Not Yet Eligible: it needs internship evidence |
+| POST | `/completion-reviews/{id}/decision` | AC, SA (fresh auth) | `{decision: Complete\|Not Yet\|Needs Recovery, reason?}`; Complete needs a Complete recommendation by a trainer of a batch the enrolment was allocated to (Module 22 §2) and → enrolment Completed + Course Completion Certificate eligibility. An Internship Certificate entry stays Not Yet Eligible: it needs internship evidence |
 | GET | `/certificates`, `/certificates/{id}`, `/me/certificates` | AC, BM, SA, Founder (branch scope) / Student (own) | Register entries (every version) with `actions` the caller may take; detail has `history` |
 | POST | `/certificates` | AC, SA | `{enrolment_id, certificate_type}` adds an entry (e.g. Internship Certificate) |
-| POST | `/certificates/{id}/recommendation`, `/return`, `/approval`, `/issue`, `/reissue`, `/revocation` | AC / BM / BM, AC, SA / BM, SA / SA | Approval, issue, reissue, revocation need fresh auth; approval needs someone other than the recommender |
-| GET | `/certificates/verify/{number}` | Public | Holder, course, issue date, status, version only |
+| POST | `/certificates/{id}/recommendation`, `/return`, `/approval`, `/issue` | AC / BM / BM, AC, SA | Approval and issue need fresh auth; approval needs someone other than the recommender. Recommendation and issue need the fee cleared (`fee_clearance` on every register row: Cleared, Outstanding, Not Received, Released by exception) |
+| POST | `/certificates/{id}/change-requests` | Correction: AC, BM, SA. Revocation / Reinstatement: AC, BM, SA, Founder | `{kind: Correction\|Revocation\|Reinstatement, reason, evidence?, holder_name?}`; evidence required for revocation and reinstatement. One pending request per certificate (409). The certificate is unchanged until approved |
+| GET | `/certificate-requests?status=&kind=` | AC, BM, SA, Founder (branch scope) | Each row has `actions: ["decide"]` when the caller may decide it |
+| POST | `/certificate-requests/{id}/decision` | Correction: BM, SA. Revocation / Reinstatement: Founder, SA (fresh auth; never the requester) | `{decision: Approved\|Rejected, note}` (note required to reject). Approving applies it: a correction issues v+1 under the same number (`resulting_certificate_id`); a revocation revokes; a reinstatement returns Revoked → Issued with the same number and issue date, the revoked interval kept in `status_history` |
+| POST | `/certificates/{id}/financial-exception` | AC, BM, SA | `{reason}`: asks for the paying admission to be released for certificates while its fee is Outstanding |
+| GET / POST | `/certificate-financial-exceptions`, `/{id}/decision` | AC, BM, SA, Founder / Founder, SA (fresh auth; never the requester) | `{decision, note}` (note required). Approved exceptions satisfy the fee gate for that certificate type; the debt is not waived |
+| GET | `/certificates/verify/{number}?version=` | Public | The presented version (latest by default): `state` Valid — Current Version, Superseded (with `current_version`) or Revoked; holder, course, type, branch, issue date, original issue date |
 
 **Rules:**
 - Attendance: no row = "Not yet marked" (never a guessed absence). A session locks `attendance_lock_days` (7) after it
@@ -402,7 +408,8 @@ Job: `flask --app app jobs run attempts-expire`: submits attempts still open pas
 | GET | `/me/finance` | Student | Read-only CRM data: `admissions[]` (one per course: its own fee, verified paid, balance, receipts) and `schedules[]` (each instalment schedule **once**: per invoice when `installments_scope = invoice`, listing the courses it covers, with `next_due_*` and `overdue_amount`) |
 | GET | `/finance-summaries` | BM (service or collecting branch), Super Admin, Founder | Filters `branch_id`, `student_id`, `has_balance`. `meta.totals`: `balance` summed per admission; `overdue_amount` and `next_due_amount` summed once per schedule |
 | GET | `/finance-summaries/{admission_id}` | Same | One admission plus its `schedule` |
-| GET | `/ask-nipuna/status` | Signed in | `AI Available` / `Configuration Pending` / `Quota Limited` / `Disabled`, usage today, actions, scope |
+| GET | `/ask-nipuna/status` | Signed in | `AI Available` / `Configuration Pending` / `Quota Limited` / `Disabled`, usage today, actions, scope. Disabled while `ai_enabled` is false or an AI control covers the caller's audience and branch |
+| GET / POST | `/ai-controls`, `/ai-controls/{id}/restore` | Super Admin, Founder (fresh auth to change) | Switch AI off: `{audience: Student\|Staff\|All, branch_id?, reason, remediation?}` (`All` is Founder only and company-wide). Restore with `{restoration_note}` (the checks that passed) |
 | POST / GET | `/ask-nipuna/queries` | Signed in | Ask (refusals are answered with `status: Refused` and do not use the allowance); own history |
 | POST | `/ask-nipuna/queries/{id}/feedback` | Asker | `Helpful` / `Not helpful` (+ comment); a report notifies the branch Academic Coordinator |
 

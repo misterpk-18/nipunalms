@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 
 from config.database import db
-from tests.test_certificates import issued, post, w  # noqa: F401  (w is the shared attendance-world fixture)
+from tests.test_certificates import change, decide, issued, post, w  # noqa: F401  (w is the shared attendance-world fixture)
 
 HEADERS = {"X-Service-Key": "test-crm-service-key"}
 
@@ -23,15 +23,18 @@ def test_issue_reissue_and_revoke_are_sent_to_the_crm(client, w):
     assert issue["version"] == 1 and issue["certificate_type"] == "Course Completion Certificate"
     assert issue["crm_admission_id"] and issue["crm_person_id"] and issue["course_code"] and issue["issued_by_email"]
 
-    v2 = post(client, w, "bm", f"/certificates/{cid}/reissue", {"reason": "Name correction", "holder_name": "Anvitha Kolli"})
-    assert v2.status_code == 201, v2.get_json()
+    request_id = change(client, w, "ac", cid, "Correction", reason="Name correction", holder_name="Anvitha Kolli").get_json()["data"]["request_id"]
+    v2 = decide(client, w, "bm", request_id)
+    assert v2.status_code == 200, v2.get_json()
     events = _outbox("CertificateChanged")
     assert sorted((e["version"], e["status"]) for e in events[1:]) == [(1, "Superseded"), (2, "Issued")]
     reissue = next(e for e in events if e["version"] == 2)
     assert reissue["supersedes_version"] == 1 and reissue["holder_name"] == "Anvitha Kolli"
     assert reissue["certificate_number"] == done["certificate_number"]
 
-    revoked = post(client, w, "admin", f"/certificates/{v2.get_json()['data']['certificate_id']}/revocation", {"reason": "Record error"})
+    v2_id = v2.get_json()["data"]["resulting_certificate_id"]
+    request_id = change(client, w, "ac", v2_id, "Revocation", reason="Record error", evidence="Wrong enrolment").get_json()["data"]["request_id"]
+    revoked = decide(client, w, "admin", request_id)
     assert revoked.status_code == 200, revoked.get_json()
     last = _outbox("CertificateChanged")[-1]
     assert last["status"] == "Revoked" and last["reason"] == "Record error" and last["revoked_by_email"]

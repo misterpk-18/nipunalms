@@ -20,7 +20,7 @@ from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from repositories.rows import paginate_rows
-from services import audit, certificates, progress, scope
+from services import approvals, audit, certificates, progress, scope
 from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
@@ -413,8 +413,8 @@ def decide_correction(correction_id: int, decision: str, note: str | None) -> At
     if correction.status != "Pending":
         raise BusinessRule(f"This correction is already {correction.status}")
     record = attendance_repo.find_record(correction.session_id, correction.enrolment_id)
-    if user.user_id == correction.requested_by or (record is not None and record.marked_by == user.user_id):
-        raise BusinessRule("An independent reviewer must decide: not the requester and not the person who marked the entry")
+    approvals.require_independent(correction.requested_by, record.marked_by if record is not None else None,
+                                  message="An independent reviewer must decide: not the requester and not the person who marked the entry")
     if decision == "Rejected" and not note:
         raise ValidationError("Invalid request data", {"decision_note": ["Give the reason for rejecting the correction"]})
 

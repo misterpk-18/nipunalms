@@ -84,7 +84,7 @@ test("coordinator sees alerts and partial data, then recommends a certificate; t
   await expect(page.getByRole("heading", { name: "Attendance and progress by batch" })).toBeVisible();
 });
 
-test("register shows the reissue history and public verification returns only public facts", async ({ page, request }, info) => {
+test("register shows the reissue history and public verification shows the presented version", async ({ page, request }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
   await page.goto("/academic/certificates");
@@ -95,9 +95,24 @@ test("register shows the reissue history and public verification returns only pu
   const response = await request.get("/api/v1/certificates/verify/NIT-CERT-2026-000001");
   expect(response.ok()).toBeTruthy();
   const { data } = await response.json();
-  expect(Object.keys(data).sort()).toEqual(["certificate_number", "certificate_type", "course", "holder_name", "issue_date", "status", "version"]);
-  expect(data.status).toBe("Issued");
+  expect(Object.keys(data).sort()).toEqual([
+    "branch",
+    "certificate_number",
+    "certificate_type",
+    "course",
+    "current_version",
+    "holder_name",
+    "issue_date",
+    "original_issue_date",
+    "state",
+    "version",
+  ]);
+  expect(data.state).toBe("Valid — Current Version");
   expect(data.version).toBe(2);
+
+  // The public page needs no sign-in and shows the older copy as Superseded
+  await page.goto("/verify/NIT-CERT-2026-000001?version=1");
+  await expect(page.getByText(/Superseded — the current copy is version 2/)).toBeVisible();
 });
 
 test("attendance, progress and certificate screens fit a phone without horizontal scroll @mobile", async ({ page }) => {

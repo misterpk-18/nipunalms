@@ -56,7 +56,7 @@ function Actions({ row }: { row: CompletionRow }) {
         <FormDialog
           trigger={<Button size="sm">Decide</Button>}
           title={`Completion decision: ${row.student.full_name}`}
-          description={`${row.enrolment.course.course_code}. Complete moves the enrolment to Completed and opens certificate eligibility.`}
+          description={`${row.enrolment.course.course_code}. Complete needs the batch trainer's Complete recommendation; it moves the enrolment to Completed and opens certificate eligibility.`}
           submitLabel="Record decision"
           fields={[
             { name: "decision", label: "Decision", kind: "select", options: COMPLETION_DECISIONS },

@@ -355,6 +355,9 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 | `/admin/audit` | `admin/audit` | `/audit-log` | Filters by actor, entity, action, date (IST) |
 | `/admin/exceptions` | `admin/exceptions` | `/exceptions` | "Exception Queues — all branches": a section per queue with a branch column (company-wide rows say "All branches"); Super Admin can Update, the Founder reads |
 | `/admin/notifications` | `shared/notification-centre` | | |
+| `/founder/curriculum` | `founder/curriculum` (reuses `academic/curriculum` `VersionEditor`) | `/curriculum-versions?status=` | Versions Under Review or Approved; Approve / Return / Activate |
+| `/founder/certificates` | `founder/certificates` (`shared/certificate-register` `CertificateDecisions`) | `/certificate-requests`, `/certificate-financial-exceptions` | Revocations, reinstatements and fee exceptions to decide |
+| `/verify/:number` | `routes/verify.$number.tsx` | `/certificates/verify/{number}` | Public, no sign-in and no shell (`OPEN_PATH_ROOTS`); `?version=` shows an older copy |
 | `/founder` | `founder/dashboard` | `/founder/summary` | CRM tiles (Unavailable), active enrolments per branch, batches at risk, certificates awaiting approval, "Decisions needing you" (AI rupee ceiling, recording-access exceptions after the 2nd anniversary with a link to `/branch/requests`) |
 
 Admin helpers: `features/admin/shared.tsx` (Pager, FormDialog, SecretDialog), `features/admin/format.ts` (IST
@@ -514,7 +517,6 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Attendance at-risk support cases | Module 21 triggers (two consecutive absences, late pattern, no activity for 7 days) do not open support requests yet |
 | Combo per-track attendance | Progress is per enrolment; the module also wants each combo track and the booster separately |
 | Certificate document | No PDF / template and no email delivery (Email integration not verified); the register and public verification exist |
-| Public verification page | `/certificates/verify/{number}` is API only; a public SPA route needs `/verify` in the public paths |
 | Joining date on correction | An approved correction to Present sets the joining date; changing the first Present to Absent does not reset it |
 
 ### Student services

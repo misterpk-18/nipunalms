@@ -48,6 +48,7 @@ Vijayawada).
 | `097_crm_round3.sql` | Curriculum catalogue for the CRM, CRM curriculum mapping | ✅ |
 | `098_batch_timetable.sql` | Batch timetable for CRM sales; readiness and seats left in the pull | ✅ |
 | `099_gap_fixes.sql` | Gap fix plan phase 1: notice role, staff-only content, historical CRM events, attendance from the seat | ✅ |
+| `100_governance.sql` | Gap fix plan phase 3: certificate requests and fee exceptions, status history and reinstatement, AI controls | ✅ |
 
 ---
 
@@ -319,3 +320,16 @@ Correctness and privacy fixes from the gap review ([GAP_FIX_PLAN.md](GAP_FIX_PLA
 | `content_items.staff_only` | Answer keys, marking guides and trainer notes: never in a student's audience (G022) |
 | `crm_events.historical`, setting `crm_notify_max_age_hours` (72) | A backfill or re-import (flagged, or older than the setting) is applied with its original dates but sends no current notices (G056) |
 | `enrolment_batch_links.first_effective_from`; `attendance_grid`, `enrolment_attendance`, `enrolment_covered_topics`, `enrolment_required_learning`, `enrolment_progress` recreated | Attendance is expected from the seat (allocation `effective_from`), not the first Present, so earlier absences count (G028); `attendance_state` is Not started only while nothing has been delivered. A recovery counts as recovered / covered only when Completed (G029) |
+
+## 100 — Governance and approvals
+
+Independent decisions from the gap review, phase 3 ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+
+| Change | Why |
+|---|---|
+| `approval_status` enum; `certificate_financial_exceptions` (one Pending per admission, decider ≠ requester) | A Founder / CEO or Super Admin releases certificates while a fee is outstanding; the debt is not waived (G032) |
+| `certificate_request_kind` enum; `certificate_change_requests` (one Pending per certificate, decider ≠ requester, evidence for revocation / reinstatement) | Corrections, revocations and reinstatements are requested and decided by someone else (G036, G095) |
+| `certificate_status_history` + `trg_certificates_status_history` (backfilled with each entry's current status) | Every status change, so a revoked interval survives a reinstatement |
+| `certificates_before_write()` allows Revoked → Issued, allocating a number only from Approved for Issue | Reinstatement keeps the number and the original issue date |
+| `ai_feature_controls` (audience All / Student / Staff, company-wide or one branch; All only company-wide; restoring needs a note) | Switching AI off with scope, reason and a restoration record (G042) |
+

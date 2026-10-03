@@ -19,7 +19,7 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G009](#g009) | High | 25 Reports & Dashboards | No placement, internship or alumni report | 11 | Open |
 | [G010](#g010) | High | 26 Notifications | Notification access is not re-scoped after a role or branch change | 1 | Done (phase 1) |
 | [G011](#g011) | High | 26 Notifications | No guardian or payer model for under-18 students | 12 | Open |
-| [G012](#g012) | High | Module 14 | Academic Coordinators can approve and activate global curriculum; Founder cannot | 3 | Open |
+| [G012](#g012) | High | Module 14 | Academic Coordinators can approve and activate global curriculum; Founder cannot | 3 | Done (phase 3) |
 | [G013](#g013) | High | Module 14 | Curriculum versions have no outcomes, hours, effort, weights, evidence, activities or dependencies | 5 | Open |
 | [G014](#g014) | High | Module 14 | No individual academic mapping, credit or equivalence records; no migration plan | 5 | Open |
 | [G015](#g015) | High | Module 15 | Batch lifecycle differs from spec: no Proposed/Confirmed, In Progress, On Hold or Archive, and no Branch Manager confirmation | 6 | Open |
@@ -39,17 +39,17 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G029](#g029) | High | Module 21 Attendance | An approved but not completed recovery already counts as covered learning and recovered | 1 | Done (phase 1) |
 | [G030](#g030) | High | Module 21 Attendance | Disputed entries stay in the calculation; no Disputed state, cutoff or coverage display | 8 | Open |
 | [G031](#g031) | High | Module 22 Certificates | Course completion opens the Internship Certificate for review | 1 | Done (phase 1) |
-| [G032](#g032) | High | Module 22 Certificates | No fee-clearance gate and no financial-release exception | 3 | Open |
+| [G032](#g032) | High | Module 22 Certificates | No fee-clearance gate and no financial-release exception | 3 | Done (phase 3) |
 | [G033](#g033) | High | Module 22 Certificates | Certificate branch is not updated when the student transfers branches | 1 | Done (phase 1) |
-| [G034](#g034) | High | Module 22 Certificates | Completion needs no Trainer confirmation before certificate eligibility | 3 | Open |
-| [G035](#g035) | High | Module 22 Certificates | Public verification does not follow the spec's validity model | 3 | Open |
-| [G036](#g036) | High | Module 22 Certificates | Revocation excludes the Founder and has no reinstatement | 3 | Open |
+| [G034](#g034) | High | Module 22 Certificates | Completion needs no Trainer confirmation before certificate eligibility | 3 | Done (phase 3) |
+| [G035](#g035) | High | Module 22 Certificates | Public verification does not follow the spec's validity model | 3 | Done (phase 3) |
+| [G036](#g036) | High | Module 22 Certificates | Revocation excludes the Founder and has no reinstatement | 3 | Done (phase 3) |
 | [G037](#g037) | Medium | 23 Placement & Career Support | Self-sourced / other applications cannot be recorded; every application is hard-coded Nipuna-referred | 12 | Open |
 | [G038](#g038) | Medium | 23 Placement & Career Support | Opportunity register is missing verification history, Expired transition, Open-Until-Filled review date, employer contact and structured compensation | CRM (D5) | Open |
 | [G039](#g039) | Medium | 23 Placement & Career Support | Withdrawal handling, status corrections and role-limited fields are not implemented | CRM (D5) | Open |
 | [G040](#g040) | Medium | 23 Placement & Career Support | Career profile and CV review lack required fields and clocks | 12 | Open |
 | [G041](#g041) | Medium | 24 AI Requirements | Reported AI answers all go to the Academic Coordinator; no Ask Trainer / Report Answer routing by issue type | 11 | Open |
-| [G042](#g042) | Medium | 24 AI Requirements | No way to disable AI with scope, reason, actor and restoration record | 3 | Open |
+| [G042](#g042) | Medium | 24 AI Requirements | No way to disable AI with scope, reason, actor and restoration record | 3 | Done (phase 3) |
 | [G043](#g043) | Medium | 25 Reports & Dashboards | Role home dashboards do not carry the approved first three figures for Trainer, Academic Coordinator, Super Admin and Placement Team | 11 | Open |
 | [G044](#g044) | Medium | 25 Reports & Dashboards | No period selector, export formats, scheduled reports or report metadata/versioning | 11 | Open |
 | [G045](#g045) | Medium | 25 Reports & Dashboards | Academic dashboard lacks several required actionable measures and certificate queues/filters | 11 | Open |
@@ -102,7 +102,7 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G092](#g092) | Medium | Module 21 Attendance | Approved pause is not reflected in attendance expectations | 8 | Open |
 | [G093](#g093) | Medium | Module 21 Attendance | Correction approval does not flag a completed enrolment for academic review and has no recalculation trace | 8 | Open |
 | [G094](#g094) | Medium | Module 21 Attendance | No guardian or under-18 handling | 12 | Open |
-| [G095](#g095) | Medium | Module 22 Certificates | Reissue and correction has no request, approval or changed-field record | 3 | Open |
+| [G095](#g095) | Medium | Module 22 Certificates | Reissue and correction has no request, approval or changed-field record | 3 | Done (phase 3) |
 | [G096](#g096) | Medium | Module 22 Certificates | Approval is not bound to identity, evidence and rule/template version, and there is no recheck before issue | 8 | Open |
 | [G097](#g097) | Medium | Module 22 Certificates | No bulk or paired review, no issue-register export, no dashboard filters or review-target clock | 8 | Open |
 | [G098](#g098) | Medium | Module 22 Certificates | Certificate state model lacks processing, document-version and delivery dimensions | 8 | Open |

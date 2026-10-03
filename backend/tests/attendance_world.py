@@ -72,3 +72,13 @@ def build(make_user, make_student, make_batch, make_session, allocate, login) ->
 
     w.h = {name: login(getattr(w, name).email) for name in ("t1", "t2", "ac", "ac2", "bm", "admin", "ac_v", "bm_v", "s1", "s2", "s3")}
     return w
+
+
+def set_fee(run_sql, enrolment_id, *, balance=0):
+    """The CRM's finance summary for the enrolment's admission: Paid when balance is 0, Part Paid otherwise."""
+    run_sql("INSERT INTO finance_summaries (admission_id, fee_total, verified_paid, balance, payment_completion, as_of, source_version) "
+            "SELECT admission_id, 30000, 30000 - :b, :b, CASE WHEN :b > 0 THEN 'Part Paid' ELSE 'Paid' END, now(), 1 "
+            "FROM enrolments WHERE enrolment_id = :e ON CONFLICT (admission_id) DO UPDATE SET balance = :b, "
+            "verified_paid = 30000 - :b, payment_completion = CASE WHEN :b > 0 THEN 'Part Paid' ELSE 'Paid' END",
+            b=balance, e=enrolment_id)
+

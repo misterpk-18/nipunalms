@@ -5,8 +5,10 @@ from services.errors import Forbidden
 
 # Academic Coordinators and Branch Managers of the branch, and Super Admin (all branches). The Founder / CEO reads only.
 MANAGE_ROLES = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
-# Curriculum is global (not per branch): Academic Coordinators and Super Admin write it
+# Curriculum is global (not per branch): Academic Coordinators and Super Admin draft, submit and review it
 CURRICULUM_ROLES = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+# ... and the Founder / CEO or Super Admin approve, activate and retire it (Module 14 §5, §11)
+CURRICULUM_APPROVER_ROLES = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
 def is_student_only(user: CurrentUser | None = None) -> bool:

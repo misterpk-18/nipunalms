@@ -2,7 +2,7 @@
 from sqlalchemy import Select, func, or_, select
 
 from config.database import db
-from models import Certificate, Student
+from models import Admission, Certificate, CertificateChangeRequest, CertificateFinancialException, CertificateStatusHistory, Student
 
 
 def get_certificate(certificate_id: int) -> Certificate | None:
@@ -26,6 +26,73 @@ def versions(certificate_number: str) -> list[Certificate]:
     """Every version issued under a number, oldest first."""
     stmt = select(Certificate).where(Certificate.certificate_number == certificate_number).order_by(Certificate.version)
     return list(db.session.execute(stmt).unique().scalars())
+
+
+def versions_by_number(certificate_number: str) -> list[Certificate]:
+    """Every version under a number (any letter case), oldest first."""
+    stmt = (select(Certificate).where(func.upper(Certificate.certificate_number) == certificate_number.strip().upper())
+            .order_by(Certificate.version))
+    return list(db.session.execute(stmt).unique().scalars())
+
+
+def status_history(certificate_id: int) -> list[CertificateStatusHistory]:
+    stmt = (select(CertificateStatusHistory).where(CertificateStatusHistory.certificate_id == certificate_id)
+            .order_by(CertificateStatusHistory.changed_at, CertificateStatusHistory.history_id))
+    return list(db.session.execute(stmt).scalars())
+
+
+# ---------------------------------------------------------------- change requests and financial exceptions
+
+def get_request(request_id: int) -> CertificateChangeRequest | None:
+    return db.session.get(CertificateChangeRequest, request_id)
+
+
+def pending_request(certificate_id: int) -> CertificateChangeRequest | None:
+    return db.session.execute(
+        select(CertificateChangeRequest).where(CertificateChangeRequest.certificate_id == certificate_id,
+                                               CertificateChangeRequest.status == "Pending")
+    ).unique().scalar_one_or_none()
+
+
+def requests_stmt(filters: dict, branch_ids: set[int] | None) -> Select:
+    stmt = (select(CertificateChangeRequest).join(Certificate, Certificate.certificate_id == CertificateChangeRequest.certificate_id)
+            .order_by(CertificateChangeRequest.requested_at.desc(), CertificateChangeRequest.request_id.desc()))
+    if branch_ids is not None:
+        stmt = stmt.where(Certificate.branch_id.in_(branch_ids))
+    for column in ("status", "kind"):
+        if filters.get(column):
+            stmt = stmt.where(getattr(CertificateChangeRequest, column) == filters[column])
+    return stmt
+
+
+def get_exception(exception_id: int) -> CertificateFinancialException | None:
+    return db.session.get(CertificateFinancialException, exception_id)
+
+
+def pending_exception(admission_id: int) -> CertificateFinancialException | None:
+    return db.session.execute(
+        select(CertificateFinancialException).where(CertificateFinancialException.admission_id == admission_id,
+                                                    CertificateFinancialException.status == "Pending")
+    ).unique().scalar_one_or_none()
+
+
+def approved_exception(admission_id: int, certificate_type: str) -> CertificateFinancialException | None:
+    return db.session.execute(
+        select(CertificateFinancialException).where(
+            CertificateFinancialException.admission_id == admission_id, CertificateFinancialException.status == "Approved",
+            CertificateFinancialException.certificate_types.contains([certificate_type]),
+        ).order_by(CertificateFinancialException.decided_at.desc()).limit(1)
+    ).unique().scalars().first()
+
+
+def exceptions_stmt(filters: dict, branch_ids: set[int] | None) -> Select:
+    stmt = (select(CertificateFinancialException).join(Admission, Admission.admission_id == CertificateFinancialException.admission_id)
+            .order_by(CertificateFinancialException.requested_at.desc(), CertificateFinancialException.exception_id.desc()))
+    if branch_ids is not None:
+        stmt = stmt.where(Admission.service_branch_id.in_(branch_ids))
+    if filters.get("status"):
+        stmt = stmt.where(CertificateFinancialException.status == filters["status"])
+    return stmt
 
 
 def latest_by_number(certificate_number: str) -> Certificate | None:

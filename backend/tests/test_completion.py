@@ -111,12 +111,28 @@ def test_complete_is_blocked_while_a_recovery_is_open(client, w):
     rid = client.post(f"{API}/attendance/recoveries", json={"attendance_id": attendance_id, "method": "Extra session", "reason": "Unwell"},
                       headers=w.h["s1"]).get_json()["data"]["recovery_id"]
     review_id = open_review(client, w).get_json()["data"]["review_id"]
+    client.post(f"{API}/completion-reviews/{review_id}/recommendation", json={"recommendation": "Complete"}, headers=w.h["t1"])
     blocked = decide(client, w, review_id, "Complete")
     assert blocked.status_code == 422 and "recovery" in blocked.get_json()["error"]["message"]
 
     client.post(f"{API}/attendance/recoveries/{rid}/decision", json={"decision": "Approved"}, headers=w.h["ac"])
     assert decide(client, w, review_id, "Complete").status_code == 422              # approved but not yet completed
     client.post(f"{API}/attendance/recoveries/{rid}/completion", json={"evidence_note": "Task reviewed"}, headers=w.h["t1"])
+    assert decide(client, w, review_id, "Complete").status_code == 200
+
+
+def test_complete_needs_the_trainers_confirmation(client, w):
+    """Module 22 §2: the batch trainer confirms completion and the Academic Coordinator verifies it; neither alone is enough."""
+    start(client, w)
+    review_id = open_review(client, w).get_json()["data"]["review_id"]
+    refused = decide(client, w, review_id, "Complete")
+    assert refused.status_code == 422 and "Trainer confirmation" in refused.get_json()["error"]["message"]
+    client.post(f"{API}/completion-reviews/{review_id}/recommendation", json={"recommendation": "Complete"}, headers=w.h["ac"])
+    assert decide(client, w, review_id, "Complete").status_code == 422          # the coordinator's own recommendation is not the trainer's
+    client.post(f"{API}/completion-reviews/{review_id}/recommendation", json={"recommendation": "Not Yet", "comment": "Project pending"},
+                headers=w.h["t1"])
+    assert decide(client, w, review_id, "Complete").status_code == 422
+    client.post(f"{API}/completion-reviews/{review_id}/recommendation", json={"recommendation": "Complete"}, headers=w.h["t1"])
     assert decide(client, w, review_id, "Complete").status_code == 200
 
 

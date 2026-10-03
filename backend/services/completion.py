@@ -43,6 +43,17 @@ def _is_batch_trainer(enrolment: Enrolment) -> bool:
     return allocation is not None and current_user().has_role("TRAINER") and allocation.batch_id in scope.trainer_batch_ids()
 
 
+def _trainer_confirmed(review: CompletionReview, enrolment: Enrolment) -> bool:
+    """The recommendation is Complete and was made by a trainer of a batch the enrolment held a seat in (now or before), or,
+    for an enrolment that never had a batch, by a trainer at its service branch."""
+    if review.trainer_recommendation != "Complete" or review.recommended_by is None:
+        return False
+    batch_ids = {a.batch_id for a in batches_repo.allocations_of_enrolment(enrolment.enrolment_id)}
+    if batch_ids:
+        return review.recommended_by in {t.trainer_user_id for b in batch_ids for t in batches_repo.trainer_history(b)}
+    return review.recommended_by in users_repo.user_ids_with_role("TRAINER", enrolment.service_branch_id)
+
+
 def _can_decide(enrolment: Enrolment) -> bool:
     return current_user().has_role(*DECIDERS, branch_id=enrolment.service_branch_id)
 
@@ -126,7 +137,8 @@ def recommend(review_id: int, recommendation: str, comment: str | None) -> Compl
 
 
 def decide(review_id: int, decision: str, reason: str | None) -> CompletionReview:
-    """Academic Coordinator's decision. Complete: the enrolment becomes Completed and certificate eligibility opens."""
+    """Academic Coordinator's decision. Complete needs the batch trainer's Complete recommendation (both confirm, Module 22 §2):
+    the enrolment becomes Completed and certificate eligibility opens."""
     review = _get_review(review_id)
     enrolment = review.enrolment
     if not _can_decide(enrolment):
@@ -143,6 +155,9 @@ def decide(review_id: int, decision: str, reason: str | None) -> CompletionRevie
         open_recoveries = attendance_repo.open_recovery_count(enrolment.enrolment_id)
         if open_recoveries:
             raise BusinessRule(f"Cannot complete: {open_recoveries} recovery(ies) still open for this enrolment")
+        if not _trainer_confirmed(review, enrolment):
+            raise BusinessRule("Trainer confirmation needed: a trainer of the batch must recommend Complete before the Academic "
+                               "Coordinator verifies it (Module 22 §2)")
 
     evidence = json.loads(json.dumps({**evidence_of(enrolment), "trainer_recommendation": review.trainer_recommendation,
                                       "as_of": datetime.now(timezone.utc)}, default=str))  # timestamps become text for JSONB

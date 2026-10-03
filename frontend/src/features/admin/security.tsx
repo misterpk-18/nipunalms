@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi, adminKeys, type SecurityControl } from "@/api/admin";
 import { Note, PageHead, QueryView, Section } from "@/components/lms/ui";
+import { AiControls } from "./ai-controls";
 import { ReadinessDialog, ReadinessTable, type ReadinessRow } from "./readiness-table";
 import { useCanAdminister } from "./format";
 
@@ -51,6 +52,9 @@ export function AdminSecurity() {
               </>
             )}
           </QueryView>
+        </Section>
+        <Section title="AI controls">
+          <AiControls />
         </Section>
         <Note>
           These are functional requirements until they are implemented and tested. The frontend workspace switcher is a UAT aid, not a security boundary: every

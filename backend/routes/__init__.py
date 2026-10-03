@@ -95,3 +95,8 @@ from routes.dashboards import dashboards_bp  # noqa: E402
 from routes.exceptions import exceptions_bp  # noqa: E402
 
 BLUEPRINTS += [exceptions_bp, dashboards_bp]
+
+# Gap fix plan phase 3: governance (AI controls)
+from routes.ai_controls import ai_controls_bp  # noqa: E402
+
+BLUEPRINTS += [ai_controls_bp]

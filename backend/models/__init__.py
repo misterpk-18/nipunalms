@@ -30,11 +30,14 @@ __all__ = [
 
 # Slice S4: attendance, progress, completion review, certificates
 from models.attendance import AttendanceCorrection, AttendanceRecord, AttendanceRecovery  # noqa: E402
-from models.certificates import Certificate  # noqa: E402
+from models.certificates import (  # noqa: E402
+    Certificate, CertificateChangeRequest, CertificateFinancialException, CertificateStatusHistory,
+)
 from models.completion import CompletionReview  # noqa: E402
 from models.progress import EnrolmentProgress  # noqa: E402
 
-__all__ += ["AttendanceCorrection", "AttendanceRecord", "AttendanceRecovery", "Certificate", "CompletionReview", "EnrolmentProgress"]
+__all__ += ["AttendanceCorrection", "AttendanceRecord", "AttendanceRecovery", "Certificate", "CertificateChangeRequest",
+            "CertificateFinancialException", "CertificateStatusHistory", "CompletionReview", "EnrolmentProgress"]
 
 # Phase 2 / S2 content & recordings
 from models.content import (  # noqa: E402
@@ -51,12 +54,12 @@ from models.exceptions import ExceptionItem, ExceptionRecoveryStep  # noqa: E402
 __all__ += ["ExceptionItem", "ExceptionRecoveryStep"]
 
 # Student services slice (050)
-from models.ask_nipuna import AiQuery  # noqa: E402
+from models.ask_nipuna import AiFeatureControl, AiQuery  # noqa: E402
 from models.career import Application, ApplicationEvent, CareerProfile, CvDocument, Opportunity, PlacementOutcome  # noqa: E402
 from models.notification_preferences import NotificationPreference  # noqa: E402
 from models.support import SupportMessage, SupportRequest  # noqa: E402
 
 __all__ += [
-    "AiQuery", "Application", "ApplicationEvent", "CareerProfile", "CvDocument", "NotificationPreference", "Opportunity",
+    "AiFeatureControl", "AiQuery", "Application", "ApplicationEvent", "CareerProfile", "CvDocument", "NotificationPreference", "Opportunity",
     "PlacementOutcome", "SupportMessage", "SupportRequest",
 ]

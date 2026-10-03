@@ -52,3 +52,36 @@ class AiQuery(db.Model):
             "feedback_comment": self.feedback_comment,
             "created_at": self.created_at,
         }
+
+
+class AiFeatureControl(db.Model):
+    """An assistant switched off (Module 24 §11): by audience, company-wide or for one branch, until restored after checks."""
+
+    __tablename__ = "ai_feature_controls"
+
+    control_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    audience: Mapped[str] = mapped_column(String(10))  # All / Student / Staff
+    branch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("branches.branch_id"))
+    reason: Mapped[str] = mapped_column(Text)
+    remediation: Mapped[str | None] = mapped_column(Text)
+    disabled_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
+    disabled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+    restored_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    restored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    restoration_note: Mapped[str | None] = mapped_column(Text)
+
+    def to_dict(self) -> dict:
+        return {
+            "control_id": self.control_id,
+            "audience": self.audience,
+            "branch_id": self.branch_id,
+            "reason": self.reason,
+            "remediation": self.remediation,
+            "disabled_by": self.disabled_by,
+            "disabled_at": self.disabled_at,
+            "restored_by": self.restored_by,
+            "restored_at": self.restored_at,
+            "restoration_note": self.restoration_note,
+            "active": self.restored_at is None,
+        }
+

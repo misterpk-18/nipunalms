@@ -72,17 +72,45 @@ def issue(certificate_id: int):
     return certificates_controller.issue(certificate_id)
 
 
-@certificates_bp.post("/certificates/<int:certificate_id>/reissue")
+@certificates_bp.post("/certificates/<int:certificate_id>/change-requests")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
-@fresh_auth
-def reissue(certificate_id: int):
-    return certificates_controller.reissue(certificate_id)
+@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+def request_change(certificate_id: int):
+    return certificates_controller.request_change(certificate_id)
 
 
-@certificates_bp.post("/certificates/<int:certificate_id>/revocation")
+@certificates_bp.get("/certificate-requests")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles(*REGISTER_READERS)
+def list_requests():
+    return certificates_controller.list_requests()
+
+
+@certificates_bp.post("/certificate-requests/<int:request_id>/decision")
+@login_required
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
-def revoke(certificate_id: int):
-    return certificates_controller.revoke(certificate_id)
+def decide_request(request_id: int):
+    return certificates_controller.decide_request(request_id)
+
+
+@certificates_bp.post("/certificates/<int:certificate_id>/financial-exception")
+@login_required
+@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+def request_exception(certificate_id: int):
+    return certificates_controller.request_exception(certificate_id)
+
+
+@certificates_bp.get("/certificate-financial-exceptions")
+@login_required
+@require_roles(*REGISTER_READERS)
+def list_exceptions():
+    return certificates_controller.list_exceptions()
+
+
+@certificates_bp.post("/certificate-financial-exceptions/<int:exception_id>/decision")
+@login_required
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
+@fresh_auth
+def decide_exception(exception_id: int):
+    return certificates_controller.decide_exception(exception_id)

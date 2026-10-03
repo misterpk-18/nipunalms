@@ -16,10 +16,12 @@ NUMBER = re.compile(rf"^NIT-CERT-{datetime.now(IST).year}-\d{{6}}$")
 
 
 @pytest.fixture
-def w(make_user, make_student, make_batch, make_session, allocate, login):
+def w(make_user, make_student, make_batch, make_session, allocate, login, run_sql):
     world = attendance_world.build(make_user, make_student, make_batch, make_session, allocate, login)
     world.founder = make_user(roles=[("FOUNDER_CEO", None)])
     world.h["founder"] = login(world.founder.email)
+    for enrolment_id in (world.e1, world.e2, world.e3):  # fees cleared unless a test says otherwise
+        attendance_world.set_fee(run_sql, enrolment_id)
     return world
 
 
@@ -32,6 +34,7 @@ def complete(client, w, enrolment_id=None):
     enrolment_id = enrolment_id or w.e1
     client.put(f"{API}/attendance/sessions/{w.recent.session_id}", json={"default_status": "Present"}, headers=w.h["t1"])
     review_id = post(client, w, "t1", "/completion-reviews", {"enrolment_id": enrolment_id}).get_json()["data"]["review_id"]
+    post(client, w, "t1", f"/completion-reviews/{review_id}/recommendation", {"recommendation": "Complete"})  # trainer confirms
     assert post(client, w, "ac", f"/completion-reviews/{review_id}/decision", {"decision": "Complete"}).status_code == 200
     return db.session.execute(select(Certificate.certificate_id).where(Certificate.enrolment_id == enrolment_id)).scalar_one()
 
@@ -88,6 +91,7 @@ def test_full_workflow_allocates_the_number_only_at_issue(client, w):
 def test_numbers_are_sequential_across_students(client, w):
     _, first = issued(client, w, w.e1)
     review = post(client, w, "t1", "/completion-reviews", {"enrolment_id": w.e2}).get_json()["data"]["review_id"]
+    post(client, w, "t1", f"/completion-reviews/{review}/recommendation", {"recommendation": "Complete"})
     post(client, w, "ac", f"/completion-reviews/{review}/decision", {"decision": "Complete"})
     cid = db.session.execute(select(Certificate.certificate_id).where(Certificate.enrolment_id == w.e2)).scalar_one()
     post(client, w, "ac", f"/certificates/{cid}/recommendation")
@@ -112,51 +116,120 @@ def test_manager_can_return_a_recommendation_for_review(client, w):
     assert back.status_code == 200 and back.get_json()["data"]["status"] == "Eligibility Review"
 
 
-def test_reissue_keeps_the_number_and_supersedes_the_earlier_version(client, w):
+def change(client, w, who, cid, kind, **body):
+    return post(client, w, who, f"/certificates/{cid}/change-requests", {"kind": kind, **body})
+
+
+def decide(client, w, who, request_id, decision="Approved", note=None):
+    return post(client, w, who, f"/certificate-requests/{request_id}/decision", {"decision": decision, "note": note})
+
+
+def test_a_correction_is_requested_and_an_independent_approver_reissues_it(client, w):
+    """Module 22 §7: the coordinator asks, the Branch Manager approves; the current copy stays valid until then."""
     cid, done = issued(client, w)
-    assert post(client, w, "ac", f"/certificates/{cid}/reissue", {"reason": "Name correction"}).status_code == 403
-    assert post(client, w, "bm", f"/certificates/{cid}/reissue", {}).status_code == 400
-    response = post(client, w, "bm", f"/certificates/{cid}/reissue", {"reason": "Name correction", "holder_name": "Anvitha Kolli"})
-    assert response.status_code == 201, response.get_json()
-    v2 = response.get_json()["data"]
+    assert change(client, w, "t1", cid, "Correction", reason="Name correction").status_code == 403
+    assert change(client, w, "ac", cid, "Correction").status_code == 400
+    asked = change(client, w, "ac", cid, "Correction", reason="Name correction", holder_name="Anvitha Kolli")
+    assert asked.status_code == 201, asked.get_json()
+    request = asked.get_json()["data"]
+    assert request["status"] == "Pending" and request["changes"] == {"holder_name": {"from": "Anvitha K.", "to": "Anvitha Kolli"}}
+    assert get(client, w, "ac", cid).get_json()["data"]["status"] == "Issued"                  # still valid while pending
+    assert get(client, w, "ac", cid).get_json()["data"]["pending_request"]["kind"] == "Correction"
+    assert change(client, w, "bm", cid, "Revocation", reason="x", evidence="y").status_code == 409  # one request at a time
+
+    listed = client.get(f"{API}/certificate-requests?status=Pending", headers=w.h["bm"]).get_json()["data"]
+    assert [r["actions"] for r in listed] == [["decide"]]
+    assert decide(client, w, "ac", request["request_id"]).status_code == 403                  # coordinators ask, managers decide
+    assert decide(client, w, "bm", request["request_id"], "Rejected").status_code == 400      # a rejection needs a note
+    approved = decide(client, w, "bm", request["request_id"])
+    assert approved.status_code == 200, approved.get_json()
+    v2_id = approved.get_json()["data"]["resulting_certificate_id"]
+    v2 = get(client, w, "bm", v2_id).get_json()["data"]
     assert v2["version"] == 2 and v2["status"] == "Issued" and v2["certificate_number"] == done["certificate_number"]
     assert v2["holder_name"] == "Anvitha Kolli" and v2["version_label"] == "v2 (reissue)"
-
-    old = get(client, w, "bm", cid).get_json()["data"]
-    assert old["status"] == "Superseded" and old["actions"] == []
-    assert [h["version"] for h in get(client, w, "bm", v2["certificate_id"]).get_json()["data"]["history"]] == [1, 2]
-
-    register = client.get(f"{API}/certificates?q=anvitha", headers=w.h["bm"]).get_json()["data"]
-    assert sorted(r["status"] for r in register) == ["Issued", "Superseded"]
+    assert get(client, w, "bm", cid).get_json()["data"]["status"] == "Superseded"
+    assert [h["version"] for h in v2["history"]] == [1, 2]
     mine = client.get(f"{API}/me/certificates", headers=w.h["s1"]).get_json()["data"]["certificates"]
     assert [c["status"] for c in mine] == ["Issued"]
-    verified = client.get(f"{API}/certificates/verify/{done['certificate_number']}").get_json()["data"]
-    assert verified["version"] == 2 and verified["holder_name"] == "Anvitha Kolli" and verified["status"] == "Issued"
-    assert post(client, w, "bm", f"/certificates/{cid}/reissue", {"reason": "again"}).status_code == 422  # v1 is Superseded
 
 
-def test_only_the_super_admin_revokes_and_a_revoked_certificate_is_final(client, w):
+def test_the_person_who_asked_never_decides(client, w):
+    cid, _ = issued(client, w)
+    request_id = change(client, w, "bm", cid, "Correction", reason="Typo").get_json()["data"]["request_id"]
+    own = decide(client, w, "bm", request_id)
+    assert own.status_code == 422 and "independent" in own.get_json()["error"]["message"]
+    assert decide(client, w, "admin", request_id).status_code == 200
+
+
+def test_revocation_and_reinstatement_need_evidence_and_the_founder_or_super_admin(client, w):
+    """Module 22 §8: revocation and a later reinstatement are separate, recorded, independent decisions."""
     cid, done = issued(client, w)
-    for who in ("ac", "bm", "s1", "t1"):
-        assert post(client, w, who, f"/certificates/{cid}/revocation", {"reason": "Record error"}).status_code in (403, 404)
-    assert post(client, w, "admin", f"/certificates/{cid}/revocation", {}).status_code == 400
-    revoked = post(client, w, "admin", f"/certificates/{cid}/revocation", {"reason": "Record error"})
-    assert revoked.status_code == 200 and revoked.get_json()["data"]["status"] == "Revoked"
-    assert revoked.get_json()["data"]["reason"] == "Record error"
-    assert post(client, w, "admin", f"/certificates/{cid}/revocation", {"reason": "twice"}).status_code == 422
-    assert post(client, w, "bm", f"/certificates/{cid}/reissue", {"reason": "x"}).status_code == 422
-    verified = client.get(f"{API}/certificates/verify/{done['certificate_number']}").get_json()["data"]
-    assert verified["status"] == "Revoked"
-    assert db.session.execute(select(AuditLog).where(AuditLog.action == "CERTIFICATE_REVOKED")).scalar_one().reason == "Record error"
+    assert change(client, w, "ac", cid, "Revocation", reason="Record error").status_code == 400   # evidence is required
+    request_id = change(client, w, "ac", cid, "Revocation", reason="Record error", evidence="Issued against the wrong enrolment"
+                        ).get_json()["data"]["request_id"]
+    assert decide(client, w, "bm", request_id).status_code == 403
+    revoked = decide(client, w, "founder", request_id)
+    assert revoked.status_code == 200, revoked.get_json()
+    certificate = get(client, w, "ac", cid).get_json()["data"]
+    assert certificate["status"] == "Revoked" and certificate["reason"] == "Record error" and certificate["actions"] == ["request_reinstatement"]
+    assert client.get(f"{API}/certificates/verify/{done['certificate_number']}").get_json()["data"]["state"] == "Revoked"
+
+    request_id = change(client, w, "bm", cid, "Reinstatement", reason="The revocation was a mistake",
+                        evidence="Enrolment confirmed by the coordinator").get_json()["data"]["request_id"]
+    reinstated = decide(client, w, "admin", request_id)
+    assert reinstated.status_code == 200, reinstated.get_json()
+    certificate = get(client, w, "ac", cid).get_json()["data"]
+    assert certificate["status"] == "Issued" and certificate["certificate_number"] == done["certificate_number"]
+    assert certificate["issue_date"] == done["issue_date"]                                     # the original issue date stays
+    assert [h["to_status"] for h in certificate["status_history"]][-2:] == ["Revoked", "Issued"]  # the revoked interval is kept
+    actions = set(db.session.execute(select(AuditLog.action).where(AuditLog.entity_type == "certificate")).scalars())
+    assert {"CERTIFICATE_REVOKED", "CERTIFICATE_REINSTATED", "CERTIFICATE_REVOCATION_APPROVED"} <= actions
 
 
-def test_public_verification_returns_only_the_public_facts(client, w):
-    _, done = issued(client, w)
+def test_public_verification_shows_the_presented_version_state(client, w):
+    """Module 22 §9: Valid — Current Version, Superseded (with the current version) or Revoked; branch and original issue date."""
+    cid, done = issued(client, w)
     number = done["certificate_number"]
     data = client.get(f"{API}/certificates/verify/{number.lower()}").get_json()["data"]
-    assert set(data) == {"certificate_number", "holder_name", "course", "certificate_type", "issue_date", "status", "version"}
-    assert data["holder_name"] == "Anvitha K." and data["course"]["course_code"] == "NIT-CRS-047"
+    assert set(data) == {"certificate_number", "version", "state", "holder_name", "course", "certificate_type", "branch",
+                         "issue_date", "original_issue_date", "current_version"}
+    assert data["state"] == "Valid — Current Version" and data["current_version"] is None and data["branch"]["branch_code"] == "NIT-GNT"
+    request_id = change(client, w, "ac", cid, "Correction", reason="Name correction", holder_name="Anvitha Kolli").get_json()["data"]["request_id"]
+    decide(client, w, "bm", request_id)
+    old = client.get(f"{API}/certificates/verify/{number}?version=1").get_json()["data"]
+    assert old["state"] == "Superseded" and old["holder_name"] == "Anvitha K." and old["current_version"] == {"version": 2, "state": "Valid — Current Version"}
+    assert client.get(f"{API}/certificates/verify/{number}").get_json()["data"]["version"] == 2
+    assert client.get(f"{API}/certificates/verify/{number}?version=9").status_code == 404
     assert client.get(f"{API}/certificates/verify/NIT-CERT-2026-999999").status_code == 404
+
+
+def test_an_unpaid_fee_holds_the_certificate_until_paid_or_released_by_exception(client, w, run_sql):
+    """Module 22 §5: the final fee is cleared before eligibility; a Founder / CEO or Super Admin exception lets it go ahead."""
+    attendance_world.set_fee(run_sql, w.e1, balance=5000)
+    cid = complete(client, w)
+    entry = get(client, w, "ac", cid).get_json()["data"]
+    assert entry["fee_clearance"]["state"] == "Outstanding" and entry["fee_clearance"]["balance"] == "5000.00"
+    held = post(client, w, "ac", f"/certificates/{cid}/recommendation")
+    assert held.status_code == 422 and "Fee not cleared" in held.get_json()["error"]["message"]
+
+    asked = post(client, w, "ac", f"/certificates/{cid}/financial-exception", {"reason": "Scholarship letter pending in the CRM"})
+    assert asked.status_code == 201, asked.get_json()
+    exception_id = asked.get_json()["data"]["exception_id"]
+    assert post(client, w, "ac", f"/certificates/{cid}/financial-exception", {"reason": "again"}).status_code == 409
+    assert post(client, w, "bm", f"/certificate-financial-exceptions/{exception_id}/decision", {"decision": "Approved", "note": "ok"}).status_code == 403
+    assert post(client, w, "founder", f"/certificate-financial-exceptions/{exception_id}/decision", {"decision": "Approved"}).status_code == 400
+    approved = post(client, w, "founder", f"/certificate-financial-exceptions/{exception_id}/decision",
+                    {"decision": "Approved", "note": "Released; the balance stays due in the CRM"})
+    assert approved.status_code == 200 and approved.get_json()["data"]["status"] == "Approved"
+    assert get(client, w, "ac", cid).get_json()["data"]["fee_clearance"]["state"] == "Released by exception"
+    assert post(client, w, "ac", f"/certificates/{cid}/recommendation").status_code == 200
+
+
+def test_a_missing_fee_summary_holds_the_certificate(client, w, run_sql):
+    run_sql("DELETE FROM finance_summaries")
+    cid = complete(client, w)
+    held = post(client, w, "ac", f"/certificates/{cid}/recommendation")
+    assert held.status_code == 422 and "not been received" in held.get_json()["error"]["message"]
 
 
 def test_scope_of_the_register(client, w):
@@ -201,6 +274,7 @@ def test_course_completion_does_not_open_the_internship_certificate(client, w):
     client.put(f"{API}/attendance/sessions/{w.recent.session_id}", json={"default_status": "Present"}, headers=w.h["t1"])
     assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 201
     review_id = post(client, w, "t1", "/completion-reviews", {"enrolment_id": w.e1}).get_json()["data"]["review_id"]
+    post(client, w, "t1", f"/completion-reviews/{review_id}/recommendation", {"recommendation": "Complete"})
     assert post(client, w, "ac", f"/completion-reviews/{review_id}/decision", {"decision": "Complete"}).status_code == 200
     statuses = dict(db.session.execute(select(Certificate.certificate_type, Certificate.status).where(Certificate.enrolment_id == w.e1)).all())
     assert statuses == {"Course Completion Certificate": "Eligibility Review", "Internship Certificate": "Not Yet Eligible"}

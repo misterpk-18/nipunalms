@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { deliveryApi, type CurriculumRow, type CurriculumVersion, type ModuleContent } from "@/api/delivery";
+import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { DataTable, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { ActionDialog, fmtDate, mono } from "@/features/shared/delivery-ui";
@@ -132,7 +133,11 @@ function ModuleEditor({ module, editable }: { module: ModuleContent; editable: b
   );
 }
 
-function VersionEditor({ versionId }: { versionId: number }) {
+/** Coordinators draft, submit and review; the Founder / CEO or Super Admin approve, activate and retire (Module 14 §5). */
+export function VersionEditor({ versionId }: { versionId: number }) {
+  const { hasRole } = useAuth();
+  const author = hasRole("ACADEMIC_COORDINATOR", "SUPER_ADMIN");
+  const approver = hasRole("FOUNDER_CEO", "SUPER_ADMIN");
   const query = useQuery({ queryKey: ["delivery", "version", versionId], queryFn: () => deliveryApi.curriculumVersion(versionId) });
   const act = useDelivery(
     (v: { action: "submit" | "return" | "approve" | "activate" | "retire"; reason?: string }) =>
@@ -145,6 +150,7 @@ function VersionEditor({ versionId }: { versionId: number }) {
     <QueryView query={query}>
       {(v) => {
         const draft = v.status === "Draft";
+        const editable = draft && author;
         return (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -158,7 +164,7 @@ function VersionEditor({ versionId }: { versionId: number }) {
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {draft && (
+                {editable && (
                   <>
                     <ActionDialog
                       trigger={
@@ -177,9 +183,11 @@ function VersionEditor({ versionId }: { versionId: number }) {
                 )}
                 {v.status === "Under Review" && (
                   <>
-                    <Button size="sm" onClick={() => act.mutate({ action: "approve" })}>
-                      Approve
-                    </Button>
+                    {approver && (
+                      <Button size="sm" onClick={() => act.mutate({ action: "approve" })}>
+                        Approve
+                      </Button>
+                    )}
                     <ActionDialog
                       trigger={
                         <Button size="sm" variant="outline">
@@ -193,12 +201,12 @@ function VersionEditor({ versionId }: { versionId: number }) {
                     />
                   </>
                 )}
-                {v.status === "Approved" && (
+                {approver && v.status === "Approved" && (
                   <Button size="sm" onClick={() => act.mutate({ action: "activate" })}>
                     Activate
                   </Button>
                 )}
-                {(v.status === "Approved" || v.status === "Active") && (
+                {approver && (v.status === "Approved" || v.status === "Active") && (
                   <ActionDialog
                     trigger={
                       <Button size="sm" variant="outline">
@@ -215,6 +223,11 @@ function VersionEditor({ versionId }: { versionId: number }) {
               </div>
             </div>
             {draft && v.blockers && v.blockers.length > 0 && <StatusNote state="Pending Verification">Before review: {v.blockers.join("; ")}.</StatusNote>}
+            {!approver && (v.status === "Under Review" || v.status === "Approved") && (
+              <Note>
+                {v.status === "Under Review" ? "Awaiting approval" : "Approved; awaiting activation"} by the Founder / CEO or Super Admin.
+              </Note>
+            )}
             {!draft && (
               <Note>
                 {v.status} versions are snapshots that batches and enrolments point at. To change the curriculum, start a new draft (copy this version).
@@ -222,10 +235,10 @@ function VersionEditor({ versionId }: { versionId: number }) {
             )}
             <ul className="space-y-3">
               {(v.modules ?? []).map((m) => (
-                <ModuleEditor key={m.module_id} module={m} editable={draft} />
+                <ModuleEditor key={m.module_id} module={m} editable={editable} />
               ))}
             </ul>
-            {draft && (
+            {editable && (
               <ActionDialog
                 trigger={<Button variant="outline">Add module</Button>}
                 title="Add a module"
@@ -397,8 +410,8 @@ export function AcademicCurriculum() {
       )}
       <div className="mt-4">
         <Note>
-          Course Master names and codes are read-only here. A version is reviewed by someone other than its submitter; activating it retires the previous Active
-          version and maps every enrolment and batch that was waiting for a curriculum.
+          Course Master names and codes are read-only here. Coordinators draft and submit; the Founder / CEO or Super Admin approve (never the person who
+          submitted it). Activating a version retires the previous Active version and maps every enrolment and batch that was waiting for a curriculum.
         </Note>
       </div>
     </>

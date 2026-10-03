@@ -3,7 +3,7 @@ from flask import Blueprint
 from controllers import curriculum as curriculum_controller
 from routes.decorators import fresh_auth, login_required, require_roles
 from services.context import STAFF_ROLES
-from services.delivery_access import CURRICULUM_ROLES
+from services.delivery_access import CURRICULUM_APPROVER_ROLES, CURRICULUM_ROLES
 
 curriculum_bp = Blueprint("curriculum", __name__)
 
@@ -59,14 +59,14 @@ def submit(curriculum_version_id: int):
 
 @curriculum_bp.post("/curriculum-versions/<int:curriculum_version_id>/return")
 @login_required
-@require_roles(*CURRICULUM_ROLES)
+@require_roles(*CURRICULUM_ROLES, *CURRICULUM_APPROVER_ROLES)
 def return_to_draft(curriculum_version_id: int):
     return curriculum_controller.return_to_draft(curriculum_version_id)
 
 
 @curriculum_bp.post("/curriculum-versions/<int:curriculum_version_id>/approve")
 @login_required
-@require_roles(*CURRICULUM_ROLES)
+@require_roles(*CURRICULUM_APPROVER_ROLES)
 @fresh_auth
 def approve(curriculum_version_id: int):
     return curriculum_controller.approve(curriculum_version_id)
@@ -74,7 +74,7 @@ def approve(curriculum_version_id: int):
 
 @curriculum_bp.post("/curriculum-versions/<int:curriculum_version_id>/activate")
 @login_required
-@require_roles(*CURRICULUM_ROLES)
+@require_roles(*CURRICULUM_APPROVER_ROLES)
 @fresh_auth
 def activate(curriculum_version_id: int):
     return curriculum_controller.activate(curriculum_version_id)
@@ -82,7 +82,7 @@ def activate(curriculum_version_id: int):
 
 @curriculum_bp.post("/curriculum-versions/<int:curriculum_version_id>/retire")
 @login_required
-@require_roles(*CURRICULUM_ROLES)
+@require_roles(*CURRICULUM_APPROVER_ROLES)
 @fresh_auth
 def retire(curriculum_version_id: int):
     return curriculum_controller.retire(curriculum_version_id)

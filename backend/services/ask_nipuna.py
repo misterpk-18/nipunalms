@@ -22,7 +22,7 @@ from repositories import ask_nipuna as ask_repo
 from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories.common import paginate
-from services import ai_facts, ai_rules, due_work
+from services import ai_controls, ai_facts, ai_rules, due_work
 from services.ai_facts import Facts
 from services.context import CurrentUser, current_user
 from services.errors import BusinessRule, NotFound, TooManyAttempts
@@ -104,12 +104,20 @@ def _usage(user: CurrentUser, audience: str, now: datetime) -> Usage:
     return Usage(ask_repo.answered_since(user.user_id, day_start), limit, day_start + timedelta(days=1))
 
 
+def _branch_of(user: CurrentUser) -> int | None:
+    """The branch an AI control at branch level applies to: the student's service branch, or the staff member's first branch."""
+    if user.student_id is not None:
+        student = students_repo.get_student(user.student_id)
+        return student.service_branch_id if student else None
+    return next((s.branch_id for s in user.scopes if s.branch_id), None)
+
+
 def status() -> Status:
     """AI Available / Configuration Pending (rule-based answers) / Quota Limited / Disabled, with today's usage."""
     user, now = current_user(), _now()
     audience = _audience(user)
     usage = _usage(user, audience, now)
-    if not settings_repo.get("ai_enabled", True):
+    if not settings_repo.get("ai_enabled", True) or ai_controls.active_control(audience, _branch_of(user)) is not None:
         state, mode = "Disabled", "off"
     elif usage.used >= usage.limit:
         state, mode = "Quota Limited", "ai" if current_app.config.get("ANTHROPIC_API_KEY") else "rules"
@@ -170,7 +178,7 @@ def _ask_model(question: str, action: str | None, facts: Facts) -> tuple[str, st
 def ask(question: str, action: str | None) -> tuple[AiQuery, Usage]:
     user, now = current_user(), _now()
     audience = _audience(user)
-    if not settings_repo.get("ai_enabled", True):
+    if not settings_repo.get("ai_enabled", True) or ai_controls.active_control(audience, _branch_of(user)) is not None:
         raise BusinessRule("Ask Nipuna has been switched off by an administrator. Your studies and classes are not affected.")
     if action is not None and action not in (STUDENT_ACTIONS if audience == "Student" else STAFF_ACTIONS):
         raise BusinessRule(f"'{action}' is not an action of the {audience.lower()} assistant")

@@ -3,16 +3,18 @@
 Flow: Not Yet Eligible -> (Complete completion decision) Eligibility Review -> (Academic Coordinator recommends)
 Awaiting Approval -> (Branch Manager approves) Approved for Issue -> (issue) Issued. The number NIT-CERT-YYYY-NNNNNN is
 allocated by the database at first issue and kept across reissues; a reissue is a new version and supersedes the earlier one.
-The Super Admin can revoke an issued certificate. Every change is audited.
+A paid admission's fee must be cleared (or released by a financial exception) before recommendation and again at issue.
+Corrections, revocations and reinstatements are requested and decided by an independent approver
+(services/certificate_requests.py); this module applies them. Every change is audited.
 """
 from config.database import db
-from models import Certificate, CompletionReview, Enrolment
+from models import Certificate, CompletionReview, Enrolment, FinanceSummary
 from repositories import certificates as certificates_repo
 from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import audit, scope
+from services import approvals, audit, scope
 from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound
 from services.notifications import notify
@@ -23,7 +25,11 @@ COMPLIMENTARY_PENDING = "Configuration Pending: completion rule not configured f
 REVIEWERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
 APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 ISSUERS = ("BRANCH_MANAGER", "ACADEMIC_COORDINATOR", "SUPER_ADMIN")
-RE_ISSUERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+# Change requests (Module 22 §7, §8): who may ask, and who decides (never the person who asked)
+CORRECTION_REQUESTERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+CORRECTION_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+REVOCATION_REQUESTERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+REVOCATION_APPROVERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
 def complimentary_rule_configured() -> bool:
@@ -60,6 +66,8 @@ def actions_for(certificate: Certificate) -> list[str]:
     def can(*roles: str) -> bool:
         return user.has_role(*roles, branch_id=at_branch)
 
+    if certificates_repo.pending_request(certificate.certificate_id) is not None:
+        return []  # one request at a time; it is decided from the requests list
     match certificate.status:
         case "Eligibility Review" if can(*REVIEWERS):
             return ["recommend"]
@@ -68,8 +76,51 @@ def actions_for(certificate: Certificate) -> list[str]:
         case "Approved for Issue" if can(*ISSUERS):
             return ["issue"]
         case "Issued":
-            return [a for a, allowed in (("reissue", can(*RE_ISSUERS)), ("revoke", can("SUPER_ADMIN"))) if allowed]
+            return [a for a, allowed in (("request_correction", can(*CORRECTION_REQUESTERS)),
+                                         ("request_revocation", can(*REVOCATION_REQUESTERS))) if allowed]
+        case "Revoked" if can(*REVOCATION_REQUESTERS):
+            return ["request_reinstatement"]
     return []
+
+
+# ---------------------------------------------------------------- fee clearance (Module 22 §5)
+
+def paying_admission_id(enrolment: Enrolment) -> int:
+    """A complimentary admission follows the paid admission it came with."""
+    return enrolment.admission.complimentary_of_admission_id or enrolment.admission_id
+
+
+def fee_clearance(certificate: Certificate) -> dict:
+    """Cleared when the CRM reports the paying admission Paid (or no balance); otherwise Outstanding or Not Received, unless a
+    Founder / CEO or Super Admin approved a financial-release exception for this certificate type."""
+    admission_id = paying_admission_id(certificate.enrolment)
+    summary = db.session.get(FinanceSummary, admission_id)
+    if summary is None:
+        state, balance = "Not Received", None
+    elif summary.payment_completion == "Paid" or summary.balance <= 0:
+        state, balance = "Cleared", summary.balance
+    else:
+        state, balance = "Outstanding", summary.balance
+    exception = None
+    if state != "Cleared":
+        exception = certificates_repo.approved_exception(admission_id, certificate.certificate_type)
+    return {
+        "state": "Released by exception" if exception is not None else state,
+        "cleared": state == "Cleared" or exception is not None,
+        "admission_id": admission_id,
+        "balance": None if balance is None else f"{balance:.2f}",
+        "exception_id": exception.exception_id if exception is not None else None,
+    }
+
+
+def _require_fee_cleared(certificate: Certificate) -> None:
+    clearance = fee_clearance(certificate)
+    if clearance["cleared"]:
+        return
+    if clearance["state"] == "Not Received":
+        raise BusinessRule("The fee status has not been received from the CRM yet; the certificate waits until it is cleared")
+    raise BusinessRule(f"Fee not cleared: ₹{clearance['balance']} outstanding. The certificate waits until it is paid, or the "
+                       "Founder / CEO or Super Admin approves a financial-release exception")
 
 
 # ---------------------------------------------------------------- creating entries
@@ -160,6 +211,7 @@ def recommend(certificate_id: int, note: str | None) -> Certificate:
     certificate = _get(certificate_id)
     _require_role(certificate, *REVIEWERS)
     _expect_status(certificate, "Eligibility Review")
+    _require_fee_cleared(certificate)
     old = _snapshot(certificate)
     certificate.status = "Awaiting Approval"
     certificate.recommended_by = current_user().user_id
@@ -198,8 +250,7 @@ def approve(certificate_id: int) -> Certificate:
     _require_role(certificate, *APPROVERS)
     _expect_status(certificate, "Awaiting Approval")
     user = current_user()
-    if certificate.recommended_by == user.user_id:
-        raise BusinessRule("Approval needs a different person than the one who recommended the certificate")
+    approvals.require_independent(certificate.recommended_by, message="Approval needs a different person than the one who recommended the certificate")
     old = _snapshot(certificate)
     certificate.status = "Approved for Issue"
     certificate.approved_by = user.user_id
@@ -216,10 +267,12 @@ def approve(certificate_id: int) -> Certificate:
 
 
 def issue(certificate_id: int) -> Certificate:
-    """Issue an approved certificate: the database allocates NIT-CERT-YYYY-NNNNNN and the issue date."""
+    """Issue an approved certificate: the database allocates NIT-CERT-YYYY-NNNNNN and the issue date. The fee is checked again
+    immediately before issue."""
     certificate = _get(certificate_id)
     _require_role(certificate, *ISSUERS)
     _expect_status(certificate, "Approved for Issue")
+    _require_fee_cleared(certificate)
     old = _snapshot(certificate)
     certificate.status = "Issued"
     certificate.issued_by = current_user().user_id
@@ -232,10 +285,9 @@ def issue(certificate_id: int) -> Certificate:
     return certificate
 
 
-def reissue(certificate_id: int, reason: str, holder_name: str | None) -> Certificate:
-    """A corrected copy (v2, v3 ...) under the same number; the earlier version becomes Superseded and stays on record."""
-    previous = _get(certificate_id)
-    _require_role(previous, *RE_ISSUERS)
+def apply_correction(previous: Certificate, reason: str, holder_name: str | None) -> Certificate:
+    """An approved correction: a corrected copy (v2, v3 ...) under the same number; the earlier version becomes Superseded
+    and stays on record (it was valid until now)."""
     _expect_status(previous, "Issued")
     user = current_user()
     old = _snapshot(previous)
@@ -256,9 +308,8 @@ def reissue(certificate_id: int, reason: str, holder_name: str | None) -> Certif
     return certificate
 
 
-def revoke(certificate_id: int, reason: str) -> Certificate:
-    certificate = _get(certificate_id)
-    _require_role(certificate, "SUPER_ADMIN")
+def apply_revocation(certificate: Certificate, reason: str) -> Certificate:
+    """An approved revocation (Founder / CEO or Super Admin, independent of the requester)."""
     _expect_status(certificate, "Issued")
     old = _snapshot(certificate)
     certificate.status = "Revoked"
@@ -273,6 +324,22 @@ def revoke(certificate_id: int, reason: str) -> Certificate:
     notify(category="Certificate", title=f"Certificate revoked: {certificate.certificate_number}", body=reason,
            link="/branch/reports", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-revoked-bm:{certificate.certificate_id}")
+    return certificate
+
+
+def apply_reinstatement(certificate: Certificate, reason: str) -> Certificate:
+    """An approved reinstatement after a mistaken revocation: Issued again under the same number and issue date. The revoked
+    interval stays in the status history."""
+    _expect_status(certificate, "Revoked")
+    old = {**_snapshot(certificate), "revoked_at": certificate.revoked_at.isoformat() if certificate.revoked_at else None}
+    certificate.status = "Issued"
+    certificate.reason = f"Reinstated: {reason}"
+    certificate.revoked_by = certificate.revoked_at = None
+    db.session.flush()
+    db.session.refresh(certificate)
+    audit.record("CERTIFICATE_REINSTATED", "certificate", certificate.certificate_id, old=old, new=_snapshot(certificate),
+                 reason=reason, branch_id=certificate.branch_id)
+    _tell_student(certificate, f"Your certificate was reinstated: {certificate.certificate_number}", reason, "reinstated")
     return certificate
 
 
@@ -325,9 +392,28 @@ def get_certificate(certificate_id: int) -> tuple[Certificate, list[Certificate]
     return certificate, history, actions
 
 
-def verify(number: str) -> Certificate:
-    """Public verification by number: the latest version decides the status."""
-    certificate = certificates_repo.latest_by_number(number)
-    if certificate is None:
+VERIFICATION_STATES = {"Issued": "Valid — Current Version", "Superseded": "Superseded", "Revoked": "Revoked"}
+
+
+def verify(number: str, version: int | None = None) -> dict:
+    """Public verification (Module 22 §9): the presented version (the latest when none is given) as Valid — Current Version,
+    Superseded (pointing at the current version) or Revoked, with its branch and the original issue date."""
+    versions = certificates_repo.versions_by_number(number)
+    if not versions:
         raise NotFound("No certificate with this number")
-    return certificate
+    current = versions[-1]
+    presented = current if version is None else next((c for c in versions if c.version == version), None)
+    if presented is None:
+        raise NotFound("No such version of this certificate")
+    return {
+        "certificate_number": presented.certificate_number,
+        "version": presented.version,
+        "state": VERIFICATION_STATES[presented.status],
+        "holder_name": presented.holder_name,
+        "course": {"course_code": presented.course.course_code, "title": presented.course.title},
+        "certificate_type": presented.certificate_type,
+        "branch": {"branch_code": presented.branch.branch_code, "branch_name": presented.branch.branch_name},
+        "issue_date": presented.issue_date,
+        "original_issue_date": versions[0].issue_date,
+        "current_version": None if presented is current else {"version": current.version, "state": VERIFICATION_STATES[current.status]},
+    }

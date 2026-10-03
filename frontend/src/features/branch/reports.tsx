@@ -1,7 +1,7 @@
 import { useBranchSummary } from "@/api/attendance";
 import { DataTable, Grid, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { percent } from "@/features/shared/format";
-import { CertificateRegister } from "@/features/shared/certificate-register";
+import { CertificateDecisions, CertificateRegister } from "@/features/shared/certificate-register";
 
 function Counts({ counts }: { counts: Record<string, number> }) {
   const entries = Object.entries(counts);
@@ -27,6 +27,9 @@ export function BranchReports() {
       />
       <Section title="Certificate Register">
         <CertificateRegister />
+      </Section>
+      <Section title="Certificate requests and exceptions">
+        <CertificateDecisions />
       </Section>
       <QueryView query={summary}>
         {(data) => (

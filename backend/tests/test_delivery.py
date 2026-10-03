@@ -70,12 +70,27 @@ def test_curriculum_review_path_and_independent_approval(world, client, login):
     assert t1["sort_order"] == 1
 
     data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit"), 200)
-    # Published content is frozen; the submitter cannot approve
+    # Published content is frozen; coordinators review but only the Founder / CEO or Super Admin approve (Module 14 §5)
     assert call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "x"}).status_code == 422
-    assert call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/approve").status_code == 422
-    assert call(client, login, people["bm"], "post", f"/curriculum-versions/{vid}/approve").status_code == 403
-    data(call(client, login, people["ac2"], "post", f"/curriculum-versions/{vid}/approve"), 200)
-    assert call(client, login, people["ac2"], "post", f"/curriculum-versions/{vid}/approve").status_code == 422
+    for who in ("ac", "ac2", "bm"):
+        assert call(client, login, people[who], "post", f"/curriculum-versions/{vid}/approve").status_code == 403
+    data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve"), 200)
+    assert call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/approve").status_code == 422  # already approved
+    assert call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/activate").status_code == 403
+    data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/activate"), 200)
+
+
+def test_a_super_admin_cannot_approve_a_version_they_submitted(world, client, login):
+    people, _, _ = world
+    course_id = next(c["course_id"] for c in client.get(f"{API}/reference/courses", headers=login(people["admin"].email)).get_json()["data"]
+                     if c["course_code"] == "NIT-CRS-052")
+    vid = data(call(client, login, people["admin"], "post", "/curriculum-versions", json={"course_id": course_id, "version_label": "CV 9"}), 201)["curriculum_version_id"]
+    module = data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
+    call(client, login, people["admin"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
+    data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/submit"), 200)
+    refused = call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/approve")
+    assert refused.status_code == 422 and "submitted" in refused.get_json()["error"]["message"]
+    data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve"), 200)
 
 
 def test_activation_maps_waiting_enrolments_and_batches(world, client, login, make_student, make_batch, run_sql):
@@ -92,8 +107,8 @@ def test_activation_maps_waiting_enrolments_and_batches(world, client, login, ma
     module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
     call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
     call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit")
-    call(client, login, people["ac2"], "post", f"/curriculum-versions/{vid}/approve")
-    result = data(call(client, login, people["ac2"], "post", f"/curriculum-versions/{vid}/activate"), 200)
+    call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve")
+    result = data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/activate"), 200)
 
     assert result["status"] == "Active"
     assert result["released"] == {"enrolments_released": 1, "batches_mapped": 1}
@@ -115,7 +130,7 @@ def test_activation_retires_previous_active_version(world, client, login):
     # copying an empty version gives an empty draft; add content and go through review
     module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{new['curriculum_version_id']}/modules", json={"title": "M"}), 201)
     call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
-    for who, action in (("ac", "submit"), ("ac2", "approve"), ("ac2", "activate")):
+    for who, action in (("ac", "submit"), ("founder", "approve"), ("admin", "activate")):
         assert call(client, login, people[who], "post", f"/curriculum-versions/{new['curriculum_version_id']}/{action}").status_code == 200
     versions = data(call(client, login, people["ac"], "get", f"/curriculum-versions?course_id={java['course']['course_id']}"), 200)
     assert {v["version_label"]: v["status"] for v in versions}["CV 5.1"] == "Retired"

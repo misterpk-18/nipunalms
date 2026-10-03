@@ -219,6 +219,7 @@ a course of the admission is running; **Inactive** — student suspended, or all
 | Support cross-link | CRM `support_cases` (money, admission) and LMS support requests (academic, LMS) stay separate; a request that belongs to the other side should be routed with both references stored. Not designed yet |
 | Staff accounts | Same email in both systems today; single sign-on or provisioning from the CRM later |
 | Course fee and branches | `CourseUpserted` carries neither the standard fee nor the branches offering a course; ask the CRM if the LMS needs them |
+| Round 4 request | Written 3 Oct 2026 in `nipuna crm-docs/LMS_ROUND4_REQUEST.md`: date of birth and guardians in `AdmissionQualified`, a `PersonRestrictionsUpdated` event (channel opt-outs, consents), cancellation and refund detail, placement endpoints (D5), and the new batch states coming in gap fix phase 6. Also tells the CRM about the `historical` flag, the certificate fee gate and reinstatement (Revoked → Issued). Waiting for the CRM |
 | Real data | Everything runs on dev databases only. Never point it at real student data until the service key, transport and retention are agreed |
 
 ---

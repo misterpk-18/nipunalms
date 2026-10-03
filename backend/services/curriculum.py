@@ -1,8 +1,9 @@
 """Curriculum management: versions per course (or per combo track), their modules and topics, and the review path.
 
 Draft -> Under Review -> Approved -> Active -> Retired. Content is editable only in a Draft; once submitted a version is a snapshot
-that enrolments and batches point at (the database refuses edits to published content). Whoever submits a version cannot approve
-it (independent review). Activating a version retires the previous Active one for that course / track, then maps every enrolment
+that enrolments and batches point at (the database refuses edits to published content). Academic Coordinators draft, submit and
+review; the Founder / CEO or Super Admin approve, activate and retire (Module 14 §5), and whoever submitted a version cannot
+approve it (independent review). Activating a version retires the previous Active one for that course / track, then maps every enrolment
 and batch that was waiting in *Curriculum Mapping Pending* and tells the branch that they can now be allocated.
 Enrolments and batches already on the older version stay on it.
 """
@@ -13,7 +14,7 @@ from models import Batch, Course, CourseComponent, CurriculumEvent, CurriculumMo
 from repositories import batches as batches_repo
 from repositories import catalog as catalog_repo
 from repositories import users as users_repo
-from services import audit, batches as batches_service, delivery_notices
+from services import approvals, audit, batches as batches_service, delivery_notices
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, NotFound, ValidationError
 
@@ -311,16 +312,19 @@ def submit(curriculum_version_id: int) -> CurriculumVersion:
     if problems:
         raise BusinessRule("The draft is not ready for review: " + "; ".join(problems), {"blockers": problems})
     event = _step(version, "Submitted", "Under Review")
-    reviewers = [u for u in _approvers() if u != actor_id()]
-    delivery_notices.notify_users(reviewers, title=f"Curriculum awaiting review: {version.version_label}", category="Curriculum",
-                                  body=f"{catalog_repo.get_course(version.course_id).course_code} — submitted by {current_user().full_name}",
-                                  event_key=f"curriculum-submitted-{event.event_id}",
-                                  link="/academic/curriculum", branch_id=None, action_required=True)
+    notified: set[int] = set()
+    for role_code, link in APPROVER_LINKS:
+        approvers = [u for u in users_repo.user_ids_with_role(role_code, None) if u not in notified]
+        notified.update(approvers)
+        delivery_notices.notify_users(approvers, title=f"Curriculum awaiting approval: {version.version_label}", category="Curriculum",
+                                      body=f"{catalog_repo.get_course(version.course_id).course_code} — submitted by {current_user().full_name}",
+                                      event_key=f"curriculum-submitted-{event.event_id}", link=link, branch_id=None, action_required=True)
     return version
 
 
-def _approvers() -> list[int]:
-    return list(dict.fromkeys(users_repo.user_ids_with_role("SUPER_ADMIN", None) + users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", None)))
+# Global curriculum is approved by the Founder / CEO or Super Admin after academic review (Module 14 §5); each opens it
+# from their own workspace
+APPROVER_LINKS = (("FOUNDER_CEO", "/founder/curriculum"), ("SUPER_ADMIN", "/academic/curriculum"))
 
 
 def return_to_draft(curriculum_version_id: int, reason: str) -> CurriculumVersion:
@@ -341,8 +345,8 @@ def approve(curriculum_version_id: int) -> CurriculumVersion:
     if version.status != "Under Review":
         raise BusinessRule(f"Only a version Under Review can be approved; {version.version_label} is {version.status}")
     submitted = catalog_repo.last_event(version.curriculum_version_id, "Submitted")
-    if submitted is not None and submitted.actor_user_id == actor_id():
-        raise BusinessRule("The person who submitted a curriculum version cannot approve it; ask another reviewer")
+    approvals.require_independent(submitted.actor_user_id if submitted else None,
+                                  message="The person who submitted a curriculum version cannot approve it; ask another approver")
     version.approved_by, version.approved_at = actor_id(), db.func.now()
     _step(version, "Approved", "Approved")
     db.session.refresh(version)

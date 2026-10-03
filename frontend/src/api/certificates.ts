@@ -16,7 +16,16 @@ export const CERTIFICATE_STATUSES = [
 ] as const;
 export const COMPLETION_DECISIONS = ["Complete", "Not Yet", "Needs Recovery"] as const;
 export type CompletionDecision = (typeof COMPLETION_DECISIONS)[number];
-export type CertificateAction = "recommend" | "approve" | "return" | "issue" | "reissue" | "revoke";
+export type CertificateAction =
+  | "recommend"
+  | "approve"
+  | "return"
+  | "issue"
+  | "request_correction"
+  | "request_revocation"
+  | "request_reinstatement";
+export type RequestKind = "Correction" | "Revocation" | "Reinstatement";
+export type ApprovalStatus = "Pending" | "Approved" | "Rejected";
 
 type Ref = { student_id: number; student_code: string; full_name: string };
 type EnrolmentRef = {
@@ -46,10 +55,75 @@ export type Certificate = {
   revoked_at: DateTime | null;
   supersedes_certificate_id: number | null;
   actions: CertificateAction[];
+  /** Module 22 §5: a paid admission's fee is cleared before the certificate goes ahead (staff views only). */
+  fee_clearance?: {
+    state: "Cleared" | "Outstanding" | "Not Received" | "Released by exception";
+    cleared: boolean;
+    admission_id: number;
+    balance: string | null;
+    exception_id: number | null;
+  };
+  pending_request?: { request_id: number; kind: RequestKind } | null;
 };
 
 export type CertificateDetail = Certificate & {
   history: { certificate_id: number; version: number; status: string; holder_name: string; issue_date: DateOnly | null; reason: string | null }[];
+  status_history: { from_status: string | null; to_status: string; changed_at: DateTime }[];
+};
+
+export type CertificateRequest = {
+  request_id: number;
+  certificate: {
+    certificate_id: number;
+    certificate_number: string | null;
+    certificate_type: string;
+    version: number;
+    status: string;
+    holder_name: string;
+    course: { course_id: number; course_code: string; title: string };
+    branch: { branch_id: number; branch_code: string; branch_name: string };
+  };
+  kind: RequestKind;
+  reason: string;
+  evidence: string | null;
+  changes: Record<string, { from: string; to: string }>;
+  status: ApprovalStatus;
+  requested_by: UserRef;
+  requested_at: DateTime;
+  decided_by: UserRef | null;
+  decided_at: DateTime | null;
+  decision_note: string | null;
+  resulting_certificate_id: number | null;
+  actions: "decide"[];
+};
+
+export type FinancialException = {
+  exception_id: number;
+  admission: { admission_id: number; admission_code: string };
+  outstanding_amount: string;
+  certificate_types: string[];
+  reason: string;
+  status: ApprovalStatus;
+  requested_by: UserRef;
+  requested_at: DateTime;
+  decided_by: UserRef | null;
+  decided_at: DateTime | null;
+  decision_note: string | null;
+  actions: "decide"[];
+};
+
+/** Public verification (Module 22 §9). */
+export type Verification = {
+  certificate_number: string;
+  version: number;
+  state: "Valid — Current Version" | "Superseded" | "Revoked";
+  holder_name: string;
+  course: { course_code: string; title: string };
+  certificate_type: string;
+  branch: { branch_code: string; branch_name: string };
+  issue_date: DateOnly | null;
+  original_issue_date: DateOnly | null;
+  current_version: { version: number; state: string } | null;
 };
 
 export type MyCertificates = {
@@ -92,8 +166,17 @@ export const certificatesApi = {
   returnToReview: (id: number, reason: string) => post<Certificate>(`/certificates/${id}/return`, { reason }),
   approve: (id: number) => post<Certificate>(`/certificates/${id}/approval`),
   issue: (id: number) => post<Certificate>(`/certificates/${id}/issue`),
-  reissue: (id: number, reason: string, holder_name?: string) => post<Certificate>(`/certificates/${id}/reissue`, { reason, holder_name }),
-  revoke: (id: number, reason: string) => post<Certificate>(`/certificates/${id}/revocation`, { reason }),
+  requestChange: (id: number, body: { kind: RequestKind; reason: string; evidence?: string; holder_name?: string }) =>
+    post<CertificateRequest>(`/certificates/${id}/change-requests`, body),
+  requests: (query: Query) => list<CertificateRequest>("/certificate-requests", query),
+  decideRequest: (id: number, decision: "Approved" | "Rejected", note?: string) =>
+    post<CertificateRequest>(`/certificate-requests/${id}/decision`, { decision, note }),
+  requestException: (id: number, reason: string) => post<FinancialException>(`/certificates/${id}/financial-exception`, { reason }),
+  exceptions: (query: Query) => list<FinancialException>("/certificate-financial-exceptions", query),
+  decideException: (id: number, decision: "Approved" | "Rejected", note: string) =>
+    post<FinancialException>(`/certificate-financial-exceptions/${id}/decision`, { decision, note }),
+  verify: (number: string, version?: number) =>
+    get<Verification>(`/certificates/verify/${encodeURIComponent(number)}`, version ? { version } : undefined),
   completion: (query: Query) => list<CompletionRow>("/completion-reviews", query),
   openReview: (enrolment_id: number) => post<CompletionReview>("/completion-reviews", { enrolment_id }),
   recommendCompletion: (id: number, recommendation: CompletionDecision, comment?: string) =>

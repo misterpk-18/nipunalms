@@ -269,8 +269,10 @@ class SeedContext:
     admission_counter: int = 300
 
     def crm_event(self, event_type: str, data: dict, *, version: int = 1, expect: tuple[int, ...] = (200, 201),
-                  occurred_at: str = "2026-09-28T10:00:00+05:30") -> dict:
-        """Post a CRM event with the service key, as the CRM does."""
+                  occurred_at: str | None = None) -> dict:
+        """Post a CRM event with the service key, as the CRM does. It happened now unless dated: an event more than
+        crm_notify_max_age_hours old is a historical import and sends no notices."""
+        occurred_at = occurred_at or datetime.now(IST).isoformat(timespec="seconds")
         self.event_counter += 1
         response = self.client.post(
             f"{API}/integrations/crm/events",
@@ -603,7 +605,10 @@ EARLIER_G1_SESSIONS = [
 ]
 # Absent class numbers (1 = oldest of the batch's 14 delivered classes) per learner of G1
 G1_ABSENCES = {"anvitha": {6, 13}, "G": {2, 5, 7, 10}, "H": {8}, "I": set()}
-STAFF_LOGINS = {"coord_gnt": "coordinator.gnt", "coord_vij": "coordinator.vij", "bm_gnt": "bm.gnt", "bm_vij": "bm.vij", "admin": "admin"}
+STAFF_LOGINS = {"coord_gnt": "coordinator.gnt", "coord_vij": "coordinator.vij", "bm_gnt": "bm.gnt", "bm_vij": "bm.vij", "admin": "admin",
+                "founder": "founder"}
+# The branch trainer who confirmed each finished learner's completion (they finished before the seeded batches)
+CONFIRMING_TRAINER = {GNT: "trainer_g3", VIJ: "trainer_v2"}
 # learner, certificate type, how far it goes in the register, the branch coordinator and manager who work it
 CERTIFICATE_PLAN = [
     ("A", "Course Completion Certificate", "issued", "coord_gnt", "bm_gnt"),
@@ -670,9 +675,17 @@ def seed_attendance(ctx: SeedContext) -> None:
         enrolment = _enrolment_of(ctx, key)
         enrolment.status, enrolment.joining_date = "Active", enrolment.joining_date or date(2026, 3, 2)
         db.session.commit()
+        # The fee is cleared (Module 22 §5): the CRM reports the admission Paid
+        ctx.crm_event("FinanceSummaryUpdated", {"crm_admission_id": ctx.students[key]["crm_admission_id"], "fee_total": 30000,
+                                                "verified_paid": 30000, "balance": 0, "payment_completion": "Paid"})
         if kind == "Internship Certificate":
             _staff_call(ctx, coordinator, "/certificates", {"enrolment_id": enrolment.enrolment_id, "certificate_type": kind})
         review = _staff_call(ctx, coordinator, "/completion-reviews", {"enrolment_id": enrolment.enrolment_id})
+        # The branch trainer confirmed completion (Module 22 §2); recorded directly, as these learners had no seeded batch
+        db.session.execute(text("UPDATE completion_reviews SET trainer_recommendation = 'Complete', recommended_by = :t, "
+                                "recommended_at = now() WHERE review_id = :r"),
+                           {"t": ctx.users[CONFIRMING_TRAINER[enrolment.service_branch_id]], "r": review["review_id"]})
+        db.session.commit()
         _staff_call(ctx, coordinator, f"/completion-reviews/{review['review_id']}/decision", {"decision": "Complete"})
         cid = db.session.execute(select(Certificate.certificate_id).where(
             Certificate.enrolment_id == enrolment.enrolment_id, Certificate.certificate_type == kind)).scalar_one()
@@ -687,10 +700,14 @@ def seed_attendance(ctx: SeedContext) -> None:
             _staff_call(ctx, manager, f"/certificates/{cid}/approval")
         if stage in ("issued", "revoked"):
             _staff_call(ctx, manager, f"/certificates/{cid}/issue")
-        if stage == "revoked":
-            _staff_call(ctx, "admin", f"/certificates/{cid}/revocation", {"reason": "Record error: issued against the wrong enrolment"})
-        if key == "A":
-            _staff_call(ctx, manager, f"/certificates/{cid}/reissue", {"reason": "Name correction"})
+        if stage == "revoked":  # asked by the Super Admin, decided by the Founder / CEO
+            request = _staff_call(ctx, "admin", f"/certificates/{cid}/change-requests",
+                                  {"kind": "Revocation", "reason": "Record error: issued against the wrong enrolment",
+                                   "evidence": "The CRM admission belongs to another course"})
+            _staff_call(ctx, "founder", f"/certificate-requests/{request['request_id']}/decision", {"decision": "Approved"})
+        if key == "A":  # asked by the coordinator, approved by the Branch Manager
+            request = _staff_call(ctx, coordinator, f"/certificates/{cid}/change-requests", {"kind": "Correction", "reason": "Name correction"})
+            _staff_call(ctx, manager, f"/certificate-requests/{request['request_id']}/decision", {"decision": "Approved"})
     # Anvitha is still studying: her register entry waits as Not Yet Eligible
     certificates_service.ensure_register_entry(_enrolment_of(ctx, "anvitha", "Combo"))
     db.session.execute(text("UPDATE enrolments SET certificate_status = 'Configuration Pending — completion rule not configured "

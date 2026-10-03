@@ -40,8 +40,12 @@ import type { TranslationKey } from "@/lib/i18n";
 
 export const PUBLIC_PATHS = ["/login", "/activate"];
 
+/** Open to everyone, signed in or not, without the app shell: public certificate verification (Module 22 §9). */
+export const OPEN_PATH_ROOTS = ["/verify"];
+export const isOpenPath = (path: string) => OPEN_PATH_ROOTS.some((root) => path === root || path.startsWith(`${root}/`));
+
 /** Screens outside every workspace (no shell). */
-const UNSCOPED_PATHS = [...PUBLIC_PATHS, "/change-password"];
+const UNSCOPED_PATHS = [...PUBLIC_PATHS, ...OPEN_PATH_ROOTS, "/change-password"];
 
 const isUnder = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
@@ -162,6 +166,8 @@ const ADMIN_NAV: NavItem[] = [
 
 const FOUNDER_NAV: NavItem[] = [
   { to: "/founder", label: "Founder Dashboard", icon: ShieldCheck },
+  { to: "/founder/curriculum", label: "Curriculum Approvals", icon: Library },
+  { to: "/founder/certificates", label: "Certificate Decisions", icon: Award },
   { to: "/admin", label: "Super Admin view", icon: Lock },
   { to: "/branch", label: "Branch views", icon: Building2 },
 ];
