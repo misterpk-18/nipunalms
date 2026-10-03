@@ -54,20 +54,31 @@ def test_delivery_is_delivered_over_planned_sessions_of_the_batch(client, w):
     assert measures(client, w, "s3", w.e3)["delivery"]["percent"] is None  # not 0: nothing planned yet
 
 
-def test_attendance_is_not_started_before_joining(client, w):
+def test_attendance_is_expected_from_the_seat_not_the_first_present(client, w, make_student, make_batch, allocate, login):
+    """Module 21 §3: expectations start at the agreed start; a student who misses the first classes is not 'Not started'."""
     attendance = measures(client, w)["attendance"]
-    assert attendance["state"] == "Not started" and attendance["percent"] is None
+    assert attendance["state"] == "Partial Data" and attendance["delivered_since_joining"] == 2 and attendance["percent"] is None
     assert measures(client, w)["joining_date"] is None
+    mark(client, w, w.recent, [{"enrolment_id": w.e1, "status": "Absent"}])
+    attendance = measures(client, w)["attendance"]
+    assert (attendance["marked"], attendance["absent"], attendance["percent"]) == (1, 1, 0.0)  # counted before any Present
+    assert measures(client, w)["joining_date"] is None
+    # A seat taken today is not expected at the batch's earlier classes
+    late = make_student(person_id="P-LATE", admission_id="A-LATE", email="late@example.test")
+    allocation = allocate(late, w.b1, effective_from=datetime.now(IST).date())
+    late_attendance = client.get(f"{API}/progress/enrolments/{allocation.enrolment_id}", headers=login(late.email)).get_json()["data"]["attendance"]
+    assert late_attendance["state"] == "Not started" and late_attendance["delivered_since_joining"] == 0
 
 
-def test_attendance_counts_present_and_late_since_joining_and_flags_partial_data(client, w):
+def test_attendance_counts_present_and_late_since_joining_and_flags_partial_data(client, w, run_sql):
+    run_sql("UPDATE batch_allocations SET effective_from = CURRENT_DATE - 10 WHERE enrolment_id = :e", e=w.e1)  # seat after w.older
     d1, d2, d4 = w.delivered(days_ago(3)), w.delivered(days_ago(2)), w.delivered(days_ago(1) + timedelta(hours=-2))
     mark(client, w, d1, [{"enrolment_id": w.e1, "status": "Present"}])
     mark(client, w, d2, [{"enrolment_id": w.e1, "status": "Absent"}])
     mark(client, w, w.recent, [{"enrolment_id": w.e1, "status": "Late"}])
 
     attendance = measures(client, w)["attendance"]
-    # w.older (20 days ago) is before the joining date, so it is neither a present nor an absent
+    # w.older (20 days ago) is before the seat, so it is neither a present nor an absent
     assert attendance["state"] == "Partial Data" and attendance["provisional"] is True
     assert (attendance["delivered_since_joining"], attendance["marked"], attendance["unmarked"]) == (4, 3, 1)
     assert (attendance["present"], attendance["late"], attendance["absent"]) == (1, 1, 1)
@@ -114,6 +125,9 @@ def test_required_learning_counts_topics_covered_by_attended_or_recovered_sessio
                       headers=w.h["s1"]).get_json()["data"]["recovery_id"]
     assert measures(client, w)["required_learning"]["covered_topics"] == 1         # a requested recovery is not enough
     client.post(f"{API}/attendance/recoveries/{rid}/decision", json={"decision": "Approved"}, headers=w.h["ac"])
+    assert measures(client, w)["required_learning"]["covered_topics"] == 1         # approval alone is not enough (Module 21 §6)
+    assert measures(client, w)["attendance"]["recovered"] == 0
+    client.post(f"{API}/attendance/recoveries/{rid}/completion", json={"evidence_note": "Reviewed the REST task"}, headers=w.h["t1"])
     learning = measures(client, w)["required_learning"]
     assert learning["covered_topics"] == 2 and learning["percent"] == 66.7
     assert measures(client, w)["attendance"]["recovered"] == 1

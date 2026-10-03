@@ -95,9 +95,10 @@ def ensure_register_entry(enrolment: Enrolment, certificate_type: str = COMPLETI
 
 
 def open_eligibility(enrolment: Enrolment, review: CompletionReview) -> list[Certificate]:
-    """A Complete completion decision opens eligibility (Not Yet Eligible -> Eligibility Review) for every live entry of the
-    enrolment (e.g. an Internship Certificate added earlier), or for a new Course Completion entry when there is none."""
-    entries = certificates_repo.live_entries(enrolment.enrolment_id) or [ensure_register_entry(enrolment)]
+    """A Complete completion decision opens eligibility (Not Yet Eligible -> Eligibility Review) for the Course Completion
+    Certificate, created when missing. An Internship Certificate stays Not Yet Eligible: course completion is not internship
+    experience (Module 22 §3); it needs verified internship evidence."""
+    entries = [ensure_register_entry(enrolment)]
     opened = []
     for certificate in (c for c in entries if c is not None and c.status == "Not Yet Eligible"):
         old = _snapshot(certificate)
@@ -112,6 +113,17 @@ def open_eligibility(enrolment: Enrolment, review: CompletionReview) -> list[Cer
                event_key=f"certificate-eligibility:{certificate.certificate_id}", action_required=True)
         opened.append(certificate)
     return opened
+
+
+def follow_transfer(enrolment: Enrolment) -> None:
+    """After a service-branch transfer, entries not yet issued move to the receiving branch, whose Academic Coordinator and
+    Branch Manager review and issue them (Module 22 §6). Issued, superseded and revoked versions keep their branch."""
+    for certificate in certificates_repo.live_entries(enrolment.enrolment_id):
+        if certificate.status in ("Issued", "Revoked") or certificate.branch_id == enrolment.service_branch_id:
+            continue
+        old_branch_id, certificate.branch_id = certificate.branch_id, enrolment.service_branch_id
+        audit.record("CERTIFICATE_BRANCH_TRANSFERRED", "certificate", certificate.certificate_id, old={"branch_id": old_branch_id},
+                     new={"branch_id": certificate.branch_id, **_snapshot(certificate)}, branch_id=certificate.branch_id)
 
 
 def create_entry(enrolment_id: int, certificate_type: str) -> Certificate:
@@ -129,7 +141,7 @@ def create_entry(enrolment_id: int, certificate_type: str) -> Certificate:
     if enrolment.status not in ("Active", "Completed"):
         raise BusinessRule(f"Enrolment {enrolment.enrolment_code} is '{enrolment.status}'; only a running or completed enrolment can have a certificate entry")
     certificate = ensure_register_entry(enrolment, certificate_type)
-    if enrolment.status == "Completed":
+    if enrolment.status == "Completed" and certificate_type == COMPLETION_CERTIFICATE:  # an internship needs its own evidence
         certificate.status = "Eligibility Review"
         db.session.flush()
     return certificate

@@ -385,6 +385,7 @@ class TestAttempt(db.Model):
             "status": self.status,
             "grading_status": self.grading_status,
             "started_at": self.started_at,
+            "deadline_at": self.deadline_at,
             "submitted_at": self.submitted_at,
             "receipt_code": self.receipt_code,
         }

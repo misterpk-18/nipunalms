@@ -273,6 +273,7 @@ def _parse_envelope(body: dict) -> dict:
     v.choice("event_type", EVENT_TYPES, required=True)
     v.integer("source_version", required=True, min_value=1)
     v.datetime("occurred_at", required=True)
+    v.boolean("historical")  # a backfill or re-import: applied, no current notices
     v.nested("data", lambda inner: None, required=True)
     envelope = v.validate()
     envelope["data"] = body["data"]  # kept exactly as received

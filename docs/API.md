@@ -247,7 +247,7 @@ admission's `planned_start_date` (IST) is raised once to the service branch's Br
 | POST | `/content-items/{id}/review` | AC (branch), Super Admin | `decision` start / approve / request_changes / reject (+ `comment`, `release`); never the uploader |
 | POST | `/content-items/{id}/release`, `/retire` | AC (branch), Super Admin | Approved → Released (previous released version retired, students notified); retire needs a reason |
 | POST | `/content-items/{id}/open` | Student, staff | Students: entitlement + expiry checked, `resource_view` activity recorded; returns link URL / file info |
-| GET | `/content-items/{id}/file?download=` | Student, staff | Serves the file; entitlement, expiry and `download_allowed` enforced here; only safe types shown inline |
+| GET | `/content-items/{id}/file?download=` | Student, staff | Serves the file; entitlement, expiry and `download_allowed` enforced here; only safe types shown inline. A `staff_only` item (answer key, marking guide, trainer notes; set on create / edit) is never part of a student's audience: not listed, opened, served or notified |
 | GET | `/me/resources`, `/me/recordings`, `/me/access` | Student | Released items / recordings of the student's own enrolments with access state; Joining Date, expiries and what can still be requested. `?topic_id=` / `?session_id=` narrow them for topic and session pages |
 | GET / POST | `/recordings` | Staff / AC, Super Admin | List scoped by branch or taught batches; register a part against an actual class session |
 | GET / PATCH | `/recordings/{id}` | Staff / AC, Super Admin | Detail (+ open exceptions); media reference, duration, source, download policy |
@@ -292,7 +292,7 @@ Job: `flask --app app jobs run recording-check`.
 | GET | `/submissions/{id}`, `/submissions/{id}/file` | Owner, batch staff | Other students and other batches: 404 |
 | POST | `/submissions/{id}/start-review`, `/review` | Staff of the batch | `outcome` Reviewed (marks up to the maximum) or Resubmission Requested (own deadline). Marks create a Provisional result |
 | GET | `/assessments/curriculum?batch_id=` | Staff | Modules and topics of the course's Active curriculum versions (for linking) |
-| GET / POST / PATCH | `/questions`, `/questions/{id}` | Trainer, AC, Super Admin (branch bank) | Type-specific answer key validation; keys never reach students |
+| GET / POST / PATCH | `/questions`, `/questions/{id}` | Trainer, AC, Super Admin | AC / BM see their branch bank; a trainer sees only the courses of the batches they teach there, plus questions they wrote. Type-specific answer key validation; keys never reach students |
 | POST | `/questions/{id}/approve`, `/retire`, `/new-version` | AC / Super Admin (the author cannot approve) | Approved questions are frozen; a change is a new version |
 | GET / POST / PATCH | `/tests`, `/tests/{id}` | Scoped | The student list shows every status of their batches' tests with their own state |
 | PUT | `/tests/{id}/questions` | Batch staff | Approved questions of the batch's course and branch, frozen into the test |
@@ -302,13 +302,15 @@ Job: `flask --app app jobs run recording-check`.
 | GET | `/attempts/{id}` | Owner, batch staff | Reading past the deadline submits the saved answers once |
 | PUT | `/attempts/{id}/answers` | Student | Autosave; after the deadline `accepted: false` and the attempt is submitted |
 | POST | `/attempts/{id}/submit` | Student | Idempotent; receipt `RCPT-T-00931` |
-| GET | `/attempts?grading_status=Awaiting Grading&reviewer_me=true` | Staff | Grading queue |
+| GET | `/attempts?grading_status=Awaiting Grading&reviewer_me=true` | Staff | Grading queue. `status=In Progress` lists attempts not yet submitted (with `deadline_at`); overdue ones are submitted first |
 | POST | `/attempts/{id}/grade` | Batch staff | Marks for Descriptive / Coding answers; complete means Graded, and for a formal test a Provisional result |
 | GET / POST | `/tests/{id}/slots`, `/interview-slots/{id}/book`, `/confirm`, `/cancel`, `/complete` | Trainer offers, confirms, completes; student books | Open, Slot Confirmation Pending, Confirmed, Completed |
 | GET | `/me/results` | Student | Only Published results carry a score |
 | GET | `/results?batch_id=&assignment_id=&test_id=&status=` | Staff | Provisional, moderated and final marks |
 | GET | `/assessment-reviews` | Staff | Moderation queue per assessment and batch, plus tests not ready |
 | POST | `/results/{id}/moderate`, `/results/publish` | AC / Super Admin | Moderate needs a reason (audited); publish by ids or `assignment_id` / `test_id`; students notified |
+
+Job: `flask --app app jobs run attempts-expire`: submits attempts still open past their deadline, as of the deadline.
 
 **Rules:**
 - Student-visible marks and feedback exist only after publication; the one exception is the feedback attached to a
@@ -342,7 +344,7 @@ Job: `flask --app app jobs run recording-check`.
 | GET | `/completion-reviews` | Staff (scoped) | Running / completed enrolments with evidence, latest review, certificate status |
 | POST | `/completion-reviews` | Trainer, AC, SA | `{enrolment_id}` opens a review (201, or 200 with the open one) |
 | POST | `/completion-reviews/{id}/recommendation` | Trainer of the batch, AC, SA | `{recommendation, comment?}` |
-| POST | `/completion-reviews/{id}/decision` | AC, SA (fresh auth) | `{decision: Complete\|Not Yet\|Needs Recovery, reason?}`; Complete → enrolment Completed + certificate eligibility |
+| POST | `/completion-reviews/{id}/decision` | AC, SA (fresh auth) | `{decision: Complete\|Not Yet\|Needs Recovery, reason?}`; Complete → enrolment Completed + Course Completion Certificate eligibility. An Internship Certificate entry stays Not Yet Eligible: it needs internship evidence |
 | GET | `/certificates`, `/certificates/{id}`, `/me/certificates` | AC, BM, SA, Founder (branch scope) / Student (own) | Register entries (every version) with `actions` the caller may take; detail has `history` |
 | POST | `/certificates` | AC, SA | `{enrolment_id, certificate_type}` adds an entry (e.g. Internship Certificate) |
 | POST | `/certificates/{id}/recommendation`, `/return`, `/approval`, `/issue`, `/reissue`, `/revocation` | AC / BM / BM, AC, SA / BM, SA / SA | Approval, issue, reissue, revocation need fresh auth; approval needs someone other than the recommender |
@@ -354,9 +356,10 @@ Job: `flask --app app jobs run recording-check`.
 - Joining date: `services/attendance.set_joining_date(enrolment, date)` — the first Present / Late moves "Allocated —
   awaiting first regular class" to Active and opens the enrolment's Certificate Register entry (Not Yet Eligible).
 - Progress is computed by SQL views (`enrolment_progress` and the views under it). Attendance % = (Present + Late) /
-  marked classes delivered since joining; "Partial Data" while any delivered class is unmarked; the alert needs three
-  marked classes and `attendance_alert_threshold`. Excused counts against the percentage; an approved or completed
-  recovery is reported separately and counts towards required learning.
+  marked classes delivered while the enrolment held a seat in the batch (from the allocation's `effective_from`, so
+  absences before the first Present count; `delivered_since_joining` keeps its name); "Partial Data" while any delivered
+  class is unmarked; the alert needs three marked classes and `attendance_alert_threshold`. Excused counts against the
+  percentage; a recovery is reported separately and counts towards required learning only once Completed.
 - Certificates: the database validates transitions and allocates `NIT-CERT-YYYY-NNNNNN` at first issue; a reissue is a
   new version under the same number and supersedes the earlier one. Complimentary enrolments stay "Configuration
   Pending" until `complimentary_completion_rule_configured` is true. Each Issued / Superseded / Revoked version is sent
@@ -375,7 +378,7 @@ Job: `flask --app app jobs run recording-check`.
 | POST | `/support-requests/{id}/escalate` | Staff | Trainer-owned goes to the Academic Coordinator (owner changes); anything else goes to the Branch Manager |
 | POST | `/support-requests/{id}/assign` | AC / BM / admin | `{owner_user_id}`, must work at the request's branch |
 | GET | `/trainer/students` | Trainer | Students with active seats in their batches + open-request flag |
-| GET | `/notifications` | Signed in | Own only. `view` = my, action, unread, completed or system; `category`, `q`; each item has `delivery_label` |
+| GET | `/notifications` | Signed in | Own only. `view` = my, action, unread, completed or system; `category`, `q`; each item has `delivery_label`. Staff see a branch notice only while they still hold its role (any role, for notices to named people) at that branch or company-wide; the same rule applies to counts, read and actions. Students keep their own |
 | GET | `/notifications/overview` | Signed in | `{unread, action_required, categories}` for the header bell |
 | POST | `/notifications/{id}/read`, `/acknowledge`, `/action-done`, `/notifications/read-all` | Recipient | Separate states; acknowledging also reads, does not complete the action |
 | GET / PUT | `/notifications/preferences` | Signed in | Group × channel matrix; In-app always on; WhatsApp / Email carry their integration status |

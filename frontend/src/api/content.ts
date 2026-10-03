@@ -40,6 +40,7 @@ export type ContentItem = {
   branch: BranchRef;
   batch: BatchRef | null;
   download_allowed: boolean;
+  staff_only: boolean;
   status: ContentStatus;
   owner: UserRef;
   version_no: number;

@@ -166,7 +166,7 @@ def _attendance_alert(enrolment: Enrolment | None) -> dict:
             "session_title": latest["session"]["title"], "starts_at": latest["session"]["starts_at"],
             "can_request_recovery": latest["can_request_recovery"], "recovery": latest["recovery"],
         },
-        "message": None if summary["state"] != "Not started" else "Attendance starts once your Joining Date is confirmed.",
+        "message": None if summary["state"] != "Not started" else "Attendance starts with your batch's first delivered class.",
     }
 
 

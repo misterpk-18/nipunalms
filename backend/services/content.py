@@ -77,8 +77,11 @@ def _assert_open(item: ContentItem) -> None:
 # ---------------------------------------------------------------- audience (which enrolments are entitled)
 
 def item_matches_enrolment(item: ContentItem, enrolment: Enrolment, batch_id: int | None) -> bool:
-    """The audience rule: same branch and course, the item's batch (if any) is the enrolment's batch, and the item's
-    curriculum version (if any) is the enrolment's version or one of its combo tracks' versions."""
+    """The audience rule: never a staff-only item (answer keys, marking guides, trainer notes); same branch and course, the
+    item's batch (if any) is the enrolment's batch, and the item's curriculum version (if any) is the enrolment's version or
+    one of its combo tracks' versions."""
+    if item.staff_only:
+        return False
     if item.branch_id != enrolment.service_branch_id or item.course_id != enrolment.course_id:
         return False
     if item.batch_id is not None and item.batch_id != batch_id:
@@ -218,7 +221,7 @@ def create_item(data: dict, upload: FileStorage | None) -> ContentItem:
             title=data["title"], description=data.get("description"), content_type=data["content_type"],
             language=data.get("language", "en"), branch_id=branch_id, batch_id=batch.batch_id if batch else None,
             download_allowed=data.get("download_allowed", data["content_type"] not in LINK_CONTENT_TYPES),
-            owner_user_id=user.user_id, **placement,
+            staff_only=data.get("staff_only", False), owner_user_id=user.user_id, **placement,
         )
         item.versions.append(ContentVersion(version_no=1, uploaded_by=user.user_id, change_summary=data.get("change_summary"), **source))
         db.session.add(item)
@@ -234,7 +237,7 @@ def create_item(data: dict, upload: FileStorage | None) -> ContentItem:
 
 
 def update_item(content_item_id: int, data: dict) -> ContentItem:
-    """Edit title, description, language, download policy and placement. Authors while the version is still theirs to
+    """Edit title, description, language, download policy, staff-only audience and placement. Authors while the version is still theirs to
     change (Draft / Changes Requested); reviewers any time, audited with old and new values."""
     item = _get_staff_item(content_item_id)
     _assert_can_manage(item)
@@ -243,9 +246,9 @@ def update_item(content_item_id: int, data: dict) -> ContentItem:
     if not reviewer and item.latest_version.status not in ("Draft", "Changes Requested"):
         raise BusinessRule(f"The latest version is {item.latest_version.status}; it can only be changed by the reviewer")
 
-    old = {key: getattr(item, key) for key in ("title", "description", "language", "download_allowed", "curriculum_version_id",
-                                               "module_id", "topic_id", "batch_id")}
-    for key in ("title", "description", "language", "download_allowed"):
+    old = {key: getattr(item, key) for key in ("title", "description", "language", "download_allowed", "staff_only",
+                                               "curriculum_version_id", "module_id", "topic_id", "batch_id")}
+    for key in ("title", "description", "language", "download_allowed", "staff_only"):
         if key in data:
             setattr(item, key, data[key])
     if any(key in data for key in PLACEMENT_KEYS):

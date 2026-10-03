@@ -100,18 +100,28 @@ def register_sessions_stmt(filters: dict, branch_ids: set[int] | None, batch_ids
 
 # ---------------------------------------------------------------- a student's own view
 
-def student_session_rows(enrolment_id: int, joining_date: date | None) -> list[tuple[ClassSession, AttendanceRecord | None]]:
-    """Live / Delivered sessions of the enrolment's batches (since the joining date once there is one), newest first."""
-    batch_ids = select(BatchAllocation.batch_id).where(BatchAllocation.enrolment_id == enrolment_id)
+def student_session_rows(enrolment_id: int) -> list[tuple[ClassSession, AttendanceRecord | None]]:
+    """Live / Delivered sessions of the enrolment's batches while it held a seat there (as the attendance_grid view counts
+    them: from the allocation's first day, before the first Present too), newest first."""
+    rows = db.session.execute(
+        select(BatchAllocation.batch_id, func.min(BatchAllocation.effective_from), func.bool_or(BatchAllocation.status == "Active"),
+               func.max(BatchAllocation.effective_to))
+        .where(BatchAllocation.enrolment_id == enrolment_id).group_by(BatchAllocation.batch_id)
+    ).all()
+    if not rows:
+        return []
+    windows = [
+        and_(ClassSession.batch_id == batch_id, ClassSession.starts_at >= _start_of_day(first),
+             *(() if current else (ClassSession.starts_at < _start_of_day(last + timedelta(days=1)),)))
+        for batch_id, first, current, last in rows
+    ]
     stmt = (
         select(ClassSession, AttendanceRecord)
         .outerjoin(AttendanceRecord, and_(AttendanceRecord.session_id == ClassSession.session_id,
                                           AttendanceRecord.enrolment_id == enrolment_id))
-        .where(ClassSession.batch_id.in_(batch_ids), ClassSession.state.in_(("Live", "Delivered")))
+        .where(or_(*windows), ClassSession.state.in_(("Live", "Delivered")))
         .order_by(ClassSession.starts_at.desc(), ClassSession.session_id.desc())
     )
-    if joining_date is not None:
-        stmt = stmt.where(ClassSession.starts_at >= _start_of_day(joining_date))
     return [(s, r) for s, r in db.session.execute(stmt).unique().all()]
 
 

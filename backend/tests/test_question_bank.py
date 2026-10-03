@@ -85,6 +85,18 @@ def test_scope_and_permissions(client, world):
     assert client.get(f"{API}/questions").status_code == 401
 
 
+def test_a_trainer_sees_only_the_bank_of_courses_they_teach(client, world, make_user, make_batch, login):
+    """Answer keys stay within the trainer's academic scope (Module 20 §2), not the whole branch bank."""
+    other = make_user(roles=[("TRAINER", 1)], full_name="Trainer of another course")
+    make_batch(1, course_code="NIT-CRS-052", trainers=[other])
+    headers = login(other.email)
+    qid = create(client, world).get_json()["data"]["question_id"]
+    assert client.get(f"{API}/questions/{qid}", headers=headers).status_code == 404
+    assert client.get(f"{API}/questions", headers=headers).get_json()["data"] == []
+    assert client.get(f"{API}/questions/{qid}", headers=world.h["g1"]).status_code == 200  # the author
+    assert qid in [q["question_id"] for q in client.get(f"{API}/questions", headers=world.h["g2"]).get_json()["data"]]
+
+
 def test_a_trainer_only_drafts_for_courses_they_teach(client, world):
     other_course = world.batches["G1"].course_id + 1  # a course nobody in the fixture teaches
     assert create(client, world, course_id=other_course).status_code in (403, 400)

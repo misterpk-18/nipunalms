@@ -162,6 +162,7 @@ export type AttemptSummary = {
   status: "In Progress" | "Submitted";
   grading_status: "Pending" | "Awaiting Grading" | "Graded";
   started_at: DateTime;
+  deadline_at: DateTime | null;
   submitted_at: DateTime | null;
   receipt_code: string | null;
   score?: string | null;

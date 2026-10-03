@@ -120,6 +120,31 @@ export function GradingQueue() {
         )}
       </QueryView>
       <GradeDialog key={open?.attempt_id} attempt={open} onClose={() => setOpen(null)} />
+      <OpenAttempts />
+    </div>
+  );
+}
+
+/** Attempts started but not yet submitted (Module 20 §6). Overdue ones are submitted by the server at their deadline. */
+function OpenAttempts() {
+  const query = useQuery({ queryKey: ["attempts", "open"], queryFn: () => assessmentsApi.attempts({ status: "In Progress" }) });
+  return (
+    <div className="mt-6">
+      <QueryView query={query} isEmpty={(p) => p.data.length === 0} empty="No attempts are in progress.">
+        {(page) => (
+          <DataTable
+            caption="Attempts in progress"
+            rows={page.data}
+            getKey={(a) => a.attempt_id}
+            cols={[
+              { h: "Student", c: (a) => a.student.full_name },
+              { h: "Test", c: (a) => a.test.title },
+              { h: "Started", c: (a) => formatIst(a.started_at) },
+              { h: "Deadline", c: (a) => (a.deadline_at ? formatIst(a.deadline_at) : "No time limit") },
+            ]}
+          />
+        )}
+      </QueryView>
     </div>
   );
 }

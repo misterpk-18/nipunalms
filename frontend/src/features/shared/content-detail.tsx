@@ -26,7 +26,14 @@ export function ContentDetailDialog({ id, onClose }: { id: number; onClose: () =
                   ["Course", item.course.title],
                   ["Curriculum version", item.curriculum_version?.version_label ?? "Any version"],
                   ["Module · Topic", [item.module?.title, item.topic?.title].filter(Boolean).join(" · ") || "—"],
-                  ["Audience", item.batch ? `Batch ${item.batch.batch_code}` : `All ${item.course.course_code} students at ${item.branch.branch_name}`],
+                  [
+                    "Audience",
+                    item.staff_only
+                      ? "Staff only — never shown to students"
+                      : item.batch
+                        ? `Batch ${item.batch.batch_code}`
+                        : `All ${item.course.course_code} students at ${item.branch.branch_name}`,
+                  ],
                   ["Author", item.owner.full_name],
                   ["Downloads", item.download_allowed ? "Allowed" : "View only"],
                 ]}

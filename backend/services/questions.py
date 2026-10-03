@@ -25,6 +25,19 @@ def question_branch_ids() -> set[int] | None:
     return branch_ids | {s.branch_id for s in current_user().scopes if s.role_code == "TRAINER"}
 
 
+def taught_courses() -> set[tuple[int, int]]:
+    """(branch_id, course_id) of the batches the user currently teaches."""
+    return {(b.branch_id, b.course_id) for b in map(batches_repo.get_batch, scope.trainer_batch_ids()) if b is not None}
+
+
+def _visible(question: Question) -> bool:
+    """A branch's whole bank for its coordinators and managers; for a trainer, only the courses they teach there (Module 20 §2:
+    answer keys stay within the trainer's academic scope) and the questions they wrote."""
+    branch_ids = scope.visible_branch_ids()
+    return (branch_ids is None or question.branch_id in branch_ids or question.author_user_id == current_user().user_id
+            or (question.branch_id, question.course_id) in taught_courses())
+
+
 def _resolve_branch(branch_id: int | None) -> int:
     user = current_user()
     if branch_id is None:
@@ -39,18 +52,15 @@ def _resolve_branch(branch_id: int | None) -> int:
 
 def _assert_can_author(course_id: int, branch_id: int) -> None:
     """A trainer drafts only for courses they teach at the branch; coordinators and Super Admin for any course."""
-    user = current_user()
-    if user.has_role(*MODERATOR_ROLES, branch_id=branch_id):
+    if current_user().has_role(*MODERATOR_ROLES, branch_id=branch_id):
         return
-    taught = (batches_repo.get_batch(batch_id) for batch_id in scope.trainer_batch_ids())
-    if not any(b.course_id == course_id and b.branch_id == branch_id for b in taught):
+    if (branch_id, course_id) not in taught_courses():
         raise Forbidden("You can only add questions for courses you teach")
 
 
 def _load(question_id: int) -> Question:
     question = questions_repo.get_question(question_id)
-    branches = question_branch_ids()
-    if question is None or (branches is not None and question.branch_id not in branches):
+    if question is None or not _visible(question):
         raise NotFound("Question not found")
     return question
 
@@ -60,7 +70,7 @@ def _can_moderate(question: Question) -> bool:
 
 
 def list_questions(filters: dict, page: int, per_page: int) -> tuple[list[Question], dict]:
-    return paginate(questions_repo.list_stmt(filters, question_branch_ids()), page, per_page)
+    return paginate(questions_repo.list_stmt(filters, scope.visible_branch_ids(), taught_courses(), current_user().user_id), page, per_page)
 
 
 def get_question(question_id: int) -> Question:

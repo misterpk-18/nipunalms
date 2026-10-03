@@ -115,6 +115,34 @@ def test_the_bell_works_for_staff_too(client, world):
     assert client.get(f"{API}/overview", headers=world.h(world.people.t1)).get_json()["data"]["action_required"] == 1
 
 
+def test_a_transfer_or_removed_role_hides_the_old_branch_notices(client, world, run_sql):
+    """Module 26 §8: counts, lists and deep links follow the user's current role and branch, not who they were when sent."""
+    ac = world.people.ac
+    run_sql("DELETE FROM notifications")  # the world's own admissions notified the coordinator too
+    notify(category="Enrolment", title="New admission at Guntur", event_key="n1", role_code="ACADEMIC_COORDINATOR", branch_id=1,
+           action_required=True)
+    notify(category="Session", title="Class moved at Guntur", event_key="n2", recipient_user_ids=[ac.user_id], branch_id=1)
+    notify(category="Security", title="Company-wide notice", event_key="n3", recipient_user_ids=[ac.user_id])
+    db.session.commit()
+    headers = world.h(ac)
+    assert sorted(titles(client.get(API, headers=headers))) == ["Class moved at Guntur", "Company-wide notice", "New admission at Guntur"]
+    n1 = db.session.query(Notification).filter_by(event_key="n1", recipient_user_id=ac.user_id).one()
+    assert n1.role_code == "ACADEMIC_COORDINATOR"
+
+    # Moved to Vijayawada as coordinator: Guntur's notices go; the one with no branch stays
+    run_sql("UPDATE user_role_scopes SET revoked_at = now() WHERE user_id = :u", u=ac.user_id)
+    run_sql("INSERT INTO user_role_scopes (user_id, role_id, branch_id) SELECT :u, role_id, 2 FROM roles WHERE role_code = 'ACADEMIC_COORDINATOR'",
+            u=ac.user_id)
+    assert titles(client.get(API, headers=headers)) == ["Company-wide notice"]
+    assert client.get(f"{API}/overview", headers=headers).get_json()["data"]["action_required"] == 0
+    assert client.post(f"{API}/{n1.notification_id}/read", headers=headers).status_code == 404
+
+    # Back at Guntur but as a trainer: the coordinator notice stays hidden, the named one returns
+    run_sql("UPDATE user_role_scopes SET revoked_at = now() WHERE user_id = :u", u=ac.user_id)
+    run_sql("INSERT INTO user_role_scopes (user_id, role_id, branch_id) SELECT :u, role_id, 1 FROM roles WHERE role_code = 'TRAINER'", u=ac.user_id)
+    assert sorted(titles(client.get(API, headers=headers))) == ["Class moved at Guntur", "Company-wide notice"]
+
+
 class TestPreferences:
     def test_defaults_show_in_app_on_and_external_channels_not_configured(self, client, world):
         data = client.get(f"{API}/preferences", headers=world.h(world.students.s1)).get_json()["data"]

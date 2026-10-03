@@ -445,7 +445,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
 | WhatsApp / email / telephony | In-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue` and `allocation-escalation`; no cron runs it yet. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation` and `attempts-expire`; no cron runs it yet. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 

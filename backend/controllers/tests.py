@@ -4,7 +4,7 @@ from decimal import Decimal
 from flask import request
 
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated, require_changes
-from models.assessments import AI_USE_RULES, GRADING_STATUSES, TEST_KINDS, TEST_RELEASE_STATUSES
+from models.assessments import AI_USE_RULES, ATTEMPT_STATUSES, GRADING_STATUSES, TEST_KINDS, TEST_RELEASE_STATUSES
 from services import attempts as attempts_service
 from services import interviews as interviews_service
 from services import tests as tests_service
@@ -97,6 +97,7 @@ def list_attempts():
     v.integer("test_id", min_value=1)
     v.integer("batch_id", min_value=1)
     v.choice("grading_status", GRADING_STATUSES)
+    v.choice("status", ATTEMPT_STATUSES)
     v.boolean("reviewer_me")
     filters = v.validate()
     page, per_page = get_page_params()

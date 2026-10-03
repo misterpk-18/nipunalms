@@ -20,4 +20,6 @@ Admission and finance; the LMS receives admissions from it and shows read-only f
 | [docs/API.md](docs/API.md) | Backend architecture, conventions, domain model and every endpoint with its rules |
 | [docs/DATABASE.md](docs/DATABASE.md) | Migrations and the rules the schema enforces |
 | [docs/CRM_INTEGRATION.md](docs/CRM_INTEGRATION.md) | The LMS ↔ CRM contract, how each side runs it, open items and the history of the integration rounds |
+| [docs/GAP_FIX_PLAN.md](docs/GAP_FIX_PLAN.md) | The phased plan to close the gaps against the approved modules 14–27 |
+| [docs/GAPS.md](docs/GAPS.md) | Gap register: each gap found against modules 14–27, with evidence, phase and status |
 | [docs/Nipuna_LMS_Content_Data_Request.pdf](docs/Nipuna_LMS_Content_Data_Request.pdf) | The content data request (reference document) |

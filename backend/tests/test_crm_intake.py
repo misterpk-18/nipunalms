@@ -1,8 +1,9 @@
 """CRM event intake: courses, admissions, idempotency, stale events, cancellation, finance."""
+import pytest
 from sqlalchemy import func, select
 
 from config.database import db
-from models import Admission, CrmEvent, Enrolment, FinanceSummary, Notification, Student, User
+from models import Admission, AuditLog, Certificate, CrmEvent, Enrolment, FinanceSummary, Notification, Student, User
 from tests import helpers
 from tests.conftest import SERVICE_KEY
 
@@ -251,6 +252,32 @@ def test_service_branch_transfer_moves_the_enrolments_and_asks_the_new_coordinat
     assert db.session.execute(select(Admission.service_branch_id)).scalar_one() == 2
     recipients = db.session.execute(select(Notification.recipient_user_id).where(Notification.category == "Enrolment")).scalars().all()
     assert recipients == [coordinator.user_id]
+
+
+def test_a_transfer_moves_certificate_entries_not_yet_issued_to_the_new_branch(catalog, crm_event):
+    """Module 22 §6: the receiving branch's coordinator and manager review and issue a transferred student's certificate."""
+    qualify(crm_event)
+    enrolment = db.session.execute(select(Enrolment)).scalar_one()
+    entry = Certificate(certificate_type="Course Completion Certificate", enrolment_id=enrolment.enrolment_id,
+                               student_id=enrolment.student_id, course_id=enrolment.course_id, branch_id=1, holder_name="Anvitha K.")
+    db.session.add(entry)
+    db.session.commit()
+
+    crm_event("AdmissionUpdated", {"crm_admission_id": "A-100", "service_branch_code": "NIT-VIJ"}, source_version=2)
+
+    db.session.refresh(entry)
+    assert entry.branch_id == 2
+    assert db.session.execute(select(AuditLog.action).where(AuditLog.action == "CERTIFICATE_BRANCH_TRANSFERRED")).scalar_one()
+
+
+@pytest.mark.parametrize("flags", [{"historical": True}, {"occurred_at": "2026-01-05T10:00:00+05:30"}])
+def test_a_historical_import_is_applied_without_current_notices(catalog, crm_event, make_user, flags):
+    """Module 27 §6: a backfill or re-import keeps its original dates and does not notify anyone as if it just happened."""
+    make_user(roles=[("ACADEMIC_COORDINATOR", 1)])
+    assert qualify(crm_event, **flags)["status"] == "Applied"
+    assert db.session.execute(select(func.count()).select_from(Enrolment)).scalar_one() == 1
+    assert db.session.execute(select(func.count()).select_from(Notification)).scalar_one() == 0
+    assert db.session.execute(select(CrmEvent.historical).where(CrmEvent.event_type == "AdmissionQualified")).scalar_one() is bool(flags.get("historical"))
 
 
 def test_updating_an_unknown_admission_fails(crm_event):

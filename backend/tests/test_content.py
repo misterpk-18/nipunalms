@@ -8,6 +8,7 @@ from sqlalchemy import select
 from config.database import db
 from models import ActivityEvent, AuditLog, Notification
 from repositories import users as users_repo
+from repositories import users as users_repo
 from tests import library_helpers as h
 from tests.library_helpers import API, auth, create_item, get, post, release_item, upload_data
 
@@ -319,6 +320,21 @@ def test_student_resources_filters_and_entry_shape(client, login, world):
     assert get(client, f"/me/resources?module_id={world.module.module_id}", student)
     assert client.get(f"{API}/me/resources?content_type=Video", headers=student).status_code == 400
     assert client.get(f"{API}/me/resources", headers=trainer).status_code == 403
+
+
+def test_a_staff_only_item_is_never_shown_to_students(client, login, world):
+    """Module 18 §3: answer keys, marking guides and trainer notes stay protected from students, even when released."""
+    trainer, student = auth(login, world.people.t1), auth(login, world.students.s1)
+    key = create_item(client, trainer, world, title="Answer key", fields={"staff_only": "true"})
+    assert key["staff_only"] is True
+    release_item(client, world, login, key["content_item_id"])
+
+    assert get(client, "/me/resources", student) == []
+    assert client.post(f"{API}/content-items/{key['content_item_id']}/open", headers=student).status_code == 404
+    assert client.get(f"{API}/content-items/{key['content_item_id']}/file", headers=student).status_code == 404
+    assert client.get(f"{API}/content-items/{key['content_item_id']}/file", headers=trainer).status_code == 200  # staff keep it
+    student_user = users_repo.get_by_student_id(world.students.s1.student_id)
+    assert db.session.execute(select(Notification).where(Notification.recipient_user_id == student_user.user_id)).first() is None
 
 
 def test_retiring_withdraws_the_item_from_students_and_keeps_the_files(client, login, world):

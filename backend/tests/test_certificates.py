@@ -189,11 +189,21 @@ def test_register_filters(client, w):
 def test_coordinator_can_add_an_internship_entry(client, w):
     complete(client, w)
     made = post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"})
-    assert made.status_code == 201 and made.get_json()["data"]["status"] == "Eligibility Review"
+    assert made.status_code == 201 and made.get_json()["data"]["status"] == "Not Yet Eligible"  # course completion is not an internship
     assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 409
     assert post(client, w, "bm", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 403
     assert post(client, w, "ac_v", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 404
     assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e3, "certificate_type": "Internship Certificate"}).status_code == 422
+
+
+def test_course_completion_does_not_open_the_internship_certificate(client, w):
+    """Module 22 §3: an Internship Certificate needs verified internship evidence, not just a completed course."""
+    client.put(f"{API}/attendance/sessions/{w.recent.session_id}", json={"default_status": "Present"}, headers=w.h["t1"])
+    assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 201
+    review_id = post(client, w, "t1", "/completion-reviews", {"enrolment_id": w.e1}).get_json()["data"]["review_id"]
+    assert post(client, w, "ac", f"/completion-reviews/{review_id}/decision", {"decision": "Complete"}).status_code == 200
+    statuses = dict(db.session.execute(select(Certificate.certificate_type, Certificate.status).where(Certificate.enrolment_id == w.e1)).all())
+    assert statuses == {"Course Completion Certificate": "Eligibility Review", "Internship Certificate": "Not Yet Eligible"}
 
 
 def test_a_complimentary_offer_shows_configuration_pending_on_the_student_screen(client, w, crm_event, login, run_sql):

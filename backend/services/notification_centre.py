@@ -28,18 +28,23 @@ def delivery_label(notification: Notification) -> str:
     return f"{notification.channel} — {notification.delivery_note} (not sent)"
 
 
+def _me() -> tuple[int, bool]:
+    """The user, and whether their notices are limited to their current role and branch access (staff, not students)."""
+    user = current_user()
+    return user.user_id, user.student_id is None
+
+
 def list_notifications(filters: dict, page: int, per_page: int) -> tuple[list[Notification], dict]:
-    return paginate(notifications_repo.list_stmt(current_user().user_id, filters), page, per_page)
+    return paginate(notifications_repo.list_stmt(*_me(), filters), page, per_page)
 
 
 def overview() -> dict:
     """Counts for the header bell and the categories the user can filter by."""
-    user_id = current_user().user_id
-    return {**notifications_repo.counts(user_id), "categories": notifications_repo.categories(user_id)}
+    return {**notifications_repo.counts(*_me()), "categories": notifications_repo.categories(*_me())}
 
 
 def _own(notification_id: int) -> Notification:
-    notification = notifications_repo.get_for_recipient(notification_id, current_user().user_id)
+    notification = notifications_repo.get_for_recipient(notification_id, *_me())
     if notification is None:
         raise NotFound("Notification not found")
     return notification
@@ -53,7 +58,7 @@ def mark_read(notification_id: int) -> Notification:
 
 
 def mark_all_read() -> int:
-    return notifications_repo.mark_all_read(current_user().user_id)
+    return notifications_repo.mark_all_read(*_me())
 
 
 def acknowledge(notification_id: int) -> Notification:

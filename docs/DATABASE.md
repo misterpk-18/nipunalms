@@ -47,6 +47,7 @@ Vijayawada).
 | `096_crm_branches_finance.sql` | Branch and finance-snapshot events from the CRM | ✅ |
 | `097_crm_round3.sql` | Curriculum catalogue for the CRM, CRM curriculum mapping | ✅ |
 | `098_batch_timetable.sql` | Batch timetable for CRM sales; readiness and seats left in the pull | ✅ |
+| `099_gap_fixes.sql` | Gap fix plan phase 1: notice role, staff-only content, historical CRM events, attendance from the seat | ✅ |
 
 ---
 
@@ -308,3 +309,13 @@ The CRM's sales playbook needs real timings before promising a batch (round 3, [
 | `weekday_labels()` | `{1,3,5}` → `'Mon, Wed, Fri'` |
 | `batch_crm_state()` adds `readiness`, `readiness_reason`, `seats_left`, `schedule_days`, `start_time`, `end_time`, `location`; `trg_batch_allocations_crm_state` | Sales offers only non-Blocked Planned / Open batches with seats left. Every allocation change refreshes the batch's pulled state |
 
+## 099 — Gap fixes, phase 1
+
+Correctness and privacy fixes from the gap review ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md), [GAPS.md](GAPS.md)).
+
+| Change | Why |
+|---|---|
+| `notifications.role_code` | The role a notice was fanned out on (`notify(role_code=…)`); NULL = sent to named people. Staff see a branch notice only while they hold that role (or any role, when NULL) at the branch or company-wide, so a transfer or removed role hides it (G010). Rows from before 099 have NULL |
+| `content_items.staff_only` | Answer keys, marking guides and trainer notes: never in a student's audience (G022) |
+| `crm_events.historical`, setting `crm_notify_max_age_hours` (72) | A backfill or re-import (flagged, or older than the setting) is applied with its original dates but sends no current notices (G056) |
+| `enrolment_batch_links.first_effective_from`; `attendance_grid`, `enrolment_attendance`, `enrolment_covered_topics`, `enrolment_required_learning`, `enrolment_progress` recreated | Attendance is expected from the seat (allocation `effective_from`), not the first Present, so earlier absences count (G028); `attendance_state` is Not started only while nothing has been delivered. A recovery counts as recovered / covered only when Completed (G029) |

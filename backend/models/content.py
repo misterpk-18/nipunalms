@@ -55,6 +55,7 @@ class ContentItem(db.Model):
     branch_id: Mapped[int] = mapped_column(Integer, ForeignKey("branches.branch_id"))
     batch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("batches.batch_id"))
     download_allowed: Mapped[bool] = mapped_column(Boolean, default=True)
+    staff_only: Mapped[bool] = mapped_column(Boolean, default=False)  # answer keys, marking guides, trainer notes
     status: Mapped[str] = mapped_column(ContentStatus, default="Draft")
     owner_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
     retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -108,6 +109,7 @@ class ContentItem(db.Model):
             "language": self.language,
             **self.placement(),
             "download_allowed": self.download_allowed,
+            "staff_only": self.staff_only,
             "status": self.status,
             "owner": _user_ref(self.owner),
             "version_no": latest.version_no,

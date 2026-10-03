@@ -8,7 +8,7 @@ Every event is stored in crm_events with its outcome. Rules:
 """
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 from sqlalchemy import func
@@ -23,9 +23,10 @@ from repositories import batches as batches_repo
 from repositories import branches as branches_repo
 from repositories import catalog as catalog_repo
 from repositories import crm as crm_repo
+from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
-from services import activation, allocations, audit
+from services import activation, allocations, audit, certificates
 from repositories.common import paginate
 from services.errors import AppError, BusinessRule, Conflict, NotFound, NotYetApplied, ValidationError
 from services.notifications import notify
@@ -69,7 +70,7 @@ def receive(envelope: dict, data: dict) -> Outcome:
 
     event = CrmEvent(event_id=envelope["event_id"], event_type=envelope["event_type"],
                      source_version=envelope["source_version"], occurred_at=envelope["occurred_at"],
-                     payload=envelope["data"])
+                     historical=envelope.get("historical") or False, payload=envelope["data"])
     db.session.add(event)
     db.session.flush()
     return _process(event, data, replayed=False)
@@ -101,6 +102,20 @@ def retry(event: CrmEvent, data: dict) -> CrmEvent:
     if event.status not in ("Failed", "Received"):
         raise BusinessRule(f"Only failed events can be retried; this one is '{event.status}'")
     return _process(event, data, replayed=True).event
+
+
+def is_historical(event: CrmEvent) -> bool:
+    """A historical import (flagged by the CRM) or an event that happened more than crm_notify_max_age_hours ago: it is
+    applied with its original dates but sends no current notices (Module 27 §6)."""
+    max_age = timedelta(hours=settings_repo.get_int("crm_notify_max_age_hours", 72))
+    return event.historical or event.occurred_at < datetime.now(timezone.utc) - max_age
+
+
+def _notify(event: CrmEvent, **notice) -> None:
+    if is_historical(event):
+        logger.info("CRM event %s is historical; no notice sent (%s)", event.event_id, notice["event_key"])
+        return
+    notify(**notice)
 
 
 def _same_event(event: CrmEvent, envelope: dict) -> bool:
@@ -295,11 +310,11 @@ def _admission_qualified(event: CrmEvent, data: dict) -> Handled:
     enrolments = [_ensure_enrolment(admission, student, item, warnings, paid) for item in items]
 
     pending = [f"{e.enrolment_code} {e.status}" for e in enrolments if e.status.endswith("Pending")]
-    notify(category="Enrolment", event_key=f"admission-qualified:{admission.crm_admission_id}",
-           title=f"New admission: {student.full_name} — {course.title}",
-           body="; ".join(pending) if pending else "All enrolments are ready for allocation.",
-           link=f"/academic/students/{student.student_id}", role_code="ACADEMIC_COORDINATOR",
-           branch_id=service.branch_id, action_required=bool(pending))
+    _notify(event, category="Enrolment", event_key=f"admission-qualified:{admission.crm_admission_id}",
+            title=f"New admission: {student.full_name} — {course.title}",
+            body="; ".join(pending) if pending else "All enrolments are ready for allocation.",
+            link=f"/academic/students/{student.student_id}", role_code="ACADEMIC_COORDINATOR",
+            branch_id=service.branch_id, action_required=bool(pending))
     db.session.flush()
 
     return Handled({**_admission_result(admission, student), "activation_status": student.activation_status,
@@ -481,7 +496,7 @@ def _admission_updated(event: CrmEvent, data: dict) -> Handled:
     if "service_branch_code" in data:
         new_branch = _branch(data["service_branch_code"])
         if new_branch.branch_id != admission.service_branch_id:
-            _transfer(admission, student, enrolments, new_branch)
+            _transfer(event, admission, student, enrolments, new_branch)
             changes.append("service branch transferred")
 
     if "mode" in data and data["mode"] != admission.mode:
@@ -514,19 +529,20 @@ def _admission_updated(event: CrmEvent, data: dict) -> Handled:
     return Handled({**_admission_result(admission, student), "changes": changes, "warnings": warnings})
 
 
-def _transfer(admission: Admission, student: Student, enrolments: list[Enrolment], new_branch) -> None:
+def _transfer(event: CrmEvent, admission: Admission, student: Student, enrolments: list[Enrolment], new_branch) -> None:
     """Service branch transfer: seats at the old branch are released, the new branch's coordinator is asked to re-allocate."""
     old_branch_id = admission.service_branch_id
     admission.service_branch_id = new_branch.branch_id
     for enrolment in enrolments:
         allocations.end(enrolment, "Transferred", reason=f"Service branch transferred to {new_branch.branch_code}")
         enrolment.service_branch_id = new_branch.branch_id
+        certificates.follow_transfer(enrolment)
     audit.record("ADMISSION_TRANSFERRED", "admission", admission.admission_code, branch_id=new_branch.branch_id,
                  old={"service_branch_id": old_branch_id}, new={"service_branch_id": new_branch.branch_id})
-    notify(category="Enrolment", event_key=f"admission-transfer:{admission.crm_admission_id}:{admission.source_version}:{new_branch.branch_id}",
-           title=f"Transferred in: {student.full_name} ({admission.admission_code})",
-           body="Allocate the student to a batch at this branch.", link=f"/academic/students/{student.student_id}",
-           role_code="ACADEMIC_COORDINATOR", branch_id=new_branch.branch_id, action_required=True)
+    _notify(event, category="Enrolment", event_key=f"admission-transfer:{admission.crm_admission_id}:{admission.source_version}:{new_branch.branch_id}",
+            title=f"Transferred in: {student.full_name} ({admission.admission_code})",
+            body="Allocate the student to a batch at this branch.", link=f"/academic/students/{student.student_id}",
+            role_code="ACADEMIC_COORDINATOR", branch_id=new_branch.branch_id, action_required=True)
 
 
 # ---------------------------------------------------------------- AdmissionCancelled

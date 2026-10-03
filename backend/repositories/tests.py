@@ -100,9 +100,10 @@ def attempts_for_enrolments(enrolment_ids: set[int], test_ids: list[int]) -> dic
 
 
 def attempts_stmt(filters: dict, batch_clause=None) -> Select:
-    """Staff view of attempts: the grading queue (grading_status=Awaiting Grading) and per-test lists."""
-    stmt = select(TestAttempt).join(Test, Test.test_id == TestAttempt.test_id).where(TestAttempt.status == "Submitted")
-    stmt = stmt.order_by(TestAttempt.submitted_at, TestAttempt.attempt_id)
+    """Staff view of attempts: the grading queue (grading_status=Awaiting Grading), per-test lists and open attempts."""
+    stmt = select(TestAttempt).join(Test, Test.test_id == TestAttempt.test_id)
+    stmt = stmt.where(TestAttempt.status == filters.get("status", "Submitted"))
+    stmt = stmt.order_by(TestAttempt.submitted_at, TestAttempt.started_at, TestAttempt.attempt_id)
     if batch_clause is not None:
         stmt = stmt.where(batch_clause(Test.batch_id))
     if filters.get("test_id"):
@@ -121,7 +122,7 @@ def graded_attempts(test_id: int, enrolment_id: int) -> list[TestAttempt]:
 
 
 def expired_in_progress(now) -> list[TestAttempt]:
-    """Attempts still open past their server deadline (auto-submitted the next time anyone reads them)."""
+    """Attempts still open past their server deadline (submitted by the `attempts-expire` job or the next read)."""
     stmt = select(TestAttempt).where(TestAttempt.status == "In Progress", TestAttempt.deadline_at < now)
     return list(db.session.execute(stmt).scalars().unique())
 

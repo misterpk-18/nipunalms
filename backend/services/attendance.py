@@ -232,8 +232,8 @@ def mark_attendance(session_id: int, entries: list[dict], default_status: str | 
 # ---------------------------------------------------------------- one enrolment's attendance
 
 def enrolment_attendance(enrolment: Enrolment) -> dict:
-    """Attendance measure plus one row per Live / Delivered session since joining (what the student's Attendance screen shows)."""
-    session_rows = attendance_repo.student_session_rows(enrolment.enrolment_id, enrolment.joining_date)
+    """Attendance measure plus one row per Live / Delivered session since the seat (what the student's Attendance screen shows)."""
+    session_rows = attendance_repo.student_session_rows(enrolment.enrolment_id)
     records = [r for _, r in session_rows if r is not None]
     recoveries = attendance_repo.recoveries_by_attendance([r.attendance_id for r in records])
     pending = attendance_repo.pending_correction_keys([s.session_id for s, _ in session_rows])

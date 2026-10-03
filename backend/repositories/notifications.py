@@ -1,21 +1,38 @@
 """The notification centre: a user's own notifications, counts and preferences."""
-from sqlalchemy import Select, func, or_, select, update
+from sqlalchemy import Select, exists, func, or_, select, update
 
 from config.database import db
-from models import Integration, Notification, NotificationPreference
+from models import Integration, Notification, NotificationPreference, Role, UserRoleScope
+from repositories.users import active_scope_condition
 
 # Channel -> the integrations register entry that says whether it can deliver
 CHANNEL_INTEGRATIONS = {"WhatsApp": "WHATSAPP", "Email": "EMAIL"}
 
 
-def get_for_recipient(notification_id: int, user_id: int) -> Notification | None:
-    """The notification, only when it was sent to this user."""
-    notification = db.session.get(Notification, notification_id)
-    return notification if notification is not None and notification.recipient_user_id == user_id else None
+def _mine(user_id: int, scoped: bool):
+    """Sent to this user and, for staff (scoped), still within their access (Module 26 §8): a notice about a branch stays
+    visible only while the user holds its role (any role, for notices sent to named people) at that branch or company-wide.
+    A transfer or a removed role hides the old branch's notices; students always keep their own."""
+    condition = Notification.recipient_user_id == user_id
+    if not scoped:
+        return condition
+    in_scope = exists(
+        select(UserRoleScope.scope_id).join(Role, Role.role_id == UserRoleScope.role_id).where(
+            UserRoleScope.user_id == user_id, active_scope_condition(),
+            or_(UserRoleScope.branch_id.is_(None), UserRoleScope.branch_id == Notification.branch_id),
+            or_(Notification.role_code.is_(None), Role.role_code == Notification.role_code),
+        )
+    )
+    return condition & (Notification.branch_id.is_(None) | in_scope)
 
 
-def list_stmt(user_id: int, filters: dict) -> Select:
-    stmt = select(Notification).where(Notification.recipient_user_id == user_id).order_by(
+def get_for_recipient(notification_id: int, user_id: int, scoped: bool) -> Notification | None:
+    """The notification, only when it was sent to this user and is still within their access."""
+    return db.session.execute(select(Notification).where(Notification.notification_id == notification_id, _mine(user_id, scoped))).scalar_one_or_none()
+
+
+def list_stmt(user_id: int, scoped: bool, filters: dict) -> Select:
+    stmt = select(Notification).where(_mine(user_id, scoped)).order_by(
         Notification.created_at.desc(), Notification.notification_id.desc()
     )
     view = filters.get("view", "my")
@@ -35,23 +52,23 @@ def list_stmt(user_id: int, filters: dict) -> Select:
     return stmt
 
 
-def categories(user_id: int) -> list[str]:
-    stmt = select(Notification.category).where(Notification.recipient_user_id == user_id).distinct().order_by(Notification.category)
+def categories(user_id: int, scoped: bool) -> list[str]:
+    stmt = select(Notification.category).where(_mine(user_id, scoped)).distinct().order_by(Notification.category)
     return list(db.session.execute(stmt).scalars())
 
 
-def counts(user_id: int) -> dict[str, int]:
+def counts(user_id: int, scoped: bool) -> dict[str, int]:
     """Unread (delivered, not yet read) and action-required (open action) notifications."""
-    base = select(func.count()).select_from(Notification).where(Notification.recipient_user_id == user_id)
+    base = select(func.count()).select_from(Notification).where(_mine(user_id, scoped))
     unread = db.session.execute(base.where(Notification.read_at.is_(None), Notification.delivery_status == "Delivered")).scalar_one()
     action = db.session.execute(base.where(Notification.action_status == "Open")).scalar_one()
     return {"unread": unread, "action_required": action}
 
 
-def mark_all_read(user_id: int) -> int:
+def mark_all_read(user_id: int, scoped: bool) -> int:
     result = db.session.execute(
         update(Notification)
-        .where(Notification.recipient_user_id == user_id, Notification.read_at.is_(None), Notification.delivery_status == "Delivered")
+        .where(_mine(user_id, scoped), Notification.read_at.is_(None), Notification.delivery_status == "Delivered")
         .values(read_at=func.now())
     )
     return result.rowcount

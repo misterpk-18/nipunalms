@@ -79,6 +79,12 @@ def expire_if_due(attempt: TestAttempt, now: datetime) -> bool:
     return False
 
 
+def expire_overdue(now: datetime | None = None) -> int:
+    """Submit every attempt still open past its deadline (job `attempts-expire`), so results and queues don't wait for a read."""
+    now = now or now_utc()
+    return sum(expire_if_due(attempt, now) for attempt in tests_repo.expired_in_progress(now))
+
+
 def finalize(attempt: TestAttempt, reason: str, submitted_at: datetime) -> None:
     """Freeze the saved answers, issue the receipt, score what can be scored and queue the rest for the trainer."""
     test = attempt.test
@@ -200,7 +206,9 @@ def get_attempt(attempt_id: int) -> dict:
 
 
 def list_attempts(filters: dict, page: int, per_page: int) -> tuple[list[dict], dict]:
-    """Staff: submitted attempts of the tests they see (the grading queue: grading_status=Awaiting Grading)."""
+    """Staff: attempts of the tests they see — submitted ones (the grading queue: grading_status=Awaiting Grading) or, with
+    status=In Progress, those not yet submitted. Overdue attempts are submitted first, so none shows as running past its deadline."""
+    expire_overdue()
     if filters.pop("reviewer_me", False):
         filters["reviewer_id"] = current_user().user_id
     if filters.get("test_id"):

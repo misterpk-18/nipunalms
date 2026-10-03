@@ -6,7 +6,7 @@ from config.database import db
 from models import Role, User, UserRoleScope
 
 
-def _active_scope_condition():
+def active_scope_condition():
     return (
         UserRoleScope.revoked_at.is_(None)
         & (UserRoleScope.expires_at.is_(None) | (UserRoleScope.expires_at > func.now()))
@@ -36,7 +36,7 @@ def active_scopes(user_id: int) -> list[UserRoleScope]:
     stmt = (
         select(UserRoleScope)
         .join(Role)
-        .where(UserRoleScope.user_id == user_id, _active_scope_condition(), Role.is_active)
+        .where(UserRoleScope.user_id == user_id, active_scope_condition(), Role.is_active)
         .order_by(UserRoleScope.scope_id)
     )
     return list(db.session.execute(stmt).scalars())
@@ -67,7 +67,7 @@ def user_ids_with_role(role_code: str, branch_id: int | None) -> list[int]:
         select(func.distinct(User.user_id))
         .join(UserRoleScope, UserRoleScope.user_id == User.user_id)
         .join(Role, Role.role_id == UserRoleScope.role_id)
-        .where(User.is_active, Role.role_code == role_code, _active_scope_condition())
+        .where(User.is_active, Role.role_code == role_code, active_scope_condition())
     )
     if branch_id is not None:
         stmt = stmt.where(UserRoleScope.branch_id.is_(None) | (UserRoleScope.branch_id == branch_id))
@@ -81,7 +81,7 @@ def staff_scopes(role_codes: list[str] | None, branch_ids: set[int] | None) -> l
         .join(User, User.user_id == UserRoleScope.user_id)
         .join(Role, Role.role_id == UserRoleScope.role_id)
         .options(selectinload(UserRoleScope.user))
-        .where(_active_scope_condition(), User.is_active.is_(True), Role.role_code != "STUDENT")
+        .where(active_scope_condition(), User.is_active.is_(True), Role.role_code != "STUDENT")
         .order_by(User.full_name, User.user_id, UserRoleScope.scope_id)
     )
     if role_codes:

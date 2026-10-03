@@ -308,6 +308,7 @@ class CrmEvent(db.Model):
     event_type: Mapped[str] = mapped_column(String(50))
     source_version: Mapped[int] = mapped_column(Integer)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    historical: Mapped[bool] = mapped_column(Boolean, default=False)  # a backfill or re-import: no current notices
     payload: Mapped[dict] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(CrmEventStatus, default="Received")
     result: Mapped[dict | None] = mapped_column(JSONB)
@@ -323,6 +324,7 @@ class CrmEvent(db.Model):
             "event_type": self.event_type,
             "source_version": self.source_version,
             "occurred_at": self.occurred_at,
+            "historical": self.historical,
             "status": self.status,
             "error": self.error,
             "retries": self.retries,

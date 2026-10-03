@@ -101,6 +101,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [downloadAllowed, setDownloadAllowed] = useState(true);
+  const [staffOnly, setStaffOnly] = useState(false);
   const isLink = LINK_TYPES.includes(type);
 
   const batch = options.data?.find((o) => String(o.batch.batch_id) === batchId);
@@ -121,6 +122,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
     if (topicKey) form.set("topic_id", topicKey);
     if (description.trim()) form.set("description", description.trim());
     form.set("download_allowed", String(downloadAllowed && !isLink));
+    form.set("staff_only", String(staffOnly));
     if (isLink) form.set("url", url.trim());
     else if (file) form.set("file", file);
     create.mutate(form);
@@ -185,6 +187,10 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
               <input type="checkbox" checked={downloadAllowed} onChange={(e) => setDownloadAllowed(e.target.checked)} /> Students may download this file
             </label>
           )}
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} /> Staff only (answer key, marking
+            guide or trainer notes): never shown to students
+          </label>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

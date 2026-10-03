@@ -113,17 +113,22 @@ def login(client):
 
 @pytest.fixture
 def crm_event(client):
-    """crm_event(event_type, data, event_id=None, source_version=1, occurred_at=None, key=SERVICE_KEY) -> response."""
-    counter = itertools.count(1)
+    """crm_event(event_type, data, event_id=None, source_version=1, occurred_at=None, historical=None, key=SERVICE_KEY) -> response.
 
-    def _post(event_type, data, *, event_id=None, source_version=1, occurred_at=None, key=SERVICE_KEY):
+    occurred_at defaults to now (an event older than crm_notify_max_age_hours is a historical import: no notices)."""
+    counter = itertools.count(1)
+    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()  # one value, so a resent event is the same event
+
+    def _post(event_type, data, *, event_id=None, source_version=1, occurred_at=None, historical=None, key=SERVICE_KEY):
         body = {
             "event_id": event_id or f"evt-{next(counter)}",
             "event_type": event_type,
             "source_version": source_version,
-            "occurred_at": occurred_at or "2026-09-28T10:00:00+05:30",
+            "occurred_at": occurred_at or now,
             "data": data,
         }
+        if historical is not None:
+            body["historical"] = historical
         headers = {"X-Service-Key": key} if key is not None else {}
         return client.post("/api/v1/integrations/crm/events", json=body, headers=headers)
 
@@ -226,14 +231,20 @@ def make_session(app):
 
 @pytest.fixture
 def allocate(app):
-    """allocate(student, batch, course_code=None) -> allocation. Puts the student's enrolment (that course) into the batch."""
+    """allocate(student, batch, effective_from=None) -> allocation. Puts the student's enrolment (that course) into the batch.
+
+    The seat dates from 90 days ago by default (taken before the batch's classes), since attendance is expected from the seat.
+    """
+    from datetime import timedelta
+
+    from config.timezone import today_ist
     from repositories import students as students_repo
     from services import allocations
 
-    def _allocate(student, batch):
+    def _allocate(student, batch, effective_from=None):
         enrolment = next(e for e in students_repo.enrolments_of_student(student.student_id)
                          if e.course_id == batch.course_id)
-        allocation = allocations.allocate(enrolment, batch)
+        allocation = allocations.allocate(enrolment, batch, effective_from=effective_from or today_ist() - timedelta(days=90))
         _commit()
         return allocation
 

@@ -4,6 +4,7 @@ Later slices register their own jobs by adding to JOBS.
 """
 from typing import Callable
 
+from services import attempts as attempts_service
 from services import batch_allocations as batch_allocations_service
 from services import recordings as recordings_service
 from services import support as support_service
@@ -24,8 +25,14 @@ def allocation_escalation() -> dict:
     return {"escalated": batch_allocations_service.escalate_unallocated()}
 
 
+def attempts_expire() -> dict:
+    """Submit test attempts still open past their deadline, with the deadline as the submission time (Module 20 §6)."""
+    return {"submitted": attempts_service.expire_overdue()}
+
+
 JOBS: dict[str, Callable[[], object]] = {
     "allocation-escalation": allocation_escalation,
+    "attempts-expire": attempts_expire,
     "recording-check": recording_check,
     "support-escalate-overdue": support_escalate_overdue,
 }

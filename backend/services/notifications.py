@@ -24,7 +24,8 @@ def notify(
 ) -> int:
     """Send a notification; returns how many recipients newly received it.
 
-    Give either recipient_user_ids, or role_code (+ branch_id: holders at that branch and company-wide holders).
+    Give either recipient_user_ids, or role_code (+ branch_id: holders at that branch and company-wide holders). The role is
+    kept on the notice, so it stays visible only while the recipient still holds that role there.
     """
     if recipient_user_ids is None:
         if role_code is None:
@@ -35,7 +36,7 @@ def notify(
     for user_id in recipient_user_ids:
         result = db.session.execute(
             insert(Notification)
-            .values(recipient_user_id=user_id, branch_id=branch_id, category=category, title=title, body=body,
+            .values(recipient_user_id=user_id, branch_id=branch_id, role_code=role_code, category=category, title=title, body=body,
                     link=link, event_key=event_key, action_status="Open" if action_required else "None")
             .on_conflict_do_nothing(index_elements=["event_key", "recipient_user_id"])
             .returning(Notification.notification_id)  # rowcount is -1 through the ORM session

@@ -99,6 +99,7 @@ class Notification(db.Model):
     notification_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     recipient_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
     branch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("branches.branch_id"))
+    role_code: Mapped[str | None] = mapped_column(String(50))  # the role it was sent to (notify(role_code=...)); NULL = named people
     category: Mapped[str] = mapped_column(String(50))
     title: Mapped[str] = mapped_column(String(200))
     body: Mapped[str | None] = mapped_column(Text)

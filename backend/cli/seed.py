@@ -432,13 +432,15 @@ def seed_students(ctx: SeedContext) -> None:
 
 
 def seed_progress(ctx: SeedContext) -> None:
-    """Learners in a running batch have started (joining date = the batch's first class); two learners have completed."""
+    """Learners in a running batch have started (seat and joining date = the batch's first class, since attendance is
+    expected from the seat); two learners have completed."""
     enrolments = db.session.execute(select(Enrolment).where(Enrolment.status == "Allocated — awaiting first regular class")).scalars().all()
     for enrolment in enrolments:
         allocation = batches_repo.active_allocation(enrolment.enrolment_id)
         if allocation is not None and allocation.batch.state in ("Running", "Full"):
             enrolment.status = "Active"
             enrolment.joining_date = allocation.batch.planned_start
+            allocation.effective_from = min(allocation.effective_from, allocation.batch.planned_start)
     for key, certificate_status in (("A", "Issued"), ("F", "Revoked")):
         enrolment = db.session.execute(select(Enrolment).where(Enrolment.student_id == ctx.students[key]["student_id"])).scalar_one()
         enrolment.status = "Completed"
@@ -674,6 +676,11 @@ def seed_attendance(ctx: SeedContext) -> None:
         _staff_call(ctx, coordinator, f"/completion-reviews/{review['review_id']}/decision", {"decision": "Complete"})
         cid = db.session.execute(select(Certificate.certificate_id).where(
             Certificate.enrolment_id == enrolment.enrolment_id, Certificate.certificate_type == kind)).scalar_one()
+        if kind == "Internship Certificate":
+            # Course completion never opens an internship certificate; this stands in for verified internship evidence
+            # until the internship record exists (gap fix plan, phase 8)
+            db.session.execute(text("UPDATE certificates SET status = 'Eligibility Review' WHERE certificate_id = :c"), {"c": cid})
+            db.session.commit()
         if stage != "eligibility":
             _staff_call(ctx, coordinator, f"/certificates/{cid}/recommendation")
         if stage in ("approved", "issued", "revoked"):

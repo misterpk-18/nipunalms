@@ -225,6 +225,24 @@ def test_answers_after_the_deadline_are_refused_and_the_saved_ones_are_submitted
     assert client.post(f"{API}/attempts/{aid}/submit", json={}, headers=world.h["s1"]).get_json()["data"]["attempt"]["receipt_code"] == body["receipt_code"]
 
 
+def test_the_expiry_job_submits_overdue_attempts_without_a_read(client, world, quiz, run_sql):
+    """Module 20 §6: at expiry the saved answers are submitted once, whether or not anyone opens the attempt again."""
+    from services.jobs import JOBS
+    test, q1, _ = quiz
+    aid = start(client, world, test["test_id"]).get_json()["data"]["attempt"]["attempt_id"]
+    answer(client, world, aid, {str(q1["question_id"]): "B"})
+    open_rows = client.get(f"{API}/attempts", query_string={"status": "In Progress"}, headers=world.h["g1"]).get_json()["data"]
+    assert [r["attempt_id"] for r in open_rows] == [aid] and "deadline_at" in open_rows[0]  # the trainer sees the open attempt
+    expire(run_sql, aid)
+
+    assert JOBS["attempts-expire"]() == {"submitted": 1}
+    assert JOBS["attempts-expire"]() == {"submitted": 0}
+    stored = db.session.get(TestAttempt, aid)
+    db.session.refresh(stored)
+    assert stored.status == "Submitted" and stored.submit_reason == "Timeout" and stored.submitted_at == stored.deadline_at
+    assert client.get(f"{API}/attempts", query_string={"status": "In Progress"}, headers=world.h["g1"]).get_json()["data"] == []
+
+
 def test_a_read_after_expiry_submits_the_attempt(client, world, quiz, run_sql):
     test, q1, _ = quiz
     aid = start(client, world, test["test_id"]).get_json()["data"]["attempt"]["attempt_id"]

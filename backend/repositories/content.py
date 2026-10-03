@@ -57,13 +57,14 @@ def list_stmt(filters: dict, branch_ids: set[int] | None, owner_user_id: int, ba
 
 
 def released_candidates(branch_ids: set[int], course_ids: set[int], filters: dict) -> list[ContentItem]:
-    """Released, not retired items at these branches for these courses; the caller applies the exact audience rules."""
+    """Released, not retired, student-facing items at these branches for these courses; the caller applies the exact audience
+    rules."""
     if not branch_ids or not course_ids:
         return []
     stmt = (
         select(ContentItem)
         .options(selectinload(ContentItem.versions))
-        .where(ContentItem.retired_at.is_(None), _has_released_version(), ContentItem.branch_id.in_(branch_ids),
+        .where(ContentItem.retired_at.is_(None), ContentItem.staff_only.is_(False), _has_released_version(), ContentItem.branch_id.in_(branch_ids),
                ContentItem.course_id.in_(course_ids))
         .order_by(ContentItem.content_item_id.desc())
     )

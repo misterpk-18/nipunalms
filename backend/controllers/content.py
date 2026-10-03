@@ -51,6 +51,7 @@ def _item_rules(v: Validator, *, creating: bool) -> None:
     v.integer("topic_id", min_value=1)
     v.integer("batch_id", nullable=not creating, min_value=1)
     v.boolean("download_allowed")
+    v.boolean("staff_only")  # answer keys, marking guides, trainer notes: never shown to students
 
 
 def create_item():
