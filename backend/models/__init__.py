@@ -63,3 +63,8 @@ __all__ += [
     "AiFeatureControl", "AiQuery", "Application", "ApplicationEvent", "CareerProfile", "CvDocument", "NotificationPreference", "Opportunity",
     "PlacementOutcome", "SupportMessage", "SupportRequest",
 ]
+
+# Gap fix plan phase 4: the Academic Calendar (101)
+from models.calendar import CalendarClosure  # noqa: E402
+
+__all__ += ["CalendarClosure"]

@@ -6,7 +6,7 @@ from models import Batch, Enrolment, Student
 from repositories import batches as batches_repo
 from repositories import enrolments as enrolments_repo
 from repositories.common import paginate
-from services import scope
+from services import batch_allocations, scope
 
 
 @dataclass
@@ -16,6 +16,7 @@ class EnrolmentRow:
     batch: dict | None
     waiting_days: int | None = None
     open_batches: list[Batch] | None = None
+    allocation_due_on: object | None = None  # a date: Module 15 §6 deadline
 
 
 def _rows(enrolments: list[Enrolment]) -> list[EnrolmentRow]:
@@ -46,5 +47,6 @@ def allocation_queue(filters: dict, page: int, per_page: int) -> tuple[list[Enro
             candidates[key] = batches_repo.open_batches_for(*key)
         row.open_batches = candidates[key]
         row.waiting_days = (today - row.enrolment.updated_at.astimezone(IST).date()).days
+        row.allocation_due_on = batch_allocations.allocation_due_on(row.enrolment)
     return rows, meta
 

@@ -46,3 +46,8 @@ export function clock(totalSeconds: number): string {
 export function formatMoney(value: string | null | undefined): string {
   return value == null ? "—" : `₹ ${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
+
+/** Today's date in IST as YYYY-MM-DD, comparable with API dates. */
+export function todayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+}

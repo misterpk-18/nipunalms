@@ -1,6 +1,6 @@
 /** Assessments API (slice S3): assignments, submissions, question bank, tests, attempts, mock interviews, results. */
 import { download, get, list, post, patch, put, upload, type Page } from "./client";
-import type { DateTime } from "./types";
+import type { DateOnly, DateTime } from "./types";
 
 type Ref = { batch_id: number; batch_code: string; course_code: string };
 
@@ -35,7 +35,11 @@ export type Submission = {
   review_started_at: DateTime | null;
   review: Review | null;
   versions?: Submission[];
+  /** Working-day review target while it waits for review (Module 19 §8). */
+  review_due?: ReviewDue | null;
 };
+
+export type ReviewDue = { due_on: DateOnly; target_days: number; overdue: boolean };
 
 export type SubmissionWindow = { allowed: boolean; mode: "initial" | "replacement" | "resubmission" | null; reason: string | null; deadline: DateTime | null };
 
@@ -273,6 +277,7 @@ export type AttemptRow = AttemptSummary & {
   total_score: string | null;
   total_marks: string;
   manual_pending: number;
+  review_due: ReviewDue | null;
 };
 
 // ---------------------------------------------------------------- results

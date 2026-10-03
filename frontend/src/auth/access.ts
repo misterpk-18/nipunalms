@@ -154,6 +154,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/admin", label: "Super Admin", icon: ShieldCheck },
   { to: "/admin/integrations", label: "Integration Readiness", icon: Plug },
   { to: "/admin/exceptions", label: "Exception Queues", icon: TriangleAlert },
+  { to: "/admin/calendar", label: "Academic Calendar", icon: CalendarDays },
   { to: "/admin/security", label: "Security Readiness", icon: Lock },
   { to: "/admin/users", label: "Users & Access", icon: UserCog },
   { to: "/admin/students", label: "Student Accounts", icon: GraduationCap },

@@ -9,6 +9,8 @@ def _row(row) -> dict:
     data = {**row.enrolment.to_dict(batch=row.batch), "student": row.student.to_summary()}
     if row.waiting_days is not None:
         data["waiting_days"] = row.waiting_days
+    if row.allocation_due_on is not None:
+        data["allocation_due_on"] = row.allocation_due_on
         data["open_batches"] = [b.to_summary() | {"capacity": b.capacity, "state": b.state} for b in row.open_batches or []]
     return data
 

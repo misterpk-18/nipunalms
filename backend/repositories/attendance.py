@@ -211,3 +211,20 @@ def corrections_stmt(filters: dict, scope_condition) -> Select:
         stmt = stmt.join(ClassSession, ClassSession.session_id == AttendanceCorrection.session_id).where(
             ClassSession.batch_id == filters["batch_id"])
     return stmt
+
+
+def sessions_missing_attendance(start: date, end: date) -> list[tuple[ClassSession, int]]:
+    """Delivered classes held between start and end (IST dates) with seats that have no attendance entry yet, and how many."""
+    class_day = func.date(func.timezone("Asia/Kolkata", ClassSession.starts_at))
+    stmt = (
+        select(ClassSession, func.count(BatchAllocation.enrolment_id))
+        .join(BatchAllocation, and_(BatchAllocation.batch_id == ClassSession.batch_id, BatchAllocation.status == "Active",
+                                    BatchAllocation.effective_from <= class_day))
+        .outerjoin(AttendanceRecord, and_(AttendanceRecord.session_id == ClassSession.session_id,
+                                          AttendanceRecord.enrolment_id == BatchAllocation.enrolment_id))
+        .where(ClassSession.state == "Delivered", class_day >= start, class_day <= end, AttendanceRecord.attendance_id.is_(None))
+        .group_by(ClassSession.session_id)
+        .order_by(ClassSession.starts_at)
+    )
+    return [(session, missing) for session, missing in db.session.execute(stmt).unique().all()]
+

@@ -49,6 +49,7 @@ Vijayawada).
 | `098_batch_timetable.sql` | Batch timetable for CRM sales; readiness and seats left in the pull | ✅ |
 | `099_gap_fixes.sql` | Gap fix plan phase 1: notice role, staff-only content, historical CRM events, attendance from the seat | ✅ |
 | `100_governance.sql` | Gap fix plan phase 3: certificate requests and fee exceptions, status history and reinstatement, AI controls | ✅ |
+| `101_academic_calendar.sql` | Gap fix plan phase 4: company holidays and branch closures, working weekdays | ✅ |
 
 ---
 
@@ -332,4 +333,13 @@ Independent decisions from the gap review, phase 3 ([GAP_FIX_PLAN.md](GAP_FIX_PL
 | `certificate_status_history` + `trg_certificates_status_history` (backfilled with each entry's current status) | Every status change, so a revoked interval survives a reinstatement |
 | `certificates_before_write()` allows Revoked → Issued, allocating a number only from Approved for Issue | Reinstatement keeps the number and the original issue date |
 | `ai_feature_controls` (audience All / Student / Staff, company-wide or one branch; All only company-wide; restoring needs a note) | Switching AI off with scope, reason and a restoration record (G042) |
+
+## 101 — Academic Calendar
+
+The Nipuna Academic Calendar for working-day targets, phase 4 ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+
+| Change | Why |
+|---|---|
+| `calendar_closure_kind` enum; `calendar_closures` (company holiday = no branch; dates at most 63 days; Pending / Approved / Rejected) | Company holidays set centrally and branch closures approved by the Branch Manager (G064) |
+| Settings `working_weekdays` (all seven by default) and `attendance_unconfirmed_lookback_days` (14) | Working days count only configured weekdays outside approved closures; nothing is assumed closed (Module 15 §9) |
 

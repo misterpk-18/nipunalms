@@ -200,7 +200,9 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 | POST | `/curriculum-versions/{id}/approve`, `/activate`, `/retire` | Founder / CEO, Super Admin (fresh auth; never the submitter, Module 14 §5) | Under Review → Approved → Active → Retired. Activating maps Curriculum Mapping Pending enrolments and batches and returns the counts |
 | POST | `/curriculum-versions/{id}/modules`, `/curriculum-modules/{id}/topics` | AC, Super Admin | Add to a Draft (optional `position`) |
 | PATCH / DELETE | `/curriculum-modules/{id}`, `/curriculum-topics/{id}` | AC, Super Admin | Draft only; sort order re-sequenced |
-| GET | `/enrolments`, `/allocation-queue` | Staff / AC, BM, Super Admin | Branch-scoped enrolment list; the queue of payment-cleared enrolments waiting for a seat |
+| GET | `/enrolments`, `/allocation-queue` | Staff / AC, BM, Super Admin | Branch-scoped enrolment list; the queue of payment-cleared enrolments waiting for a seat, each with `allocation_due_on` (Module 15 §6: one working day after Admission for a confirmed seat, 48 hours before the first class for a future plan, never after the first class) |
+| GET / POST | `/calendar/closures`, `/calendar/closures/{id}` | Staff / Founder, SA (company holiday); AC, BM, SA (branch closure) | The Academic Calendar. A company holiday and a Branch Manager's own closure are Approved at once; a coordinator's closure is Pending. The detail lists `affected_sessions` (Scheduled / Live classes inside it) |
+| POST | `/calendar/closures/{id}/decision` | BM, SA | `{decision, note}` (note to reject). Approving asks the affected branches' coordinators to prepare replacements; no class is moved automatically |
 | GET / POST | `/batches/{id}/allocations` | Staff / AC, BM, Super Admin | Roster (filter `status`); allocate an enrolment |
 | GET | `/batches/{id}/allocation-review?enrolment_id=&transfer=` | AC, BM, Super Admin | The checks (branch, course, curriculum, capacity, state, gate, finance) as pass / warn / block |
 | POST | `/enrolments/{id}/transfer`, `/enrolments/{id}/deallocate` | AC, BM, Super Admin | Reason required; warnings need `acknowledge_warnings` |
@@ -214,8 +216,11 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 | GET | `/modules/{id}`, `/topics/{id}` | Student (own enrolments) / staff | Module and topic pages with their classes, resources and recordings |
 
 Job: `flask --app app jobs run allocation-escalation`: an enrolment still waiting for a seat 24 hours before its
-admission's `planned_start_date` (IST) is raised once to the service branch's Branch Managers (the CRM's former
-`batch-allocation` job).
+admission's `planned_start_date` (IST), or first noticed inside that window, is raised once to the Founder / CEO, Super Admin
+and the service branch's Branch Managers (Module 15 §6).
+
+Working days (`services/working_days.py`): a day counts when its ISO weekday is in `working_weekdays` (all seven by
+default; Module 15 §9 assumes no weekend is closed) and no approved company holiday or closure at the branch covers it.
 
 **Rules:**
 - Curriculum versions are snapshots: modules and topics change only while the version is a Draft (database trigger);
@@ -303,7 +308,7 @@ Job: `flask --app app jobs run recording-check`.
 | GET | `/attempts/{id}` | Owner, batch staff | Reading past the deadline submits the saved answers once |
 | PUT | `/attempts/{id}/answers` | Student | Autosave; after the deadline `accepted: false` and the attempt is submitted |
 | POST | `/attempts/{id}/submit` | Student | Idempotent; receipt `RCPT-T-00931` |
-| GET | `/attempts?grading_status=Awaiting Grading&reviewer_me=true` | Staff | Grading queue. `status=In Progress` lists attempts not yet submitted (with `deadline_at`); overdue ones are submitted first |
+| GET | `/attempts?grading_status=Awaiting Grading&reviewer_me=true` | Staff | Grading queue; each row has `review_due` (3 / 5 / 7 working days by test kind, Module 20 §8). `status=In Progress` lists attempts not yet submitted (with `deadline_at`); overdue ones are submitted first |
 | POST | `/attempts/{id}/grade` | Batch staff | Marks for Descriptive / Coding answers; complete means Graded, and for a formal test a Provisional result |
 | GET / POST | `/tests/{id}/slots`, `/interview-slots/{id}/book`, `/confirm`, `/cancel`, `/complete` | Trainer offers, confirms, completes; student books | Open, Slot Confirmation Pending, Confirmed, Completed |
 | GET | `/me/results` | Student | Only Published results carry a score |
@@ -312,6 +317,8 @@ Job: `flask --app app jobs run recording-check`.
 | POST | `/results/{id}/moderate`, `/results/publish` | AC / Super Admin | Moderate needs a reason (audited); publish by ids or `assignment_id` / `test_id`; students notified |
 
 Job: `flask --app app jobs run attempts-expire`: submits attempts still open past their deadline, as of the deadline.
+Review queues: `/submissions` rows waiting for review carry `review_due` (3 working days for routine assignments and labs, 5
+for mini projects, 7 for final projects; Module 19 §8), from `services/review_clock.py`.
 
 **Rules:**
 - Student-visible marks and feedback exist only after publication; the one exception is the feedback attached to a
@@ -357,6 +364,9 @@ Job: `flask --app app jobs run attempts-expire`: submits attempts still open pas
 | GET | `/certificates/verify/{number}?version=` | Public | The presented version (latest by default): `state` Valid — Current Version, Superseded (with `current_version`) or Revoked; holder, course, type, branch, issue date, original issue date |
 
 **Rules:**
+- Attendance confirmation: job `attendance-unconfirmed` alerts the branch's Academic Coordinator, once per class, when a
+  delivered class still has unmarked seats on the next working day (Module 21 §3); `marked_at` stays separate from the
+  class date.
 - Attendance: no row = "Not yet marked" (never a guessed absence). A session locks `attendance_lock_days` (7) after it
   ends; later changes go through a correction with an independent reviewer. Absent students get an in-app notification.
 - Joining date: `services/attendance.set_joining_date(enrolment, date)` — the first Present / Late moves "Allocated —

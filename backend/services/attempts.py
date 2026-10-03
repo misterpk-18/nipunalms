@@ -14,7 +14,7 @@ from repositories import results as results_repo
 from repositories import tests as tests_repo
 from repositories.common import paginate
 from services import assessment_scope as access
-from services import results, scope, tests as tests_service
+from services import results, review_clock, scope, tests as tests_service
 from services.assessment_rules import effective_status, is_formal, visible_score
 from services.context import current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
@@ -224,7 +224,9 @@ def list_attempts(filters: dict, page: int, per_page: int) -> tuple[list[dict], 
         rows.append({**attempt.to_summary(), "student": attempt.student.to_summary(), "test": attempt.test.to_summary(),
                      "batch": attempt.test.batch.to_summary(), "auto_score": None if attempt.auto_score is None else f"{attempt.auto_score:.2f}",
                      "total_score": None if attempt.total_score is None else f"{attempt.total_score:.2f}",
-                     "total_marks": f"{tests_repo.total_marks(attempt.test_id):.2f}", "manual_pending": pending})
+                     "total_marks": f"{tests_repo.total_marks(attempt.test_id):.2f}", "manual_pending": pending,
+                     "review_due": review_clock.review_due(attempt.test.kind, attempt.submitted_at, attempt.test.batch.branch_id, tests=True)
+                     if attempt.grading_status == "Awaiting Grading" else None})
     return rows, meta
 
 

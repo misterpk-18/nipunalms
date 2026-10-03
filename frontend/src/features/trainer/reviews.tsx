@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { fmtDate } from "@/features/shared/format";
 import { formatIst, fromIstInput, istInputIn } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 
@@ -33,6 +34,15 @@ function ReviewCard({ submission }: { submission: Submission }) {
       <p className="text-sm text-muted-foreground">
         Submission v{submission.version_no} · {formatIst(submission.submitted_at)} · {submission.submission_code}
         {submission.is_late && " · Late"}
+        {submission.review_due && (
+          <>
+            {" · "}
+            <span className={submission.review_due.overdue ? "font-medium text-destructive" : undefined}>
+              Review due {fmtDate(submission.review_due.due_on)} ({submission.review_due.target_days} working days)
+              {submission.review_due.overdue && " — overdue"}
+            </span>
+          </>
+        )}
       </p>
       {submission.body_text && <p className="whitespace-pre-wrap rounded bg-muted p-2 text-sm">{submission.body_text}</p>}
       {submission.link_url && (

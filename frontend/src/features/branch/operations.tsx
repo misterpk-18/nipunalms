@@ -1,3 +1,4 @@
+import { AcademicCalendar } from "@/features/shared/academic-calendar";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi } from "@/api/delivery";
@@ -84,6 +85,9 @@ export function BranchOperations() {
           </QueryView>
         </Section>
 
+        <Section title="Academic Calendar">
+          <AcademicCalendar />
+        </Section>
         <Section title="Trainers">
           <QueryView query={batches}>
             {(page) => {

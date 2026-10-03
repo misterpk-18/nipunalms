@@ -136,6 +136,8 @@ export type EnrolmentRow = {
   batch: BatchRef | null;
   student: { student_id: number; student_code: string; full_name: string };
   waiting_days?: number;
+  /** Module 15 §6 allocation deadline (allocation queue only). */
+  allocation_due_on?: DateOnly;
   open_batches?: (BatchRef & { capacity: number; state: string })[];
 };
 

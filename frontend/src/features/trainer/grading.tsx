@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { fmtDate } from "@/features/shared/format";
 import { formatIst } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 
@@ -106,6 +107,18 @@ export function GradingQueue() {
               { h: "Receipt", c: (a) => <span className="font-mono text-xs">{a.receipt_code}</span> },
               { h: "Submitted", c: (a) => formatIst(a.submitted_at) },
               { h: "Auto score", c: (a) => `${a.auto_score ?? "—"} / ${a.total_marks}` },
+              {
+                h: "Review due",
+                c: (a) =>
+                  a.review_due ? (
+                    <span className={a.review_due.overdue ? "font-medium text-destructive" : undefined}>
+                      {fmtDate(a.review_due.due_on)}
+                      {a.review_due.overdue && " — overdue"}
+                    </span>
+                  ) : (
+                    "—"
+                  ),
+              },
               { h: "State", c: (a) => <StatusBadge>{`${a.manual_pending} to grade`}</StatusBadge> },
               {
                 h: "Action",

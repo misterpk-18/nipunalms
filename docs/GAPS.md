@@ -70,8 +70,8 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G060](#g060) | Medium | Module 14 | Branch/batch academic variations are not recorded | 5 | Open |
 | [G061](#g061) | Medium | Module 14 | Mapping-pending enrolments have no named owner or recovery task | 5 | Open |
 | [G062](#g062) | Medium | Module 15 | Batch type (Group/Individual/Corporate), schedule pattern (Regular/Weekend/Fast-track) and editable display name are not stored | 6 | Open |
-| [G063](#g063) | Medium | Module 15 | 24-hour allocation escalation goes to Branch Managers, not Founder/Super Admin; deadlines are not tracked | 4 | Open |
-| [G064](#g064) | Medium | Module 15 | No Nipuna Academic Calendar, company holidays or branch closures | 4 | Open |
+| [G063](#g063) | Medium | Module 15 | 24-hour allocation escalation goes to Branch Managers, not Founder/Super Admin; deadlines are not tracked | 4 | Done (phase 4) |
+| [G064](#g064) | Medium | Module 15 | No Nipuna Academic Calendar, company holidays or branch closures | 4 | Done (phase 4) |
 | [G065](#g065) | Medium | Module 15 | Class states lack Partially Held and Confirmed; no replacement link, actual start/end/breaks or unfulfilled portion | 6 | Open |
 | [G066](#g066) | Medium | Module 15 | No session purpose type (Replacement/Remedial/Extra) or linkage | 6 | Open |
 | [G067](#g067) | Medium | Module 15 | A class cannot be shared across courses, tracks or batches | 6 | Open |
@@ -98,7 +98,7 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G088](#g088) | Medium | Module 20 Tests | Coding tests have no language, limits, I/O contract or sample/hidden case definition | 7 | Open |
 | [G089](#g089) | Medium | Module 20 Tests | Question bank item lacks curriculum-version compatibility, outcome, language, rights and publication history | 7 | Open |
 | [G090](#g090) | Medium | Module 20 Tests | Unattempted work after a window closes creates no support or reassessment review task | 7 | Open |
-| [G091](#g091) | Medium | Module 21 Attendance | No same-day Trainer confirmation tracking or next-day Academic Coordinator alert | 4 | Open |
+| [G091](#g091) | Medium | Module 21 Attendance | No same-day Trainer confirmation tracking or next-day Academic Coordinator alert | 4 | Done (phase 4) |
 | [G092](#g092) | Medium | Module 21 Attendance | Approved pause is not reflected in attendance expectations | 8 | Open |
 | [G093](#g093) | Medium | Module 21 Attendance | Correction approval does not flag a completed enrolment for academic review and has no recalculation trace | 8 | Open |
 | [G094](#g094) | Medium | Module 21 Attendance | No guardian or under-18 handling | 12 | Open |

@@ -1,3 +1,4 @@
+import { AcademicCalendar } from "@/features/shared/academic-calendar";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi } from "@/api/delivery";
@@ -142,6 +143,9 @@ export function AcademicSchedule() {
           />
         )}
       </QueryView>
+      <Section className="mt-6" title="Academic Calendar">
+        <AcademicCalendar />
+      </Section>
       <Section className="mt-6" title="Reschedule requests from trainers">
         <RequestsPanel manager={manager} />
       </Section>

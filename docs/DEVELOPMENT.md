@@ -351,6 +351,7 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 | `/admin/users` | `admin/users` | `/admin/users/*` | Filters, role chips with revoke, add role (temporary access), reset password, deactivate / reactivate; temporary password shown once (`SecretDialog`) |
 | `/admin/students` | `admin/students` | `/admin/students/*`, `/students/{id}/activation` | Search, "Activation link from" filter, detail dialog, activation link shown once, suspend / reactivate, revoke sessions |
 | `/admin/integrations`, `/admin/security` | `admin/integrations`, `admin/security` | `/integrations`, `/security-controls` | Shared `readiness-table` (requirement, configuration, verification, evidence, owner, last check); Update dialog for Super Admin only; Founder reads |
+| `/admin/calendar` | `admin/calendar` (`shared/academic-calendar`, also on `/branch/operations` and `/academic/schedule`) | `/calendar/closures` | Company holidays (Founder / Super Admin) and branch closures (proposed by the coordinator, decided by the Branch Manager) |
 | `/admin/crm-sync` | `admin/crm-sync` | `/admin/crm-sync/*` | Inbox (filters, payload view, retry) and outbox; event types come from the data |
 | `/admin/audit` | `admin/audit` | `/audit-log` | Filters by actor, entity, action, date (IST) |
 | `/admin/exceptions` | `admin/exceptions` | `/exceptions` | "Exception Queues — all branches": a section per queue with a branch column (company-wide rows say "All branches"); Super Admin can Update, the Founder reads |
@@ -451,7 +452,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
 | WhatsApp / email / telephony | In-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation` and `attempts-expire`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire` and `attendance-unconfirmed`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 
@@ -501,7 +502,6 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Extra attempts, group projects, completion-only / pass-fail work | Only numeric marks with one initial attempt and 2 resubmissions; additional attempts by AC approval are not built |
 | Reminders | The 24 h / due date / +1 day assignment reminders and the 24 h / 1 h test reminders need a job; none is registered |
 | Reassessment and answer release | A formal test has one attempt; authorised reassessments, a later better attempt after publication, and the separate answer-release step are not built. Correcting a published result (independent review) is not built |
-| Review clocks | The 3 / 5 / 7 working-day review targets need the academic working calendar; none is configured |
 | Tab-switch / similarity flags, question randomisation | Not built |
 | Coding runner | Coding answers are marked by a trainer; the isolated runner stays Pending Verification |
 | Question bank scope | One bank per branch; company-wide reuse by a global publisher is not built |

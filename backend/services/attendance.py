@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
 from config.database import db
-from config.timezone import IST
+from config.timezone import IST, today_ist
 from models import AttendanceCorrection, AttendanceRecord, AttendanceRecovery, ClassSession, Enrolment
 from repositories import attendance as attendance_repo
 from repositories import batches as batches_repo
@@ -20,7 +20,7 @@ from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from repositories.rows import paginate_rows
-from services import approvals, audit, certificates, progress, scope
+from services import approvals, audit, certificates, progress, scope, working_days
 from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
@@ -452,4 +452,26 @@ def _apply_correction(correction: AttendanceCorrection, record: AttendanceRecord
     db.session.flush()
     if record.status in ATTENDED:
         set_joining_date(correction.enrolment, class_date(correction.session))
+
+
+# ---------------------------------------------------------------- confirmation (Module 21 §3)
+
+def alert_unconfirmed() -> int:
+    """Job `attendance-unconfirmed`: the trainer confirms attendance by the end of the class's working day; from the next
+    academic working day, a delivered class with seats still unmarked alerts the branch's Academic Coordinator (once per
+    class). The class date and the later confirmation (`marked_at`) stay separate. Returns how many classes were raised."""
+    today = today_ist()
+    lookback = settings_repo.get_int("attendance_unconfirmed_lookback_days", 14)
+    raised = 0
+    for session, missing in attendance_repo.sessions_missing_attendance(today - timedelta(days=lookback), today - timedelta(days=1)):
+        class_day = class_date(session)
+        if today < working_days.add_working_days(class_day, 1, session.batch.branch_id):
+            continue  # the trainer still has until the end of the class's working day
+        sent = notify(category="Attendance", title=f"Attendance not confirmed: {session.session_code} ({class_day:%d %b})",
+                      body=f"{session.title} · {session.batch.batch_code} · {missing} student(s) not yet marked by "
+                           f"{session.trainer.full_name}.",
+                      link="/academic/progress", role_code="ACADEMIC_COORDINATOR", branch_id=session.batch.branch_id,
+                      event_key=f"attendance-unconfirmed:{session.session_id}", action_required=True)
+        raised += 1 if sent else 0
+    return raised
 

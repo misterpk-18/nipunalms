@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { DataTable, Note, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { mono, useCanManage } from "@/features/shared/delivery-ui";
+import { fmtDate } from "@/features/shared/format";
+import { todayIso } from "@/lib/format";
 import { useDelivery } from "@/features/shared/sessions";
 import { CheckList } from "./batch-panel";
 
@@ -134,6 +136,18 @@ export function AllocationQueue({ branchId }: { branchId?: string }) {
               { h: "Course", c: (r) => `${r.course.course_code} — ${r.course.title}` },
               { h: "Branch", c: (r) => r.service_branch.branch_name },
               { h: "Waiting", c: (r) => `${r.waiting_days ?? 0} day(s)` },
+              {
+                h: "Allocate by",
+                c: (r) =>
+                  r.allocation_due_on ? (
+                    <span className={r.allocation_due_on < todayIso() ? "font-medium text-destructive" : undefined}>
+                      {fmtDate(r.allocation_due_on)}
+                      {r.allocation_due_on < todayIso() && " — overdue"}
+                    </span>
+                  ) : (
+                    "—"
+                  ),
+              },
               { h: "Open batches", c: (r) => (r.open_batches?.length ? r.open_batches.map((b) => b.batch_code).join(", ") : "None") },
               ...(manager ? [{ h: "Action", c: (r: EnrolmentRow) => <AllocateDialog row={r} /> }] : []),
             ]}

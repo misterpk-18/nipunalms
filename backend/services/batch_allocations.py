@@ -5,7 +5,7 @@ delivery mode and the enrolment's own state. A failed check blocks; a warning (d
 needs the coordinator to acknowledge it. Ended and transferred allocations stay as history; nothing the student did
 in a previous batch is touched.
 """
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from config.database import db
 from config.timezone import IST
@@ -14,7 +14,7 @@ from repositories import batches as batches_repo
 from repositories import enrolments as enrolments_repo
 from repositories import students as students_repo
 from repositories.common import paginate
-from services import allocations, audit, delivery_access, delivery_notices, scope
+from services import allocations, audit, delivery_access, delivery_notices, scope, working_days
 from services import batches as batches_service
 from services.batches import CLOSED_STATES, load_managed_batch, sync_full
 from services.context import actor_id
@@ -219,19 +219,43 @@ def roster(batch_id: int, status: str | None, page: int, per_page: int):
 
 # ---------------------------------------------------------------- escalation (job)
 
+def allocation_due_on(enrolment: Enrolment) -> date | None:
+    """Module 15 §6: a confirmed seat is allocated within one working day after Admission; an accepted future delivery plan at
+    least 48 hours before the agreed first class; an Admission inside that window before the first class. The one-working-
+    day target never runs past the day before the first class."""
+    admission = enrolment.admission
+    admitted = admission.admission_date or admission.created_at.astimezone(IST).date()
+    first_class = admission.planned_start_date
+    if admission.seat_type == "Future Plan" and first_class is not None:
+        two_days_before = first_class - timedelta(days=2)
+        return two_days_before if admitted <= two_days_before else first_class  # inside the window: before the first class
+    due = working_days.add_working_days(admitted, 1, enrolment.service_branch_id)
+    if first_class is not None and due >= first_class:
+        due = max(first_class - timedelta(days=1), admitted)
+    return due
+
+
+# At 24 hours before the committed start an unresolved allocation goes to the Founder / CEO or Super Admin; the Branch
+# Manager, who owns missed commitments, is told too (Module 15 §6)
+ESCALATE_TO = ("FOUNDER_CEO", "SUPER_ADMIN", "BRANCH_MANAGER")
+
+
 def escalate_unallocated() -> int:
-    """Job: an enrolment still without a seat 24 hours before its admission's planned start (IST) is raised to the
-    service branch's Branch Managers, once per enrolment. This was the CRM's `batch-allocation` job; allocation is the
-    LMS's now. Returns how many enrolments were newly escalated."""
+    """Job: an enrolment still without a seat 24 hours before its admission's planned start (IST) — or first noticed inside
+    that window — is raised to the Founder / CEO, Super Admin and the service branch's Branch Managers, once per enrolment.
+    Returns how many enrolments were newly escalated."""
     escalated = 0
     for enrolment in enrolments_repo.unallocated_starting_by((datetime.now(IST) + ESCALATE_BEFORE_START).date(), AWAITING_SEAT):
         admission = enrolment.admission
         student = students_repo.get_student(enrolment.student_id)
-        sent = notify(category="Enrolment", event_key=f"allocation-escalate:{enrolment.enrolment_id}",
-                      title=f"Allocate a batch now: {student.full_name} ({admission.admission_code}) starts "
-                            f"{admission.planned_start_date.isoformat()}",
-                      body=f"{enrolment.enrolment_code} · {enrolment.course.course_code} · {enrolment.status}",
-                      link=f"/academic/students/{student.student_id}", role_code="BRANCH_MANAGER",
-                      branch_id=enrolment.service_branch_id, action_required=True)
+        sent = 0
+        for role_code in ESCALATE_TO:
+            sent += notify(category="Enrolment", event_key=f"allocation-escalate:{enrolment.enrolment_id}",
+                           title=f"Allocate a batch now: {student.full_name} ({admission.admission_code}) starts "
+                                 f"{admission.planned_start_date.isoformat()}",
+                           body=f"{enrolment.enrolment_code} · {enrolment.course.course_code} · {enrolment.status}. "
+                                f"Record who is responsible, the blockage, the recovery and what the student is told.",
+                           link="/academic/batches" if role_code == "BRANCH_MANAGER" else "/admin/exceptions", role_code=role_code,
+                           branch_id=enrolment.service_branch_id, action_required=True)
         escalated += 1 if sent else 0
     return escalated

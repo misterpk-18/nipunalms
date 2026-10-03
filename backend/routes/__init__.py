@@ -100,3 +100,8 @@ BLUEPRINTS += [exceptions_bp, dashboards_bp]
 from routes.ai_controls import ai_controls_bp  # noqa: E402
 
 BLUEPRINTS += [ai_controls_bp]
+
+# Gap fix plan phase 4: the Academic Calendar
+from routes.calendar import calendar_bp  # noqa: E402
+
+BLUEPRINTS += [calendar_bp]

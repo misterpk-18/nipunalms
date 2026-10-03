@@ -4,6 +4,7 @@ from flask import request, send_file
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated, require_changes
 from models.assessments import AI_USE_RULES, ASSIGNMENT_KINDS, ASSIGNMENT_STATUSES, REVIEW_OUTCOMES
 from services import assignments as assignments_service
+from services import review_clock
 from services import submissions as submissions_service
 from services.assignments import STUDENT_STATES
 
@@ -101,7 +102,14 @@ def list_submissions():
     filters = v.validate()
     page, per_page = get_page_params()
     rows, meta = submissions_service.list_submissions(filters, page, per_page)
-    return paginated([s.to_dict() | {"assignment": s.assignment.to_dict()} for s in rows], meta)
+    return paginated([s.to_dict() | {"assignment": s.assignment.to_dict(), "review_due": _review_due(s)} for s in rows], meta)
+
+
+def _review_due(submission) -> dict | None:
+    """The working-day review target while the submission still waits for review."""
+    if submission.review is not None:
+        return None
+    return review_clock.review_due(submission.assignment.kind, submission.submitted_at, submission.assignment.batch.branch_id)
 
 
 def get_submission(submission_id: int):
