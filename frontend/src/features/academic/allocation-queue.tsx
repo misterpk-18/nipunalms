@@ -96,9 +96,21 @@ function AllocateDialog({ row }: { row: EnrolmentRow }) {
 
 export function AllocationQueue({ branchId }: { branchId?: string }) {
   const manager = useCanManage();
-  const query = useQuery({ queryKey: ["delivery", "queue", branchId], queryFn: () => deliveryApi.allocationQueue({ branch_id: branchId || undefined }) });
+  const [q, setQ] = useState("");
+  const search = q.trim();
+  const query = useQuery({
+    queryKey: ["delivery", "queue", branchId, search],
+    queryFn: () => deliveryApi.allocationQueue({ branch_id: branchId || undefined, q: search || undefined }),
+  });
   return (
     <Section title="Allocation queue — admitted students waiting for a batch">
+      <Input
+        className="mb-3 max-w-sm"
+        aria-label="Search the allocation queue"
+        placeholder="Search by name, mobile or admission number"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
       <QueryView query={query}>
         {(page) => (
           <DataTable

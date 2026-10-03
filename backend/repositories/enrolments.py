@@ -39,7 +39,10 @@ def list_stmt(filters: dict, branch_ids: set[int] | None, tied_enrolment_ids: se
             select(BatchAllocation.enrolment_id).where(BatchAllocation.batch_id == filters["batch_id"], BatchAllocation.status == "Active")))
     if filters.get("q"):
         pattern = f"%{filters['q']}%"
-        stmt = stmt.where(Student.full_name.ilike(pattern) | Student.student_code.ilike(pattern) | Enrolment.enrolment_code.ilike(pattern))
+        stmt = stmt.where(
+            Student.full_name.ilike(pattern) | Student.student_code.ilike(pattern) | Student.mobile.ilike(pattern)
+            | Enrolment.enrolment_code.ilike(pattern)
+            | Enrolment.admission_id.in_(select(Admission.admission_id).where(Admission.admission_code.ilike(pattern))))
     return stmt
 
 

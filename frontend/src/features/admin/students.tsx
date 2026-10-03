@@ -41,13 +41,13 @@ export function AdminStudents() {
     <>
       <PageHead
         title="Student Accounts"
-        description="Search by Student ID, name or email. Students and their logins are created by the CRM (Admission Qualified), never here."
+        description="Search by name, mobile, admission number, Student ID or email. Students and their logins are created by the CRM (Admission Qualified), never here."
       />
       <div className="space-y-4">
         <Section>
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FilterField label="Student ID, name or email">
-              <Input aria-label="Student ID, name or email" value={filters.q ?? ""} onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })} />
+              <Input aria-label="Name, mobile, admission number, Student ID or email" value={filters.q ?? ""} onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })} />
             </FilterField>
             <FilterField label="Activation status">
               <NativeSelect

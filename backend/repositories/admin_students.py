@@ -2,7 +2,7 @@
 from sqlalchemy import Select, func, or_, select
 
 from config.database import db
-from models import ActiveSession, Course, Enrolment, Student, StudentActivation, User
+from models import ActiveSession, Admission, Course, Enrolment, Student, StudentActivation, User
 
 
 def search_stmt(filters: dict) -> Select:
@@ -14,7 +14,9 @@ def search_stmt(filters: dict) -> Select:
     )
     if filters.get("q"):
         pattern = f"%{filters['q']}%"
-        stmt = stmt.where(or_(Student.student_code.ilike(pattern), Student.full_name.ilike(pattern), Student.email.ilike(pattern)))
+        stmt = stmt.where(or_(Student.student_code.ilike(pattern), Student.full_name.ilike(pattern), Student.email.ilike(pattern),
+                              Student.mobile.ilike(pattern),
+                              Student.student_id.in_(select(Admission.student_id).where(Admission.admission_code.ilike(pattern)))))
     if filters.get("activation_status"):
         stmt = stmt.where(Student.activation_status == filters["activation_status"])
     if filters.get("branch_id"):
