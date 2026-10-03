@@ -14,6 +14,86 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
   - Each commit carries its own migration, tests and doc updates.
   - No co-author trailer (memory rule).
 
+## Progress (3 Oct 2026)
+
+| Phase | Status | Commit | Gaps closed | Still open in this phase |
+|---|---|---|---|---|
+| 1. Correctness and privacy | Done | `bf5569e` | G010 G022 G024 G025 G028 G029 G031 G033 G056 | — |
+| 2. Deployment templates | Done (nothing deployed) | `5a124d9` | — (readiness, not a module gap) | — |
+| 3. Governance and approvals, CRM round 4 request | Done | `ea71866` | G012 G032 G034 G035 G036 G042 G095 | — |
+| 4. Academic calendar and working days | Done | `be996e1` | G063 G064 G091, plus the "Review clocks" backlog item | — |
+| 5. Curriculum model (Module 14) | Done | `506a7e7` | G013 G014 G058 G059 G060 G061 | — |
+| 6. Batches and delivery (Modules 15, 16) | **Next** | | | G015 G016 G017 G018 G019 G062 G065 G066 G067 G068 G069 G070 G071 G072 G101 G102 G103 G104 |
+| 7. Assessments (Modules 19, 20) | To do | | | G023 G026 G027 G080 G081 G082 G083 G084 G085 G086 G087 G088 G089 G090 G100 G107 G108 |
+| 8. Attendance, completion, certificates | To do | | | G002 G030 G092 G093 G096 G097 G098 G109 |
+| 9. Content and recordings | To do | | | G020 G021 G073 G074 G075 G076 G077 G078 G079 G105 G106 |
+| 10. Notifications and integrations | To do | | | G046 G047 G048 G049 G050 G051 G052 G053 G054 G055 G057 |
+| 11. Reports, dashboards and AI | To do | | | G009 G041 G043 G044 G045 G099 |
+| 12. Career and guardians (after CRM round 4) | To do | | | G003 G007 G011 G037 G040 G094 |
+| CRM-owned placement (D5) | Not LMS work | | | G001 G004 G005 G006 G008 G038 G039 |
+
+25 of 109 gaps closed; the backend suite is at 642 passing. The status column in [GAPS.md](GAPS.md) is the source of truth. Mark a gap `Done (phase N)`
+there when its phase lands. Migrations used so far: 099–102, so **phase 6 starts at `db/103_*.sql`**.
+
+## Resuming in a new session
+
+Start here before phase 6.
+
+1. **Read the material:**
+   - The phase's section below.
+   - Its gaps in [GAPS.md](GAPS.md): each has the spec text, what the code did, and file evidence.
+   - The module text. Extract it with `pdftotext -layout "~/Downloads/CRM  & LMS/LMS MODULE/Nipuna-Module-15-…pdf" out.txt`.
+2. **Build in this order:**
+   - The migration (next number, and it must replay from empty).
+   - Models: register them in `models/__init__.py` by appending a block.
+   - Services, then controllers, then routes: register new blueprints by appending a block to `routes/__init__.py`.
+   - Tests (`backend/tests/test_<area>.py`), then the frontend, then the docs.
+3. **Check it:**
+   - Full backend suite, about 6½ minutes; run it in the background: `cd backend && ../venv/bin/python -m pytest -q -p no:cacheprovider`.
+   - `cd frontend && npx tsc --noEmit -p .`
+   - Rebuild and reseed dev: `APP_ENV=development ../venv/bin/flask --app app create-dev-db --yes && APP_ENV=development ../venv/bin/flask --app app seed-dev`.
+   - Playwright for the touched screens, on **temporary servers** so the user's own :5060 / :5174 are untouched:
+     - `APP_ENV=development ../venv/bin/flask --app app run --port 5061` in `backend/`
+     - `VITE_API_TARGET=http://127.0.0.1:5061 npx vite --port 5175 --strictPort` in `frontend/`
+     - `E2E_BASE_URL=http://localhost:5175 npx playwright test e2e/<spec> --project=desktop`
+     - Stop both servers afterwards.
+4. **Update the docs:**
+   - `API.md`: endpoints and rules.
+   - `DATABASE.md`: one row in the migration table and a `## NNN —` section.
+   - `DEVELOPMENT.md`: Part B screens, Part E backlog (remove what closed, add what is left), Part F jobs.
+   - `GAPS.md` status, and the progress table above.
+5. **Commit** once per phase on `main`, in the style of `Gap fix phase N: …`, with **no co-author trailer**.
+
+**Things the earlier phases changed that tests and the seed rely on:**
+- **Seats:** `allocate()` in `tests/conftest.py` dates seats 90 days back, because attendance is expected from the seat (phase 1).
+- **CRM event dates:** `crm_event()` defaults `occurred_at` to now; an event more than 72 hours old is a historical import and sends no notices. The seed also dates its CRM events now.
+- **Catalog fixture:** it creates a role-less user "Curriculum Reviewer" and records the booster (NIT-CRS-019) equivalence review. Tests that count users or list staff must allow for it.
+- **Certificates:**
+  - They need a cleared fee (`attendance_world.set_fee(run_sql, enrolment_id, balance=0)`).
+  - Completion needs a trainer's Complete recommendation before the coordinator decides.
+  - Corrections, revocations and reinstatements go through `/certificates/{id}/change-requests` and `/certificate-requests/{id}/decision`.
+- **Curriculum:**
+  - A draft is submitted only when complete. Use `complete_draft()` from `tests/test_delivery.py`.
+  - Approve, activate and retire are Founder / CEO or Super Admin only.
+- **Exception queue:** Curriculum Mapping Pending enrolments get a named owner automatically, so they no longer count as "awaiting owner".
+- **Fixed seed dates:** two `e2e/assessments.spec.ts` tests use fixed seed dates that have now passed. They fail regardless of these phases.
+
+**Shared helpers built so far:**
+- `services/approvals.require_independent(*involved_user_ids, message=)`: the independent-approver rule, as a 422.
+- `services/working_days` (`is_working_day`, `add_working_days`, `working_days_between`): `working_weekdays` (all seven by default) minus approved closures.
+- `services/review_clock.review_due(kind, submitted_at, branch_id, tests=False)`: 3 / 5 / 7 working-day targets.
+- `services/calendar`: company holidays and branch closures, and the classes they affect.
+- `services/certificate_requests`: change requests and fee exceptions.
+- `services/ai_controls`: switching AI off and restoring it.
+- `services/academic_mappings`: equivalence rules, mappings and credits, and the Mapping Pending owner.
+- `services/curriculum_variations` and `services/curriculum_library`.
+- Frontend:
+  - `features/shared/academic-calendar.tsx`
+  - `features/shared/certificate-register.tsx` (`CertificateDecisions`)
+  - `features/academic/curriculum-model.tsx`
+  - `lib/format.todayIso()`
+  - the open public path list `OPEN_PATH_ROOTS` in `auth/access.ts`
+
 ## Conventions every phase follows
 
 - **Migrations:**
@@ -33,8 +113,8 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
     - `settings_repo.get_int`
     - error classes in `services/errors.py`
   - Background work becomes a job registered in `services/jobs.JOBS`.
-- **New shared helper (phase 3):** `services/approvals.py`, with `require_independent(requester_id, approver_id, message)`. It replaces the inline checks in `attendance.decide_correction`, `certificates.approve` and `curriculum.approve`.
-- **New shared helper (phase 4):** `config/working_days.py`, with `is_working_day` and `add_working_days(date, n, branch_id)`, backed by the academic calendar.
+- **New shared helper (phase 3):** `services/approvals.py`, with `require_independent(*involved_user_ids, message=...)` (it compares them with the current user). It replaces the inline checks in `attendance.decide_correction`, `certificates.approve` and `curriculum.approve`.
+- **New shared helper (phase 4):** `services/working_days.py` (it reads the database, so it lives in services), with `is_working_day` and `add_working_days(date, n, branch_id)`, backed by the academic calendar.
 - **Tests:**
   - Add one `backend/tests/test_<area>.py` per slice, using the existing fixtures: `make_user`, `login`, `make_student`, `make_batch`, `make_session`, `allocate`, `crm_event`, and the `world` / `attendance_world` / `assessment_world` builders.
   - Role tests use the existing matrix style: 403 for a role without permission, 404 for another branch, 422 for a business rule.
@@ -78,6 +158,11 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
 
 **Tests:** for each item, a failing test first, then the fix.
 
+**As built (`bf5569e`):**
+- An Internship entry added after completion also stayed in review by mistake (`create_entry`); that path is fixed too.
+- Notices from before 099 have no `role_code`. They follow the "any role at the branch" rule; there was no backfill.
+- The test fixtures and seed were adjusted for seat dates (see Resuming).
+
 ## Phase 2: deployment and operations (no migration)
 
 Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
@@ -90,6 +175,12 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 - Add `DEVELOPMENT.md` Part F: server layout, redeploy, migrations, backups.
 - Set the security controls `BACKUPS` and `HTTPS` to Verified only after a real run.
 - **No deploy happens without explicit approval.** This phase only adds the files and documentation.
+
+**As built (`5a124d9`):**
+- The gunicorn options are in the systemd unit; there is no `gunicorn.conf.py`.
+- `backup.sh` takes `LMS_ROOT` for a local test.
+- Checked locally with gunicorn in production mode and a backup / restore listing. nginx was not tested.
+- The host (the CRM's instance or its own) is undecided.
 
 ## Phase 3: governance and approvals, plus the CRM round 4 request (migration 100)
 
@@ -120,6 +211,17 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
     - placement service endpoints (D5)
   - Add it to `CRM_INTEGRATION.md` §4.
 
+**As built (`ea71866`):**
+- **Change requests:**
+  - The old `/reissue` and `/revocation` endpoints were replaced by `POST /certificates/{id}/change-requests` (`kind` = Correction, Revocation or Reinstatement) and `POST /certificate-requests/{id}/decision`.
+  - Fee exceptions use `/certificates/{id}/financial-exception` and `/certificate-financial-exceptions/{id}/decision`.
+- **Fee gate:** applied at recommendation and again at issue. A complimentary admission uses its paid admission's `finance_summaries`.
+- **Trainer confirmation:** counts a Complete recommendation from a trainer of any batch the enrolment was ever allocated to, or any trainer at the branch when it never had a batch.
+- **Founder pages:** `/founder/curriculum` and `/founder/certificates`.
+- **Public page:** `/verify/:number?version=` (no shell, no sign-in).
+- **AI controls:** on `/admin/security`.
+- **Round 4 request:** written in `nipuna crm-docs/LMS_ROUND4_REQUEST.md`; waiting for the CRM.
+
 ## Phase 4: academic calendar and working days (migration 101)
 
 - **New tables:**
@@ -134,6 +236,14 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
   - New job `attendance-unconfirmed`: alerts the Academic Coordinator on the next working day. The confirmation date is kept separately from the class date.
 - **Review clocks:** closes the backlog item "Review clocks". Assignment and test review targets of 3, 5 and 7 working days now run on the calendar.
 - **UI:** a calendar admin screen under `/admin` and `/branch/operations`.
+
+**As built (`be996e1`):**
+- Working days count **every weekday** by default (`working_weekdays` = 1–7), because Module 15 §9 says not to assume weekends or bank holidays are closed. Only approved closures and the setting remove days.
+- **Allocation deadline:** `allocation_due_on` appears in the allocation queue.
+- **Escalation:** at 24 hours it goes to the Founder / CEO, Super Admin and Branch Manager.
+- **New job:** `attendance-unconfirmed`.
+- **Review targets:** `review_due` on `/submissions` and `/attempts`.
+- **Calendar UI:** `/admin/calendar`, `/branch/operations` and `/academic/schedule`.
 
 ## Phase 5: curriculum model (Module 14) (migration 102)
 
@@ -161,7 +271,23 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
   - **This is the largest single change.** Build it last in the phase, behind the other items.
 - **UI:** rework `features/academic/curriculum.tsx`: a topic editor with the new fields, a dependency picker, a totals panel, a combo pinning view, and a mapping/credit dialog from the allocation queue.
 
+**As built (`506a7e7`):**
+- **Topic class:** `topic_class` drives `is_required` through a trigger, so the progress views are unchanged.
+- **Library:** reuse is a **module library** (`library_modules`, `library_module_versions`, `curriculum_modules.library_version_id`) rather than generic `curriculum_items`.
+- **Equivalence:** the review is stored on `course_components` (`equivalence_*`), and booster borrowing needs it.
+- **Pending credits:** held in `academic_mappings.proposed_credits` until approval.
+- **Allocation:** a version mismatch is now a **fail**, until a mapping moves the student.
+- **API only for now (DEVELOPMENT.md Part E):** credits in the mapping dialog, proposing an equivalence rule, and changing a Mapping Pending owner.
+- **Applying the completion profile** in Completion Review is phase 8.
+
 ## Phase 6: batches and delivery operations (Modules 15 and 16) (migration 103)
+
+**Gaps:** G015–G019 (high); G062, G065–G072 (medium); G101–G104 (low). Module 15 is batches and scheduling; Module 16 is Google Meet operations.
+
+**Before writing code:**
+- The batch states reach the CRM through `batch_crm_state()` (db 098) and `batches[].status`.
+- The round 4 request (A5) warned the CRM about Proposed, On Hold and Archived. Keep the existing values working.
+- Phase 4's working days apply to the readiness and closure rules.
 
 - **Batch lifecycle:**
   - Add the states `Proposed`, `On Hold` and `Archived`. The existing values are kept for CRM compatibility: Forming = Draft, Starting is shown as Confirmed, Running is shown as In Progress.
@@ -198,6 +324,8 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 
 ## Phase 7: assessments (Modules 19 and 20) (migration 104)
 
+**Gaps:** G023 G026 G027 (high); G080–G090 (medium); G100 G107 G108 (low). Link required work to phase 5's `curriculum_assessment_requirements`; review targets already exist (`services/review_clock`).
+
 - **Required work must come from the curriculum:**
   - `assignments` and `tests` reference a `curriculum_assessment_requirement_id`. `is_required` is derived from it, so trainers can't invent required work.
   - Add `rubrics` and `rubric_criteria`, plus weight and pass rule. A required item can't be released without them.
@@ -221,6 +349,8 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 
 ## Phase 8: attendance, completion and certificates (Modules 21, 22 and the learning side of 23) (migration 105)
 
+**Gaps:** G002 G030 (high); G092 G093 G096 G097 G098 (medium); G109 (low). Also apply phase 5's per-version `completion_profile` in Completion Review. G093 (under-18) depends on CRM round 4.
+
 - **Attendance:**
   - Add a **Disputed** flag on attendance records. Pending and Disputed rows are excluded from both sides of the calculation.
   - Progress shows the cutoff, coverage and a `Provisional` / `Not Yet Calculable` label.
@@ -235,6 +365,8 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 - **Internships:** add `internship_programmes` and `internship_records` (organisation, supervisor, dates, verified duration and work, Academic Coordinator verification). These open Internship Certificate eligibility.
 
 ## Phase 9: content and recordings (Modules 17 and 18) (migration 106)
+
+**Gaps:** G020 G021 (high); G073–G079 (medium); G105 G106 (low). Guardian authorisation for recordings waits for phase 12.
 
 - **Recordings:**
   - Add a recording notice and acknowledgement (student and trainer). Guardian authorisation comes in phase 12.
@@ -253,6 +385,8 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 
 ## Phase 10: notifications and integrations register (Modules 26 and 27) (migration 107)
 
+**Gaps:** G046–G055, G057 (medium). G057 (consent / stop-contact intake) depends on CRM round 4 (A2).
+
 - **Notification model:**
   - Add `notification_messages` (one logical notice) and `notification_attempts` (per channel; in-app is live, email and WhatsApp stay Queued/Suppressed until enabled).
   - States: Queued, Suppressed/Obsolete, Sending, Accepted, Delivered, Failed, Uncertain, Staff Recovery Required.
@@ -270,6 +404,8 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 
 ## Phase 11: reports, dashboards and AI (Modules 25 and 24) (migration 108)
 
+**Gaps:** G009 (high); G041 G043 G044 G045 (medium); G099 (low). The placement parts of G009 wait for the CRM (D5).
+
 - **Period selector:** Today, Yesterday, This/Last Week (Monday to Sunday, IST), This/Last Month, Custom. Every report service takes `period_from` and `period_to`.
 - **Report envelope:** each report carries Period, Scope, Filters, Cutoff, Last Refresh, Completeness, Requested by and Generated at.
 - **Exports:**
@@ -285,6 +421,8 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
   - Ask Nipuna gets read-only sources for certificates and fee summaries, with dates, plus a "Data unavailable" answer.
 
 ## Phase 12: career (learning side) and guardians (migration 109, after CRM round 4)
+
+**Gaps:** G003 G007 G011 (high); G037 G040 G094 (medium). Placement gaps G001 G004 G005 G006 G008 G038 G039 are CRM-owned (D5).
 
 - **Career support period:**
   - It is tied to the qualifying enrolment's approved completion (six months, late opt-in keeps the remaining time) and is enforced.
@@ -315,7 +453,7 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 ## Verification
 
 - **Each phase:**
-  - `cd backend && ../venv/bin/python -m pytest -q`. It passes 611 today and must pass with the new tests.
+  - `cd backend && ../venv/bin/python -m pytest -q`. It passed 611 before phase 1 and **642 after phase 5** (3 Oct 2026); every phase must keep it green.
   - `cd frontend && npx tsc --noEmit` and the Playwright specs for the touched screens.
   - `flask create-dev-db` plus the seed, then a manual run of each affected role through the app on :5174 / :5060.
 - **Phase 1 tests:**
@@ -336,4 +474,6 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 - **Attendance numbers drop.** Phase 1 changes attendance percentages for current students. That is intended by the spec; note it in the commit and in Part E.
 - **Batch states and the CRM.** New batch states change what the CRM pulls in `batch_crm_state`. Existing values are kept, and new ones go in the round 4 request before phase 6 ships.
 - **CRM round 4 dependencies.** Phases 10 (restrictions intake) and 12 (guardians) depend on the CRM. If round 4 slips, those items stay open in `GAPS.md`.
-- **Largest items.** G059 (reusable versioned curriculum items) and G067 (shared classes) are the two largest. Each sits last in its phase so it can be split out without blocking the rest.
+- **Largest items.** G059 (reusable curriculum) is done, as a module library. G067 (shared classes across batches) is the largest left; it sits last in phase 6 so it can be split out without blocking the rest.
+- **Dev database rebuilds.** Every phase rebuilds `nipunalms-dev`, which drops the events the local CRM sent. Ask the CRM side to run `flask lms backfill --force` before a joint test.
+- **The user's running API.** The API on :5060 runs without a reloader. Restart it to see changes; e2e checks use temporary servers on :5061 / :5175.

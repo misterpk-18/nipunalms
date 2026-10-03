@@ -424,10 +424,25 @@ assessments, attendance / progress / certificates, student services, admin and s
 dashboards, both reports pages, staff notifications and `/account/profile`. CRM integration rounds 1–3 are done on both
 sides (db 090–098; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
+**Gap fix plan** ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md), register [GAPS.md](GAPS.md)): the app was checked against the
+approved modules 14–27, which found 109 gaps.
+
+| Phase | Commit | Migration |
+|---|---|---|
+| 1. Correctness and privacy | `bf5569e` | 099 |
+| 2. Deployment templates | `5a124d9` | — |
+| 3. Governance and approvals | `ea71866` | 100 |
+| 4. Academic Calendar | `be996e1` | 101 |
+| 5. Module 14 curriculum model | `506a7e7` | 102 |
+
+25 of the 109 gaps are closed. **Phase 6 (batches and delivery, Modules 15–16) is next**; the plan's "Resuming in a new
+session" section lists the steps and what earlier phases changed.
+
 Still to do:
 
 | Item | Notes |
 |---|---|
+| Gap fix phases 6–12 | Batches and delivery, assessments, attendance and certificates, content and recordings, notifications and integrations, reports and AI, career and guardians (the last after CRM round 4) |
 | Validation pass | A cross-role acceptance run (desktop + mobile) against the merged app, and a product / role guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
 
 ---
