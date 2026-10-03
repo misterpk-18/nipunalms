@@ -23,21 +23,21 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
 | 3. Governance and approvals, CRM round 4 request | Done | `ea71866` | G012 G032 G034 G035 G036 G042 G095 | — |
 | 4. Academic calendar and working days | Done | `be996e1` | G063 G064 G091, plus the "Review clocks" backlog item | — |
 | 5. Curriculum model (Module 14) | Done | `506a7e7` | G013 G014 G058 G059 G060 G061 | — |
-| 6. Batches and delivery (Modules 15, 16) | **Next** | | | G015 G016 G017 G018 G019 G062 G065 G066 G067 G068 G069 G070 G071 G072 G101 G102 G103 G104 |
-| 7. Assessments (Modules 19, 20) | To do | | | G023 G026 G027 G080 G081 G082 G083 G084 G085 G086 G087 G088 G089 G090 G100 G107 G108 |
+| 6. Batches and delivery (Modules 15, 16) | Done | `2953780` | G015 G016 G017 G018 G019 G062 G065 G066 G067 G068 G069 G070 G071 G072 G101 G102 G103; G104 in part | G104's recording states (moved to phase 9) |
+| 7. Assessments (Modules 19, 20) | **Next** | | | G023 G026 G027 G080 G081 G082 G083 G084 G085 G086 G087 G088 G089 G090 G100 G107 G108 |
 | 8. Attendance, completion, certificates | To do | | | G002 G030 G092 G093 G096 G097 G098 G109 |
-| 9. Content and recordings | To do | | | G020 G021 G073 G074 G075 G076 G077 G078 G079 G105 G106 |
+| 9. Content and recordings | To do | | | G020 G021 G073 G074 G075 G076 G077 G078 G079 G105 G106, G104 (recording states) |
 | 10. Notifications and integrations | To do | | | G046 G047 G048 G049 G050 G051 G052 G053 G054 G055 G057 |
 | 11. Reports, dashboards and AI | To do | | | G009 G041 G043 G044 G045 G099 |
 | 12. Career and guardians (after CRM round 4) | To do | | | G003 G007 G011 G037 G040 G094 |
 | CRM-owned placement (D5) | Not LMS work | | | G001 G004 G005 G006 G008 G038 G039 |
 
-25 of 109 gaps closed; the backend suite is at 642 passing. The status column in [GAPS.md](GAPS.md) is the source of truth. Mark a gap `Done (phase N)`
-there when its phase lands. Migrations used so far: 099–102, so **phase 6 starts at `db/103_*.sql`**.
+42 of 109 gaps closed (G104 in part); the backend suite is at 660 passing. The status column in [GAPS.md](GAPS.md) is the source of truth. Mark a gap `Done (phase N)`
+there when its phase lands. Migrations used so far: 099–103, so **phase 7 starts at `db/104_*.sql`**.
 
 ## Resuming in a new session
 
-Start here before phase 6.
+Start here before phase 7.
 
 1. **Read the material:**
    - The phase's section below.
@@ -76,7 +76,18 @@ Start here before phase 6.
   - A draft is submitted only when complete. Use `complete_draft()` from `tests/test_delivery.py`.
   - Approve, activate and retire are Founder / CEO or Super Admin only.
 - **Exception queue:** Curriculum Mapping Pending enrolments get a named owner automatically, so they no longer count as "awaiting owner".
-- **Fixed seed dates:** two `e2e/assessments.spec.ts` tests use fixed seed dates that have now passed. They fail regardless of these phases.
+- **Batches (phase 6):**
+  - The database refuses Forming → Starting. A test that moves states in SQL walks Proposed, then Starting with
+    `confirmed_at` / `confirmed_by`; fixtures that insert a batch with `state="Running"` are unaffected.
+  - Transfers are `POST /enrolments/{id}/transfer-requests` plus a Branch Manager decision; changing a class's trainer by
+    PATCH is the Branch Manager's; `acknowledge_room_conflict` is gone (`override_reason`, Branch Manager only).
+  - A reschedule or cancellation inside 24 hours needs `emergency_reason` and `next_action`.
+  - A session inserted as Delivered gets `delivery_outcome = 'Held'` from a trigger.
+  - Batch completion is refused while a cancelled regular class owes a replacement or a student still owed teaching has
+    no handover.
+- **Failing e2e regardless of these phases:** two `e2e/assessments.spec.ts` tests (fixed seed dates that have passed),
+  `admin.spec.ts` "student accounts" (fails on the phase 5 frontend too) and `dashboards-staff.spec.ts` "logs a recovery
+  step" (it expects a Curriculum Mapping Pending row without an owner; phase 5 names one automatically).
 
 **Shared helpers built so far:**
 - `services/approvals.require_independent(*involved_user_ids, message=)`: the independent-approver rule, as a 422.
@@ -87,10 +98,22 @@ Start here before phase 6.
 - `services/ai_controls`: switching AI off and restoring it.
 - `services/academic_mappings`: equivalence rules, mappings and credits, and the Mapping Pending owner.
 - `services/curriculum_variations` and `services/curriculum_library`.
+- Phase 6:
+  - `services/batch_changes` (capacity requests, material changes and agreement, merge / split),
+    `services/batch_transfers`, `services/session_ops` (hosts, incidents, participation, disruptions, cover, shared
+    classes, the Meet operations view, the two jobs), `services/slot_preferences`.
+  - `batches.confirmation_checklist(batch)` (the 7-point record), `batches.CONFIRM_ROLES`, `allocations.current_seat()`
+    and `end_all()` (track seats), `sessions_repo.session_batch_ids()` (a shared class's batches),
+    `attendance_repo.allocated_enrolments([batch ids])`.
+  - `job_runs` records every `flask jobs run`.
 - Frontend:
   - `features/shared/academic-calendar.tsx`
   - `features/shared/certificate-register.tsx` (`CertificateDecisions`)
   - `features/academic/curriculum-model.tsx`
+  - `features/academic/batch-operations.tsx`, `meet-operations.tsx`, `class-operations.tsx`, `features/student/batch-changes.tsx`
+  - `features/shared/delivery-ui.tsx`: `ActionDialog` shows a 422's `blocking` / `warnings`, with `afterWarnings` fields;
+    `StateBadge`, `useIsManager`; `features/shared/staff-picker.ts`
+  - Branch Manager routes `/branch/batches`, `/branch/schedule`, `/branch/meet-operations` reuse the academic screens
   - `lib/format.todayIso()`
   - the open public path list `OPEN_PATH_ROOTS` in `auth/access.ts`
 
@@ -321,6 +344,23 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 - **Shared classes across batches (G067):**
   - Add `session_rosters`, linking one session to several batches. Hours are counted once.
   - **Large: do this last in the phase.**
+
+**As built (`2953780`):**
+- **Stored states kept:** batch and session states keep their stored names for the CRM and the views. `state_label`
+  shows Module 15's words (Draft, Confirmed, In Progress; Planned, Held, Partially Held). Partially Held is
+  `delivery_outcome` on a Delivered session, and Confirmed is `confirmed_at`, so attendance counting is unchanged.
+- **Confirmation:** the 7-point record is computed (`GET /batches/{id}/readiness` → `checklist`) and stored as confirmed
+  in `batches.confirmation_checklist`. Readiness (Ready / Blocked / Pending Verification) stays the CRM-facing status.
+- **Interbranch:** only one combo track moves through the LMS (the destination confirms, then the student's Branch
+  Manager approves). A whole admission still moves through the CRM's `AdmissionUpdated`.
+- **Delay alerts:** these cover online and hybrid classes only, because the LMS can't see a classroom class start. A late
+  classroom class is recorded by hand.
+- **Cover:** cover is per class. A standing cover rota with limits is in Part E.
+- **Recordings:** G104's recording milestones moved to phase 9. A Not Included batch raises no missing-recording alert.
+- **Branch Manager screens:** Branch Managers could not open `/academic`, so their decisions live on `/branch/batches`,
+  `/branch/schedule` and `/branch/meet-operations`.
+- **API only (Part E):** staff handling of slot requests, a picker for another branch's batches, and id fields for topics,
+  participants and disruption owners.
 
 ## Phase 7: assessments (Modules 19 and 20) (migration 104)
 
