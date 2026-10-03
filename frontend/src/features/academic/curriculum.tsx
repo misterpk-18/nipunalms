@@ -1,12 +1,23 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { deliveryApi, type CurriculumRow, type CurriculumVersion, type ModuleContent } from "@/api/delivery";
+import { deliveryApi, type CurriculumRow, type CurriculumVersion, type ModuleContent, type TopicClass, type TopicRow } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { DataTable, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { ActionDialog, fmtDate, mono } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
+import {
+  ComboPins,
+  CurriculumDecisions,
+  CurriculumModelNote,
+  EquivalenceReview,
+  RecordVariation,
+  SaveToLibrary,
+  TopicDetails,
+  VersionPlanning,
+  topicSummary,
+} from "./curriculum-model";
 
 type Slot = { course_id: number; component_id: number | null; label: string };
 
@@ -16,18 +27,18 @@ const slotOf = (row: CurriculumRow): Slot => ({
   label: row.component ? `${row.component.track_code} — ${row.component.track_name}` : `${row.course.course_code} — ${row.course.title}`,
 });
 
-function ModuleEditor({ module, editable }: { module: ModuleContent; editable: boolean }) {
+function ModuleEditor({ module, editable, author, versionTopics }: { module: ModuleContent; editable: boolean; author: boolean; versionTopics: TopicRow[] }) {
   const updateModule = useDelivery(
     (v: { id: number; body: { title?: string; position?: number } }) => deliveryApi.updateModule(v.id, v.body),
     "Module updated",
   );
   const deleteModule = useDelivery((id: number) => deliveryApi.deleteModule(id), "Module removed");
   const addTopic = useDelivery(
-    (v: { id: number; title: string; is_required: boolean }) => deliveryApi.addTopic(v.id, { title: v.title, is_required: v.is_required }),
+    (v: { id: number; title: string; topic_class: TopicClass }) => deliveryApi.addTopic(v.id, { title: v.title, topic_class: v.topic_class }),
     "Topic added",
   );
   const updateTopic = useDelivery(
-    (v: { id: number; body: { title?: string; is_required?: boolean; position?: number } }) => deliveryApi.updateTopic(v.id, v.body),
+    (v: { id: number; body: { title?: string; position?: number } }) => deliveryApi.updateTopic(v.id, v.body),
     "Topic updated",
   );
   const deleteTopic = useDelivery((id: number) => deliveryApi.deleteTopic(id), "Topic removed");
@@ -36,7 +47,9 @@ function ModuleEditor({ module, editable }: { module: ModuleContent; editable: b
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">
           {module.sort_order}. {module.title}
+          {module.library_version_id && <span className="ml-2 text-xs font-normal text-muted-foreground">from the library</span>}
         </h3>
+        {author && !editable && <SaveToLibrary module={module} />}
         {editable && (
           <div className="flex flex-wrap gap-1.5">
             <ActionDialog
@@ -69,6 +82,7 @@ function ModuleEditor({ module, editable }: { module: ModuleContent; editable: b
             <Button size="sm" variant="outline" onClick={() => deleteModule.mutate(module.module_id)}>
               Remove
             </Button>
+            <SaveToLibrary module={module} />
           </div>
         )}
       </div>
@@ -77,14 +91,18 @@ function ModuleEditor({ module, editable }: { module: ModuleContent; editable: b
           <li key={t.topic_id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
             <span>
               {t.sort_order}. {t.title}
+              {topicSummary(t) && <span className="block text-xs text-muted-foreground">{topicSummary(t)}</span>}
+              {t.depends_on.length > 0 && (
+                <span className="block text-xs text-muted-foreground">
+                  Builds on {t.depends_on.map((id) => versionTopics.find((x) => x.topic_id === id)?.title ?? id).join(", ")}
+                </span>
+              )}
             </span>
             <span className="flex flex-wrap items-center gap-1.5">
-              <StatusBadge tone={t.is_required ? "info" : "neutral"}>{t.is_required ? "Required" : "Optional"}</StatusBadge>
+              <StatusBadge tone={t.topic_class === "Required" ? "info" : "neutral"}>{t.topic_class}</StatusBadge>
+              <TopicDetails topic={t} siblings={versionTopics} editable={editable} />
               {editable && (
                 <>
-                  <Button size="sm" variant="ghost" onClick={() => updateTopic.mutate({ id: t.topic_id, body: { is_required: !t.is_required } })}>
-                    {t.is_required ? "Make optional" : "Make required"}
-                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -123,9 +141,16 @@ function ModuleEditor({ module, editable }: { module: ModuleContent; editable: b
             title={`Add a topic to ${module.title}`}
             fields={[
               { name: "title", label: "Topic title", required: true },
-              { name: "required", label: "Required", type: "checkbox", hint: "Counts towards required learning", value: "true" },
+              {
+                name: "topic_class",
+                label: "Class",
+                type: "select",
+                value: "Required",
+                options: ["Required", "Recommended", "Optional"].map((c) => ({ value: c, label: c })),
+                hint: "Only Required topics count towards required learning",
+              },
             ]}
-            onSubmit={(v) => addTopic.mutateAsync({ id: module.module_id, title: v["title"]!, is_required: v["required"] === "true" })}
+            onSubmit={(v) => addTopic.mutateAsync({ id: module.module_id, title: v["title"]!, topic_class: v["topic_class"] as TopicClass })}
           />
         </div>
       )}
@@ -233,9 +258,12 @@ export function VersionEditor({ versionId }: { versionId: number }) {
                 {v.status} versions are snapshots that batches and enrolments point at. To change the curriculum, start a new draft (copy this version).
               </Note>
             )}
+            <VersionPlanning version={v} editable={editable} author={author} />
+            <ComboPins version={v} editable={editable} />
+            {author && (v.status === "Approved" || v.status === "Active") && <RecordVariation version={v} />}
             <ul className="space-y-3">
               {(v.modules ?? []).map((m) => (
-                <ModuleEditor key={m.module_id} module={m} editable={editable} />
+                <ModuleEditor key={m.module_id} module={m} editable={editable} author={author} versionTopics={(v.modules ?? []).flatMap((x) => x.topics)} />
               ))}
             </ul>
             {editable && (
@@ -394,9 +422,14 @@ export function AcademicCurriculum() {
               {
                 h: "",
                 c: (r) => (
-                  <Button size="sm" variant="outline" onClick={() => setSlot(slotOf(r))}>
-                    Manage versions
-                  </Button>
+                  <span className="flex flex-wrap gap-1.5">
+                    <Button size="sm" variant="outline" onClick={() => setSlot(slotOf(r))}>
+                      Manage versions
+                    </Button>
+                    {r.component?.role === "Included booster" && r.component.component_course && (
+                      <EquivalenceReview componentId={r.component.component_id} trackCode={r.component.track_code} note={r.component.equivalence_note} />
+                    )}
+                  </span>
                 ),
               },
             ]}
@@ -408,7 +441,11 @@ export function AcademicCurriculum() {
           <SlotPanel key={`${slot.course_id}-${slot.component_id}`} slot={slot} />
         </div>
       )}
-      <div className="mt-4">
+      <Section className="mt-6" title="Mappings, rules, variations and library reviews">
+        <CurriculumDecisions />
+      </Section>
+      <div className="mt-4 space-y-2">
+        <CurriculumModelNote />
         <Note>
           Course Master names and codes are read-only here. Coordinators draft and submit; the Founder / CEO or Super Admin approve (never the person who
           submitted it). Activating a version retires the previous Active version and maps every enrolment and batch that was waiting for a curriculum.

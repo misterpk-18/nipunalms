@@ -49,6 +49,22 @@ def data(response, status=None):
 
 # ---------------------------------------------------------------- curriculum
 
+PROFILE = {"attendance_minimum_pct": 75, "pass_mark_pct": 50, "recovery_rule": "Approved recovery before the end date",
+           "reassessment_rule": "One reassessment"}
+
+
+def complete_draft(client, login, who, vid):
+    """Describe every required topic, verify the hours and set the completion profile, so the draft can be submitted."""
+    detail = data(call(client, login, who, "get", f"/curriculum-versions/{vid}"), 200)
+    for module in detail["modules"]:
+        for topic in module["topics"]:
+            data(call(client, login, who, "patch", f"/curriculum-topics/{topic['topic_id']}",
+                      json={"outcome": f"Can apply {topic['title']}", "instructional_minutes": 90, "independent_minutes": 30,
+                            "weight": 1, "evidence": "Lab checked by the trainer"}), 200)
+    data(call(client, login, who, "post", f"/curriculum-versions/{vid}/hours-verification"), 200)
+    data(call(client, login, who, "put", f"/curriculum-versions/{vid}/completion-profile", json=PROFILE), 200)
+
+
 def test_curriculum_review_path_and_independent_approval(world, client, login):
     people, _, _ = world
     course_id = client.get(f"{API}/reference/courses", headers=login(people["ac"].email)).get_json()["data"]
@@ -69,6 +85,7 @@ def test_curriculum_review_path_and_independent_approval(world, client, login):
     assert [t["title"] for t in detail["modules"][0]["topics"]] == ["Loops", "Syntax"]
     assert t1["sort_order"] == 1
 
+    complete_draft(client, login, people["ac"], vid)
     data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit"), 200)
     # Published content is frozen; coordinators review but only the Founder / CEO or Super Admin approve (Module 14 §5)
     assert call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "x"}).status_code == 422
@@ -87,6 +104,7 @@ def test_a_super_admin_cannot_approve_a_version_they_submitted(world, client, lo
     vid = data(call(client, login, people["admin"], "post", "/curriculum-versions", json={"course_id": course_id, "version_label": "CV 9"}), 201)["curriculum_version_id"]
     module = data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
     call(client, login, people["admin"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
+    complete_draft(client, login, people["admin"], vid)
     data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/submit"), 200)
     refused = call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/approve")
     assert refused.status_code == 422 and "submitted" in refused.get_json()["error"]["message"]
@@ -106,6 +124,7 @@ def test_activation_maps_waiting_enrolments_and_batches(world, client, login, ma
     vid = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course.course_id, "version_label": "CV 1.0"}), 201)["curriculum_version_id"]
     module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
     call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
+    complete_draft(client, login, people["ac"], vid)
     call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit")
     call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve")
     result = data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/activate"), 200)
@@ -130,6 +149,7 @@ def test_activation_retires_previous_active_version(world, client, login):
     # copying an empty version gives an empty draft; add content and go through review
     module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{new['curriculum_version_id']}/modules", json={"title": "M"}), 201)
     call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
+    complete_draft(client, login, people["ac"], new["curriculum_version_id"])
     for who, action in (("ac", "submit"), ("founder", "approve"), ("admin", "activate")):
         assert call(client, login, people[who], "post", f"/curriculum-versions/{new['curriculum_version_id']}/{action}").status_code == 200
     versions = data(call(client, login, people["ac"], "get", f"/curriculum-versions?course_id={java['course']['course_id']}"), 200)

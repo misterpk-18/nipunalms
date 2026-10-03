@@ -14,6 +14,11 @@ def count(model) -> int:
     return db.session.execute(select(func.count()).select_from(model)).scalar()
 
 
+def student_logins() -> int:
+    """Logins that belong to a student (the catalog fixture also makes a staff reviewer)."""
+    return db.session.execute(select(func.count()).select_from(User).where(User.student_id.is_not(None))).scalar()
+
+
 def qualify(crm_event, data=None, **kwargs):
     response = crm_event("AdmissionQualified", data or helpers.admission_data(), **kwargs)
     assert response.status_code in (200, 201), response.get_json()
@@ -99,7 +104,7 @@ def test_second_admission_of_the_same_person_reuses_the_student_and_login(catalo
 
     assert second["result"]["student_id"] == first["student_id"]
     assert second["activation_token"] is None
-    assert (count(Student), count(User), count(Admission), count(Enrolment)) == (1, 1, 2, 2)
+    assert (count(Student), student_logins(), count(Admission), count(Enrolment)) == (1, 1, 2, 2)
 
 
 def test_combo_gets_tracks_and_complimentary_is_linked_to_the_parent(catalog, crm_event):
@@ -202,7 +207,7 @@ def test_replaying_an_event_returns_the_original_result_without_new_records(cata
     assert replay["replayed"] is True and first["replayed"] is False
     assert replay["result"] == first["result"]
     assert replay["activation_token"] is None
-    assert (count(Student), count(User), count(Admission), count(Enrolment), count(CrmEvent)) == (1, 1, 1, 1, 5)  # 4 courses + 1
+    assert (count(Student), student_logins(), count(Admission), count(Enrolment), count(CrmEvent)) == (1, 1, 1, 1, 5)  # 4 courses + 1
 
 
 def test_same_event_id_with_a_different_payload_is_a_conflict(catalog, crm_event):

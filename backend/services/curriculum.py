@@ -6,11 +6,20 @@ review; the Founder / CEO or Super Admin approve, activate and retire (Module 14
 approve it (independent review). Activating a version retires the previous Active one for that course / track, then maps every enrolment
 and batch that was waiting in *Curriculum Mapping Pending* and tells the branch that they can now be allocated.
 Enrolments and batches already on the older version stay on it.
+
+Module 14: each topic has an outcome, a Required / Recommended / Optional class, estimated minutes, a progress weight,
+evidence and (only where necessary) dependencies; a version has verified hours, a completion profile and its required
+assessments; a combo's parent version pins its track and booster versions. A version is submitted only when its required
+learning is fully described — missing rules never default to pass.
 """
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from config.database import db
-from models import Batch, Course, CourseComponent, CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion, Enrolment
+from models import (
+    AssessmentRequirement, Batch, Course, CourseComponent, CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion,
+    Enrolment, VersionComponent,
+)
 from repositories import batches as batches_repo
 from repositories import catalog as catalog_repo
 from repositories import users as users_repo
@@ -53,16 +62,68 @@ def _version(curriculum_version_id: int, *, lock: bool = False) -> CurriculumVer
     return version
 
 
+TOPIC_FIELDS = ("title", "title_te", "topic_class", "outcome", "instructional_minutes", "independent_minutes", "weight", "evidence",
+                "activities")
+PROFILE_KEYS = ("attendance_minimum_pct", "pass_mark_pct", "recovery_rule", "reassessment_rule")
+
+
+def is_combo_parent(version: CurriculumVersion) -> bool:
+    return version.component_id is None and catalog_repo.get_course(version.course_id).is_combo
+
+
+def totals(version: CurriculumVersion) -> dict:
+    """Module 14 §6: standard instructional, independent learning and total effort, in minutes. A combo parent adds its pinned
+    tracks, with the included booster shown separately; topics without an estimate are counted, never guessed."""
+    topics = [t for m in version.modules for t in m.topics]
+    instructional = sum(t.instructional_minutes or 0 for t in topics)
+    independent = sum(t.independent_minutes or 0 for t in topics)
+    unestimated = sum(1 for t in topics if t.instructional_minutes is None)
+    booster = None
+    if is_combo_parent(version):
+        for pin in catalog_repo.version_components(version.curriculum_version_id):
+            part = totals(pin.component_version)
+            component = catalog_repo.get_component(pin.component_id)
+            if component.role == "Included booster":
+                booster = {"track_code": component.track_code, **{k: part[k] for k in ("instructional_minutes", "independent_minutes", "total_minutes")}}
+            instructional += part["instructional_minutes"]
+            independent += part["independent_minutes"]
+            unestimated += part["unestimated_topics"]
+    return {"instructional_minutes": instructional, "independent_minutes": independent, "total_minutes": instructional + independent,
+            "unestimated_topics": unestimated, "hours_verified": version.hours_verified_at is not None,
+            "hours_verified_at": version.hours_verified_at, "booster": booster}
+
+
 def _blockers(version: CurriculumVersion, counts: dict[str, int]) -> list[str]:
-    """Why a draft cannot be submitted yet."""
+    """Why a draft cannot be submitted yet (Module 14 §5: verified outcomes, hours, evidence and weights, and a completion
+    profile; a combo parent pins every track and booster)."""
     problems = []
-    if not counts["modules"]:
+    combo_parent = is_combo_parent(version)
+    if not counts["modules"] and not combo_parent:
         problems.append("Add at least one module")
     empty = [m.title for m in version.modules if not m.topics]
     if empty:
         problems.append("Modules without topics: " + ", ".join(empty))
     if counts["modules"] and not counts["required_topics"]:
         problems.append("Mark at least one topic as required")
+    required = [t for m in version.modules for t in m.topics if t.topic_class == "Required"]
+    for label, missing in (("an outcome", lambda t: not (t.outcome or "").strip()),
+                           ("estimated instructional minutes", lambda t: t.instructional_minutes is None),
+                           ("a progress weight", lambda t: not t.weight),
+                           ("evidence of completion", lambda t: not (t.evidence or "").strip())):
+        names = [t.title for t in required if missing(t)]
+        if names:
+            problems.append(f"Required topics without {label}: " + ", ".join(names[:5]) + (" …" if len(names) > 5 else ""))
+    if counts["modules"] and version.hours_verified_at is None:
+        problems.append("Verify the standard instructional hours")
+    profile = version.completion_profile or {}
+    if not all(profile.get(key) not in (None, "") for key in PROFILE_KEYS):
+        problems.append("Complete the completion profile (attendance minimum, pass mark, recovery and reassessment rules)")
+    if combo_parent:
+        course = catalog_repo.get_course(version.course_id)
+        pinned = {p.component_id for p in catalog_repo.version_components(version.curriculum_version_id)}
+        unpinned = [c.track_code for c in course.components if c.component_id not in pinned]
+        if unpinned:
+            problems.append("Pin a version for every track and the booster: " + ", ".join(unpinned))
     return problems
 
 
@@ -77,6 +138,17 @@ def get_version_detail(curriculum_version_id: int) -> VersionDetail:
         events=catalog_repo.events_of(version.curriculum_version_id),
         blockers=_blockers(version, counts) if version.status == "Draft" else [],
     )
+
+
+def version_extras(version: CurriculumVersion) -> dict:
+    """What the version page shows beyond its modules: totals, profile, required assessments, pins."""
+    return {
+        "totals": totals(version),
+        "completion_profile": version.completion_profile,
+        "assessment_requirements": [r.to_dict() for r in catalog_repo.assessment_requirements(version.curriculum_version_id)],
+        "components": [{"component_id": p.component_id, "component_version": p.component_version.to_summary()}
+                       for p in catalog_repo.version_components(version.curriculum_version_id)],
+    }
 
 
 def list_versions(filters: dict) -> list[VersionDetail]:
@@ -111,7 +183,7 @@ def overview() -> list[OverviewRow]:
         for component, booster in slots:
             active, latest = pick((course.course_id, component.component_id if component else None))
             borrowed = None
-            if active is None and booster is not None:
+            if active is None and booster is not None and component.equivalence_reviewed_at is not None:
                 active, booster_latest = pick((booster.course_id, None))
                 borrowed, latest = (booster, latest or booster_latest) if active else (None, latest)
             rows.append(OverviewRow(course, component, active, latest, "Ready" if active else BLOCKED_PREFIX,
@@ -149,14 +221,7 @@ def create_version(data: dict) -> CurriculumVersion:
         source = _version(data["copy_from_version_id"])
         if (source.course_id, source.component_id) != (course.course_id, component_id):
             raise ValidationError("Cannot copy", {"copy_from_version_id": ["Not a version of the same course / track"]})
-        for module in source.modules:
-            copy = CurriculumModule(curriculum_version_id=version.curriculum_version_id, title=module.title, title_te=module.title_te,
-                                    sort_order=module.sort_order)
-            db.session.add(copy)
-            db.session.flush()
-            for topic in module.topics:
-                db.session.add(CurriculumTopic(module_id=copy.module_id, title=topic.title, title_te=topic.title_te, sort_order=topic.sort_order,
-                                               is_required=topic.is_required))
+        _copy_content(source, version)
     catalog_repo.add_event(version, "Created", None, "Draft", actor_id(), f"Copied from {source.version_label}" if source else None)
     audit.record("CURRICULUM_CREATED", "curriculum_version", version.curriculum_version_id,
                  new={"course_id": course.course_id, "component_id": component_id, "version_label": version.version_label,
@@ -164,6 +229,38 @@ def create_version(data: dict) -> CurriculumVersion:
     db.session.flush()
     db.session.refresh(version)
     return version
+
+
+def _copy_content(source: CurriculumVersion, version: CurriculumVersion) -> None:
+    """Modules, topics (with their Module 14 fields and dependencies), required assessments, the completion profile and pins.
+    Verified hours are not copied: the new draft's hours are verified again."""
+    topic_ids: dict[int, int] = {}
+    module_ids: dict[int, int] = {}
+    for module in source.modules:
+        copy = CurriculumModule(curriculum_version_id=version.curriculum_version_id, title=module.title, title_te=module.title_te,
+                                sort_order=module.sort_order, library_version_id=module.library_version_id)
+        db.session.add(copy)
+        db.session.flush()
+        module_ids[module.module_id] = copy.module_id
+        for topic in module.topics:
+            new = CurriculumTopic(module_id=copy.module_id, sort_order=topic.sort_order, **{f: getattr(topic, f) for f in TOPIC_FIELDS})
+            db.session.add(new)
+            db.session.flush()
+            topic_ids[topic.topic_id] = new.topic_id
+    for module in source.modules:
+        for topic in module.topics:
+            for dependency in topic.depends_on:
+                catalog_repo.add_dependency(topic_ids[topic.topic_id], topic_ids[dependency.topic_id])
+    for req in catalog_repo.assessment_requirements(source.curriculum_version_id):
+        db.session.add(AssessmentRequirement(
+            curriculum_version_id=version.curriculum_version_id, module_id=module_ids.get(req.module_id), topic_id=topic_ids.get(req.topic_id),
+            kind=req.kind, title=req.title, outcome=req.outcome, weight=req.weight, pass_rule=req.pass_rule,
+            counts_for_completion=req.counts_for_completion))
+    for pin in catalog_repo.version_components(source.curriculum_version_id):
+        db.session.add(VersionComponent(curriculum_version_id=version.curriculum_version_id, component_id=pin.component_id,
+                                        component_version_id=pin.component_version_id))
+    version.completion_profile = source.completion_profile
+    db.session.flush()
 
 
 def update_version(curriculum_version_id: int, version_label: str) -> CurriculumVersion:
@@ -246,12 +343,22 @@ def delete_module(module_id: int) -> None:
     db.session.flush()
 
 
+def _topic_values(data: dict) -> dict:
+    """The topic fields in a request; the legacy `is_required` flag maps to Required / Optional."""
+    values = {f: data[f] for f in TOPIC_FIELDS if f in data}
+    if "topic_class" not in values and "is_required" in data:
+        values["topic_class"] = "Required" if data["is_required"] else "Optional"
+    return values
+
+
 def add_topic(module_id: int, data: dict) -> CurriculumTopic:
-    _, module = _draft_version_of_module(module_id)
-    topic = CurriculumTopic(module_id=module.module_id, title=data["title"], title_te=data.get("title_te"),
-                            is_required=data.get("is_required", True), sort_order=catalog_repo.next_topic_order(module.module_id))
+    version, module = _draft_version_of_module(module_id)
+    values = {"topic_class": "Required", **_topic_values(data)}
+    topic = CurriculumTopic(module_id=module.module_id, sort_order=catalog_repo.next_topic_order(module.module_id), **values)
     db.session.add(topic)
     db.session.flush()
+    db.session.refresh(topic)
+    _hours_changed(version)
     if data.get("position") is not None:
         db.session.refresh(module)
         _resequence(list(module.topics), topic, data["position"])
@@ -266,16 +373,158 @@ def _draft_topic(topic_id: int) -> CurriculumTopic:
     return topic
 
 
+def _hours_changed(version: CurriculumVersion) -> None:
+    """Changing the teaching plan's minutes needs the hours verified again."""
+    if version.hours_verified_at is not None:
+        version.hours_verified_by = version.hours_verified_at = None
+
+
 def update_topic(topic_id: int, data: dict) -> CurriculumTopic:
     topic = _draft_topic(topic_id)
-    for name in ("title", "title_te", "is_required"):
-        if name in data:
-            setattr(topic, name, data[name])
+    values = _topic_values(data)
+    if {"instructional_minutes", "independent_minutes"} & values.keys():
+        _hours_changed(topic.module.version)
+    for name, value in values.items():
+        setattr(topic, name, value)
+    if "depends_on" in data:
+        set_dependencies(topic, data["depends_on"])
     if "position" in data:
         db.session.refresh(topic.module)
         _resequence(list(topic.module.topics), topic, data["position"])
     db.session.flush()
+    db.session.refresh(topic)
     return topic
+
+
+def set_dependencies(topic: CurriculumTopic, depends_on: list[int]) -> None:
+    """Only where academically necessary (Module 14 §4): prerequisites inside the same version, without cycles."""
+    version_id = topic.module.curriculum_version_id
+    targets = []
+    for topic_id in dict.fromkeys(depends_on):
+        other = catalog_repo.get_topic(topic_id)
+        if other is None or other.module.curriculum_version_id != version_id or other.topic_id == topic.topic_id:
+            raise ValidationError("Invalid request data", {"depends_on": [f"Topic {topic_id} is not another topic of this version"]})
+        targets.append(other)
+    graph = {t.topic_id: {d.topic_id for d in t.depends_on} for m in topic.module.version.modules for t in m.topics}
+    graph[topic.topic_id] = {t.topic_id for t in targets}
+    if _has_cycle(graph):
+        raise ValidationError("Invalid request data", {"depends_on": ["These dependencies would form a loop"]})
+    topic.depends_on = targets
+    db.session.flush()
+
+
+def _has_cycle(graph: dict[int, set[int]]) -> bool:
+    visiting, done = set(), set()
+
+    def visit(node: int) -> bool:
+        if node in done:
+            return False
+        if node in visiting:
+            return True
+        visiting.add(node)
+        if any(visit(n) for n in graph.get(node, ())):
+            return True
+        visiting.discard(node)
+        done.add(node)
+        return False
+
+    return any(visit(n) for n in graph)
+
+
+# ---------------------------------------------------------------- hours, completion profile, required assessments, pins
+
+def verify_hours(curriculum_version_id: int) -> CurriculumVersion:
+    """The Academic Coordinator verifies standard instructional hours from the detailed teaching plan (Module 14 §5)."""
+    version = _version(curriculum_version_id, lock=True)
+    _editable(version)
+    current = totals(version)
+    if current["unestimated_topics"]:
+        raise BusinessRule(f"{current['unestimated_topics']} topic(s) have no instructional estimate; hours stay Pending")
+    version.hours_verified_by, version.hours_verified_at = actor_id(), datetime.now(timezone.utc)
+    db.session.flush()
+    audit.record("CURRICULUM_HOURS_VERIFIED", "curriculum_version", version.curriculum_version_id,
+                 new={k: current[k] for k in ("instructional_minutes", "independent_minutes", "total_minutes")})
+    return version
+
+
+def set_completion_profile(curriculum_version_id: int, profile: dict) -> CurriculumVersion:
+    version = _version(curriculum_version_id, lock=True)
+    _editable(version)
+    old = version.completion_profile
+    version.completion_profile = {key: profile.get(key) for key in PROFILE_KEYS}
+    db.session.flush()
+    audit.record("CURRICULUM_COMPLETION_PROFILE", "curriculum_version", version.curriculum_version_id, old=old, new=version.completion_profile)
+    return version
+
+
+def add_requirement(curriculum_version_id: int, data: dict) -> AssessmentRequirement:
+    version = _version(curriculum_version_id, lock=True)
+    _editable(version)
+    for key, getter in (("module_id", catalog_repo.get_module), ("topic_id", catalog_repo.get_topic)):
+        if data.get(key):
+            item = getter(data[key])
+            item_version = item.curriculum_version_id if key == "module_id" else item.module.curriculum_version_id if item else None
+            if item is None or item_version != version.curriculum_version_id:
+                raise ValidationError("Invalid request data", {key: ["Not part of this version"]})
+    requirement = AssessmentRequirement(curriculum_version_id=version.curriculum_version_id, **data)
+    db.session.add(requirement)
+    db.session.flush()
+    return requirement
+
+
+def delete_requirement(requirement_id: int) -> None:
+    requirement = catalog_repo.get_requirement(requirement_id)
+    if requirement is None:
+        raise NotFound("Assessment requirement not found")
+    _editable(_version(requirement.curriculum_version_id, lock=True))
+    db.session.delete(requirement)
+    db.session.flush()
+
+
+def pin_component(curriculum_version_id: int, component_id: int, component_version_id: int) -> VersionComponent:
+    """A combo parent version records the exact version of each track and the booster (Module 14 §2). A version of another
+    course (a standalone curriculum reused for the component) needs the component's equivalence review first (§3)."""
+    version = _version(curriculum_version_id, lock=True)
+    _editable(version)
+    if not is_combo_parent(version):
+        raise BusinessRule("Only a combo's parent programme version pins track versions")
+    component = catalog_repo.get_component(component_id)
+    if component is None or component.parent_course_id != version.course_id:
+        raise ValidationError("Invalid request data", {"component_id": ["Not a track of this combo"]})
+    pinned = _version(component_version_id)
+    if pinned.status not in ("Approved", "Active"):
+        raise BusinessRule(f"{pinned.version_label} is {pinned.status}; pin an Approved or Active version")
+    own = (pinned.course_id, pinned.component_id) == (version.course_id, component.component_id)
+    borrowed = component.component_course_id is not None and (pinned.course_id, pinned.component_id) == (component.component_course_id, None)
+    if not (own or borrowed):
+        raise ValidationError("Invalid request data", {"component_version_id": ["Not a version written for this track or its course"]})
+    if borrowed and component.equivalence_reviewed_at is None:
+        raise BusinessRule(f"Record the equivalence review for {component.track_code} before reusing {pinned.version_label}")
+    pin = catalog_repo.get_version_component(version.curriculum_version_id, component.component_id)
+    if pin is None:
+        pin = VersionComponent(curriculum_version_id=version.curriculum_version_id, component_id=component.component_id,
+                               component_version_id=pinned.curriculum_version_id)
+        db.session.add(pin)
+    else:
+        pin.component_version_id = pinned.curriculum_version_id
+    db.session.flush()
+    return pin
+
+
+def review_equivalence(component_id: int, note: str) -> CourseComponent:
+    """The Academic Coordinator records that the component's outcomes, scope, depth and assessment match its course's
+    standalone curriculum (similar names are not enough, Module 14 §3)."""
+    component = catalog_repo.get_component(component_id)
+    if component is None:
+        raise NotFound("Track not found")
+    if component.component_course_id is None:
+        raise BusinessRule(f"{component.track_code} has no standalone course to reuse")
+    old = component.equivalence_note
+    component.equivalence_note, component.equivalence_reviewed_by = note, actor_id()
+    component.equivalence_reviewed_at = datetime.now(timezone.utc)
+    db.session.flush()
+    audit.record("COMPONENT_EQUIVALENCE_REVIEWED", "course_component", component.component_id, old={"note": old}, new={"note": note})
+    return component
 
 
 def delete_topic(topic_id: int) -> None:
@@ -384,13 +633,20 @@ def _release_mapping(version: CurriculumVersion) -> dict:
     version_id = version.curriculum_version_id
     mapped_batches = 0
     if version.component_id is None:
+        pins = {p.component_id: p.component_version_id for p in catalog_repo.version_components(version_id)}
         for enrolment in catalog_repo.pending_enrolments(version.course_id):
             if enrolment.course_id == version.course_id and enrolment.curriculum_version_id is None:
                 enrolment.curriculum_version_id = version_id
             for track in enrolment.tracks:
+                if track.curriculum_version_id is not None:
+                    continue
+                if enrolment.curriculum_version_id == version_id and track.component_id in pins:
+                    track.curriculum_version_id = pins[track.component_id]  # the combo parent pins it
+                    continue
                 own = catalog_repo.active_curriculum_version_id(enrolment.course_id, track.component_id)
-                if track.curriculum_version_id is None and own is None and track.component.component_course_id == version.course_id:
-                    track.curriculum_version_id = version_id  # an included booster uses the booster course's own version
+                if own is None and track.component.component_course_id == version.course_id \
+                        and track.component.equivalence_reviewed_at is not None:
+                    track.curriculum_version_id = version_id  # a reviewed component reuses its course's own version
         for batch in catalog_repo.batches_without_version(version.course_id):
             _map_batch(batch, version)
             mapped_batches += 1

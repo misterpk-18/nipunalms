@@ -412,10 +412,13 @@ def _map_curriculum(enrolment: Enrolment, course: Course, track_codes: list[str]
         if unknown:
             raise BusinessRule(f"Unknown track(s) for {course.course_code}: {', '.join(sorted(unknown))}")
         existing = {t.component_id: t for t in enrolment.tracks}
+        pins = ({p.component_id: p.component_version_id for p in catalog_repo.version_components(enrolment.curriculum_version_id)}
+                if enrolment.curriculum_version_id else {})
         for component in components:
-            # A version written for this track of the combo, else (for an included booster) the booster course's own
-            version_id = catalog_repo.active_curriculum_version_id(course.course_id, component.component_id)
-            if version_id is None and component.component_course_id:
+            # The version the parent programme pins; else the Active version written for this track; else, once the
+            # component's equivalence is reviewed (Module 14 §3), its own course's Active version
+            version_id = pins.get(component.component_id) or catalog_repo.active_curriculum_version_id(course.course_id, component.component_id)
+            if version_id is None and component.component_course_id and component.equivalence_reviewed_at is not None:
                 version_id = catalog_repo.active_curriculum_version_id(component.component_course_id)
             track = existing.get(component.component_id)
             if track is None:
@@ -430,6 +433,9 @@ def _map_curriculum(enrolment: Enrolment, course: Course, track_codes: list[str]
         enrolment.status = "Provisioning Pending"
     elif unmapped:
         enrolment.status = "Curriculum Mapping Pending"
+        if enrolment.mapping_owner_user_id is None:  # a named academic owner for the recovery (Module 14 §8)
+            coordinators = sorted(users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", enrolment.service_branch_id))
+            enrolment.mapping_owner_user_id = coordinators[0] if coordinators else None
     elif batches_repo.active_allocation(enrolment.enrolment_id) is not None:
         enrolment.status = "Allocated — awaiting first regular class"  # a seat was reserved while mapping was pending
     else:

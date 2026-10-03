@@ -105,3 +105,8 @@ BLUEPRINTS += [ai_controls_bp]
 from routes.calendar import calendar_bp  # noqa: E402
 
 BLUEPRINTS += [calendar_bp]
+
+# Gap fix plan phase 5: the Module 14 curriculum model
+from routes.academic_records import academic_records_bp  # noqa: E402
+
+BLUEPRINTS += [academic_records_bp]

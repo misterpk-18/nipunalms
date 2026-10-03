@@ -28,8 +28,8 @@ def test_academic_dashboard_counts_the_coordinators_branch_only(client, login, w
     assert data["recording_exceptions"]["count"] == 1
     assert data["results_awaiting_publication"]["count"] == 0
     assert data["batches_ready"] == {"ready": 1, "total": 1}
-    # mapping + allocation + recording exceptions: none has a named owner
-    assert data["open_exceptions"] == {"count": 3, "awaiting_owner": 3}
+    # mapping + allocation + recording exceptions; Curriculum Mapping Pending has a named coordinator (Module 14 §8)
+    assert data["open_exceptions"] == {"count": 3, "awaiting_owner": 2}
 
     other = summary(client, login, world.people.ac_v, "/academic/summary")
     assert other["allocation_queue"]["count"] == 1 and other["recording_exceptions"]["count"] == 0
@@ -91,7 +91,7 @@ def test_admin_dashboard(client, login, world):
     assert_not_configured(data["crm"]["overdue_payment_verifications"])
     assert data["integration_failures"] == {"count": 1, "codes": ["EMAIL"], "source": data["integration_failures"]["source"]}
     assert data["integrations_verified"]["verified"] == 0 and data["integrations_verified"]["total"] >= 8
-    assert data["open_exceptions"]["count"] == 6 and data["awaiting_owner"]["count"] == 6
+    assert data["open_exceptions"]["count"] == 6 and data["awaiting_owner"]["count"] == 4  # the two mapping rows have an owner
     assert data["open_exceptions"]["by_source"]["CURRICULUM_MAPPING"]["count"] == 2
     assert data["sync"]["failed_events"] == 1 and data["sync"]["failed_event_items"][0]["source"] == "CRM_EVENT"
     flows = {f["flow"]: f for f in data["sync"]["flows"]}

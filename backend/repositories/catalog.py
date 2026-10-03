@@ -4,9 +4,10 @@ from sqlalchemy.orm import selectinload
 
 from config.database import db
 from models import (
-    Batch, Course, CourseComponent, CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion, Enrolment,
-    EnrolmentTrack,
+    AssessmentRequirement, Batch, Course, CourseComponent, CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion,
+    Enrolment, EnrolmentTrack, VersionComponent,
 )
+from models.catalog import topic_dependencies
 
 
 def get_course(course_id: int) -> Course | None:
@@ -192,3 +193,29 @@ def batches_without_version(course_id: int) -> list[Batch]:
     stmt = select(Batch).where(Batch.course_id == course_id, Batch.curriculum_version_id.is_(None),
                                Batch.state.not_in(("Completed", "Cancelled")))
     return list(db.session.execute(stmt).scalars())
+
+
+# ---------------------------------------------------------------- Module 14 records (db 102)
+
+def assessment_requirements(curriculum_version_id: int) -> list[AssessmentRequirement]:
+    stmt = (select(AssessmentRequirement).where(AssessmentRequirement.curriculum_version_id == curriculum_version_id)
+            .order_by(AssessmentRequirement.requirement_id))
+    return list(db.session.execute(stmt).scalars())
+
+
+def get_requirement(requirement_id: int) -> AssessmentRequirement | None:
+    return db.session.get(AssessmentRequirement, requirement_id)
+
+
+def version_components(curriculum_version_id: int) -> list[VersionComponent]:
+    stmt = select(VersionComponent).where(VersionComponent.curriculum_version_id == curriculum_version_id).order_by(VersionComponent.component_id)
+    return list(db.session.execute(stmt).unique().scalars())
+
+
+def get_version_component(curriculum_version_id: int, component_id: int) -> VersionComponent | None:
+    return db.session.get(VersionComponent, (curriculum_version_id, component_id))
+
+
+def add_dependency(topic_id: int, depends_on_topic_id: int) -> None:
+    db.session.execute(topic_dependencies.insert().values(topic_id=topic_id, depends_on_topic_id=depends_on_topic_id))
+

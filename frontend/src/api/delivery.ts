@@ -17,9 +17,105 @@ export type Delivery = { delivered: number; upcoming: number; cancelled: number;
 
 // ---------------------------------------------------------------- curriculum
 
-export type TopicRow = { topic_id: number; title: string; title_te: string | null; sort_order: number; is_required: boolean };
-export type ModuleContent = { module_id: number; title: string; title_te: string | null; sort_order: number; topics: TopicRow[] };
-export type Component = { component_id: number; track_code: string; track_name: string; role: string; sort_order: number };
+export type TopicClass = "Required" | "Recommended" | "Optional";
+export type TopicRow = {
+  topic_id: number;
+  title: string;
+  title_te: string | null;
+  sort_order: number;
+  is_required: boolean;
+  topic_class: TopicClass;
+  outcome: string | null;
+  instructional_minutes: number | null;
+  independent_minutes: number | null;
+  weight: string | null;
+  evidence: string | null;
+  activities: string | null;
+  depends_on: number[];
+};
+export type ModuleContent = {
+  module_id: number;
+  title: string;
+  title_te: string | null;
+  sort_order: number;
+  library_version_id: number | null;
+  topics: TopicRow[];
+};
+export type Component = {
+  component_id: number;
+  track_code: string;
+  track_name: string;
+  role: string;
+  sort_order: number;
+  component_course?: CourseRef | null;
+  equivalence_note?: string | null;
+  equivalence_reviewed_at?: DateTime | null;
+};
+export type CompletionProfile = { attendance_minimum_pct: number; pass_mark_pct: number; recovery_rule: string; reassessment_rule: string };
+export type VersionTotals = {
+  instructional_minutes: number;
+  independent_minutes: number;
+  total_minutes: number;
+  unestimated_topics: number;
+  hours_verified: boolean;
+  hours_verified_at: DateTime | null;
+  booster: { track_code: string; instructional_minutes: number; independent_minutes: number; total_minutes: number } | null;
+};
+export type AssessmentRequirement = {
+  requirement_id: number;
+  kind: "Assignment" | "Test";
+  title: string;
+  outcome: string;
+  weight: string;
+  pass_rule: string;
+  counts_for_completion: boolean;
+  module_id: number | null;
+  topic_id: number | null;
+};
+type Decided = {
+  status: "Pending" | "Approved" | "Rejected";
+  requested_by: UserRef;
+  requested_at: DateTime;
+  decided_by: UserRef | null;
+  decision_note: string | null;
+};
+export type AcademicMapping = Decided & {
+  mapping_id: number;
+  enrolment_id: number;
+  from_version: VersionRef | null;
+  to_version: VersionRef;
+  comparison: string;
+  migration_plan: string;
+  trainer_evidence: string | null;
+  student_acceptance: string | null;
+  proposed_credits: { topic_id: number; original_evidence: string }[];
+};
+export type EquivalenceRule = Decided & { rule_id: number; from_version_id: number; to_version_id: number; description: string };
+export type CurriculumVariation = Decided & {
+  variation_id: number;
+  curriculum_version_id: number;
+  branch_id: number;
+  batch_id: number | null;
+  topic_id: number | null;
+  kind: string;
+  description: string;
+  remedial_plan: string | null;
+};
+export type LibraryVersion = {
+  library_version_id: number;
+  version_no: number;
+  content: { title: string; topics: { title: string }[] };
+  change_note: string | null;
+  status: "Pending" | "Approved" | "Rejected";
+  proposed_by: number;
+};
+export type LibraryModule = {
+  library_module_id: number;
+  module_code: string;
+  title: string;
+  current_version: LibraryVersion | null;
+  versions: LibraryVersion[];
+};
 export type CurriculumRow = {
   course: CourseRef & { is_combo: boolean };
   component: Component | null;
@@ -49,6 +145,10 @@ export type CurriculumVersion = VersionRef & {
   events?: CurriculumEvent[];
   blockers?: string[];
   released?: { enrolments_released: number; batches_mapped: number };
+  totals?: VersionTotals;
+  completion_profile?: CompletionProfile | null;
+  assessment_requirements?: AssessmentRequirement[];
+  components?: { component_id: number; component_version: VersionRef }[];
 };
 
 // ---------------------------------------------------------------- batches
@@ -304,8 +404,35 @@ export const deliveryApi = {
   addModule: (versionId: number, body: { title: string; title_te?: string }) => post<ModuleContent>(`/curriculum-versions/${versionId}/modules`, body),
   updateModule: (id: number, body: { title?: string; title_te?: string | null; position?: number }) => patch<ModuleContent>(`/curriculum-modules/${id}`, body),
   deleteModule: (id: number) => del<null>(`/curriculum-modules/${id}`),
-  addTopic: (moduleId: number, body: { title: string; is_required?: boolean }) => post<TopicRow>(`/curriculum-modules/${moduleId}/topics`, body),
-  updateTopic: (id: number, body: { title?: string; is_required?: boolean; position?: number }) => patch<TopicRow>(`/curriculum-topics/${id}`, body),
+  addTopic: (moduleId: number, body: { title: string; is_required?: boolean; topic_class?: TopicClass }) =>
+    post<TopicRow>(`/curriculum-modules/${moduleId}/topics`, body),
+  updateTopic: (id: number, body: Record<string, unknown>) => patch<TopicRow>(`/curriculum-topics/${id}`, body),
+  verifyHours: (id: number) => post<CurriculumVersion>(`/curriculum-versions/${id}/hours-verification`),
+  setCompletionProfile: (id: number, body: CompletionProfile) => put<CurriculumVersion>(`/curriculum-versions/${id}/completion-profile`, body),
+  addRequirement: (id: number, body: Record<string, unknown>) => post<AssessmentRequirement>(`/curriculum-versions/${id}/assessment-requirements`, body),
+  deleteRequirement: (id: number) => del<null>(`/assessment-requirements/${id}`),
+  pinComponent: (id: number, body: { component_id: number; component_version_id: number }) =>
+    put<CurriculumVersion>(`/curriculum-versions/${id}/components`, body),
+  reviewEquivalence: (componentId: number, note: string) => post<Component>(`/course-components/${componentId}/equivalence`, { note }),
+  // Module 14 records
+  mappings: (query: Query) => list<AcademicMapping>("/academic-mappings", { per_page: 100, ...query }),
+  requestMapping: (enrolmentId: number, body: Record<string, unknown>) => post<AcademicMapping>(`/enrolments/${enrolmentId}/academic-mappings`, body),
+  decideMapping: (id: number, body: { decision: string; note?: string; student_acceptance?: string }) =>
+    post<AcademicMapping>(`/academic-mappings/${id}/decision`, body),
+  rules: (query: Query) => list<EquivalenceRule>("/equivalence-rules", { per_page: 100, ...query }),
+  requestRule: (body: { from_version_id: number; to_version_id: number; description: string }) => post<EquivalenceRule>("/equivalence-rules", body),
+  decideRule: (id: number, body: { decision: string; note?: string }) => post<EquivalenceRule>(`/equivalence-rules/${id}/decision`, body),
+  variations: (query: Query) => list<CurriculumVariation>("/curriculum-variations", { per_page: 100, ...query }),
+  createVariation: (body: Record<string, unknown>) => post<CurriculumVariation>("/curriculum-variations", body),
+  decideVariation: (id: number, body: { decision: string; note?: string }) => post<CurriculumVariation>(`/curriculum-variations/${id}/decision`, body),
+  library: () => list<LibraryModule>("/curriculum-library", { per_page: 100 }),
+  saveToLibrary: (moduleId: number) => post<LibraryModule>(`/curriculum-modules/${moduleId}/library`),
+  proposeLibraryVersion: (libraryModuleId: number, body: { module_id: number; change_note: string }) =>
+    post<LibraryVersion>(`/curriculum-library/${libraryModuleId}/versions`, body),
+  decideLibraryVersion: (id: number, decision: string) => post<LibraryVersion>(`/curriculum-library-versions/${id}/decision`, { decision }),
+  insertLibraryModule: (versionId: number, libraryVersionId: number) =>
+    post<ModuleContent>(`/curriculum-versions/${versionId}/library-modules`, { library_version_id: libraryVersionId }),
+  setMappingOwner: (enrolmentId: number, body: { owner_user_id: number; note: string }) => put<unknown>(`/enrolments/${enrolmentId}/mapping-owner`, body),
   deleteTopic: (id: number) => del<null>(`/curriculum-topics/${id}`),
 
   // batches

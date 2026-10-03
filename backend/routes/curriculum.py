@@ -128,3 +128,48 @@ def update_topic(topic_id: int):
 @require_roles(*CURRICULUM_ROLES)
 def delete_topic(topic_id: int):
     return curriculum_controller.delete_topic(topic_id)
+
+
+# ---------------------------------------------------------------- Module 14 (gap fix phase 5)
+
+@curriculum_bp.post("/curriculum-versions/<int:curriculum_version_id>/hours-verification")
+@login_required
+@require_roles(*CURRICULUM_ROLES)
+def verify_hours(curriculum_version_id: int):
+    return curriculum_controller.verify_hours(curriculum_version_id)
+
+
+@curriculum_bp.put("/curriculum-versions/<int:curriculum_version_id>/completion-profile")
+@login_required
+@require_roles(*CURRICULUM_ROLES)
+def set_completion_profile(curriculum_version_id: int):
+    return curriculum_controller.set_completion_profile(curriculum_version_id)
+
+
+@curriculum_bp.post("/curriculum-versions/<int:curriculum_version_id>/assessment-requirements")
+@login_required
+@require_roles(*CURRICULUM_ROLES)
+def add_requirement(curriculum_version_id: int):
+    return curriculum_controller.add_requirement(curriculum_version_id)
+
+
+@curriculum_bp.delete("/assessment-requirements/<int:requirement_id>")
+@login_required
+@require_roles(*CURRICULUM_ROLES)
+def delete_requirement(requirement_id: int):
+    return curriculum_controller.delete_requirement(requirement_id)
+
+
+@curriculum_bp.put("/curriculum-versions/<int:curriculum_version_id>/components")
+@login_required
+@require_roles(*CURRICULUM_ROLES)
+def pin_component(curriculum_version_id: int):
+    return curriculum_controller.pin_component(curriculum_version_id)
+
+
+@curriculum_bp.post("/course-components/<int:component_id>/equivalence")
+@login_required
+@require_roles(*CURRICULUM_ROLES)
+def review_equivalence(component_id: int):
+    return curriculum_controller.review_equivalence(component_id)
+

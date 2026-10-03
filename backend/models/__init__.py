@@ -68,3 +68,12 @@ __all__ += [
 from models.calendar import CalendarClosure  # noqa: E402
 
 __all__ += ["CalendarClosure"]
+
+# Gap fix plan phase 5: the Module 14 curriculum model (102)
+from models.academic import (  # noqa: E402
+    AcademicMapping, AssessmentRequirement, CurriculumVariation, EquivalenceRule, LearningCredit, LibraryModule,
+    LibraryModuleVersion, VersionComponent,
+)
+
+__all__ += ["AcademicMapping", "AssessmentRequirement", "CurriculumVariation", "EquivalenceRule", "LearningCredit", "LibraryModule",
+            "LibraryModuleVersion", "VersionComponent"]

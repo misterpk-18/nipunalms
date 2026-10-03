@@ -20,8 +20,8 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G010](#g010) | High | 26 Notifications | Notification access is not re-scoped after a role or branch change | 1 | Done (phase 1) |
 | [G011](#g011) | High | 26 Notifications | No guardian or payer model for under-18 students | 12 | Open |
 | [G012](#g012) | High | Module 14 | Academic Coordinators can approve and activate global curriculum; Founder cannot | 3 | Done (phase 3) |
-| [G013](#g013) | High | Module 14 | Curriculum versions have no outcomes, hours, effort, weights, evidence, activities or dependencies | 5 | Open |
-| [G014](#g014) | High | Module 14 | No individual academic mapping, credit or equivalence records; no migration plan | 5 | Open |
+| [G013](#g013) | High | Module 14 | Curriculum versions have no outcomes, hours, effort, weights, evidence, activities or dependencies | 5 | Done (phase 5) |
+| [G014](#g014) | High | Module 14 | No individual academic mapping, credit or equivalence records; no migration plan | 5 | Done (phase 5) |
 | [G015](#g015) | High | Module 15 | Batch lifecycle differs from spec: no Proposed/Confirmed, In Progress, On Hold or Archive, and no Branch Manager confirmation | 6 | Open |
 | [G016](#g016) | High | Module 15 | Component (track) batches and track-level allocation cannot be created | 6 | Open |
 | [G017](#g017) | High | Module 15 | No LMS interbranch or component-only transfer; within-branch transfer needs no Branch Manager approval | 6 | Open |
@@ -65,10 +65,10 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G055](#g055) | Medium | 27 Integrations Register | No configurable freshness threshold or stale status on CRM-sourced data | 10 | Open |
 | [G056](#g056) | Medium | 27 Integrations Register | Replayed or backfilled CRM events can fire current notifications; no historical-import guard | 1 | Done (phase 1) |
 | [G057](#g057) | Medium | 27 Integrations Register | No intake of consent, stop-contact, WhatsApp opt-out or access-offboarding state from the CRM | 10 | Open |
-| [G058](#g058) | Medium | Module 14 | No parent programme version pinning component versions; no variant tracks or equivalence-reference review | 5 | Open |
-| [G059](#g059) | Medium | Module 14 | No stable, separately versioned reusable modules, topics or assessment definitions | 5 | Open |
-| [G060](#g060) | Medium | Module 14 | Branch/batch academic variations are not recorded | 5 | Open |
-| [G061](#g061) | Medium | Module 14 | Mapping-pending enrolments have no named owner or recovery task | 5 | Open |
+| [G058](#g058) | Medium | Module 14 | No parent programme version pinning component versions; no variant tracks or equivalence-reference review | 5 | Done (phase 5) |
+| [G059](#g059) | Medium | Module 14 | No stable, separately versioned reusable modules, topics or assessment definitions | 5 | Done (phase 5) |
+| [G060](#g060) | Medium | Module 14 | Branch/batch academic variations are not recorded | 5 | Done (phase 5) |
+| [G061](#g061) | Medium | Module 14 | Mapping-pending enrolments have no named owner or recovery task | 5 | Done (phase 5) |
 | [G062](#g062) | Medium | Module 15 | Batch type (Group/Individual/Corporate), schedule pattern (Regular/Weekend/Fast-track) and editable display name are not stored | 6 | Open |
 | [G063](#g063) | Medium | Module 15 | 24-hour allocation escalation goes to Branch Managers, not Founder/Super Admin; deadlines are not tracked | 4 | Done (phase 4) |
 | [G064](#g064) | Medium | Module 15 | No Nipuna Academic Calendar, company holidays or branch closures | 4 | Done (phase 4) |

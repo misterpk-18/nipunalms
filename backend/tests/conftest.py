@@ -136,7 +136,7 @@ def crm_event(client):
 
 
 @pytest.fixture
-def catalog(app, crm_event):
+def catalog(app, crm_event, make_user):
     """Courses through CRM events, with Active curriculum versions for all but NIT-CRS-052 (Curriculum Mapping Pending).
 
     NIT-CRS-018: combo (tracks T1-T3 + included booster NIT-CRS-019); NIT-CRS-047 and NIT-CRS-019 standalone.
@@ -155,6 +155,12 @@ def catalog(app, crm_event):
                                     version_label=label, status="Active", approved_at=now)
         db.session.add(version)
         versions[label] = version
+    db.session.flush()
+    # The included booster reuses its own course's curriculum: its equivalence was reviewed (Module 14 §3)
+    reviewer = make_user(roles=[], full_name="Curriculum Reviewer")
+    booster = catalog_repo.get_component_by_track_code("NIT-CRS-019")
+    booster.equivalence_note, booster.equivalence_reviewed_by = "Same outcomes, scope, depth and assessment as NIT-CRS-019", reviewer.user_id
+    booster.equivalence_reviewed_at = now
     db.session.flush()
     _commit()
     return SimpleNamespace(versions={label: v.curriculum_version_id for label, v in versions.items()})

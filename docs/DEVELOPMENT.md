@@ -473,7 +473,8 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Bulk timetable import | Sessions are created one batch at a time with a repeat rule; no CSV / calendar import as in the prototype's schedule screen |
 | Calendar month grid | Schedules are list / week tables; the prototype's month calendar view and iCal export are not built |
 | Curriculum diff between versions | The prototype shows what changed between versions; only the review trail is stored |
-| Re-mapping running batches to a new version | Activating a version maps pending enrolments and batches; moving Running batches to a newer version is manual |
+| Re-mapping running batches to a new version | Activating a version maps pending enrolments and batches. A student moves through an individual academic mapping (`/academic-mappings`); moving a whole Running batch at once is not built |
+| Academic mapping credits in the UI | The allocation queue's "Academic mapping" dialog prepares a version move without credits; credited topics are API only (`credits` with an approved `rule_id`). Proposing an equivalence rule is API only |
 | Batch capacity waitlist | Full batches have no waiting list; the allocation queue just lists unseated enrolments |
 | Session reminders | Students are notified of changes but not reminded before a class (needs a job) |
 | Topic-level self study progress | Topic pages show classes and resources; students cannot mark a topic as studied |
@@ -512,7 +513,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Item | Notes |
 |---|---|
 | Minute-based attendance | Module 21 measures attended teaching minutes; the LMS counts sessions (Present + Late / marked). Needs delivered-minute capture and Late / Left Early flags |
-| Completion profile per course | Minimum attendance, required learning weights and recovery rules are not configured per course / curriculum version; Completion Review shows evidence and the coordinator decides |
+| Completion profile per course | Each curriculum version now stores a completion profile and topic weights (db 102), but Completion Review does not apply them yet: it shows evidence and the coordinator decides. Applying the profile is gap fix phase 8 |
 | Complimentary completion rule | Configuration Pending until `complimentary_completion_rule_configured` is set; needs a business decision |
 | Attendance at-risk support cases | Module 21 triggers (two consecutive absences, late pattern, no activity for 7 days) do not open support requests yet |
 | Combo per-track attendance | Progress is per enrolment; the module also wants each combo track and the booster separately |

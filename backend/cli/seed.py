@@ -309,6 +309,12 @@ def seed_staff(ctx: SeedContext) -> None:
     db.session.commit()
 
 
+# Sample values for the seeded (already Active) versions; real course profiles need their recorded approvals (Module 14 §14)
+SAMPLE_COMPLETION_PROFILE = {"attendance_minimum_pct": 75, "pass_mark_pct": 50,
+                             "recovery_rule": "An approved recovery completed before the course end date",
+                             "reassessment_rule": "One reassessment after an unsuccessful required test"}
+
+
 def seed_courses(ctx: SeedContext) -> None:
     for code, title, category in COURSES:
         ctx.crm_event("CourseUpserted", {"course_code": code, "title": title, "category": category})
@@ -322,7 +328,9 @@ def seed_curriculum(ctx: SeedContext) -> None:
         component = (db.session.execute(select(CourseComponent).where(CourseComponent.track_code == track_code)).scalar_one()
                      if track_code else None)
         version = CurriculumVersion(course_id=course.course_id, component_id=component.component_id if component else None,
-                                    version_label=label, status="Active", approved_by=ctx.users["admin"], approved_at=approved_at)
+                                    version_label=label, status="Active", approved_by=ctx.users["admin"], approved_at=approved_at,
+                                    hours_verified_by=ctx.users["coord_gnt"], hours_verified_at=approved_at,
+                                    completion_profile=SAMPLE_COMPLETION_PROFILE)
         db.session.add(version)
         db.session.flush()
         ctx.versions[label] = version.curriculum_version_id
@@ -332,10 +340,16 @@ def seed_curriculum(ctx: SeedContext) -> None:
             db.session.add(module)
             db.session.flush()
             for topic_order, title in enumerate(topic_titles, 1):
-                topic = CurriculumTopic(module_id=module.module_id, title=title, sort_order=topic_order)
+                topic = CurriculumTopic(module_id=module.module_id, title=title, sort_order=topic_order, topic_class="Required",
+                                        outcome=f"Applies {title.lower()} in a guided lab", instructional_minutes=120,
+                                        independent_minutes=60, weight=1, evidence="Lab exercise checked by the trainer")
                 db.session.add(topic)
                 db.session.flush()
                 ctx.topics[(label, title)] = topic.topic_id
+    # The combo's included booster reuses the Power BI course curriculum after an equivalence review (Module 14 §3)
+    booster = db.session.execute(select(CourseComponent).where(CourseComponent.track_code == "NIT-CRS-019")).scalar_one()
+    booster.equivalence_note = "Sample review: the booster covers the Power BI course's outcomes, scope, depth and assessment"
+    booster.equivalence_reviewed_by, booster.equivalence_reviewed_at = ctx.users["coord_gnt"], approved_at
     db.session.commit()
 
 

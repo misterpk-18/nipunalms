@@ -50,6 +50,7 @@ Vijayawada).
 | `099_gap_fixes.sql` | Gap fix plan phase 1: notice role, staff-only content, historical CRM events, attendance from the seat | ✅ |
 | `100_governance.sql` | Gap fix plan phase 3: certificate requests and fee exceptions, status history and reinstatement, AI controls | ✅ |
 | `101_academic_calendar.sql` | Gap fix plan phase 4: company holidays and branch closures, working weekdays | ✅ |
+| `102_curriculum_model.sql` | Gap fix plan phase 5: the Module 14 curriculum model | ✅ |
 
 ---
 
@@ -342,4 +343,20 @@ The Nipuna Academic Calendar for working-day targets, phase 4 ([GAP_FIX_PLAN.md]
 |---|---|
 | `calendar_closure_kind` enum; `calendar_closures` (company holiday = no branch; dates at most 63 days; Pending / Approved / Rejected) | Company holidays set centrally and branch closures approved by the Branch Manager (G064) |
 | Settings `working_weekdays` (all seven by default) and `attendance_unconfirmed_lookback_days` (14) | Working days count only configured weekdays outside approved closures; nothing is assumed closed (Module 15 §9) |
+
+## 102 — Curriculum model (Module 14)
+
+Phase 5 of the gap fix plan ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+
+| Change | Why |
+|---|---|
+| `curriculum_topics`: `topic_class`, `outcome`, `instructional_minutes`, `independent_minutes`, `weight`, `evidence`, `activities`; `trg_curriculum_topics_sync_class` keeps `is_required = (topic_class = 'Required')` | Topic outcome, class, effort, weight and evidence (G013); the progress views keep reading `is_required` |
+| `curriculum_topic_dependencies` (same version, Draft only) | Dependencies only where academically necessary |
+| `curriculum_versions.hours_verified_by / _at`, `completion_profile` | Verified standard hours and the completion profile before publication |
+| `curriculum_assessment_requirements` (Draft only) | The assessments a version requires; assignments and tests will link to them (phase 7) |
+| `course_components.equivalence_*`; `curriculum_version_components` | A combo parent pins its track and booster versions; reusing a standalone curriculum needs a recorded review (G058) |
+| `equivalence_rules`, `academic_mappings` (`proposed_credits`), `learning_credits`; `enrolment_covered_topics` also counts credits | Individual version moves with comparison, plan, acceptance and independent approval; credit never becomes attendance (G014) |
+| `enrolments.mapping_owner_user_id`; `exception_queue` shows it | A named owner for each Curriculum Mapping Pending recovery (G061) |
+| `curriculum_variations` | Branch and batch variations; a required-topic constraint needs a remedial plan (G060) |
+| `library_modules`, `library_module_versions`, `curriculum_modules.library_version_id` | Reusable modules with explicit, independently approved versions (G059) |
 

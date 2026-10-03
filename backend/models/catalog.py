@@ -1,7 +1,9 @@
 """Courses, combo components and curriculum (versions, modules, topics)."""
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, String
+from decimal import Decimal
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,6 +56,10 @@ class CourseComponent(db.Model):
     track_name: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(ComponentRole, default="Main track")
     sort_order: Mapped[int] = mapped_column(SmallInteger, default=0)
+    # Reusing a standalone course's curriculum for this component needs a recorded equivalence review (Module 14 §3)
+    equivalence_note: Mapped[str | None] = mapped_column(Text)
+    equivalence_reviewed_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    equivalence_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     parent: Mapped[Course] = relationship(back_populates="components", foreign_keys=[parent_course_id])
     component_course: Mapped[Course | None] = relationship(foreign_keys=[component_course_id], lazy="joined")
@@ -66,6 +72,8 @@ class CourseComponent(db.Model):
             "role": self.role,
             "sort_order": self.sort_order,
             "component_course": self.component_course.to_summary() if self.component_course else None,
+            "equivalence_note": self.equivalence_note,
+            "equivalence_reviewed_at": self.equivalence_reviewed_at,
         }
 
 
@@ -79,6 +87,9 @@ class CurriculumVersion(db.Model):
     status: Mapped[str] = mapped_column(CurriculumStatus, default="Draft")
     approved_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    hours_verified_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    hours_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completion_profile: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
@@ -110,6 +121,7 @@ class CurriculumModule(db.Model):
     title: Mapped[str] = mapped_column(String(200))
     title_te: Mapped[str | None] = mapped_column(String(300))
     sort_order: Mapped[int] = mapped_column(SmallInteger)
+    library_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("library_module_versions.library_version_id"))
 
     version: Mapped[CurriculumVersion] = relationship(back_populates="modules")
     topics: Mapped[list["CurriculumTopic"]] = relationship(
@@ -122,8 +134,16 @@ class CurriculumModule(db.Model):
             "title": self.title,
             "title_te": self.title_te,
             "sort_order": self.sort_order,
+            "library_version_id": self.library_version_id,
             "topics": [t.to_dict() for t in self.topics],
         }
+
+
+topic_dependencies = Table(
+    "curriculum_topic_dependencies", db.metadata,
+    Column("topic_id", Integer, ForeignKey("curriculum_topics.topic_id"), primary_key=True),
+    Column("depends_on_topic_id", Integer, ForeignKey("curriculum_topics.topic_id"), primary_key=True),
+)
 
 
 class CurriculumTopic(db.Model):
@@ -134,9 +154,19 @@ class CurriculumTopic(db.Model):
     title: Mapped[str] = mapped_column(String(200))
     title_te: Mapped[str | None] = mapped_column(String(300))
     sort_order: Mapped[int] = mapped_column(SmallInteger)
-    is_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_required: Mapped[bool] = mapped_column(Boolean, default=True)  # kept in step with topic_class by a trigger
+    topic_class: Mapped[str | None] = mapped_column(String(12))        # Required / Recommended / Optional
+    outcome: Mapped[str | None] = mapped_column(Text)
+    instructional_minutes: Mapped[int | None] = mapped_column(Integer)
+    independent_minutes: Mapped[int | None] = mapped_column(Integer)
+    weight: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    evidence: Mapped[str | None] = mapped_column(Text)
+    activities: Mapped[str | None] = mapped_column(Text)
 
     module: Mapped[CurriculumModule] = relationship(back_populates="topics")
+    depends_on: Mapped[list["CurriculumTopic"]] = relationship(
+        secondary="curriculum_topic_dependencies", primaryjoin="CurriculumTopic.topic_id == curriculum_topic_dependencies.c.topic_id",
+        secondaryjoin="CurriculumTopic.topic_id == curriculum_topic_dependencies.c.depends_on_topic_id", lazy="selectin")
 
     def to_dict(self) -> dict:
         return {
@@ -145,6 +175,14 @@ class CurriculumTopic(db.Model):
             "title_te": self.title_te,
             "sort_order": self.sort_order,
             "is_required": self.is_required,
+            "topic_class": self.topic_class,
+            "outcome": self.outcome,
+            "instructional_minutes": self.instructional_minutes,
+            "independent_minutes": self.independent_minutes,
+            "weight": None if self.weight is None else f"{self.weight:.2f}",
+            "evidence": self.evidence,
+            "activities": self.activities,
+            "depends_on": [t.topic_id for t in self.depends_on],
         }
 
 

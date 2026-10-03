@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { DataTable, Note, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { mono, useCanManage } from "@/features/shared/delivery-ui";
+import { PrepareMapping } from "./curriculum-model";
 import { fmtDate } from "@/features/shared/format";
 import { todayIso } from "@/lib/format";
 import { useDelivery } from "@/features/shared/sessions";
@@ -149,7 +150,19 @@ export function AllocationQueue({ branchId }: { branchId?: string }) {
                   ),
               },
               { h: "Open batches", c: (r) => (r.open_batches?.length ? r.open_batches.map((b) => b.batch_code).join(", ") : "None") },
-              ...(manager ? [{ h: "Action", c: (r: EnrolmentRow) => <AllocateDialog row={r} /> }] : []),
+              ...(manager
+                ? [
+                    {
+                      h: "Action",
+                      c: (r: EnrolmentRow) => (
+                        <span className="flex flex-wrap gap-1.5">
+                          <AllocateDialog row={r} />
+                          <PrepareMapping enrolmentId={r.enrolment_id} courseId={r.course.course_id} />
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
           />
         )}

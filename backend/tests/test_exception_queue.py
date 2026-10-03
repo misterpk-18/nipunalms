@@ -77,9 +77,11 @@ def test_filters_by_source_branch_and_state(client, login, world):
 
 def test_rows_without_a_named_owner_say_so(client, login, world):
     rows = rows_of(client, login, world.people.sa)
-    assert all(r["awaiting_owner"] and r["owner"] is None for r in rows)
+    # Curriculum Mapping Pending gets a named coordinator when one exists (Module 14 §8); every other row waits for an owner
+    assert all(r["awaiting_owner"] and r["owner"] is None for r in rows
+               if not (r["source"] == "CURRICULUM_MAPPING" and r["owner"] is not None))
     assert {r["owner_label"] for r in rows if r["source"] == "CURRICULUM_MAPPING"} == {"Academic Coordinator — Guntur", "Academic Coordinator — Vijayawada"}
-    assert len(rows_of(client, login, world.people.sa, "?awaiting_owner=false")) == 0
+    assert {r["source"] for r in rows_of(client, login, world.people.sa, "?awaiting_owner=false")} == {"CURRICULUM_MAPPING"}
 
 
 def test_staff_without_a_queue_role_are_refused(client, login, world):

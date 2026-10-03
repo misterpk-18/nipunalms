@@ -4,6 +4,7 @@ import { deliveryApi, type CurriculumVersion } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { DataTable, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { VersionEditor } from "@/features/academic/curriculum";
+import { CurriculumDecisions } from "@/features/academic/curriculum-model";
 import { fmtDate } from "@/features/shared/delivery-ui";
 
 /** Curriculum versions waiting for the Founder / CEO (or Super Admin): approve after academic review, then activate (Module 14 §5). */
@@ -56,6 +57,9 @@ export function FounderCurriculum() {
           <VersionEditor key={open} versionId={open} />
         </Section>
       )}
+      <Section title="Equivalence rules and required-topic constraints">
+        <CurriculumDecisions />
+      </Section>
     </div>
   );
 }

@@ -36,9 +36,10 @@ def test_list_shows_staff_with_scopes_filters_and_no_students(client, make_user,
 
     everyone = client.get("/api/v1/admin/users", headers=login(admin.email)).get_json()
     by_id = {u["user_id"]: u for u in everyone["data"]}
-    assert set(by_id) == {admin.user_id, trainer.user_id}
+    reviewer = next(u["user_id"] for u in everyone["data"] if u["full_name"] == "Curriculum Reviewer")  # from the catalog fixture
+    assert set(by_id) == {admin.user_id, trainer.user_id, reviewer}
     assert by_id[trainer.user_id]["scopes"][0]["role_code"] == "TRAINER" and by_id[trainer.user_id]["scopes"][0]["branch_code"] == "NIT-VIJ"
-    assert everyone["meta"]["total"] == 2
+    assert everyone["meta"]["total"] == 3
 
     trainers = client.get("/api/v1/admin/users?role_code=TRAINER&branch_id=2", headers=login(admin.email)).get_json()["data"]
     assert [u["user_id"] for u in trainers] == [trainer.user_id]

@@ -53,9 +53,9 @@ def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False) -> dic
     elif batch.curriculum_version_id is None:
         checks.append(_check("curriculum", "Curriculum mapping / version", "fail", "The batch has no curriculum version yet"))
     elif batch.curriculum_version_id != enrolment.curriculum_version_id:
-        checks.append(_check("curriculum", "Curriculum mapping / version", "warn",
+        checks.append(_check("curriculum", "Curriculum mapping / version", "fail",
                              f"Enrolment is on {enrolment.curriculum_version.version_label}; the batch runs {batch.curriculum_version.version_label}. "
-                             "Record the academic mapping before allocating"))
+                             "An approved academic mapping must move the student first (Module 14 §8)"))
     else:
         checks.append(_check("curriculum", "Curriculum mapping / version", "pass", batch.curriculum_version.version_label))
 
