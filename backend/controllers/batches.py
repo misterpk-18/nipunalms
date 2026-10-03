@@ -30,6 +30,14 @@ def get_batch(batch_id: int):
     })
 
 
+def _timetable(v: Validator) -> None:
+    """When the batch meets, for the CRM's sales staff: days, IST start / end times, room. Each may be null (not set)."""
+    v.weekdays("schedule_days", nullable=True)
+    v.time("start_time", nullable=True)
+    v.time("end_time", nullable=True)
+    v.string("location", nullable=True, max_length=255)
+
+
 def create_batch():
     v = Validator(json_body())
     v.integer("course_id", required=True, min_value=1)
@@ -39,6 +47,7 @@ def create_batch():
     v.choice("mode", DELIVERY_MODES)
     v.date("planned_start", nullable=True)
     v.date("planned_end", nullable=True)
+    _timetable(v)
     v.string("crm_batch_id", nullable=True, max_length=100)
     batch = batches_service.create_batch(v.validate())
     return created(batch.to_dict())
@@ -51,6 +60,7 @@ def update_batch(batch_id: int):
     v.choice("mode", DELIVERY_MODES)
     v.date("planned_start", nullable=True)
     v.date("planned_end", nullable=True)
+    _timetable(v)
     batch = batches_service.update_batch(batch_id, require_changes(v.validate()))
     return ok(batch.to_dict(allocated_count=batches_service.get_batch(batch_id)[1]))
 

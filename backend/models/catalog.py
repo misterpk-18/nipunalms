@@ -2,6 +2,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
@@ -145,3 +146,13 @@ class CurriculumTopic(db.Model):
             "sort_order": self.sort_order,
             "is_required": self.is_required,
         }
+
+
+class CurriculumVersionCrmState(db.Model):
+    """Each curriculum version as the CRM mirrors it (kept by triggers, db 097). A deleted Draft stays as a tombstone."""
+
+    __tablename__ = "curriculum_version_crm_state"
+
+    curriculum_version_id: Mapped[int] = mapped_column(Integer, primary_key=True)  # no FK: outlives a deleted Draft
+    payload: Mapped[dict] = mapped_column(JSONB)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

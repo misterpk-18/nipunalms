@@ -54,6 +54,7 @@ def json_body() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 _MISSING = object()
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -208,9 +209,9 @@ class Validator:
             self.cleaned.pop(field, None)
             self._error(field, "Must be a date (YYYY-MM-DD)")
 
-    def time(self, field: str, *, required=False) -> None:
+    def time(self, field: str, *, required=False, nullable=False) -> None:
         """HH:MM (24-hour)."""
-        value = self._value(field, required, False, _MISSING)
+        value = self._value(field, required, nullable, _MISSING)
         if value is _MISSING:
             return
         try:
@@ -243,6 +244,16 @@ class Validator:
         if len(value) < min_items:
             return self._error(field, f"Add at least {min_items}")
         self.cleaned[field] = list(dict.fromkeys(value))
+
+    def weekdays(self, field: str, *, nullable=False) -> None:
+        """Day names ("Mon" … "Sun", any case) → ISO weekday numbers in week order; an empty list or null clears it."""
+        value = self._value(field, False, nullable, _MISSING)
+        if value is _MISSING:
+            return
+        names = [d.strip().title()[:3] for d in value] if isinstance(value, list) and all(isinstance(d, str) for d in value) else None
+        if names is None or not set(names) <= set(WEEKDAYS):
+            return self._error(field, "Must be a list of days: Mon, Tue, Wed, Thu, Fri, Sat, Sun")
+        self.cleaned[field] = sorted({WEEKDAYS.index(d) + 1 for d in names}) or None
 
     def string_list(self, field: str, *, required=False) -> None:
         """A list of non-empty strings (duplicates removed, order kept)."""

@@ -72,9 +72,28 @@ def load_managed_batch(batch_id: int) -> Batch:
     return batch
 
 
+TIMETABLE_FIELDS = ("schedule_days", "start_time", "end_time", "location")
+
+
 def _snapshot(batch: Batch) -> dict:
     return {"capacity": batch.capacity, "mode": batch.mode, "planned_start": batch.planned_start, "planned_end": batch.planned_end,
-            "curriculum_version_id": batch.curriculum_version_id, "state": batch.state, "readiness": batch.readiness}
+            "curriculum_version_id": batch.curriculum_version_id, "state": batch.state, "readiness": batch.readiness,
+            "schedule_days": batch.schedule_days, "start_time": batch.start_time, "end_time": batch.end_time,
+            "location": batch.location}
+
+
+def _apply_timetable(batch: Batch, data: dict) -> None:
+    """Days, times and room. Start and end come together, the end after the start; a Live Online batch has no room."""
+    for field in TIMETABLE_FIELDS:
+        if field in data:
+            setattr(batch, field, data[field])
+    if (batch.start_time is None) != (batch.end_time is None):
+        raise ValidationError("Invalid request data", {"end_time" if batch.end_time is None else "start_time":
+                                                       ["Give both the start and the end time, or neither"]})
+    if batch.start_time is not None and batch.end_time <= batch.start_time:
+        raise ValidationError("Invalid request data", {"end_time": ["Must be after the start time"]})
+    if batch.mode == "Live Online":
+        batch.location = None
 
 
 # ---------------------------------------------------------------- readiness
@@ -191,6 +210,7 @@ def create_batch(data: dict) -> Batch:
     batch = Batch(course_id=course.course_id, branch_id=branch.branch_id, curriculum_version_id=version_id, capacity=data["capacity"],
                   mode=data.get("mode", "Classroom"), planned_start=data.get("planned_start"), planned_end=data.get("planned_end"),
                   crm_batch_id=data.get("crm_batch_id"))
+    _apply_timetable(batch, data)
     db.session.add(batch)
     db.session.flush()
     db.session.refresh(batch)
@@ -220,6 +240,7 @@ def update_batch(batch_id: int, data: dict) -> Batch:
     for field in ("capacity", "mode", "planned_start", "planned_end"):
         if field in data:
             setattr(batch, field, data[field])
+    _apply_timetable(batch, data)
     db.session.flush()
     if "capacity" in data and data["capacity"] != old["capacity"]:
         batches_repo.add_event(batch.batch_id, "Capacity changed", from_value=str(old["capacity"]), to_value=str(data["capacity"]),

@@ -51,6 +51,11 @@ class BusinessRule(AppError):
     code = "BUSINESS_RULE"
 
 
+class NotYetApplied(BusinessRule):
+    """A CRM event that depends on a record the CRM has not delivered yet (course, branch, admission): retry it later."""
+    code = "NOT_YET_APPLIED"
+
+
 class TooManyAttempts(AppError):
     status = 429
     code = "TOO_MANY_ATTEMPTS"

@@ -57,7 +57,8 @@ export const mono = (text: string) => <span className="font-mono text-xs">{text}
 export type DialogField = {
   name: string;
   label: string;
-  type?: "text" | "textarea" | "number" | "datetime" | "date" | "select" | "checkbox";
+  /** "days": seven day toggles; the value is the chosen days in week order, comma-separated ("Mon,Wed,Fri"). */
+  type?: "text" | "textarea" | "number" | "datetime" | "date" | "time" | "select" | "checkbox" | "days";
   required?: boolean;
   options?: { value: string | number; label: string }[];
   value?: string;
@@ -135,6 +136,8 @@ export function ActionDialog({
                 <Textarea id={`f-${f.name}`} rows={3} value={values[f.name] ?? ""} placeholder={f.placeholder} onChange={(e) => set(f.name, e.target.value)} />
               ) : f.type === "select" ? (
                 <NativeSelect id={`f-${f.name}`} options={f.options ?? []} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
+              ) : f.type === "days" ? (
+                <DayToggles id={`f-${f.name}`} value={values[f.name] ?? ""} onChange={(v) => set(f.name, v)} />
               ) : f.type === "checkbox" ? (
                 <label className="flex items-center gap-2 text-sm">
                   <input id={`f-${f.name}`} type="checkbox" checked={values[f.name] === "true"} onChange={(e) => set(f.name, e.target.checked ? "true" : "")} />
@@ -160,5 +163,28 @@ export function ActionDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+/** Seven day toggles for a "days" field; the value stays in week order. */
+function DayToggles({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
+  const chosen = new Set(value.split(",").filter(Boolean));
+  const toggle = (day: string) => {
+    const next = new Set(chosen);
+    if (next.has(day)) next.delete(day);
+    else next.add(day);
+    onChange(WEEKDAYS.filter((d) => next.has(d)).join(","));
+  };
+  return (
+    <div id={id} className="flex flex-wrap gap-2" role="group">
+      {WEEKDAYS.map((day) => (
+        <label key={day} className="flex items-center gap-1 text-sm">
+          <input type="checkbox" checked={chosen.has(day)} onChange={() => toggle(day)} />
+          {day}
+        </label>
+      ))}
+    </div>
   );
 }

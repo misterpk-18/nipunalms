@@ -9,7 +9,7 @@ from models.assessments import (
     Assignment, AssignmentSubmission, AttemptAnswer, InterviewSlot, Question, Result, SubmissionReview, Test, TestAttempt,
     TestQuestion,
 )
-from models.catalog import Course, CourseComponent, CurriculumModule, CurriculumTopic, CurriculumVersion
+from models.catalog import Course, CourseComponent, CurriculumModule, CurriculumTopic, CurriculumVersion, CurriculumVersionCrmState
 from models.masters import Branch, BranchFinanceSnapshot
 from models.students import (
     Admission, AdmissionLmsState, CrmEvent, CrmOutbox, Enrolment, EnrolmentTrack, FinanceSummary, Student,
@@ -23,7 +23,7 @@ __all__ = [
     "TestAttempt", "TestQuestion",
     "ActiveSession", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
     "BatchAllocation", "BatchCrmState", "BatchTrainer", "Branch", "BranchFinanceSnapshot", "ClassSession", "Course", "CourseComponent", "CrmEvent", "CrmOutbox",
-    "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
+    "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "CurriculumVersionCrmState", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "SecurityControl", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
     "BatchEvent", "CurriculumEvent", "MeetEvent", "SessionChange", "SessionChangeRequest",
 ]

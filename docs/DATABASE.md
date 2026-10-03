@@ -45,6 +45,8 @@ Vijayawada).
 | `090_crm_round1.sql` | Fixes from the CRM's round-1 integration run | ✅ |
 | `095_crm_round2.sql` | The status pull the CRM applies in round 2 | ✅ |
 | `096_crm_branches_finance.sql` | Branch and finance-snapshot events from the CRM | ✅ |
+| `097_crm_round3.sql` | Curriculum catalogue for the CRM, CRM curriculum mapping | ✅ |
+| `098_batch_timetable.sql` | Batch timetable for CRM sales; readiness and seats left in the pull | ✅ |
 
 ---
 
@@ -285,3 +287,24 @@ Round-2 owner decisions D3 and D4 (`nipuna crm-docs/CRM_ROUND2_LMS_REPLY.md` §3
 | `crm_events.event_type` accepts `BranchUpserted`, `BranchFinanceSnapshot` | The two new CRM events |
 | `branches.source_version` (0 = made in the LMS) | `BranchUpserted` is versioned per branch like the other CRM records |
 | `branch_finance_snapshots` (one row per branch: target period, verified collections / target, paid Admissions / target, overdue amount / count / by age band, pending and overdue payment verifications, overdue follow-ups, broken promises, `as_of`, `source_version`) | The CRM-authoritative dashboard figures. Each snapshot replaces the previous one; a target needs its period. A branch without a row shows Not Configured, never 0 |
+
+## 097 — CRM round 3: curriculum mapping
+
+The CRM maps admissions to curricula; the LMS reports its catalogue (`nipuna crm-docs/CRM_ROUND3_LMS_CHANGES.md`).
+
+| Change | Why |
+|---|---|
+| `curriculum_version_crm_state` (+ `curriculum_version_crm_payload`, `refresh_curriculum_version_crm_state`, triggers on `curriculum_versions` and `curriculum_events`) | `curriculum_versions[]` in the status pull, with its own change stamp. No foreign key: a deleted Draft stays as a tombstone (`status` Retired, `lms_status` Deleted), so nothing the CRM mirrors disappears. `published_at` = the activation event, or the approval of a version made Active directly; a retired version keeps it |
+| `crm_events.event_type` accepts `AdmissionCurriculumMapped` | The new CRM event |
+| `admissions.curriculum_source_version` | `AdmissionCurriculumMapped` is versioned per admission, separately from `AdmissionQualified` / `AdmissionUpdated` |
+
+## 098 — Batch timetable
+
+The CRM's sales playbook needs real timings before promising a batch (`nipuna crm-docs/CRM_PLAYBOOK_LMS_ASKS.md`).
+
+| Change | Why |
+|---|---|
+| `batches.schedule_days` (`SMALLINT[]`, ISO weekdays 1–7), `start_time`, `end_time` (`TIME`, IST), `location` | The timetable the coordinator promises, set before any class is scheduled. Checks: 1–7 known days; both times or neither, the end after the start |
+| `weekday_labels()` | `{1,3,5}` → `'Mon, Wed, Fri'` |
+| `batch_crm_state()` adds `readiness`, `readiness_reason`, `seats_left`, `schedule_days`, `start_time`, `end_time`, `location`; `trg_batch_allocations_crm_state` | Sales offers only non-Blocked Planned / Open batches with seats left. Every allocation change refreshes the batch's pulled state |
+

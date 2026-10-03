@@ -117,6 +117,7 @@ class Admission(db.Model):
     seat_type: Mapped[str | None] = mapped_column(String(20))  # Confirmed Seat / Future Plan (CRM delivery plan)
     planned_start_date: Mapped[date | None] = mapped_column(Date)
     source_version: Mapped[int] = mapped_column(Integer)
+    curriculum_source_version: Mapped[int] = mapped_column(Integer, default=0)  # last AdmissionCurriculumMapped (db 097)
     seed_data: Mapped[bool] = mapped_column(Boolean, default=False)  # made-up CRM IDs from `flask seed-dev` (db 090)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())

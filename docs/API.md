@@ -155,10 +155,10 @@ Codes follow the prototype: `NIT-STU-2026-004182`, `ADM-GNT-2026-000214`, `NIT-G
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/integrations/crm/events` | CRM service key (`X-Service-Key`) | `CourseUpserted`, `AdmissionQualified`, `AdmissionUpdated`, `AdmissionCancelled`, `FinanceSummaryUpdated`, `BranchUpserted`, `BranchFinanceSnapshot`. Idempotent on `event_id`; stale `source_version` → `Ignored — stale` |
+| POST | `/integrations/crm/events` | CRM service key (`X-Service-Key`) | `CourseUpserted`, `AdmissionQualified`, `AdmissionUpdated`, `AdmissionCancelled`, `FinanceSummaryUpdated`, `BranchUpserted`, `BranchFinanceSnapshot`, `AdmissionCurriculumMapped`. A record that hasn't arrived yet is 422 `NOT_YET_APPLIED`. Idempotent on `event_id`; stale `source_version` → `Ignored — stale` |
 | GET | `/integrations/crm/events` | Super Admin | Inbox with status filters |
 | POST | `/integrations/crm/events/{id}/retry` | Super Admin | Re-apply a failed event |
-| GET | `/integrations/crm/status?since=` | CRM service key | What the CRM stores about the LMS, changed since `since`: `persons`, `admissions`, `academics`, `batches`, `certificates`, `as_of`. `as_of` is safe to store as the next `since` (rows can repeat, none are skipped); no paging. Seed rows (`seed_data`) are left out |
+| GET | `/integrations/crm/status?since=&crm_admission_id=&crm_person_id=` | CRM service key | What the CRM stores about the LMS, changed since `since`: `persons`, `admissions`, `academics`, `batches`, `certificates`, `curriculum_versions` (the whole catalogue), `as_of`. The optional filters narrow every key to one admission or person and are echoed as `filter`. `as_of` is safe to store as the next `since` (rows can repeat, none are skipped); no paging. Seed rows (`seed_data`) are left out |
 
 Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2](CRM_INTEGRATION.md#2-the-contract).
 
@@ -203,7 +203,7 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 | GET / POST | `/batches/{id}/allocations` | Staff / AC, BM, Super Admin | Roster (filter `status`); allocate an enrolment |
 | GET | `/batches/{id}/allocation-review?enrolment_id=&transfer=` | AC, BM, Super Admin | The checks (branch, course, curriculum, capacity, state, gate, finance) as pass / warn / block |
 | POST | `/enrolments/{id}/transfer`, `/enrolments/{id}/deallocate` | AC, BM, Super Admin | Reason required; warnings need `acknowledge_warnings` |
-| POST / PATCH | `/batches`, `/batches/{id}`, `POST /batches/{id}/state`, `/trainers`, `/readiness` | AC, BM, Super Admin | Batch lifecycle with `batch_events` history |
+| POST / PATCH | `/batches`, `/batches/{id}`, `POST /batches/{id}/state`, `/trainers`, `/readiness` | AC, BM, Super Admin | Batch lifecycle with `batch_events` history. The timetable: `schedule_days` (`["Mon", "Wed", "Fri"]`), `start_time` / `end_time` (`"HH:MM"` IST, both or neither), `location` (dropped for Live Online); each nullable |
 | GET / POST / PATCH | `/class-sessions`, `/class-sessions/{id}` | Staff; create / edit AC, BM, Super Admin | Filters include `batch_id`, `trainer_id`, `state`, `from`, `to`; create accepts a weekly `recurrence` (weekdays, `until` / `count`) |
 | POST | `/class-sessions/{id}/start`, `/deliver`, `/cancel`, `/reschedule` | Trainer of the batch (start, deliver); AC, BM, Super Admin (cancel, reschedule) | Reason required for cancel / reschedule; `session_changes` row with notice hours and `short_notice` |
 | PUT | `/class-sessions/{id}/notes` | Teaching trainer, AC, BM, Super Admin | `{notes}`; only while the class is Live or Delivered; audited (`SESSION_NOTES_SAVED`). The Trainer Today close-out |

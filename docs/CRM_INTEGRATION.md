@@ -20,9 +20,10 @@ progress and published results. Certificates come from one LMS Certificate Regis
 | Leads, deals, fees, invoices, payments, receipts, admissions, refunds, collections | **CRM** | LMS keeps a read-only projection (admission, finance summary) |
 | Person identity and documents (ID proof, photo…) | **CRM** | LMS keeps one Student per CRM Person |
 | LMS login, activation, sessions | **LMS** | CRM shows `lms_user_id`, `lms_status` |
-| Curriculum versions, mapping, batches, trainers, allocation, joining date, class sessions, attendance, progress, completion | **LMS** (Modules 14, 15, 21) | CRM mirrors the columns it already has (enrolment / curriculum status, batches, allocations, joining date, completion) |
+| Curriculum versions, batches, trainers, allocation, joining date, class sessions, attendance, progress, completion | **LMS** (Modules 14, 15, 21) | CRM mirrors the columns it already has (enrolment / curriculum status, batches, allocations, joining date, completion) and the curriculum catalogue |
+| Curriculum **mapping** of an admission | **Both** (round 3): the LMS maps automatically (a new admission, an activation), and a CRM coordinator can map an admission to the Active version (`AdmissionCurriculumMapped`) | The pull reports the result |
 | Certificates | **LMS** Certificate Register (Module 22) | CRM `certificates` becomes a mirror |
-| Placement (employers, openings, applications) | **Decision needed** (§3.9) | |
+| Placement (employers, openings, applications) | **CRM** (decided in round 2, §3.9) | LMS Career screen reads and submits through the CRM (later round) |
 | Support | CRM `support_cases` for money / admission; LMS support requests for academic / LMS | Cross-link (§3.10) |
 
 **One admission = one course.** The CRM creates one admission per course. A complimentary course is its own admission,
@@ -64,6 +65,7 @@ before its complimentary one.
 
 | `BranchUpserted` | A branch's name, city or email edited (`PATCH /branches/{id}`), and `flask lms backfill --branches` (a full backfill sends branches first). Versioned per branch (`branch:<id>`) | `branch_code`, `branch_name`, `city`, `receipt_prefix` (→ LMS `short_code`, used inside batch codes), `email` (→ the branch's shared `mailbox`), `is_active`. A new branch needs `receipt_prefix` and `email`; an existing branch keeps its short code (a different one is a 422), and a `null` email keeps the mailbox. Other CRM columns (`address`, `phone`, …) are ignored |
 | `BranchFinanceSnapshot` | A CRM job every 15 minutes, one per branch (`branch-finance:<id>`) | `branch_code`, `as_of`, `period` = `{label, start, end}`: the period the figures cover, always sent. It is the Approved target's period, or the current calendar month when the branch has no target, in which case both targets are `null`. A target without a period is a 422; `period: null` is still accepted, `collections` = `{verified, target}`, `paid_admissions` = `{count, target}`, `overdue` = `{amount, count, by_age_band[] = {band, amount, count}}` (from `installment_dues`), `verifications` = `{pending_count, pending_amount, overdue_count (past the verification SLA), oldest_at}`, `followups` = `{overdue_count, broken_promises}`. Each snapshot replaces the branch's previous one |
+| `AdmissionCurriculumMapped` | A CRM Academic Coordinator (or admin) maps an admission to an Active LMS version. Versioned per admission (`curriculum:<crm_admission_id>`), in the admission's delivery queue | `crm_admission_id`, `admission_code` (logs), `course_code` (the admission's course), `track_code` (`null` = the course as a whole; a combo track), `curriculum_version_label`, `mapped_by_email`, `reason`. Applied to the enrolment (or track); *Curriculum Mapping Pending* moves to *Allocation Pending*. 422 `NOT_YET_APPLIED`: admission not arrived. 422 `BUSINESS_RULE`: label unknown or not Active, wrong course or track. 409: admission cancelled, enrolment Withdrawn / Completed, or a **change** while that course or track has an active allocation. Mapping the version already there confirms it (`changed: false`) |
 
 **Instalments are per invoice.** With `installments_scope: "invoice"` every admission on the invoice carries the same
 schedule and `next_due_*`. The LMS shows and sums the schedule once per invoice (`invoice_numbers[0]`), never per
@@ -95,13 +97,15 @@ plaintext (§3.7).
 | 400 | Payload failed validation (`error.details` lists the fields) | Failed + Super Admin task; the CRM fixes its mapping and resends the record as a **new** event |
 | 401 | Missing or wrong service key | Stops the run; fix the config |
 | 409 | `event_id` reused with a different payload | Failed + task (a CRM bug: a changed payload needs a new `event_id`) |
-| 422 | Valid payload that cannot be applied yet (course not arrived, unknown branch, component still in use) | Stays Pending, retried with backoff (30 s doubling, capped at 1 h); Failed + task after 12 attempts |
+| 422 `NOT_YET_APPLIED` | A record it depends on hasn't arrived yet (course, branch, admission) | Stays Pending, retried with backoff (30 s doubling, capped at 1 h); Failed + task after 12 attempts |
+| 422 other codes (`BUSINESS_RULE`) | Valid payload that the LMS refuses (component still in use, curriculum label unknown or not Active, …). `error.message` is written for staff | Retried for most events; `AdmissionCurriculumMapped` is *Refused* with the message |
 | 5xx / timeout | LMS problem | Retried with backoff, same `event_id` |
 
 ### 2.2 LMS → CRM: what the CRM stores about the LMS
 
 Two ways, both built in the LMS: **pull** `GET {LMS}/api/v1/integrations/crm/status?since=<ISO time>` (service key;
-returns `persons[]`, `admissions[]`, `academics[]`, `batches[]`, `certificates[]` and `as_of`, the next `since`), or
+returns `persons[]`, `admissions[]`, `academics[]`, `batches[]`, `certificates[]`, `curriculum_versions[]` and `as_of`,
+the next `since`), or
 **push** from the LMS `crm_outbox` (rows written in the same transaction as the change; no delivery worker yet — §3.2).
 Undelivered rows for the same admission / batch are superseded by the latest state. Rows written by the dev seed
 (`seed_data`) are left out of the pull, because the CRM knows none of their IDs.
@@ -116,7 +120,13 @@ Undelivered rows for the same admission / batch are superseded by the latest sta
 - Every entry is the record's full current state. `academics[].allocations` is the admission's complete allocation
   history. There is no paging.
 - Nothing reported is ever deleted (database triggers): a batch ends Cancelled / Completed, an allocation Moved /
-  Withdrawn / Completed, a certificate version Superseded / Revoked.
+  Withdrawn / Completed, a certificate version Superseded / Revoked, a curriculum version Retired (a deleted Draft comes
+  back once as `status: Retired`, `lms_status: Deleted`).
+- `curriculum_versions[]` (db 097) is the whole catalogue, seed curricula included (it is not student data).
+- **Filter** (round 3): `&crm_admission_id=<id>` or `&crm_person_id=<id>` narrows every key to that admission's (or
+  person's) records: its person, admissions, academics and certificates, the batches its allocations name, and its
+  courses' curriculum versions. The answer echoes `"filter": {...}`. An unknown or seed admission gives empty lists.
+- Not state: `admissions[].lms_last_synced_at` is the time of the pull, so a drift check must ignore it.
 
 | CRM column | LMS source | Pull key / outbox event |
 |---|---|---|
@@ -127,7 +137,8 @@ Undelivered rows for the same admission / batch are superseded by the latest sta
 | `batch_allocations` (batch, status, `joining_date`, `ended_at`, `end_reason`) | `allocations[]` = `{course_code, track_code, lms_course_id, crm_batch_id, status (Active / Moved / Withdrawn / Completed), joining_date, allocated_on, ended_on, end_reason}`. A combo has one per track: `track_code` is the LMS track (`null` for a single course), `course_code` its component course or the combo's own code, and `lms_course_id` a batch of the combo course | same |
 | `admissions.academic_completed_at` | Enrolment completed time | same |
 | `admissions.completion_authorised_by` | The Academic Coordinator who decided the completion review | `academics[].completion_authorised_by_email` |
-| `batches` (+ `lms_course_id`) | `{lms_course_id = LMS batch_code, crm_batch_id, course_code, branch_code, delivery_mode, status (Planned / Open / In Progress / Completed / Cancelled), capacity, start_date, end_date, curriculum_version_label, lead_trainer_email, trainer_emails}` | `batches[]` / `BatchUpserted` (+ `BatchLinked` when a CRM batch is linked) |
+| `batches` (+ `lms_course_id`) | `{lms_course_id = LMS batch_code, crm_batch_id, course_code, branch_code, delivery_mode, status (Planned / Open / In Progress / Completed / Cancelled), readiness (Ready / Pending Verification / Blocked), readiness_reason, capacity, seats_left, start_date, end_date, schedule_days ("Mon, Wed, Fri"), start_time / end_time ("HH:MM" IST), location (null for Online), curriculum_version_label, lead_trainer_email, trainer_emails}`. The timetable fields are null until the coordinator sets them ("timing not confirmed"). Sales may offer a Planned / Open batch that is not Blocked (db 098) | `batches[]` / `BatchUpserted` (+ `BatchLinked` when a CRM batch is linked) |
+| `curriculum_versions` (CRM mirror) | Every version of every course: `{course_code, track_code (null for the course as a whole; <combo>/T1… or a booster's course code), version_label, status (Draft / Active / Retired), lms_status (Draft / Under Review / Approved / Active / Retired / Deleted), published_at}`. One Active version per course or track at a time | `curriculum_versions[]` |
 | `certificates` | LMS Certificate Register: every numbered version when Issued, Superseded (by a reissue) or Revoked — `{certificate_number, certificate_type, version, status, crm_admission_id, crm_person_id, course_code, enrolment_code, holder_name, issue_date, issued_by_email, revoked_at, revoked_by_email, reason, supersedes_version, changed_at}` | `certificates[]` / `CertificateChanged` |
 
 `lms_status`: **Not Created** — no LMS login yet; **Invited** — login created, not activated; **Active** — activated and
@@ -299,6 +310,7 @@ older than 60 minutes is flagged stale. A target shows only when every branch in
 | Certificates and completion authoriser to the CRM | ✅ LMS (db 070, `tests/test_crm_certificates.py`) |
 | Round-1 fixes F1–F10 (§5) | ✅ LMS (db 090, `tests/test_crm_round1.py`, `tests/test_profile_finance.py`) |
 | Round-2 answers Q1–Q9 and pull fixes L1–L7 (§5) | ✅ LMS (db 095, `tests/test_crm_round2.py`) |
+| Round 3: curriculum catalogue, `AdmissionCurriculumMapped`, pull filter (§5) | ✅ LMS (db 097, `tests/test_crm_round3.py`); ✅ CRM (CRM db 030) |
 | CRM outbox, worker, backfill (§3.1) | ✅ CRM (db 026, dev only) |
 | CRM applies the status pull (§3.2) and the mirrors (§3.3, §3.4, §3.6); academic screens read-only (§3.5) | ✅ CRM, round 2 (`nipuna crm-docs/CRM_ROUND2_REPLY.md`) |
 | LMS outbox delivery worker | Not needed: the CRM pulls (§3.2) |
@@ -374,3 +386,40 @@ academics, with nothing held. For its request R1, the LMS activated `NIT-CRS-052
 `BranchFinanceSnapshot` (CRM db 029). At 22:29 IST both branches' events were Applied, and the R1 batches and
 allocations came through the pull with nothing held. Agreed afterwards: `period` is always sent (A2). Still open
 on the CRM: activation-link delivery (D1, once WhatsApp / email exists).
+
+### Round 3 — 2 Oct 2026: curriculum mapping from the CRM
+
+**Owner decision:** the CRM can map an admission's curriculum; the LMS keeps owning curricula, batches, allocation,
+joining dates, completion and certificates. **CRM:** `nipuna crm-docs/CRM_ROUND3_BRIEF.md` and
+`CRM_ROUND3_LMS_CHANGES.md`. It pushes events right after each commit and pulls about once a minute, and has a
+refresh button and a drift check (CRM db 030). **LMS reply:** `CRM_ROUND3_LMS_REPLY.md`.
+
+| LMS change (db 097) | |
+|---|---|
+| `curriculum_versions[]` in the pull | The whole catalogue in the CRM's three statuses (plus `lms_status`), with its own change stamp. A deleted Draft comes back as a Retired tombstone |
+| `AdmissionCurriculumMapped` | Maps the enrolment or a combo track to the Active version; a change is refused (409) once that course or track has an active allocation. Versioned per admission (`admissions.curriculum_source_version`) |
+| `NOT_YET_APPLIED` | The 422 code for "a course, branch or admission hasn't arrived yet", on every CRM event |
+| Pull filter | `crm_admission_id` / `crm_person_id`, echoed as `filter` |
+
+Agreed: the LMS **keeps auto-mapping** (a new admission gets the course's Active version; activating a version maps
+everything waiting). Only one version per course or track can be Active, so the CRM's choice and the LMS's can't
+disagree. The CRM's mapping confirms it, or moves an unallocated admission off a retired version.
+
+**Joint tests and the sales playbook (same day).** The owner approved the CRM's remaining joint-test script on
+`NIT-CRS-007` (`CRM_ROUND3_JOINT_TESTS.md`, reply `CRM_ROUND3_JOINT_TESTS_LMS_REPLY.md`). `CV 4.1` is Active; `CV 4.2`
+is Approved, to be activated at step 3 on request; the LMS API outage for test 5 is done on request. For the CRM's sales
+playbook (`CRM_PLAYBOOK_LMS_ASKS.md`, reply `CRM_PLAYBOOK_LMS_REPLY.md`), batches gained a timetable set by the
+coordinator (db 098). `batches[]` carries it with `readiness` and `seats_left`, and a Blocked batch is not offered.
+
+**Results (`CRM_ROUND3_JOINT_TESTS_RESULTS.md`, 3 Oct): round 3 is closed.** Every step of both scripts passed. The
+refusal test went as planned: admission 13 (Y) → retired `CV 4.1` got a 422, shown to staff word for word. In the outage
+test, admission 8 → `CV 4.2` waited in the CRM and was *Applied* on its first delivery after the restart (#155). The
+timetable set, change and clear each arrived in the next pull, and drift checks were clean.
+
+The CRM now releases events held back by an outage as soon as `GET /api/v1/health` answers 200 (polled every 10 s), so
+**health must stay unauthenticated and to one cheap query** (`tests/test_health.py`). Left on dev:
+
+- admission Y (`NIT-GNT-2026-000009`), test data that only the CRM can cancel;
+- `NIT-CRS-007` on `CV 4.2`;
+- both Guntur R1 batches Blocked until a lead trainer is assigned.
+

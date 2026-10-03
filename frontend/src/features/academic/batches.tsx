@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/lms/forms";
 import { DataTable, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
 import { ActionDialog, mono, useCanManage } from "@/features/shared/delivery-ui";
+import { timetableBody } from "@/features/academic/timetable";
 import { useDelivery } from "@/features/shared/sessions";
 import { AllocationQueue } from "./allocation-queue";
 import { BatchPanel } from "./batch-panel";
@@ -39,6 +40,10 @@ function NewBatchDialog() {
         { name: "mode", label: "Mode", type: "select", options: ["Classroom", "Live Online", "Hybrid"].map((m) => ({ value: m, label: m })) },
         { name: "planned_start", label: "Planned start", type: "date" },
         { name: "planned_end", label: "Planned end", type: "date" },
+        { name: "schedule_days", label: "Days", type: "days" },
+        { name: "start_time", label: "Start time (IST)", type: "time" },
+        { name: "end_time", label: "End time (IST)", type: "time" },
+        { name: "location", label: "Room", hint: "Classroom or lab; not used for Live Online" },
       ]}
       onSubmit={(v) =>
         create.mutateAsync({
@@ -48,6 +53,7 @@ function NewBatchDialog() {
           mode: v["mode"],
           planned_start: v["planned_start"] || undefined,
           planned_end: v["planned_end"] || undefined,
+          ...timetableBody(v),
         })
       }
     />

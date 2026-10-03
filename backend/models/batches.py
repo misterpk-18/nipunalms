@@ -1,8 +1,8 @@
 """Batches, batch trainers, allocations and class sessions."""
-from datetime import date, datetime
+from datetime import date, datetime, time
 
-from sqlalchemy import Boolean, Date, DateTime, FetchedValue, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, Date, DateTime, FetchedValue, ForeignKey, Integer, SmallInteger, String, Text, Time
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
@@ -12,6 +12,8 @@ from models.enums import (
     AllocationStatus, BatchReadiness, BatchState, BatchTrainerRole, DeliveryMode, MeetStatus, SessionState,
 )
 from models.masters import Branch
+
+WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 # The register's words for the stored Meet statuses
 MEET_STATUS_LABELS = {"Not Required": "Not Required", "Pending Verification": "Pending Verification", "Linked": "Associated", "Unavailable": "Failed"}
@@ -31,6 +33,11 @@ class Batch(db.Model):
     mode: Mapped[str] = mapped_column(DeliveryMode, default="Classroom")
     planned_start: Mapped[date | None] = mapped_column(Date)
     planned_end: Mapped[date | None] = mapped_column(Date)
+    # The timetable sales can promise (db 098): ISO weekdays 1 = Mon … 7 = Sun, IST times, the room
+    schedule_days: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger))
+    start_time: Mapped[time | None] = mapped_column(Time)
+    end_time: Mapped[time | None] = mapped_column(Time)
+    location: Mapped[str | None] = mapped_column(String(255))
     state: Mapped[str] = mapped_column(BatchState, default="Forming")
     readiness: Mapped[str] = mapped_column(BatchReadiness, default="Ready")
     readiness_reason: Mapped[str | None] = mapped_column(Text)
@@ -63,6 +70,10 @@ class Batch(db.Model):
             "mode": self.mode,
             "planned_start": self.planned_start,
             "planned_end": self.planned_end,
+            "schedule_days": [WEEKDAYS[d - 1] for d in self.schedule_days or []],
+            "start_time": self.start_time.strftime("%H:%M") if self.start_time else None,
+            "end_time": self.end_time.strftime("%H:%M") if self.end_time else None,
+            "location": self.location,
             "state": self.state,
             "readiness": self.readiness,
             "readiness_reason": self.readiness_reason,

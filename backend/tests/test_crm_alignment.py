@@ -181,9 +181,11 @@ def test_batch_is_mirrored_to_the_crm_in_its_vocabulary(client, catalog, make_ba
 
     (queued,) = _outbox("BatchUpserted")
     assert queued == {"lms_course_id": batch.batch_code, "crm_batch_id": None, "course_code": "NIT-CRS-047",
-                      "branch_code": "NIT-GNT", "delivery_mode": "Online", "status": "Planned", "capacity": 25,
-                      "start_date": "2026-10-01", "end_date": None, "curriculum_version_label": None,
-                      "lead_trainer_email": "trainer.g1@nipuna.test", "trainer_emails": ["trainer.g1@nipuna.test"]}
+                      "branch_code": "NIT-GNT", "delivery_mode": "Online", "status": "Planned", "readiness": "Ready",
+                      "readiness_reason": None, "capacity": 25, "seats_left": 25, "start_date": "2026-10-01",
+                      "end_date": None, "schedule_days": None, "start_time": None, "end_time": None, "location": None,
+                      "curriculum_version_label": None, "lead_trainer_email": "trainer.g1@nipuna.test",
+                      "trainer_emails": ["trainer.g1@nipuna.test"]}
 
     run_sql("UPDATE batches SET state = 'Running' WHERE batch_id = :id", id=batch.batch_id)
     (latest,) = _outbox("BatchUpserted")  # not yet delivered: the pending row now carries the latest state

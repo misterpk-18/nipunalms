@@ -63,6 +63,13 @@ def active_curriculum_version_id(course_id: int, component_id: int | None = None
     return db.session.execute(select(func.active_curriculum_version(course_id, component_id))).scalar()
 
 
+def find_curriculum_version(course_id: int, component_id: int | None, version_label: str) -> CurriculumVersion | None:
+    """A version by its label, for a course as a whole (component_id None) or one track of it."""
+    return db.session.execute(select(CurriculumVersion).where(
+        CurriculumVersion.course_id == course_id, CurriculumVersion.component_id.is_(None) if component_id is None
+        else CurriculumVersion.component_id == component_id, CurriculumVersion.version_label == version_label)).scalar_one_or_none()
+
+
 def get_curriculum_version(curriculum_version_id: int) -> CurriculumVersion | None:
     return db.session.get(CurriculumVersion, curriculum_version_id)
 

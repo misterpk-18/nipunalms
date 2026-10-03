@@ -5,6 +5,7 @@ import { deliveryApi, type BatchDetail, type Check } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { DataTable, KeyValue, Note, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { ActionDialog, fmtDate, fmtDay, useCanManage } from "@/features/shared/delivery-ui";
+import { timetableBody, timetableLabel } from "@/features/academic/timetable";
 import { RosterDialog, useDelivery } from "@/features/shared/sessions";
 
 const TABS = ["Overview", "Readiness", "Trainers", "Students", "History"] as const;
@@ -57,6 +58,7 @@ function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) 
           ["Seats", `${batch.allocated_count} of ${batch.capacity}${batch.is_full ? " (full)" : ""}`],
           ["Mode", batch.mode],
           ["Planned dates", `${fmtDay(batch.planned_start)} → ${fmtDay(batch.planned_end)}`],
+          ["Timetable", timetableLabel(batch)],
           ["Sessions", `${batch.session_counts.delivered} delivered · ${batch.session_counts.upcoming} upcoming · ${batch.session_counts.cancelled} cancelled`],
           ["State", <StatusBadge key="s">{batch.state}</StatusBadge>],
           ["Readiness", <StatusBadge key="r">{batch.readiness}</StatusBadge>],
@@ -82,6 +84,10 @@ function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) 
               },
               { name: "planned_start", label: "Planned start", type: "date", value: batch.planned_start ?? "" },
               { name: "planned_end", label: "Planned end", type: "date", value: batch.planned_end ?? "" },
+              { name: "schedule_days", label: "Days", type: "days", value: batch.schedule_days.join(",") },
+              { name: "start_time", label: "Start time (IST)", type: "time", value: batch.start_time ?? "" },
+              { name: "end_time", label: "End time (IST)", type: "time", value: batch.end_time ?? "" },
+              { name: "location", label: "Room", hint: "Classroom or lab; not used for Live Online", value: batch.location ?? "" },
             ]}
             onSubmit={(v) =>
               update.mutateAsync({
@@ -89,6 +95,7 @@ function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) 
                 mode: v["mode"],
                 planned_start: v["planned_start"] || null,
                 planned_end: v["planned_end"] || null,
+                ...timetableBody(v),
               })
             }
           />

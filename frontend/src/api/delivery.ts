@@ -66,6 +66,11 @@ export type Batch = {
   mode: string;
   planned_start: DateOnly | null;
   planned_end: DateOnly | null;
+  /** The timetable sales can promise: days in week order, IST "HH:MM", the room (none for Live Online). */
+  schedule_days: string[];
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
   state: string;
   readiness: string;
   readiness_reason: string | null;
