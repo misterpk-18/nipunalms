@@ -209,7 +209,20 @@ export function DataTable<T>({
   );
 }
 
-export function PillTabs<T extends string>({ tabs, value, onChange, label }: { tabs: readonly T[]; value: T; onChange: (tab: T) => void; label: string }) {
+export function PillTabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+  label,
+  counts,
+}: {
+  tabs: readonly T[];
+  value: T;
+  onChange: (tab: T) => void;
+  label: string;
+  /** A number beside a tab's name, shown when above zero. */
+  counts?: Partial<Record<T, number>>;
+}) {
   return (
     <div role="tablist" aria-label={label} className="mb-4 flex flex-wrap gap-2">
       {tabs.map((tab) => (
@@ -224,6 +237,11 @@ export function PillTabs<T extends string>({ tabs, value, onChange, label }: { t
           )}
         >
           {tab}
+          {!!counts?.[tab] && (
+            <span className={cn("ml-2 rounded-full px-1.5 text-xs", value === tab ? "bg-primary-foreground/20" : "bg-primary/10 text-primary")}>
+              {counts[tab]}
+            </span>
+          )}
         </button>
       ))}
     </div>

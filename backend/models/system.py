@@ -113,9 +113,22 @@ class Notification(db.Model):
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
+    @property
+    def status(self) -> str:
+        """The one state a person sees: Needs action (an open action waits for them), Done (read, or the action is complete),
+        else New. A message that could not be delivered (a channel problem, not a message) is Failed."""
+        if self.delivery_status == "Failed":
+            return "Failed"
+        if self.action_status == "Open":
+            return "Needs action"
+        if self.action_status == "Completed" or self.read_at is not None or self.acknowledged_at is not None:
+            return "Done"
+        return "New"
+
     def to_dict(self) -> dict:
         return {
             "notification_id": self.notification_id,
+            "status": self.status,
             "category": self.category,
             "title": self.title,
             "body": self.body,

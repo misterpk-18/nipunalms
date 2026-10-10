@@ -36,7 +36,17 @@ def list_stmt(user_id: int, scoped: bool, filters: dict) -> Select:
         Notification.created_at.desc(), Notification.notification_id.desc()
     )
     view = filters.get("view", "my")
-    if view == "action":
+    if not filters.get("show_failures"):
+        # a channel that could not deliver is a system matter, shown only to the people who run the system
+        stmt = stmt.where(Notification.delivery_status == "Delivered")
+    if view == "needs_action":
+        stmt = stmt.where(Notification.action_status == "Open")
+    elif view == "new":
+        stmt = stmt.where(Notification.read_at.is_(None), Notification.acknowledged_at.is_(None), Notification.action_status != "Open")
+    elif view == "done":
+        stmt = stmt.where(Notification.action_status != "Open",
+                          or_(Notification.action_status == "Completed", Notification.read_at.is_not(None), Notification.acknowledged_at.is_not(None)))
+    elif view == "action":
         stmt = stmt.where(Notification.action_status == "Open")
     elif view == "unread":
         stmt = stmt.where(Notification.read_at.is_(None), Notification.delivery_status == "Delivered")
@@ -62,7 +72,9 @@ def counts(user_id: int, scoped: bool) -> dict[str, int]:
     base = select(func.count()).select_from(Notification).where(_mine(user_id, scoped))
     unread = db.session.execute(base.where(Notification.read_at.is_(None), Notification.delivery_status == "Delivered")).scalar_one()
     action = db.session.execute(base.where(Notification.action_status == "Open")).scalar_one()
-    return {"unread": unread, "action_required": action}
+    new = db.session.execute(base.where(Notification.read_at.is_(None), Notification.acknowledged_at.is_(None), Notification.action_status != "Open",
+                                        Notification.delivery_status == "Delivered")).scalar_one()
+    return {"unread": unread, "action_required": action, "needs_action": action, "new": new}
 
 
 def mark_all_read(user_id: int, scoped: bool) -> int:

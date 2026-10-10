@@ -7,6 +7,7 @@ import { useAuth } from "@/auth/auth";
 import { useActing } from "@/auth/acting";
 import { NAV, isNavActive, homeWorkspace, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
 import { ActingAs } from "@/components/lms/acting-as";
+import { NotificationBell } from "@/components/lms/notification-bell";
 import { CommandPalette, SearchButton } from "@/components/lms/command-palette";
 import { LanguageToggle } from "@/components/lms/language-toggle";
 import {
@@ -18,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useNotificationOverview } from "@/api/notifications";
 import { useDocumentLanguage, useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -96,7 +96,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const unread = useNotificationOverview({ enabled: Boolean(bell) }).data?.unread ?? 0;
 
   const exit = async () => {
     await signOut();
@@ -123,23 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex min-w-0 items-center gap-2">
             {translated && <LanguageToggle />}
             <SearchButton onClick={() => setSearchOpen(true)} />
-            {bell && (
-              <Link
-                to={bell}
-                aria-label={translated ? t("notifications") : "Notifications"}
-                className="tap relative grid place-items-center rounded-lg hover:bg-navy-muted"
-              >
-                <Bell className="size-5" aria-hidden />
-                {unread > 0 && (
-                  <span
-                    data-testid="unread-count"
-                    className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-4 text-white"
-                  >
-                    {unread > 99 ? "99+" : unread}
-                  </span>
-                )}
-              </Link>
-            )}
+            {bell && <NotificationBell inbox={bell} label={translated ? t("notifications") : "Notifications"} />}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

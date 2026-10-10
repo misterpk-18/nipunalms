@@ -49,28 +49,37 @@ test("the branch manager resolves the recording-access request and the student i
   await expect(dialog.getByText("Recording released after review").first()).toBeVisible();
 });
 
-test("student sees the resolution, an unread bell count and separate notification states", async ({ page }, info) => {
+test("student gets a bell preview and an inbox with one state and one button per item", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.student);
   await expect(page.getByTestId("unread-count")).toBeVisible();
-  await page.goto("/notifications");
+  await page.getByRole("button", { name: "Notifications" }).click();
+  await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open inbox" })).toBeVisible();
+  await page.getByRole("link", { name: "Open inbox" }).click();
+  await expect(page).toHaveURL(/\/notifications$/);
   await expect(page.getByRole("heading", { level: 1, name: "Notifications" })).toBeVisible();
+
+  // the inbox has three views and no delivery column or system tab for a student
+  for (const tab of ["Needs action", "All", "Done"]) await expect(page.getByRole("tab", { name: tab })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "System issues" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "All" }).click();
   await expect(page.getByText("Support request SR-1042 resolved").first()).toBeVisible();
+  await expect(page.getByText("not sent")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "View request" }).first()).toBeVisible();
 
-  await page.getByRole("tab", { name: "Action Required" }).click();
-  await expect(page.getByText("Assignment 'Regression on housing dataset' due 29 Sep").first()).toBeVisible();
-  await page
-    .getByRole("button", { name: /Mark action done for Assignment/ })
-    .first()
-    .click();
-  await expect(page.getByText("Action marked done")).toBeVisible();
-
-  await page.getByRole("tab", { name: "System Issues" }).click();
-  await expect(page.getByText("WhatsApp — Integration Pending Verification (not sent)").first()).toBeVisible();
-  await page.getByRole("tab", { name: "My Notifications" }).click();
-  await page.getByRole("button", { name: /Acknowledge Support request SR-1042 resolved/ }).click();
-  await expect(page.getByText("Acknowledged").first()).toBeVisible();
+  // preferences live on the account page, and only live channels are offered
+  await page.goto("/profile");
   await expect(page.getByRole("switch", { name: "Placement by In-app" })).toBeDisabled();
+  await expect(page.getByRole("switch", { name: /by WhatsApp/ })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Notifications" })).toHaveCount(0);
+});
+
+test("only the Super Admin sees system issues in the inbox", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop flow");
+  await login(page, USERS.admin);
+  await page.goto("/admin/notifications");
+  await expect(page.getByRole("tab", { name: "System issues" })).toBeVisible();
 });
 
 test("trainer sees the support flags of their students and their own notifications", async ({ page }, info) => {

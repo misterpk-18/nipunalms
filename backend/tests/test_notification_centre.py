@@ -35,7 +35,7 @@ def titles(response):
 
 def test_a_user_sees_only_their_own_notifications(client, world, inbox):
     mine = titles(client.get(API, headers=world.h(world.students.s1)))
-    assert len(mine) == 4 and "Module test scheduled 03 Oct" not in mine
+    assert len(mine) == 3 and "Module test scheduled 03 Oct" not in mine  # the WhatsApp message that was not sent is not listed
     assert titles(client.get(API, headers=world.h(world.students.s2))) == ["Module test scheduled 03 Oct"]
     assert titles(client.get(API, headers=world.h(world.people.t1))) == []
 
@@ -44,7 +44,7 @@ def test_views_split_by_state(client, world, inbox):
     h = world.h(world.students.s1)
     assert titles(client.get(f"{API}?view=action", headers=h)) == ["Regression on housing dataset due 29 Sep"]
     assert titles(client.get(f"{API}?view=completed", headers=h)) == ["Support request SR-1019 resolved"]
-    assert titles(client.get(f"{API}?view=system", headers=h)) == ["WhatsApp reminder for class 28 Sep"]
+    assert titles(client.get(f"{API}?view=system", headers=h)) == []  # delivery failures are for the people who run the system
     unread = titles(client.get(f"{API}?view=unread", headers=h))
     assert sorted(unread) == ["Recording for 24 Sep held for review", "Regression on housing dataset due 29 Sep"]
     assert titles(client.get(f"{API}?category=Recording", headers=h)) == ["Recording for 24 Sep held for review"]
@@ -55,14 +55,13 @@ def test_views_split_by_state(client, world, inbox):
 def test_each_notification_shows_its_delivery_state(client, world, inbox):
     rows = {n["title"]: n for n in client.get(API, headers=world.h(world.students.s1)).get_json()["data"]}
     assert rows["Regression on housing dataset due 29 Sep"]["delivery_label"] == "Delivered in-app"
-    assert rows["WhatsApp reminder for class 28 Sep"]["delivery_label"] == "WhatsApp — Integration Pending Verification (not sent)"
-    assert rows["WhatsApp reminder for class 28 Sep"]["delivery_status"] == "Failed"
+    assert "WhatsApp reminder for class 28 Sep" not in rows  # a message that was not sent is not an inbox item
 
 
 def test_overview_counts_unread_and_open_actions(client, world, inbox):
     h = world.h(world.students.s1)
     assert client.get(f"{API}/overview", headers=h).get_json()["data"] == {
-        "unread": 2, "action_required": 1, "categories": ["Assignment", "Recording", "Session", "Support"]}
+        "unread": 2, "action_required": 1, "needs_action": 1, "new": 1, "categories": ["Assignment", "Recording", "Session", "Support"]}
     assert client.get(f"{API}/overview", headers=world.h(world.people.t1)).get_json()["data"]["unread"] == 0
 
 
@@ -210,3 +209,48 @@ def test_every_staff_role_lists_and_acknowledges_only_its_own_notifications(clie
 def test_staff_profile_lists_roles_and_branch(client, world):
     data = client.get("/api/v1/me/profile", headers=world.h(world.people.bm)).get_json()["data"]
     assert data["student"] is None and [s["role_name"] for s in data["scopes"]] == ["Branch Manager"]
+
+
+def test_each_notification_has_one_status_and_the_inbox_views_follow_it(client, world, inbox):
+    h = world.h(world.students.s1)
+    rows = {n["title"]: n["status"] for n in client.get(API, headers=h).get_json()["data"]}
+    assert rows == {"Regression on housing dataset due 29 Sep": "Needs action", "Recording for 24 Sep held for review": "New",
+                    "Support request SR-1019 resolved": "Done"}
+    assert titles(client.get(f"{API}?view=needs_action", headers=h)) == ["Regression on housing dataset due 29 Sep"]
+    assert titles(client.get(f"{API}?view=new", headers=h)) == ["Recording for 24 Sep held for review"]
+    assert titles(client.get(f"{API}?view=done", headers=h)) == ["Support request SR-1019 resolved"]
+    overview = client.get(f"{API}/overview", headers=h).get_json()["data"]
+    assert overview["needs_action"] == 1 and overview["new"] == 1
+
+    # reading a message moves it from New to Done; an open action stays Needs action until it is completed
+    recording = next(n for n in client.get(API, headers=h).get_json()["data"] if n["status"] == "New")
+    assert client.post(f"{API}/{recording['notification_id']}/read", headers=h).get_json()["data"]["status"] == "Done"
+    task = next(n for n in client.get(API, headers=h).get_json()["data"] if n["status"] == "Needs action")
+    assert client.post(f"{API}/{task['notification_id']}/read", headers=h).get_json()["data"]["status"] == "Needs action"
+    assert client.post(f"{API}/{task['notification_id']}/action-done", headers=h).get_json()["data"]["status"] == "Done"
+
+
+def test_only_the_super_admin_sees_delivery_failures(client, world, inbox, run_sql):
+    admin = world.people.admin
+    run_sql("INSERT INTO notifications (recipient_user_id, category, title, event_key, channel, delivery_status, delivery_note) "
+            "VALUES (:u, 'Session', 'Email to a trainer was not sent', 'a6', 'Email', 'Failed', 'Integration Not Configured')", u=admin.user_id)
+    assert titles(client.get(f"{API}?view=system", headers=world.h(admin))) == ["Email to a trainer was not sent"]
+    failed = client.get(f"{API}?view=system", headers=world.h(admin)).get_json()["data"][0]
+    assert failed["delivery_label"] == "Email — Integration Not Configured (not sent)" and failed["status"] == "Failed"
+    assert titles(client.get(f"{API}?view=system", headers=world.h(world.people.t1))) == []
+
+
+def test_every_notification_sent_from_the_services_carries_a_link():
+    """A notification opens the screen where the person acts on it: no notify() call may leave the link out."""
+    import ast
+    import pathlib
+
+    missing = []
+    for path in sorted(pathlib.Path("services").glob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == "notify":
+                link = next((k.value for k in node.keywords if k.arg == "link"), None)
+                if link is None or (isinstance(link, ast.Constant) and link.value is None):
+                    missing.append(f"{path}:{node.lineno}")
+    assert missing == ["services/crm.py:117"]  # the CRM wrapper passes **notice through; its callers carry the link
+

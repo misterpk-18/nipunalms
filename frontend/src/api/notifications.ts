@@ -2,11 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { get, list, post, put, type Page } from "./client";
 import type { DateTime } from "./types";
 
-export const NOTIFICATION_VIEWS = ["my", "action", "unread", "completed", "system"] as const;
+export const NOTIFICATION_VIEWS = ["my", "needs_action", "new", "done", "action", "unread", "completed", "system"] as const;
 export type NotificationView = (typeof NOTIFICATION_VIEWS)[number];
+
+/** The one state a person sees: Needs action (an open action waits for them), Done (read or completed), else New; Failed is a channel problem. */
+export type NotificationStatus = "New" | "Needs action" | "Done" | "Failed";
 
 export type NotificationItem = {
   notification_id: number;
+  status: NotificationStatus;
   category: string;
   title: string;
   body: string | null;
@@ -21,7 +25,7 @@ export type NotificationItem = {
   created_at: DateTime;
 };
 
-export type NotificationOverview = { unread: number; action_required: number; categories: string[] };
+export type NotificationOverview = { unread: number; action_required: number; needs_action: number; new: number; categories: string[] };
 
 export type PreferenceGroup = "Service" | "Learning reminders" | "Placement" | "Promotions & alumni";
 export type Preferences = {

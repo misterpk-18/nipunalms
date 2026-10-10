@@ -35,7 +35,8 @@ def _me() -> tuple[int, bool]:
 
 
 def list_notifications(filters: dict, page: int, per_page: int) -> tuple[list[Notification], dict]:
-    return paginate(notifications_repo.list_stmt(*_me(), filters), page, per_page)
+    """The caller's notifications. Delivery failures are listed only for the Super Admin (the system view)."""
+    return paginate(notifications_repo.list_stmt(*_me(), {**filters, "show_failures": current_user().has_role("SUPER_ADMIN")}), page, per_page)
 
 
 def overview() -> dict:

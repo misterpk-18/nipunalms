@@ -9,19 +9,21 @@ const STAFF = [
 ];
 
 for (const s of STAFF) {
-  test(`${s.name} opens notifications from the header bell and the navigation`, async ({ page }, info) => {
+  test(`${s.name} opens the inbox from the header bell`, async ({ page }, info) => {
     test.skip(info.project.name === "mobile", "desktop flow");
     await login(page, s.user);
     await expect(page).toHaveURL(new RegExp(`${s.home}$`));
     await expect(page.getByRole("banner").getByTestId("unread-count")).toBeVisible();
-    await page.getByRole("banner").getByRole("link", { name: "Notifications" }).click();
+    await page.getByRole("banner").getByRole("button", { name: "Notifications" }).click();
+    await page.getByRole("link", { name: "Open inbox" }).click();
     await expect(page).toHaveURL(new RegExp(`${s.path}$`));
     await expect(page.getByRole("heading", { level: 1, name: "Notifications" })).toBeVisible();
+    await page.getByRole("tab", { name: "All" }).click();
     await page.locator("#main").getByLabel("Search", { exact: true }).fill(s.seeded.slice(0, 20)); // other specs add notifications, so find the seeded one
     await expect(page.getByText(s.seeded).first()).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Notifications" })).toBeVisible();
-    await page.getByRole("tab", { name: "Action Required" }).click();
-    await expect(page.getByRole("tab", { name: "Action Required" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Notifications" })).toHaveCount(0);
+    await page.getByRole("tab", { name: "Needs action" }).click();
+    await expect(page.getByRole("tab", { name: "Needs action" })).toHaveAttribute("aria-selected", "true");
   });
 }
 

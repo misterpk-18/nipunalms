@@ -5,6 +5,7 @@ import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { fmtDateTime, fmtDate } from "@/features/shared/format";
+import { NotificationPreferences } from "@/features/shared/notification-preferences";
 import { useApiMutation } from "@/lib/mutation";
 import { useLanguage, useT } from "@/lib/i18n";
 import type { Language } from "@/api/types";
@@ -80,6 +81,7 @@ export function Profile() {
                   </div>
                 </Section>
               )}
+              <NotificationPreferences />
               <Section
                 title="Devices & sessions"
                 actions={

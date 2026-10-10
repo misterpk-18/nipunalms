@@ -1,59 +1,135 @@
-/** The in-app notification centre: delivery, read, acknowledged and action states shown and changed separately. Used by the student and trainer screens. */
+/** The notification inbox: every item has one state (New, Needs action, Done) and one button. Used by every workspace that has a bell. */
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { notificationsApi, type NotificationView } from "@/api/notifications";
+import { notificationsApi, type NotificationItem, type NotificationView } from "@/api/notifications";
+import { useAuth } from "@/auth/auth";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, Note, PageHead, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { Note, PageHead, PillTabs, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { useApiMutation } from "@/lib/mutation";
 import { fmtDateTime } from "@/features/shared/format";
+import { useApiMutation } from "@/lib/mutation";
 
-const TABS = ["My Notifications", "Action Required", "Unread", "Completed", "System Issues"] as const;
+const TABS = ["Needs action", "All", "Done", "System issues"] as const;
 type Tab = (typeof TABS)[number];
-const VIEW_OF: Record<Tab, NotificationView> = {
-  "My Notifications": "my",
-  "Action Required": "action",
-  Unread: "unread",
-  Completed: "completed",
-  "System Issues": "system",
+const VIEW_OF: Record<Tab, NotificationView> = { "Needs action": "needs_action", All: "my", Done: "done", "System issues": "system" };
+
+/** What the button says, by the kind of message (the notification's category). */
+const ACTION_LABELS: Record<string, string> = {
+  Session: "View schedule",
+  Calendar: "View schedule",
+  Batch: "View batch",
+  Certificate: "View certificate",
+  Attendance: "View attendance",
+  Enrolment: "View enrolment",
+  Curriculum: "Review",
+  Recording: "Open recordings",
+  Content: "Open",
+  Career: "Open career",
+  Support: "View request",
+  Completion: "Review",
+  Assessments: "Open",
+  Access: "View request",
+  Assignments: "Open task",
+  Reviews: "Open reviews",
+  Results: "View result",
 };
+const actionLabel = (category: string) => ACTION_LABELS[category] ?? "Open";
+
+/** One inbox row: the title, a line of detail, the state and the one button that goes to the item. */
+export function NotificationRow({ n, onOpen, compact }: { n: NotificationItem; onOpen?: () => void; compact?: boolean }) {
+  const refresh = { invalidate: [["notifications"], ["nav"]] };
+  const read = useApiMutation((id: number) => notificationsApi.read(id), refresh);
+  const done = useApiMutation((id: number) => notificationsApi.actionDone(id), { ...refresh, success: "Marked as done" });
+  const open = () => {
+    if (n.status === "New") read.mutate(n.notification_id);
+    onOpen?.();
+  };
+  return (
+    <li className={compact ? "flex flex-col gap-2 py-3" : "flex flex-wrap items-start justify-between gap-3 py-3"}>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge domain="notification" code={n.status} />
+          <span className={n.status === "New" || n.status === "Needs action" ? "text-sm font-semibold" : "text-sm"}>{n.title}</span>
+        </div>
+        {n.body && <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>}
+        <p className="mt-1 text-xs text-muted-foreground">
+          {n.category} · {fmtDateTime(n.created_at)}
+          {n.status === "Failed" && ` · ${n.delivery_label}`}
+        </p>
+      </div>
+      {n.status !== "Failed" && (
+        <div className={compact ? "flex items-center gap-2" : "flex shrink-0 items-center gap-2"}>
+          {n.status === "Needs action" && (
+            <Button size="sm" variant="ghost" onClick={() => done.mutate(n.notification_id)} disabled={done.isPending} aria-label={`Mark as done: ${n.title}`}>
+              Mark as done
+            </Button>
+          )}
+          {n.link ? (
+            <Button asChild size="sm" variant={n.status === "Done" ? "outline" : "default"}>
+              <Link to={n.link} onClick={open}>
+                {actionLabel(n.category)}
+              </Link>
+            </Button>
+          ) : (
+            n.status === "New" && (
+              <Button size="sm" variant="outline" onClick={() => read.mutate(n.notification_id)}>
+                Mark as read
+              </Button>
+            )
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
 
 export function NotificationCentre({ title }: { title: string }) {
-  const [tab, setTab] = useState<Tab>("My Notifications");
+  const { hasRole } = useAuth();
+  const tabs = hasRole("SUPER_ADMIN") ? TABS : TABS.filter((t) => t !== "System issues");
+  const overview = useQuery({ queryKey: ["notifications", "overview"], queryFn: notificationsApi.overview });
+  const [picked, setPicked] = useState<Tab | null>(null);
+  // Opens on what needs the person when there is anything, else on everything
+  const tab = picked ?? ((overview.data?.needs_action ?? 0) > 0 ? "Needs action" : "All");
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const filters = { view: VIEW_OF[tab], category, q, page };
   const query = useQuery({ queryKey: ["notifications", "list", filters], queryFn: () => notificationsApi.list(filters) });
-  const overview = useQuery({ queryKey: ["notifications", "overview"], queryFn: notificationsApi.overview });
-  const refresh = { invalidate: [["notifications"]] };
-  const read = useApiMutation((id: number) => notificationsApi.read(id), refresh);
-  const acknowledge = useApiMutation((id: number) => notificationsApi.acknowledge(id), { ...refresh, success: "Acknowledged" });
-  const done = useApiMutation((id: number) => notificationsApi.actionDone(id), { ...refresh, success: "Action marked done" });
-  const readAll = useApiMutation(() => notificationsApi.readAll(), { ...refresh, success: (r) => `${r.marked} marked as read` });
+  const readAll = useApiMutation(() => notificationsApi.readAll(), { invalidate: [["notifications"], ["nav"]], success: (r) => `${r.marked} marked as read` });
+  const empty: Record<Tab, string> = {
+    "Needs action": "Nothing is waiting for you. New things that need you appear here.",
+    All: "No notifications yet. Updates about your classes, work and requests will appear here.",
+    Done: "Nothing here yet. Items you have read or finished move here.",
+    "System issues": "No messages failed to send.",
+  };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-4xl">
       <PageHead
         title={title}
-        description="In-app notification centre"
+        description="What needs you, and what has happened. Each item has one button that takes you there."
         actions={
           <Button variant="outline" onClick={() => readAll.mutate()} disabled={readAll.isPending || !overview.data?.unread}>
             Mark all as read
           </Button>
         }
       />
-      <PillTabs tabs={TABS} value={tab} onChange={(next) => (setTab(next), setPage(1))} label="Notification views" />
+      <PillTabs
+        tabs={tabs}
+        value={tab}
+        onChange={(next) => (setPicked(next), setPage(1))}
+        label="Notification views"
+        counts={{ "Needs action": overview.data?.needs_action }}
+      />
       <div className="mb-3 flex flex-wrap items-end gap-2">
         <div className="w-full sm:w-48">
-          <Label htmlFor="notification-category">Category</Label>
+          <Label htmlFor="notification-category">Kind</Label>
           <NativeSelect
             id="notification-category"
-            placeholder="All categories"
+            placeholder="All kinds"
             value={category}
             onChange={(e) => (setCategory(e.target.value), setPage(1))}
             options={(overview.data?.categories ?? []).map((c) => ({ value: c, label: c }))}
@@ -64,69 +140,14 @@ export function NotificationCentre({ title }: { title: string }) {
           <Input id="notification-search" placeholder="Search notifications" value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} />
         </div>
       </div>
-      <QueryView query={query} isEmpty={(r) => r.data.length === 0} empty="No notifications in this view.">
+      <QueryView query={query} isEmpty={(r) => r.data.length === 0} empty={empty[tab]}>
         {(result) => (
           <>
-            <DataTable
-              caption="Notifications"
-              rows={result.data}
-              getKey={(n) => n.notification_id}
-              cols={[
-                {
-                  h: "Notification",
-                  c: (n) => (
-                    <div>
-                      <div className={n.read_at || n.delivery_status === "Failed" ? "" : "font-semibold"}>
-                        {n.link ? (
-                          <Link
-                            to={n.link}
-                            onClick={() => !n.read_at && n.delivery_status === "Delivered" && read.mutate(n.notification_id)}
-                            className="underline-offset-2 hover:underline"
-                          >
-                            {n.title}
-                          </Link>
-                        ) : (
-                          n.title
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {n.category} · {fmtDateTime(n.created_at)}
-                      </div>
-                    </div>
-                  ),
-                },
-                { h: "Delivery", c: (n) => <StatusBadge domain="notification" code={n.delivery_status} label={n.delivery_label} /> },
-                {
-                  h: "Read",
-                  c: (n) =>
-                    n.delivery_status === "Failed" ? "—" : <StatusBadge domain="notification" code={n.read_at ? "Read" : "Unread"} />,
-                },
-                {
-                  h: "Acknowledged",
-                  c: (n) =>
-                    n.delivery_status === "Failed" ? (
-                      "—"
-                    ) : n.acknowledged_at ? (
-                      <StatusBadge domain="notification" code="Acknowledged" />
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => acknowledge.mutate(n.notification_id)} aria-label={`Acknowledge ${n.title}`}>
-                        Acknowledge
-                      </Button>
-                    ),
-                },
-                {
-                  h: "Action",
-                  c: (n) =>
-                    n.action_status === "Open" ? (
-                      <Button size="sm" onClick={() => done.mutate(n.notification_id)} aria-label={`Mark action done for ${n.title}`}>
-                        Mark action done
-                      </Button>
-                    ) : (
-                      <StatusBadge domain="notification" code={n.action_status === "Completed" ? "Completed" : "None"} />
-                    ),
-                },
-              ]}
-            />
+            <ul className="divide-y rounded-xl border bg-card px-4 shadow-sm" aria-label="Notifications">
+              {result.data.map((n) => (
+                <NotificationRow key={n.notification_id} n={n} />
+              ))}
+            </ul>
             {result.meta.pages > 1 && (
               <div className="mt-3 flex items-center justify-end gap-2 text-sm">
                 <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>
@@ -144,73 +165,8 @@ export function NotificationCentre({ title }: { title: string }) {
         )}
       </QueryView>
       <div className="mt-4">
-        <Note>
-          Delivery, Read, Acknowledged and Action Completed are tracked separately. WhatsApp and email are not delivering until their integrations are verified.
-        </Note>
-      </div>
-      <div className="mt-4">
-        <Preferences />
+        <Note>Notification channels are set on your account page.</Note>
       </div>
     </div>
-  );
-}
-
-function Preferences() {
-  const query = useQuery({ queryKey: ["notifications", "preferences"], queryFn: notificationsApi.preferences });
-  const save = useApiMutation((change: { group: string; channel: string; enabled: boolean }) => notificationsApi.setPreferences([change]), {
-    invalidate: [["notifications", "preferences"]],
-    success: "Preference saved",
-  });
-  return (
-    <Section title="Notification preferences">
-      <QueryView query={query}>
-        {(prefs) => (
-          <div className="space-y-3">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <caption className="sr-only">Notification preferences by group and channel</caption>
-                <thead>
-                  <tr className="text-xs uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="py-2 pr-3">
-                      Group
-                    </th>
-                    {prefs.channels.map((c) => (
-                      <th key={c.channel} scope="col" className="px-3 py-2">
-                        {c.channel}
-                        {!c.always_on && (
-                          <div className="text-[11px] font-normal normal-case">
-                            {c.configuration_status} · {c.verification_status}
-                          </div>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {prefs.groups.map((g) => (
-                    <tr key={g.group} className="border-t">
-                      <th scope="row" className="py-2 pr-3 font-medium">
-                        {g.group}
-                      </th>
-                      {prefs.channels.map((c) => (
-                        <td key={c.channel} className="px-3 py-2">
-                          <Switch
-                            checked={g.settings[c.channel] ?? false}
-                            disabled={c.always_on || save.isPending}
-                            aria-label={`${g.group} by ${c.channel}`}
-                            onCheckedChange={(enabled) => save.mutate({ group: g.group, channel: c.channel, enabled })}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Note>In-app is always on. Choices for WhatsApp and email take effect only after those channels are configured and verified.</Note>
-          </div>
-        )}
-      </QueryView>
-    </Section>
   );
 }

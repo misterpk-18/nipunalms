@@ -4,7 +4,6 @@
  */
 import {
   Award,
-  Bell,
   BookOpen,
   Briefcase,
   Building2,
@@ -111,7 +110,6 @@ const STUDENT_NAV: NavItem[] = [
   { to: "/career", label: "Career", tkey: "career", icon: Briefcase },
   { to: "/ask-nipuna", label: "Ask Nipuna", tkey: "askNipuna", icon: Sparkles },
   { to: "/support", label: "Support", tkey: "support", icon: LifeBuoy, badgeKey: "support" },
-  { to: "/notifications", label: "Notifications", tkey: "notifications", icon: Bell },
   { to: "/finance", label: "Fees & Receipts", tkey: "finance", icon: Wallet },
   { to: "/profile", label: "Profile", tkey: "profile", icon: User },
 ];
@@ -129,7 +127,6 @@ const TRAINER_NAV: NavItem[] = [
   { to: "/trainer/support", label: "Support", icon: LifeBuoy, group: "People", badgeKey: "support" },
   { to: "/trainer/reports", label: "Reports", icon: ChartColumn, group: "Insights" },
   { to: "/trainer/ask-nipuna", label: "Ask Nipuna", icon: Sparkles, group: "Insights" },
-  { to: "/trainer/notifications", label: "Notifications", icon: Bell, group: "Insights" },
 ];
 
 const BRANCH_NAV: NavItem[] = [
@@ -150,7 +147,6 @@ const BRANCH_NAV: NavItem[] = [
   { to: "/branch/requests", label: "Escalations & Extensions", icon: Briefcase, group: "Help", badgeKey: "requests" },
   { to: "/branch/academic-reports", label: "Academic Reports", icon: ChartColumn, group: "Reports" },
   { to: "/branch/reports", label: "Certificates & Reports", icon: ScrollText, group: "Reports" },
-  { to: "/branch/notifications", label: "Notifications", icon: Bell, group: "Reports" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -163,7 +159,6 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/admin/integrations", label: "Integration Readiness", icon: Plug, group: "System" },
   { to: "/admin/security", label: "Security Readiness", icon: Lock, group: "System" },
   { to: "/admin/audit", label: "Audit Log", icon: ScrollText, group: "System" },
-  { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "System" },
 ];
 
 const FOUNDER_NAV: NavItem[] = [

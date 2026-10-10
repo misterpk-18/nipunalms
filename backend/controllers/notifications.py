@@ -4,7 +4,7 @@ from controllers.common import Validator, get_page_params, json_body, ok, pagina
 from models.notification_preferences import CHANNELS, PREFERENCE_GROUPS
 from services import notification_centre as centre
 
-VIEWS = ("my", "action", "unread", "completed", "system")
+VIEWS = ("my", "needs_action", "new", "done", "action", "unread", "completed", "system")
 
 
 def _item(notification) -> dict:

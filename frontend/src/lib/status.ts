@@ -18,7 +18,11 @@ export const STATUS = {
   enrolment: {
     "Provisioning Pending": s("Access being set up", "warning", "Course content opens once the qualifying payment is verified."),
     "Allocation Pending": s("Waiting for a batch", "info", "The course is confirmed. The branch will give you a batch before your first class."),
-    "Allocated — awaiting first regular class": s("Batch allocated", "info", "You have a batch. Your Joining Date is set when you attend your first regular class."),
+    "Allocated — awaiting first regular class": s(
+      "Batch allocated",
+      "info",
+      "You have a batch. Your Joining Date is set when you attend your first regular class.",
+    ),
     Active: s("In progress", "success", "You are learning in this course."),
     Paused: s("Paused", "warning", "The course is paused. Ask your branch to resume it."),
     Completed: s("Completed", "success", "You have completed this course."),
@@ -175,6 +179,9 @@ export const STATUS = {
   },
   /** A notification. */
   notification: {
+    New: s("New", "info", "You have not looked at this yet."),
+    "Needs action": s("Needs action", "warning", "Something is waiting for you; use the button."),
+    Done: s("Done", "success", "Read, or the action is complete."),
     Delivered: s("Delivered", "success", "Delivered."),
     Failed: s("Not delivered", "neutral", "Could not be delivered on that channel."),
     Unread: s("New", "warning", "Not read yet."),
