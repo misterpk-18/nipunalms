@@ -236,13 +236,15 @@ keeps the track screen out of the enrolment route's nesting for the same reason.
 
 ### 3. Shell and theme
 
-**Header** (navy, sticky): logo → `home_route`; `role label · branch` chip (large screens); language toggle (student
-workspace); workspace switcher (only when the user has several workspaces); notifications bell with the unread count
-(student → `/notifications`, trainer / academic / branch / admin → `<workspace>/notifications`; the founder has none);
+**Header** (navy, sticky): logo → `home_route`; `role label · branch` chip (large screens) or, for people with several workspaces or branches, the
+"Acting as" switcher (see the decisions table); the search button (Ctrl/Cmd+K); language toggle (student workspace);
+notifications bell (`notification-bell.tsx`) counting what is new or needs action, with a preview of the latest five and "Open inbox"
+(student → `/notifications`, trainer / branch / admin → `<workspace>/notifications`; the founder has none);
 account menu (Profile — `/profile` for students, `/account/profile` for staff — Change password, Sign out).
 
 **Sidebar** (≥ `md`, 240px): the workspace's nav list from `NAV` in `auth/access.ts` (same items, labels, order and
-icons as the prototype). Student labels come from the dictionary. **Bottom bar** (< `md`): four pinned items
+icons as the prototype, grouped under headings and with count badges for staff workspaces; there is no Notifications item, the bell
+holds it). Student labels come from the dictionary. **Bottom bar** (< `md`): four pinned items
 (`mobileBarItems`) + **More** bottom sheet with the rest of the list.
 
 **Theme** (`src/styles.css`): the prototype's oklch tokens — `--navy`, `--navy-foreground`, `--navy-muted`, `--primary`,
@@ -267,7 +269,7 @@ status on screen is `<StatusBadge domain="…" code={…} />`: the colour, the p
 do") come from the dictionary, never from the text. Use `label=` only when the API sends a richer label (an attendance entry
 with its recovery). An unknown code shows its own text in grey and warns once in development: add it to the dictionary.
 
-**Shared feature parts** (`features/shared/`): `notification-centre`, `assistant` (Ask Nipuna), `support-desk`,
+**Shared feature parts** (`features/shared/`): `notification-centre` (the inbox and the `NotificationRow` the bell reuses), `notification-preferences` (on the Profile screen), `assistant` (Ask Nipuna), `support-desk`,
 `reason-dialog`, `certificate-register`, `attendance-parts` (`MeasureCards`, `Meter`), `content-detail`, `delivery-ui`
 (IST `fmtDate` / `fmtRange`, DeliveryBar, MeetBadge, field-driven `ActionDialog`), `sessions`, `dashboard-parts`
 (`Tile`, `CrmTile`, `TileRow`, `QuickLinks`, `CardGap`), `recovery-step` (`RecoveryStepButton`, `OwnerCell`,
@@ -328,7 +330,7 @@ only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind 
 | `/career` | `career` | `/me/career/*` | Opt-in, profile editor, consent (withdraw), CV upload / versions / download, approved opportunities with Apply, applications with Withdraw, outcomes |
 | `/ask-nipuna` | `shared/assistant` | `/ask-nipuna/*` | Status, scope, usage, actions, sources, warnings, thumbs; refusals shown as "Not answered: out of scope" |
 | `/support` | `support` | `/support-requests` | Raise form, my requests, request panel with the thread (reply, confirm and close, reopen) |
-| `/notifications` | `shared/notification-centre` | `/notifications/*` | Five views, separate Read / Acknowledged / Action controls, preferences matrix |
+| `/notifications` | `shared/notification-centre` | `/notifications/*` | Inbox: tabs Needs action (first when any, with a count) · All · Done; one status (New / Needs action / Done) and one button per item; mark as done / read. Reached from the bell, not the sidebar. Preferences are on `/profile` |
 | `/finance` | `finance` | `/me/finance` | Per course: fee, verified paid, balance, receipts; the instalment schedule once per invoice (`INV-… · Course A + Course B`); as-of time and source |
 | `/profile` | `profile` | `/me/profile` | Identity with masked mobile, language (stored on the student), devices (sign out / sign out others), password and recovery |
 
@@ -345,7 +347,7 @@ only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind 
 | `/trainer/assignments` | `assignments` | `/assignments/*` | Create / release / extend / withdraw, submissions list |
 | `/trainer/assessments` | `assessments` (tabs `test-builder`, `question-bank`, `grading`, `interviews`) | `/tests`, `/questions`, `/attempts`, slots | |
 | `/trainer/support` | `support` | `/support-requests` | "Flag a student" dialog, requests the trainer owns or raised, students with open flags |
-| `/trainer/notifications`, `/trainer/ask-nipuna` | `shared/notification-centre`, `shared/assistant` | | |
+| `/trainer/notifications`, `/trainer/ask-nipuna` | `shared/notification-centre`, `shared/assistant` | | The inbox is reached from the bell |
 | `/trainer/reports` | `reports` | `/trainer/reports` | Delivery and attendance per assigned batch (Meter), review turnaround (Partial Data), engagement (Stale) |
 
 #### Branch Manager screens (`features/academic/`, served under `/branch/*`)
@@ -368,7 +370,7 @@ The Academic Coordinator workspace was merged into the Branch Manager's (UX phas
 | `/branch/certificates` | `shared/certificate-register` | `/certificates/*` | The API's `actions` decide which buttons show (recommend / approve / issue / reissue / revoke) |
 | `/branch/support` | `support` | `/support-requests` | Branch requests with reply, internal remark, status, resolve, escalate, reassign |
 | `/branch/academic-reports` | `reports` | `/academic/reports`, `/progress/summary` | Per-branch block plus the branch summary table |
-| `/branch/notifications` | `shared/notification-centre` | | |
+| `/branch/notifications` | `shared/notification-centre` | | The inbox is reached from the bell |
 
 #### Branch Manager, Super Admin, Founder
 
@@ -388,7 +390,7 @@ The Academic Coordinator workspace was merged into the Branch Manager's (UX phas
 | `/admin/crm-sync` | `admin/crm-sync` | `/admin/crm-sync/*` | Inbox (filters, payload view, retry) and outbox; event types come from the data |
 | `/admin/audit` | `admin/audit` | `/audit-log` | Filters by actor, entity, action, date (IST) |
 | `/admin/exceptions` | `admin/exceptions` | `/exceptions` | "Exception Queues — all branches": a section per queue with a branch column (company-wide rows say "All branches"); Super Admin can Update, the Founder reads |
-| `/admin/notifications` | `shared/notification-centre` | | |
+| `/admin/notifications` | `shared/notification-centre` | | The inbox, plus a "System issues" tab (delivery failures) for the Super Admin only |
 | `/founder/curriculum` | `founder/curriculum` (reuses `academic/curriculum` `VersionEditor`) | `/curriculum-versions?status=` | Versions Under Review or Approved; Approve / Return / Activate |
 | `/founder/certificates` | `founder/certificates` (`shared/certificate-register` `CertificateDecisions`) | `/certificate-requests`, `/certificate-financial-exceptions` | Revocations, reinstatements and fee exceptions to decide |
 | `/verify/:number` | `routes/verify.$number.tsx` | `/certificates/verify/{number}` | Public, no sign-in and no shell (`OPEN_PATH_ROOTS`); `?version=` shows an older copy |
@@ -499,7 +501,8 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Item | Notes |
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
-| WhatsApp / email / telephony | In-app notifications only |
+| WhatsApp | Built and switched off (UX phase U6): messages are queued in `whatsapp_outbox` and handed to the CRM's `POST /lms/whatsapp`, which does not exist yet; needs `CRM_BASE_URL`, `whatsapp_enabled` and approved templates (API.md §4.13) |
+| Email / telephony | None; in-app notifications only |
 | Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
@@ -581,7 +584,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Founder notifications | No event is addressed to the Founder role, so the founder workspace has no notification route or bell |
 | Placement Team | Module 23 names a Placement Team role; there is none, so Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
 | Support SLA | One `support_sla_hours` for all categories and priorities |
-| External channels | WhatsApp / email delivery, quiet hours and retry (Module 26) need the integrations verified first; preferences are stored only |
+| External channels | Email, quiet hours and delivery status for WhatsApp (Module 26) are not built; WhatsApp and email appear in preferences only when live |
 | Ask Nipuna | No spend ceiling / cost tracking (Module 24 §11); Telugu answer quality untested against a live model; the due-work facts cover the student's own batch seats only, with no per-question detail |
 | Career file storage | CV files on local disk under `UPLOAD_DIR/cv` |
 

@@ -3,7 +3,9 @@
 These are the WhatsApp messages the LMS itself will send. Each file holds one template: name, category, body, buttons,
 the meaning and a sample value for every `{{n}}`, and when the LMS sends it. **None is submitted yet.** The owner submits
 them in Pinbot (Meta approval), then the LMS can send them through the CRM (W4 in
-`nipuna crm-docs/CRM_WHATSAPP_CONNECTION.md`).
+`nipuna crm-docs/CRM_WHATSAPP_CONNECTION.md`). The LMS side is **built and switched off** (UX phase U6, [API.md §4.13](../API.md)): templates 4–9 are wired and
+named in `backend/services/whatsapp_templates.py`; 1–3 follow with sign-in (U7). Once a template is approved, add its name to
+`app_settings.whatsapp_approved_templates`.
 
 ## The templates
 
@@ -45,7 +47,7 @@ Don't create LMS versions of these. The learner would get each one twice:
 1. Replace `LMS_HOST` in every button with the production LMS domain.
 2. In Pinbot, create each template with the exact name, category, language, body and buttons from its file, and enter the sample values.
 3. For template 1, choose the **Authentication** category, turn on the security recommendation and a 10-minute expiry, and pick the **Copy code** button. The body text is fixed by Meta, so you only set those options.
-4. When a template is approved, tell the LMS session the names. They go into the LMS template list and into the reply to the CRM (W1).
+4. When a template is approved, put its name in the LMS setting `whatsapp_approved_templates` (a JSON list in `app_settings`). Only approved names are sent; the reply to the CRM (W1) already lists all nine.
 
 ## Sending rules the LMS will follow (from the CRM's note)
 

@@ -429,6 +429,8 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 
 ## Phase 10: notifications and integrations register (Modules 26 and 27) (migration 107)
 
+> **After UX phases U5 and U6** (`db/107` is now `whatsapp_outbox`, so this phase takes a later number): the inbox with one status per item, the bell preview, the per-channel preferences (`live` channels only) and WhatsApp through the CRM (queue, jobs, nine templates, triggers) are built. What remains here is the per-attempt delivery states and status callback, revised / cancelled notices, the message-centre filters and team views, template versions, on-duty cover, the CRM notices and G057 (consent intake). To be rewritten in U18.
+
 **Gaps:** G046–G055, G057 (medium). G057 (consent / stop-contact intake) depends on CRM round 4 (A2).
 
 - **Notification model:**
