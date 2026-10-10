@@ -691,3 +691,26 @@ Templates 1-3 (reset code, student activation link, staff invite) are queued by 
 - `send_pending` (job `whatsapp-send`) posts Queued rows after the commit with `X-Service-Key`, commits around each call, and records Sent / Skipped / Failed from the CRM's answer: 401/403 stops the run (the row stays Queued), 429/5xx back off 60 s doubling to 30 min and fail after 5 tries, a timeout or a 200 without confirmation is **Failed "check before resending"** and never auto-resent, a post with no recorded answer after 15 minutes is Failed. A message older than `whatsapp_max_age_hours` (48), or for a class that has begun, is never sent.
 - The code ships **switched off** (`whatsapp_enabled` false, no approved template, `CRM_BASE_URL` unset). `flask whatsapp status` and `flask whatsapp list` show why and what is queued.
 
+
+
+### 4.14 Sign-in and accounts (UX phase 7, `108`)
+
+| Endpoint | Notes |
+|---|---|
+| `POST /auth/reset-code` `{login}` | Public. Always `200 {"message": "If the account exists, we've sent a code."}`. Sends template 1 by WhatsApp to the number on file for an active login with a password. At most 5 codes per person per hour. No email fallback yet: the LMS has no email sender |
+| `POST /auth/reset` `{login, code, new_password}` | Public. `204`; `400` "That code is wrong or has expired" (5 wrong tries burn the code). Ends every session of the person and clears a lockout |
+| `GET /auth/activation/{token}` | Now `{kind: student or staff, status: valid / expired / used / revoked, student_code (masked), email (masked), full_name, expires_at, password_min_length}` |
+| `POST /auth/activate` `{token, password}` | Student or staff token. Signs the person in: the answer is a login response plus `activated` and `student_code` (students). Not counted as learning activity |
+| `POST /students/{id}/activation` | Also queues template 2; the answer adds `whatsapp: {state, note}`; `token` and `activation_path` remain as the copy fallback |
+| `POST /admin/users` | Also issues an invite and queues template 3. The answer adds `invite_path`, `invite_expires_at`, `whatsapp`; `temporary_password` is returned only when no WhatsApp message will carry the link |
+| `POST /admin/users/{id}/invite` | Super Admin, fresh auth. New invite link (replaces the old one) for a person who has not chosen a password |
+| `POST /admin/users/{id}/unlock` `{reason}` | Super Admin, fresh auth. Clears a lockout; audited as `USER_UNLOCKED` |
+
+### 4.15 Student Home and My Learning (UX phase 8, `109`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /me/home` | Adds `up_next` (`live_class`, `work_due`, `continue_topic`, `next_class` or `nothing`), `batch_changes: {items}` (waiting for Agree / Decline, with `reply_by`), `needs_batch` (the preferred slot is offered only then) and `course_progress.topics`. `continue_learning` points at the first topic not Done (`basis: "Next topic"`) |
+| `GET /me/enrolments`, `GET /me/enrolments/{id}` | Add `topics {done, total, percent}` and `continue_topic`; modules add `topics_done` and `percent`; tracks add `topics` |
+| `GET /modules/{id}` | Topics carry the learner's `progress` (null for staff) |
+| `GET /me/topics/{id}` | Topic hub (students only): topic, module, track, `progress`, `sessions` (with attendance), `recordings`, `materials`, `assignments`, `tests`, `next_topic` |

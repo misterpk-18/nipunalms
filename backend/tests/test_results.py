@@ -106,6 +106,6 @@ def test_publishing_queues_a_whatsapp_message_per_student_without_the_marks(clie
     run_sql("UPDATE app_settings SET setting_value = '[\"nipuna_lms_result_published_u_v1\"]' WHERE setting_key = 'whatsapp_approved_templates'")
     assignment, _ = provisional
     client.post(f"{API}/results/publish", json={"assignment_id": assignment["assignment_id"]}, headers=world.h["ac"])
-    rows = db.session.execute(select(WhatsappMessage)).scalars().all()
+    rows = db.session.execute(select(WhatsappMessage).where(WhatsappMessage.template_name == "nipuna_lms_result_published_u_v1")).scalars().all()
     assert len(rows) == 2 and {m.template_name for m in rows} == {"nipuna_lms_result_published_u_v1"}
     assert all(not any(mark in " ".join(m.params) for mark in ("18", "12")) for m in rows)  # marks are private; the app shows them

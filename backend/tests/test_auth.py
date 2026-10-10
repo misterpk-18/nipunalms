@@ -91,12 +91,13 @@ def test_student_logs_in_with_student_id_in_any_case_or_with_email(client, make_
 
 
 def test_student_login_records_learning_activity(client, make_student):
-    student = make_student()
+    student = make_student()  # activating signs the student in, but that is not learning activity
+    kinds = lambda: db.session.execute(db.text("SELECT kind FROM activity_events WHERE student_id = :s"), {"s": student.student_id}).scalars().all()
+    assert kinds() == []
 
     login_response(client, student.student_code)
 
-    kinds = db.session.execute(db.text("SELECT kind FROM activity_events WHERE student_id = :s"), {"s": student.student_id}).scalars().all()
-    assert kinds == ["login"]
+    assert kinds() == ["login"]
 
 
 def test_student_cannot_log_in_before_activation(client, make_student):

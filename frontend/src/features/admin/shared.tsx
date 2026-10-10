@@ -74,21 +74,11 @@ export function FormDialog({
   );
 }
 
-/** A secret the server shows exactly once (temporary password, activation link): copy it now, it is not stored. */
-export function SecretDialog({
-  title,
-  description,
-  label,
-  value,
-  onClose,
-}: {
-  title: string;
-  description: ReactNode;
-  label: string;
-  value: string;
-  onClose: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
+/** What the server shows exactly once (an invite link, a temporary password): copy it now, it is not stored. */
+export type Secret = { label: string; value: string };
+
+export function SecretDialog({ title, description, secrets, onClose }: { title: string; description: ReactNode; secrets: Secret[]; onClose: () => void }) {
+  const [copied, setCopied] = useState<string | null>(null);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[calc(100vw-1.5rem)] max-w-lg">
@@ -96,27 +86,29 @@ export function SecretDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <div className="flex items-center gap-2">
-            <Input readOnly value={value} aria-label={label} className="font-mono text-sm" onFocus={(e) => e.currentTarget.select()} />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Copy"
-              onClick={() => {
-                void navigator.clipboard?.writeText(value).then(
-                  () => setCopied(true),
-                  () => toast.error("Copy failed — select the text and copy it"),
-                );
-              }}
-            >
-              <Copy className="size-4" />
-            </Button>
+        {secrets.map(({ label, value }) => (
+          <div key={label} className="space-y-1.5">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={value} aria-label={label} className="font-mono text-sm" onFocus={(e) => e.currentTarget.select()} />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={`Copy ${label.toLowerCase()}`}
+                onClick={() => {
+                  void navigator.clipboard?.writeText(value).then(
+                    () => setCopied(label),
+                    () => toast.error("Copy failed — select the text and copy it"),
+                  );
+                }}
+              >
+                <Copy className="size-4" />
+              </Button>
+            </div>
+            {copied === label && <p className="text-xs text-success">Copied.</p>}
           </div>
-          {copied && <p className="text-xs text-success">Copied.</p>}
-        </div>
+        ))}
         <DialogFooter>
           <Button onClick={onClose}>Done</Button>
         </DialogFooter>

@@ -1,4 +1,4 @@
-"""The WhatsApp messages the LMS sends about learning (templates 4-9), built from the records that changed.
+"""The WhatsApp messages the LMS sends (templates 1-9), built from the records that changed.
 
 Each function is called from the service that made the change, in the same transaction, and only queues a message
 (services/whatsapp.py). A student with no WhatsApp number, or who switched the kind of message off, gets a Skipped row.
@@ -7,14 +7,14 @@ from datetime import datetime, timedelta, timezone
 
 from config.database import db
 from config.timezone import IST
-from models import Batch, Certificate, ClassSession, Result, SessionChange, Student
+from models import Batch, Certificate, ClassSession, Result, SessionChange, StaffInvite, Student, StudentActivation, User, WhatsappMessage
 from models.delivery_ops import MaterialChange
 from repositories import class_sessions as sessions_repo
 from repositories import whatsapp as whatsapp_repo
 from services import whatsapp
 from services import whatsapp_templates as templates
 
-# Until the batch-change screens store a reply-by date (UX phase U8), the student is asked to answer within this many days
+# A change that somehow has no reply-by date asks the student to answer within this many days
 BATCH_CHANGE_REPLY_DAYS = 7
 REMINDER_LEAD = timedelta(hours=2)
 JOIN_OPENS = timedelta(minutes=15)
@@ -29,6 +29,12 @@ def when(moment: datetime) -> str:
     """'Mon 12 Oct, 10:00 AM IST'."""
     local = moment.astimezone(IST)
     return f"{local:%a} {local.day} {local:%b}, {local.hour % 12 or 12}:{local:%M} {local:%p} IST"
+
+
+def stamp(moment: datetime) -> str:
+    """'13 Oct 2026, 6:00 PM IST'."""
+    local = moment.astimezone(IST)
+    return f"{local.day} {local:%b %Y}, {local.hour % 12 or 12}:{local:%M} {local:%p} IST"
 
 
 def _day(moment: datetime) -> str:
@@ -124,5 +130,33 @@ def batch_change_agreement(change: MaterialChange, student: Student) -> None:
     whatsapp.enqueue(
         templates.BATCH_CHANGE_AGREEMENT,
         {"student": student.full_name, "branch": batch.branch.branch_name, "course": batch.course.title, "now": change.current_plan,
-         "proposed": change.proposed_plan, "reason": change.reason, "reply_by": _day(_now() + timedelta(days=BATCH_CHANGE_REPLY_DAYS))},
+         "proposed": change.proposed_plan, "reason": change.reason, "reply_by": _day(change.reply_by or _now() + timedelta(days=BATCH_CHANGE_REPLY_DAYS))},
         dedupe_key=f"batch-change:{change.change_id}:{student.student_id}", student=student)
+
+
+# ---------------------------------------------------------------- 1-3: sign-in messages (UX phase U7)
+
+RESET_CODE_MINUTES = 10
+
+
+def password_reset_code(user: User, code: str, code_id: int) -> WhatsappMessage | None:
+    now = _now()
+    return whatsapp.enqueue(
+        templates.PASSWORD_RESET_CODE, {"code": code}, dedupe_key=f"pwd-reset:{user.user_id}:{code_id}",
+        student=db.session.get(Student, user.student_id) if user.student_id else None, user=user, occurred_at=now,
+        expires_at=now + timedelta(minutes=RESET_CODE_MINUTES))
+
+
+def student_activation_link(student: Student, token: str, activation: StudentActivation) -> WhatsappMessage | None:
+    return whatsapp.enqueue(
+        templates.STUDENT_ACTIVATION_LINK,
+        {"student": student.full_name, "branch": student.service_branch.branch_name, "student_code": student.student_code,
+         "expires": stamp(activation.expires_at), "token": token},
+        dedupe_key=f"activation-link:{activation.activation_id}", student=student, expires_at=activation.expires_at)
+
+
+def staff_invite(user: User, token: str, invite: StaffInvite, role_name: str, branch_name: str) -> WhatsappMessage | None:
+    return whatsapp.enqueue(
+        templates.STAFF_ACCOUNT_INVITE,
+        {"name": user.full_name, "role": role_name, "branch": branch_name, "expires": stamp(invite.expires_at), "token": token},
+        dedupe_key=f"staff-invite:{invite.invite_id}", user=user, expires_at=invite.expires_at)

@@ -4,7 +4,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { authApi, type Profile } from "@/api/auth";
+import { authApi, type LoginResult, type Profile } from "@/api/auth";
 import { errorMessage, getToken, registerAuthHandlers, setToken } from "@/api/client";
 import type { RoleCode, Workspace } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ type AuthContextValue = {
   workspaces: Workspace[];
   hasRole: (...roles: RoleCode[]) => boolean;
   signIn: (login: string, password: string) => Promise<Profile>;
+  /** Start a session from a login-shaped response (activation signs the person in). */
+  startSession: (result: LoginResult) => Profile;
   signOut: () => Promise<void>;
   refresh: () => Promise<unknown>;
 };
@@ -52,6 +54,25 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
     });
   }, [clearSession, queryClient]);
 
+  const startSession = useCallback(
+    (result: LoginResult): Profile => {
+      setToken(result.token);
+      const { token: _token, expires_at: _expires, ...rest } = result;
+      const profile: Profile = {
+        user: rest.user,
+        scopes: rest.scopes,
+        allowed_branches: rest.allowed_branches,
+        workspaces: rest.workspaces,
+        home_route: rest.home_route,
+        student: rest.student,
+      };
+      queryClient.setQueryData(["me"], profile);
+      setHasToken(true);
+      return profile;
+    },
+    [queryClient],
+  );
+
   const profile = hasToken ? (me.data ?? null) : null;
   const roles = useMemo(() => [...new Set(profile?.scopes.map((s) => s.role_code) ?? [])], [profile]);
 
@@ -62,14 +83,8 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
       roles,
       workspaces: profile?.workspaces ?? [],
       hasRole: (...wanted) => wanted.some((r) => roles.includes(r)),
-      signIn: async (login, password) => {
-        const result = await authApi.login(login, password);
-        setToken(result.token);
-        const { token: _token, expires_at: _expires, ...rest } = result;
-        queryClient.setQueryData(["me"], rest);
-        setHasToken(true);
-        return rest;
-      },
+      signIn: async (login, password) => startSession(await authApi.login(login, password)),
+      startSession,
       signOut: async () => {
         try {
           await authApi.logout();
@@ -79,7 +94,7 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
       },
       refresh: () => me.refetch(),
     }),
-    [clearSession, hasToken, me, profile, queryClient, roles],
+    [clearSession, hasToken, me, profile, roles, startSession],
   );
 
   return (

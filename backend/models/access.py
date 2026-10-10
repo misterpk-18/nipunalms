@@ -1,7 +1,7 @@
 """Users, roles, role scopes and login sessions."""
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -166,3 +166,42 @@ class ActiveSession(db.Model):
             "user_agent": self.user_agent,
             "current": self.session_id == current_session_id,
         }
+
+
+class PasswordResetCode(db.Model):
+    """A one-time code for the sign-in page's "Forgot password"; only its hash is stored (db/108)."""
+
+    __tablename__ = "password_reset_codes"
+
+    code_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    wrong_attempts: Mapped[int] = mapped_column(SmallInteger, default=0)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+
+
+class StaffInvite(db.Model):
+    """The one-time link a new staff member uses to choose their password; only the token's hash is stored (db/108)."""
+
+    __tablename__ = "staff_invites"
+
+    invite_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    issued_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id], lazy="joined")
+
+    def status(self, now: datetime) -> str:
+        """valid / used / revoked / expired."""
+        if self.used_at is not None:
+            return "used"
+        if self.revoked_at is not None:
+            return "revoked"
+        return "expired" if self.expires_at <= now else "valid"

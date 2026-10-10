@@ -37,7 +37,10 @@ import {
 import type { Workspace } from "@/api/types";
 import type { TranslationKey } from "@/lib/i18n";
 
-export const PUBLIC_PATHS = ["/login", "/activate"];
+export const PUBLIC_PATHS = ["/login", "/activate", "/forgot-password"];
+
+/** Public screens that stay open after sign-in: activation signs the person in and then shows its own success step. */
+export const STAY_WHEN_SIGNED_IN = ["/activate"];
 
 /** Open to everyone, signed in or not, without the app shell: public certificate verification (Module 22 §9). */
 export const OPEN_PATH_ROOTS = ["/verify"];

@@ -2,6 +2,7 @@ from flask import request
 
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated, require_changes
 from services import admin_users as users_service
+from services.whatsapp import outcome as whatsapp_outcome
 
 STAFF_ROLE_CODES = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
@@ -10,6 +11,16 @@ def _scope_rules(v: Validator) -> None:
     v.choice("role_code", STAFF_ROLE_CODES, required=True)
     v.integer("branch_id", nullable=True, min_value=1)
     v.datetime("expires_at", nullable=True)
+
+
+def _with_invite(user, issued, password: str | None = None) -> dict:
+    """The user plus their invite link. The temporary password is offered only when no WhatsApp message will carry the link."""
+    queued = bool(issued.message and issued.message.status == "Queued")
+    data = {**user.to_admin_dict(), "invite_path": f"/activate?token={issued.token}", "invite_expires_at": issued.invite.expires_at,
+            "whatsapp": whatsapp_outcome(issued.message)}
+    if password is not None and not queued:
+        data["temporary_password"] = password
+    return data
 
 
 def list_users():
@@ -35,8 +46,8 @@ def create_user():
     v.email("email", required=True)
     v.phone("phone", nullable=True)
     v.list_of("scopes", _scope_rules, required=True, min_items=1)
-    user, password = users_service.create_user(v.validate())
-    return created({**user.to_admin_dict(), "temporary_password": password})  # shown once
+    user, password, invite = users_service.create_user(v.validate())
+    return created(_with_invite(user, invite, password))  # the link and the password are shown once
 
 
 def update_user(user_id: int):
@@ -76,3 +87,14 @@ def reactivate(user_id: int):
 def reset_password(user_id: int):
     user, password = users_service.reset_password(user_id)
     return ok({**user.to_admin_dict(), "temporary_password": password})  # shown once
+
+
+def send_invite(user_id: int):
+    user, issued = users_service.send_invite(user_id)
+    return created(_with_invite(user, issued))
+
+
+def unlock(user_id: int):
+    v = Validator(json_body())
+    v.string("reason", required=True, max_length=500)
+    return ok(users_service.unlock(user_id, v.validate()["reason"]).to_admin_dict())

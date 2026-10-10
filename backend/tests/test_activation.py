@@ -41,7 +41,9 @@ def test_activation_sets_the_password_marks_activated_and_creates_the_student_sc
     response = activate(client, student.token)
 
     assert response.status_code == 200
-    assert response.get_json()["data"] == {"activated": True, "student_code": student.student_code}
+    data = response.get_json()["data"]
+    assert data["activated"] is True and data["student_code"] == student.student_code
+    assert data["token"] and data["user"]["student_id"] == student.student_id and data["home_route"] == "/dashboard"  # signed in
     assert db.session.get(Student, student.student_id).activation_status == "Activated"
     scopes = db.session.execute(select(UserRoleScope.branch_id).join(Role).where(Role.role_code == "STUDENT")).scalars().all()
     assert scopes == [1]

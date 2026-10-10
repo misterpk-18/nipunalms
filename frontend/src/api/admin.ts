@@ -55,8 +55,16 @@ export type StaffUser = {
   scopes: StaffScope[];
 };
 
-/** Create / reset responses carry the temporary password exactly once. */
-export type StaffUserWithPassword = StaffUser & { temporary_password: string };
+/** What happened to the message that carries a link: Queued / Sent, or Skipped / Failed with the reason. */
+export type WhatsappOutcome = { state: string; note: string | null };
+
+/** Create and reset carry the temporary password exactly once; create and invite also carry the one-time invite link. */
+export type StaffUserWithPassword = StaffUser & {
+  temporary_password?: string;
+  invite_path?: string;
+  invite_expires_at?: DateTime;
+  whatsapp?: WhatsappOutcome;
+};
 
 export type ScopeInput = { role_code: RoleCode; branch_id?: number | null; expires_at?: DateTime | null };
 export type UserFilters = { q?: string; role_code?: string; branch_id?: string; is_active?: string; page?: number };
@@ -119,6 +127,7 @@ export type ActivationIssued = {
   activation_path: string;
   expires_at: DateTime;
   activation_status: string;
+  whatsapp: WhatsappOutcome;
 };
 export type StudentFilters = { q?: string; activation_status?: string; activation_channel?: string; branch_id?: string; page?: number };
 
@@ -203,6 +212,8 @@ export const adminApi = {
   deactivateUser: (id: number, reason: string) => post<StaffUser>(`/admin/users/${id}/deactivate`, { reason }),
   reactivateUser: (id: number, reason?: string) => post<StaffUser>(`/admin/users/${id}/reactivate`, { reason }),
   resetPassword: (id: number) => post<StaffUserWithPassword>(`/admin/users/${id}/reset-password`),
+  sendInvite: (id: number) => post<StaffUserWithPassword>(`/admin/users/${id}/invite`),
+  unlockUser: (id: number, reason: string) => post<StaffUser>(`/admin/users/${id}/unlock`, { reason }),
 
   students: (filters: StudentFilters): Promise<Page<StudentAccount>> => list<StudentAccount>("/admin/students", { ...filters, per_page: 25 }),
   student: (id: number) => get<StudentAccountDetail>(`/admin/students/${id}`),

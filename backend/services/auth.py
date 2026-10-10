@@ -92,7 +92,7 @@ def _to_current_user(user: User, session_id: str, has_fresh_auth: bool, scopes: 
 
 # ---------------------------------------------------------------- login / logout
 
-def _find_login_user(login: str) -> User | None:
+def find_login_user(login: str) -> User | None:
     """A Student ID (NIT-STU-…, any case) finds that student's login; anything else is an email."""
     if is_student_code(login):
         student = students_repo.get_student_by_code(login)
@@ -101,7 +101,7 @@ def _find_login_user(login: str) -> User | None:
 
 
 def login(login: str, password: str) -> LoginResult:
-    user = _find_login_user(login.strip())
+    user = find_login_user(login.strip())
     now = datetime.now(timezone.utc)
 
     if user is not None and user.locked_until is not None and user.locked_until > now:
@@ -113,6 +113,12 @@ def login(login: str, password: str) -> LoginResult:
         logger.warning("Failed login for %s from %s", login, client_ip())
         raise Unauthenticated("Invalid login or password")
 
+    return open_session(user, now)
+
+
+def open_session(user: User, now: datetime, *, record_activity: bool = True) -> LoginResult:
+    """Sign `user` in: clear failed attempts, start a session (entering a password or a one-time link counts as fresh auth).
+    Activating an account is not learning activity (the CRM's "last activity" value reads these events), so it passes False."""
     scopes = users_repo.active_scopes(user.user_id)
     if not scopes:
         raise Forbidden("Your account has no active access. Contact your branch or a Super Admin.")
@@ -128,10 +134,10 @@ def login(login: str, password: str) -> LoginResult:
             user_id=user.user_id,
             ip_address=client_ip(),
             user_agent=client_user_agent(),
-            reauthenticated_at=now,  # entering the password counts as fresh auth
+            reauthenticated_at=now,
         )
     )
-    if user.student_id is not None:
+    if user.student_id is not None and record_activity:
         db.session.add(ActivityEvent(student_id=user.student_id, kind="login"))
     audit.record("LOGIN", "user", user.user_id, actor_user_id=user.user_id)
     return LoginResult(token=token, session=session, current=_to_current_user(user, session.session_id, True, scopes))

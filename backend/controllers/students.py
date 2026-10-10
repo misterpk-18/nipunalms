@@ -1,6 +1,7 @@
 from controllers.common import created, ok
 from services import activation as activation_service
 from services import students as students_service
+from services.whatsapp import outcome as whatsapp_outcome
 
 
 def get_student(student_id: int):
@@ -22,4 +23,5 @@ def issue_activation(student_id: int):
         "activation_path": f"/activate?token={issued.token}",
         "expires_at": issued.activation.expires_at,
         "activation_status": student.activation_status,
+        "whatsapp": whatsapp_outcome(issued.message),
     })

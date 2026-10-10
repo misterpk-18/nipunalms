@@ -501,6 +501,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Item | Notes |
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
+| Sign-in | One login form, self-service reset code (WhatsApp; no email fallback yet), activation and staff invite links that sign the person in (UX phase U7, API.md §4.14). Templates 1–3 are queued like 4–9 and also stay off until the CRM endpoint exists |
 | WhatsApp | Built and switched off (UX phase U6): messages are queued in `whatsapp_outbox` and handed to the CRM's `POST /lms/whatsapp`, which does not exist yet; needs `CRM_BASE_URL`, `whatsapp_enabled` and approved templates (API.md §4.13) |
 | Email / telephony | None; in-app notifications only |
 | Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |

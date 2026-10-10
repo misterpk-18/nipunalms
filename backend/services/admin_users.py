@@ -14,7 +14,7 @@ from repositories import sessions as sessions_repo
 from repositories import settings as settings_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import audit
+from services import activation, audit
 from services.context import current_user
 from services.errors import BusinessRule, Conflict, NotFound, ValidationError
 from services.security import hash_password
@@ -75,8 +75,39 @@ def _add_scope(user: User, role: Role, branch_id: int | None, expires_at: dateti
     return scope
 
 
-def create_user(data: dict) -> tuple[User, str]:
-    """A staff login with a generated temporary password (must be changed at first sign-in). Returns (user, password)."""
+def _invite_wording(user: User) -> tuple[str, str]:
+    """The role and branch the invite message names: the person's first live role."""
+    scope = next((s for s in users_repo.active_scopes(user.user_id)), None)
+    if scope is None:
+        return "a staff member", "Nipuna Technologies"
+    return scope.role.role_name, scope.branch.branch_name if scope.branch_id else "all branches"
+
+
+def send_invite(user_id: int) -> tuple[User, activation.IssuedInvite]:
+    """POST /admin/users/{id}/invite: a new one-time link by WhatsApp (and to copy). Replaces any earlier link."""
+    user = get_user(user_id)
+    role_name, branch_name = _invite_wording(user)
+    issued = activation.issue_invite(user, issued_by=current_user().user_id, role_name=role_name, branch_name=branch_name)
+    audit.record("STAFF_INVITE_SENT", "user", user.user_id, new={"expires_at": issued.invite.expires_at,
+                                                                "whatsapp": issued.message.status if issued.message else None})
+    return user, issued
+
+
+def unlock(user_id: int, reason: str) -> User:
+    """Clear a lockout after too many wrong passwords."""
+    user = users_repo.get_by_id(user_id)
+    if user is None:
+        raise NotFound("User not found")
+    if not user.is_locked and not user.failed_login_attempts:
+        raise BusinessRule("This account is not locked")
+    user.failed_login_attempts, user.locked_until = 0, None
+    audit.record("USER_UNLOCKED", "user", user.user_id, reason=reason)
+    return user
+
+
+def create_user(data: dict) -> tuple[User, str, activation.IssuedInvite]:
+    """A staff login with an invite link (WhatsApp, and to copy) and a generated temporary password as the fallback; either
+    way the person must choose their own password. Returns (user, temporary password, invite)."""
     email = data["email"]
     if users_repo.email_taken(email):
         raise Conflict("A user with this email already exists", {"email": ["Already in use"]})
@@ -94,7 +125,9 @@ def create_user(data: dict) -> tuple[User, str]:
     audit.record("USER_CREATED", "user", user.user_id,
                  new={"full_name": user.full_name, "email": user.email,
                       "scopes": [{"role_code": r.role_code, "branch_id": b} for (r, b), _ in resolved]})
-    return user, password
+    role_name, branch_name = _invite_wording(user)
+    invite = activation.issue_invite(user, issued_by=current_user().user_id, role_name=role_name, branch_name=branch_name)
+    return user, password, invite
 
 
 def update_user(user_id: int, changes: dict) -> User:

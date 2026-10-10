@@ -128,17 +128,17 @@ test.describe("Super Admin", () => {
     await expect(page.getByRole("heading", { name: "Student Accounts" })).toBeVisible();
 
     // Assisted activation for the learner still in Activation Pending
-    await page.getByLabel("Student ID, name or email").fill("Sample Learner J.");
-    await expect(page.getByRole("row", { name: /Sample Learner J\./ })).toContainText("Activation Pending");
+    await page.getByLabel("Name, mobile, admission number, Student ID or email").fill("Sample Learner J.");
+    await expect(page.getByRole("row", { name: /Sample Learner J\./ })).toContainText("Waiting to activate");
     await page.getByRole("button", { name: "Open Sample Learner J." }).click();
-    await page.getByRole("button", { name: /Reissue activation link|Issue activation link/ }).click();
+    await page.getByRole("button", { name: /Send new link|Send activation link/ }).click();
     const link = await page.getByRole("textbox", { name: "Activation link" }).inputValue();
     expect(link).toContain("/activate?token=");
     await page.getByRole("button", { name: "Done" }).click();
     await page.keyboard.press("Escape");
 
     // Suspend an activated learner
-    await page.getByLabel("Student ID, name or email").fill("Sample Learner C.");
+    await page.getByLabel("Name, mobile, admission number, Student ID or email").fill("Sample Learner C.");
     const row = page.getByRole("row", { name: /Sample Learner C\./ });
     await expect(row).toContainText("Activated");
     const code = (await row.locator(".font-mono").first().innerText()).trim();

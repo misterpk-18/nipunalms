@@ -2,7 +2,7 @@
 
 Models map existing tables (schema lives in db/*.sql); they never create tables.
 """
-from models.access import ActiveSession, Role, User, UserRoleScope, UserSession
+from models.access import ActiveSession, PasswordResetCode, Role, StaffInvite, User, UserRoleScope, UserSession
 from models.admin import SecurityControl
 from models.batches import Batch, BatchAllocation, BatchCrmState, BatchTrainer, ClassSession
 from models.assessments import (
@@ -21,7 +21,7 @@ from models.delivery import BatchEvent, CurriculumEvent, MeetEvent, SessionChang
 __all__ = [
     "Assignment", "AssignmentSubmission", "AttemptAnswer", "InterviewSlot", "Question", "Result", "SubmissionReview", "Test",
     "TestAttempt", "TestQuestion",
-    "ActiveSession", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
+    "ActiveSession", "PasswordResetCode", "StaffInvite", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
     "BatchAllocation", "BatchCrmState", "BatchTrainer", "Branch", "BranchFinanceSnapshot", "ClassSession", "Course", "CourseComponent", "CrmEvent", "CrmOutbox",
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "SecurityControl", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
@@ -34,10 +34,10 @@ from models.certificates import (  # noqa: E402
     Certificate, CertificateChangeRequest, CertificateFinancialException, CertificateStatusHistory,
 )
 from models.completion import CompletionReview  # noqa: E402
-from models.progress import EnrolmentProgress  # noqa: E402
+from models.progress import EnrolmentProgress, TopicProgress  # noqa: E402
 
 __all__ += ["AttendanceCorrection", "AttendanceRecord", "AttendanceRecovery", "Certificate", "CertificateChangeRequest",
-            "CertificateFinancialException", "CertificateStatusHistory", "CompletionReview", "EnrolmentProgress"]
+            "CertificateFinancialException", "CertificateStatusHistory", "CompletionReview", "EnrolmentProgress", "TopicProgress"]
 
 # Phase 2 / S2 content & recordings
 from models.content import (  # noqa: E402

@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { ApiError, errorMessage } from "@/api/client";
 import { useAuth } from "@/auth/auth";
 import { AuthPage } from "@/components/lms/auth-page";
 import { PasswordField } from "@/components/lms/password-field";
-import { Note, Section, Tag } from "@/components/lms/ui";
+import { Section } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useT, type TranslationKey } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } =>
@@ -17,8 +17,7 @@ export const Route = createFileRoute("/login")({
   component: Login,
 });
 
-const ACCESS_STATES: TranslationKey[] = ["accountCreated", "activationPending", "activated", "courseAccessReleased"];
-
+/** One form for everyone: a student signs in with the Student ID, staff with their email. */
 function Login() {
   const { signIn } = useAuth();
   const { redirect } = Route.useSearch();
@@ -47,7 +46,7 @@ function Login() {
   };
 
   return (
-    <AuthPage wide>
+    <AuthPage>
       <Section title={t("login")}>
         <form
           noValidate
@@ -69,9 +68,15 @@ function Login() {
               onChange={(e) => setLogin(e.target.value)}
               aria-invalid={Boolean(error) && !login}
             />
+            <p className="text-xs text-muted-foreground">{t("loginHelp")}</p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="login-password">{t("password")}</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="login-password">{t("password")}</Label>
+              <Link to="/forgot-password" className="text-sm text-primary underline-offset-4 hover:underline">
+                {t("forgot")}
+              </Link>
+            </div>
             <PasswordField
               id="login-password"
               autoComplete="current-password"
@@ -90,31 +95,13 @@ function Login() {
             {t("login")}
           </Button>
         </form>
-        <div className="mt-4 space-y-3">
-          <Note>
-            <strong>{t("forgot")}</strong> {t("forgotHelp")}
-          </Note>
-          <Note>{t("passwordPrivate")}</Note>
-        </div>
+        <p className="mt-5 border-t pt-4 text-center text-sm text-muted-foreground">
+          {t("firstTime")}{" "}
+          <Link to="/activate" className="font-medium text-primary underline-offset-4 hover:underline">
+            {t("activateLink")}
+          </Link>
+        </p>
       </Section>
-      <div className="space-y-4">
-        <Section title={t("activationStatus")}>
-          <ol className="space-y-3">
-            {ACCESS_STATES.map((key, i) => (
-              <li key={key} className="flex items-center gap-3">
-                <span className="grid size-7 place-items-center rounded-full bg-muted text-xs font-bold text-muted-foreground">{i + 1}</span>
-                <span className="flex-1">{t(key)}</span>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-3">
-            <Tag tone="info">{t("accessAfterAllocation")}</Tag>
-          </div>
-        </Section>
-        <Section>
-          <p className="text-xs text-muted-foreground">{t("oneLogin")}</p>
-        </Section>
-      </div>
     </AuthPage>
   );
 }

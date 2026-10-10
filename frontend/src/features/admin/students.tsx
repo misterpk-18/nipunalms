@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { DataTable, KeyValue, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
 import { FilterField, FormDialog, Pager, SecretDialog } from "./shared";
-import { istDateTime, useCanAdminister } from "./format";
+import { istDateTime, useCanAdminister, whatsappLine } from "./format";
 
 const ACTIVATION_STATUSES = ["Account Created", "Activation Pending", "Activated", "Suspended"] as const;
 // Where the student's outstanding activation link came from. The CRM does not deliver its link yet, so a student whose
@@ -42,7 +42,11 @@ export function AdminStudents() {
         <Section>
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FilterField label="Student ID, name or email">
-              <Input aria-label="Name, mobile, admission number, Student ID or email" value={filters.q ?? ""} onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })} />
+              <Input
+                aria-label="Name, mobile, admission number, Student ID or email"
+                value={filters.q ?? ""}
+                onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })}
+              />
             </FilterField>
             <FilterField label="Activation status">
               <NativeSelect
@@ -112,8 +116,8 @@ export function AdminStudents() {
           </QueryView>
         </Section>
         <Note>
-          Branch Managers can also issue activation links for their own branch. Suspension, session revocation and reactivation are
-          Super Admin actions and are audited.
+          Branch Managers can also issue activation links for their own branch. Suspension, session revocation and reactivation are Super Admin actions and are
+          audited.
         </Note>
       </div>
       {openId !== null && <StudentPanel studentId={openId} onClose={() => setOpenId(null)} />}
@@ -159,10 +163,7 @@ function StudentPanel({ studentId, onClose }: { studentId: number; onClose: () =
                     ],
                     ["Email", s.email ?? "None on record"],
                     ["Service branch", `${s.service_branch.branch_name} (${s.service_branch.branch_code})`],
-                    [
-                      "Activation",
-                      <StatusBadge key="a" domain="account" code={s.activation_status} />,
-                    ],
+                    ["Activation", <StatusBadge key="a" domain="account" code={s.activation_status} />],
                     [
                       "LMS account",
                       s.user_id === null ? "No login" : `${s.is_login_active ? "Active" : "Blocked"} · password ${s.has_password ? "set" : "not set"}`,
@@ -186,7 +187,7 @@ function StudentPanel({ studentId, onClose }: { studentId: number; onClose: () =
                   <div className="flex flex-wrap gap-2">
                     {s.activation_status !== "Activated" && s.activation_status !== "Suspended" && (
                       <Button variant="outline" size="sm" onClick={() => issue.mutate()} disabled={issue.isPending}>
-                        <LinkIcon className="size-3.5" /> {s.activation ? "Reissue activation link" : "Issue activation link"}
+                        <LinkIcon className="size-3.5" /> {s.activation ? "Send new link" : "Send activation link"}
                       </Button>
                     )}
                     {s.activation_status === "Suspended" ? (
@@ -250,10 +251,9 @@ function StudentPanel({ studentId, onClose }: { studentId: number; onClose: () =
       {dialog === "suspend" && <SuspendDialog studentId={studentId} onClose={() => setDialog(null)} />}
       {issued && (
         <SecretDialog
-          title="Activation link issued"
-          description={`Give this link to ${issued.student_code} in person or through the branch. It works once, expires ${istDateTime(issued.expires_at)} and is shown only now.`}
-          label="Activation link"
-          value={`${window.location.origin}${issued.activation_path}`}
+          title="Activation link ready"
+          description={`${whatsappLine(issued.whatsapp, issued.student_code)} It works once, expires ${istDateTime(issued.expires_at)} and is shown only now. Any earlier link no longer works.`}
+          secrets={[{ label: "Activation link", value: `${window.location.origin}${issued.activation_path}` }]}
           onClose={() => setIssued(null)}
         />
       )}

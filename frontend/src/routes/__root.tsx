@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { Link, Navigate, Outlet, createRootRouteWithContext, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/auth/auth";
-import { PUBLIC_PATHS, canOpen, isOpenPath, workspaceForPath } from "@/auth/access";
+import { PUBLIC_PATHS, STAY_WHEN_SIGNED_IN, canOpen, isOpenPath, workspaceForPath } from "@/auth/access";
 import { AppShell } from "@/components/lms/app-shell";
 import { StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ function Guarded() {
 
   if (isOpenPath(path)) return <Outlet />;
   if (PUBLIC_PATHS.includes(path)) {
-    if (status === "authenticated" && profile) {
+    if (status === "authenticated" && profile && !STAY_WHEN_SIGNED_IN.includes(path)) {
       // Signing in on /login?redirect=… returns to the page the visitor asked for (same-origin paths only)
       const next = typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : profile.home_route;
       return <Navigate to={profile.user.must_change_password ? "/change-password" : next} replace />;

@@ -178,8 +178,8 @@ figure out what to do next."
 | U4. Shell, navigation, search, counts | **Done** | `af7c16a` | M |
 | U5. Notifications inbox (all roles) | **Done** | `fd464dd` | S |
 | U6. WhatsApp through the CRM (CRM round 6) | **Built, switched off** (db 107) | `ea2a1ea` | M |
-| U7. Sign-in and accounts | To do | | M |
-| U8. Student: Home and My Learning | To do | | L |
+| U7. Sign-in and accounts | **Built, WhatsApp switched off** (db 108) | | M |
+| U8. Student: Home and My Learning | **Done** (db 109) | | L |
 | U9. Student: Schedule, Tasks & Tests | To do | | M |
 | U10. Student: Class Materials, My Progress, Certificates | To do | | L |
 | U11. Student: Career, Ask Nipuna, Support, My Account | To do | | M |
@@ -195,7 +195,7 @@ figure out what to do next."
 - **Backend first.** U0–U2 change roles and rules that every later screen depends on.
 - **Shared parts next.** U3–U5 build the shared components the screen phases reuse.
 - **Messaging before sign-in.** U6 has to come before U7, because the reset code and the links need the sending path.
-- **Migrations.** `db/105` is U1, `db/106` is U2 and `db/107` is U6 (U4 and U5 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+- **Migrations.** `db/105` is U1, `db/106` is U2, `db/107` is U6, `db/108` is U7 and `db/109` is U8 (U4 and U5 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
 
 ## Resuming in a new session
 
@@ -413,6 +413,12 @@ figure out what to do next."
 - **Change password.** Translated, with a success toast.
 - **Certificate verify page.** A big Valid / Revoked result with no jargon; an unknown number gets a "Certificate not found" message.
 
+- **As built (10 Oct 2026).**
+  - **Reset** (`services/password_reset.py`): `POST /auth/reset-code` and `POST /auth/reset` as specified. Codes go by WhatsApp only: **the email fallback is not built**, because the LMS has no email sender. The coordinator-reissue path stays (Super Admin "Reset password", Student Accounts "Send new link").
+  - **Activation and invites:** one `/auth/activate` for student and staff tokens; it signs the person in (not counted as learning activity, so the CRM's last-activity value does not change) and the success step shows the Student ID. Template 2 is queued whenever a student link is issued (CRM admission and "Send new link"); template 3 when staff are created or "Invite" is pressed. Temporary password is returned only when no WhatsApp message will carry the link. All three templates are `essential`: they ignore message preferences, and a finished or skipped row keeps no code or link.
+  - **Screens:** login is one form with "Forgot password?" and "Activate your account"; `/forgot-password`; activation with a live password checklist; change-password translated with a toast; the certificate verify page shows a large Valid / Revoked / Replaced answer or "Certificate not found"; Users & Access has Invite and Unlock.
+  - **Tests:** `test_sign_in.py` (24), e2e `sign-in.spec.ts`. Existing tests were adjusted where activating now creates a session and a WhatsApp row.
+
 ## U8. Student: Home and My Learning (`db/109` for topic progress)
 - **Home.**
   - `GET /me/home` adds `up_next`, a choice among live class, work due today and continue topic.
@@ -426,6 +432,13 @@ figure out what to do next."
   - Track and module pages use the shared breadcrumbs.
 - **Topic hub.** `GET /me/topics/{id}` returns sessions, recording, materials, assignments, tests and the next topic.
 - **Telugu.** Every string on these screens goes through `t()`.
+
+- **As built (10 Oct 2026).**
+  - **Topic progress** (`topic_progress` view, `services/topic_progress.py`): Done = attended or recovered, or recording watched, plus every required assignment and test of the topic handed in. Module and course percentages count topics Done; the four progress measures are unchanged.
+  - **Home:** `up_next` hero (live class, then work due today or overdue, then next topic, then next class), four cards (Due work, Continue learning, Latest recording, Attendance), a batch-change banner with Agree / Decline behind a confirm and the reply-by date (`material_changes.reply_by`, 7 days, setting `batch_change_reply_days`), and the preferred slot only while a course waits for a batch. The API still sends the Career, Support, Ask Nipuna and certificate cards; the screen no longer shows them.
+  - **My Learning:** cards lead with "Continue: <topic>" and topics-done progress; the course page shows tracks and modules first with "Course info" folded; the topic page is the hub (`GET /me/topics/{id}`); module and track pages use the shared breadcrumbs. Student routes are unchanged (the nav label is "My Learning").
+  - **Telugu:** these screens, the slot request and the status badges of enrolment, topic, class, task, attendance, recording and test go through `t()`; tooltips with the longer status help stay English. `title_te` is used for modules and topics.
+  - **Tests:** `test_student_learning.py` (18), e2e `dashboards-learning.spec.ts` and `delivery.spec.ts` rewritten. Still failing and not caused by this: the trainer "Today" flow and the learner schedule spec (fixed seed dates).
 
 ## U9. Student: Schedule, Tasks & Tests
 - **Schedule.**

@@ -337,7 +337,7 @@ def test_issuing_queues_one_whatsapp_message_with_the_number_for_the_button(clie
     run_sql("UPDATE app_settings SET setting_value = 'true' WHERE setting_key = 'whatsapp_enabled'")
     run_sql("UPDATE app_settings SET setting_value = '[\"nipuna_lms_certificate_issued_u_v1\"]' WHERE setting_key = 'whatsapp_approved_templates'")
     cid, certificate = issued(client, w)
-    message = db.session.execute(select(WhatsappMessage)).scalar_one()
+    message = db.session.execute(select(WhatsappMessage).where(WhatsappMessage.template_name == "nipuna_lms_certificate_issued_u_v1")).scalar_one()
     assert message.template_name == "nipuna_lms_certificate_issued_u_v1" and message.status in ("Queued", "Skipped")
     assert message.params[4] == certificate["certificate_number"] and message.button_params == [certificate["certificate_number"]]
     assert message.dedupe_key == f"certificate-issued:{cid}:1"

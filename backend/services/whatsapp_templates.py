@@ -21,6 +21,7 @@ class Template:
     group: str  # the notification preference group that governs it
     button: str | None = None  # what the URL button's {{1}} holds, when it has one
     language: str = "en"
+    essential: bool = False  # sign-in messages (code, links) go out whatever the person's message preferences say
 
 
 CLASS_REMINDER = Template(
@@ -54,9 +55,24 @@ BATCH_CHANGE_AGREEMENT = Template(
     "Please open your learning account and choose Agree or Decline by {{7}}. Nothing changes for you until you answer.",
     ("student", "branch", "course", "now", "proposed", "reason", "reply_by"), SERVICE)
 
-# Templates 1-3 (reset code, student activation link, staff invite) are added in UX phase U7
+PASSWORD_RESET_CODE = Template(
+    "nipuna_lms_password_reset_code_auth_v1", "Authentication",
+    "*{{1}}* is your verification code. For your security, do not share this code. This code expires in 10 minutes.",
+    ("code",), SERVICE, button="code", essential=True)
+STUDENT_ACTIVATION_LINK = Template(
+    "nipuna_lms_student_activation_link_u_v1", "Utility",
+    "Hello {{1}}, Nipuna Technologies, {{2}}, has created your learning account. Your Student ID is {{3}}. Tap Activate account below "
+    "to set your own password. The link works once and expires on {{4}}. If you did not expect this message, please contact your branch.",
+    ("student", "branch", "student_code", "expires"), SERVICE, button="token", essential=True)
+STAFF_ACCOUNT_INVITE = Template(
+    "nipuna_lms_staff_account_invite_u_v1", "Utility",
+    "Hello {{1}}, a Nipuna Technologies LMS staff account has been created for you as {{2}} at {{3}}. You will sign in with your email "
+    "address. Tap Set password below to choose your password. The link works once and expires on {{4}}. If you were not expecting this, "
+    "please tell your Super Admin.",
+    ("name", "role", "branch", "expires"), SERVICE, button="token", essential=True)
+
 TEMPLATES: dict[str, Template] = {t.name: t for t in (
-    CLASS_REMINDER, CLASS_CANCELLED, CLASS_RESCHEDULED, RESULT_PUBLISHED, CERTIFICATE_ISSUED, BATCH_CHANGE_AGREEMENT)}
+    PASSWORD_RESET_CODE, STUDENT_ACTIVATION_LINK, STAFF_ACCOUNT_INVITE, CLASS_REMINDER, CLASS_CANCELLED, CLASS_RESCHEDULED, RESULT_PUBLISHED, CERTIFICATE_ISSUED, BATCH_CHANGE_AGREEMENT)}
 
 MAX_VALUE_LENGTH = 200
 

@@ -23,9 +23,13 @@ def switched_on(run_sql, app):
     app.config["CRM_BASE_URL"] = "http://crm.test/api/v1"
 
 
+SIGN_IN = {t.name for t in whatsapp_templates.TEMPLATES.values() if t.essential}
+
+
 def messages(*statuses):
+    """The learning messages (the sign-in ones that creating students queues are tested in test_sign_in.py)."""
     rows = db.session.query(WhatsappMessage).order_by(WhatsappMessage.outbox_id).all()
-    return [m for m in rows if not statuses or m.status in statuses]
+    return [m for m in rows if m.template_name not in SIGN_IN and (not statuses or m.status in statuses)]
 
 
 def cancel(client, world, session, reason="the trainer is unwell"):

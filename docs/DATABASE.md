@@ -434,3 +434,19 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 | Enum `whatsapp_status` (Queued, Sent, Failed, Skipped) and table `whatsapp_outbox` (template, language, `recipient_user_id`, `lms_user_id`, `to_number`, `params`, `button_params`, unique `dedupe_key`, `occurred_at`, `expires_at`, status and note, `provider_message_id`, `attempts`, `next_attempt_at`, `attempt_started_at`, `sent_at`) | The LMS writes the message in the same transaction as the change; a job posts it to the CRM after the commit. A row in flight (`attempt_started_at`) is never auto-resent |
 | `app_settings`: `whatsapp_enabled` (false), `whatsapp_approved_templates` (`[]`), `whatsapp_max_age_hours` (48) | The code ships switched off; only approved templates are sent; older messages are skipped |
 
+
+
+## 108 — UX phase U7: sign-in and accounts
+
+| Change | Why |
+|---|---|
+| Table `password_reset_codes` (`user_id`, `code_hash`, `expires_at`, `wrong_attempts`, `used_at`) | The 6-digit code behind "Forgot password". Only a hash of `"<user id>:<code>"` is stored; single use, 10 minutes, burned after 5 wrong tries; at most 5 per person per hour (service rule) |
+| Table `staff_invites` (`user_id`, unique `token_hash`, `issued_by`, `expires_at`, `used_at`, `revoked_at`; one outstanding invite per person) | The one-time link that replaces a spoken temporary password for new staff. Student links stay in `student_activations` |
+
+## 109 — UX phase U8: student Home and My Learning
+
+| Change | Why |
+|---|---|
+| View `topic_progress` (per enrolment and topic of every followed curriculum version: `attended`, `recording_watched`, required assignments handed in, required tests taken, `is_done`, `status` = Done / Work to hand in / Not started) | A topic is Done when the student attended (or recovered) its class or watched its recording, and handed in every required assignment and test of the topic. Module and course percentages count topics Done. The four progress measures keep their own views |
+| `material_changes.reply_by` | The date a student is asked to answer a batch change by; set to now + `batch_change_reply_days` when the change goes to students |
+| `app_settings.batch_change_reply_days` (7) | Length of that answer window |

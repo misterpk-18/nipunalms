@@ -39,10 +39,11 @@ class TestProfile:
                             headers={"User-Agent": ANDROID}).get_json()["data"]["token"]
         headers = {"Authorization": f"Bearer {token}", "User-Agent": ANDROID}
         devices = client.get(f"{API}/me/profile", headers=headers).get_json()["data"]["devices"]
-        assert sorted(d["label"] for d in devices) == ["Chrome · Android", "Chrome · Android", "Edge · Windows"]
+        # the fourth is the sign-in that activating the account gave (no browser was named)
+        assert sorted(d["label"] for d in devices) == ["Chrome · Android", "Chrome · Android", "Edge · Windows", "Unknown device"]
         assert [d["current"] for d in devices].count(True) == 1
 
-        assert client.post(f"{API}/me/devices/sign-out-others", headers=headers).get_json()["data"]["signed_out"] == 2
+        assert client.post(f"{API}/me/devices/sign-out-others", headers=headers).get_json()["data"]["signed_out"] == 3
         after = client.get(f"{API}/me/profile", headers=headers).get_json()["data"]["devices"]
         assert len(after) == 1 and after[0]["current"] is True
 

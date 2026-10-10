@@ -4,7 +4,7 @@ These are the WhatsApp messages the LMS itself will send. Each file holds one te
 the meaning and a sample value for every `{{n}}`, and when the LMS sends it. **None is submitted yet.** The owner submits
 them in Pinbot (Meta approval), then the LMS can send them through the CRM (W4 in
 `nipuna crm-docs/CRM_WHATSAPP_CONNECTION.md`). The LMS side is **built and switched off** (UX phase U6, [API.md §4.13](../API.md)): templates 4–9 are wired and
-named in `backend/services/whatsapp_templates.py`; 1–3 follow with sign-in (U7). Once a template is approved, add its name to
+named in `backend/services/whatsapp_templates.py`; 1–3 (reset code, student activation link, staff invite) are wired in U7 and always go out whatever the person's message preferences say. Once a template is approved, add its name to
 `app_settings.whatsapp_approved_templates`.
 
 ## The templates

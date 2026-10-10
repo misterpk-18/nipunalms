@@ -40,7 +40,20 @@ export type Profile = {
 
 export type LoginResult = Profile & { token: string; expires_at: DateTime };
 
-export type ActivationCheck = { status: "valid" | "expired" | "used"; student_code_masked: string };
+export type ActivationCheck = {
+  kind: "student" | "staff";
+  status: "valid" | "expired" | "used" | "revoked";
+  full_name: string;
+  /** Masked: NIT-STU-2026-••••82. Students only. */
+  student_code: string | null;
+  /** Masked: r••••@nipuna.test. Staff only. */
+  email: string | null;
+  expires_at: DateTime;
+  password_min_length: number;
+};
+
+/** Activating signs the person in: the login response plus the Student ID to show on the success step. */
+export type ActivationResult = LoginResult & { activated: true; student_code: string | null };
 
 export const authApi = {
   /** `login` is a staff email, a Student ID (NIT-STU-2026-004182) or a student email. */
@@ -50,5 +63,8 @@ export const authApi = {
   reauthenticate: (password: string) => post<null>("/auth/reauthenticate", { password }),
   changePassword: (current_password: string, new_password: string) => post<null>("/auth/change-password", { current_password, new_password }),
   checkActivation: (token: string) => get<ActivationCheck>(`/auth/activation/${encodeURIComponent(token)}`),
-  activate: (token: string, password: string) => post<null>("/auth/activate", { token, password }),
+  activate: (token: string, password: string) => post<ActivationResult>("/auth/activate", { token, password }),
+  /** Always answers "If the account exists, we've sent a code", whether or not the account exists. */
+  requestResetCode: (login: string) => post<{ message: string }>("/auth/reset-code", { login }),
+  resetPassword: (login: string, code: string, new_password: string) => post<null>("/auth/reset", { login, code, new_password }),
 };

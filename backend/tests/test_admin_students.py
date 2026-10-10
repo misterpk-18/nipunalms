@@ -140,7 +140,7 @@ def test_revoke_sessions_signs_the_student_out_everywhere(client, make_user, log
 
     response = client.post(f"/api/v1/admin/students/{student.student_id}/revoke-sessions", headers=headers, json={"reason": "Lost phone"})
 
-    assert response.get_json()["data"] == {"sessions_ended": 2}
+    assert response.get_json()["data"] == {"sessions_ended": 3}  # two sign-ins and the one activating signed the student in
     assert client.get(f"/api/v1/students/{student.student_id}", headers=first).status_code == 401
     assert client.get(f"/api/v1/students/{student.student_id}", headers=second).status_code == 401
     assert _student_login(client, student).status_code == 200  # revoking sessions does not suspend
@@ -155,7 +155,7 @@ def test_list_reports_active_sessions_per_student(client, make_user, login, make
 
     row = client.get(f"/api/v1/admin/students?q={student.student_code}", headers=login(admin.email)).get_json()["data"][0]
 
-    assert row["active_sessions"] == 2 and row["last_login_at"] is not None
+    assert row["active_sessions"] == 3 and row["last_login_at"] is not None  # two sign-ins and the one activating signed the student in
 
 
 def test_actions_on_an_unknown_student_are_not_found(client, make_user, login):

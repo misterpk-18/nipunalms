@@ -1,6 +1,8 @@
+from repositories import settings as settings_repo
 from controllers.common import Validator, json_body, no_content, ok
 from services import activation as activation_service
 from services import auth as auth_service
+from services import password_reset
 from services.context import current_user
 
 
@@ -63,20 +65,43 @@ def revoke_session(session_id: str):
 
 
 def get_activation(token: str):
-    record, status = activation_service.describe(token)
+    info = activation_service.describe(token)
     return ok({
-        "status": status,
-        "student_code": activation_service.mask_student_code(record.student.student_code),
-        "full_name": record.student.full_name,
-        "expires_at": record.expires_at,
+        "kind": info.kind,
+        "status": info.status,
+        "student_code": info.student_code,
+        "email": info.email,
+        "full_name": info.full_name,
+        "expires_at": info.expires_at,
+        "password_min_length": settings_repo.get_int("password_min_length", 10),
     })
 
 
 def activate():
+    """Sets the password and signs the person in: the answer is a login response plus what the success step shows."""
     v = Validator(json_body())
     v.string("token", required=True, max_length=200)
     v.string("password", required=True, max_length=200, strip=False)
     data = v.validate()
 
-    student = activation_service.activate(data["token"], data["password"])
-    return ok({"activated": True, "student_code": student.student_code})
+    done = activation_service.activate(data["token"], data["password"])
+    return ok({"activated": True, "student_code": done.student.student_code if done.student else None,
+               "token": done.login.token, "expires_at": done.login.session.expires_at,
+               **_profile(auth_service.profile(done.login.current))})
+
+
+def request_reset_code():
+    v = Validator(json_body())
+    v.string("login", required=True, max_length=255)
+    password_reset.request_code(v.validate()["login"])
+    return ok({"message": "If the account exists, we've sent a code."})
+
+
+def reset_password():
+    v = Validator(json_body())
+    v.string("login", required=True, max_length=255)
+    v.string("code", required=True, max_length=20)
+    v.string("new_password", required=True, max_length=200, strip=False)
+    data = v.validate()
+    password_reset.reset(data["login"], data["code"], data["new_password"])
+    return no_content()

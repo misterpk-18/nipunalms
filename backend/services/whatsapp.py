@@ -93,6 +93,8 @@ def _person(student: Student | None, user: User | None) -> tuple[User | None, st
 
 
 def _switched_off_by_person(user: User | None, template: Template) -> bool:
+    if template.essential:
+        return False
     if user is None:
         return template.group not in DEFAULT_EXTERNAL_ON
     stored = notifications_repo.preferences(user.user_id)
@@ -126,10 +128,20 @@ def enqueue(template: Template, values: dict, *, dedupe_key: str, student: Stude
     elif note is None and expires_at <= now:
         note = "Too old to send"
 
+    skipped = note is not None
+    if skipped and template.essential:
+        params, button = [], []  # nothing will be sent, so keep no code or link
     return whatsapp_repo.insert_once({
         "template_name": template.name, "language": template.language, "recipient_user_id": person.user_id if person else None,
         "lms_user_id": lms_user_id, "to_number": number, "params": params, "button_params": button, "dedupe_key": dedupe_key,
         "occurred_at": occurred_at, "expires_at": expires_at, "status": "Skipped" if note else "Queued", "status_note": note})
+
+
+def outcome(message: WhatsappMessage | None) -> dict:
+    """What a screen tells the person who triggered a message: sent on its way, or why nothing will go out (copy the link instead)."""
+    if message is None:
+        return {"state": "Skipped", "note": "This message was already queued"}
+    return {"state": message.status, "note": message.status_note}
 
 
 # ---------------------------------------------------------------- sending
@@ -176,10 +188,18 @@ def _payload(message: WhatsappMessage) -> dict:
 
 def _finish(message: WhatsappMessage, status: str, note: str | None = None, provider_id: str | None = None) -> None:
     message.status, message.status_note, message.attempt_started_at = status, note, None
+    _forget_secrets(message)
     if provider_id:
         message.provider_message_id = provider_id
     if status == "Sent":
         message.sent_at = _now()
+
+
+def _forget_secrets(message: WhatsappMessage) -> None:
+    """A sign-in code or link is kept only until the message is done; a finished row keeps no secret."""
+    template = TEMPLATES.get(message.template_name)
+    if template is not None and template.essential and message.status != "Queued":
+        message.params, message.button_params = [], []
 
 
 def _retry_later(message: WhatsappMessage, note: str) -> None:

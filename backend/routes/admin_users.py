@@ -74,3 +74,19 @@ def reactivate(user_id: int):
 @fresh_auth
 def reset_password(user_id: int):
     return users_controller.reset_password(user_id)
+
+
+@admin_users_bp.post("/<int:user_id>/invite")
+@login_required
+@require_roles("SUPER_ADMIN")
+@fresh_auth
+def send_invite(user_id: int):
+    return users_controller.send_invite(user_id)
+
+
+@admin_users_bp.post("/<int:user_id>/unlock")
+@login_required
+@require_roles("SUPER_ADMIN")
+@fresh_auth
+def unlock(user_id: int):
+    return users_controller.unlock(user_id)

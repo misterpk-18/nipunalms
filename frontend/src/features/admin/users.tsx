@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
-import { KeyRound, Plus, UserCheck, UserMinus, X } from "lucide-react";
+import { KeyRound, LockOpen, Plus, Send, UserCheck, UserMinus, X } from "lucide-react";
 import { adminApi, adminKeys, type StaffScope, type StaffUser, type StaffUserWithPassword, type UserFilters } from "@/api/admin";
 import type { RoleCode } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,8 @@ import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
-import { FilterField, FormDialog, Pager, SecretDialog } from "./shared";
-import { istDateTime, useCanAdminister } from "./format";
+import { FilterField, FormDialog, Pager, SecretDialog, type Secret } from "./shared";
+import { istDateTime, useCanAdminister, whatsappLine } from "./format";
 
 const STAFF_ROLES: { value: RoleCode; label: string; companyWide: boolean }[] = [
   { value: "TRAINER", label: "Trainer", companyWide: false },
@@ -21,7 +21,28 @@ const STAFF_ROLES: { value: RoleCode; label: string; companyWide: boolean }[] = 
 ];
 
 type Action =
-  { kind: "create" } | { kind: "add-role"; user: StaffUser } | { kind: "revoke"; user: StaffUser; scope: StaffScope } | { kind: "deactivate"; user: StaffUser };
+  | { kind: "create" }
+  | { kind: "add-role"; user: StaffUser }
+  | { kind: "revoke"; user: StaffUser; scope: StaffScope }
+  | { kind: "deactivate"; user: StaffUser }
+  | { kind: "unlock"; user: StaffUser };
+
+/** What to show once after a create, invite or reset: the invite link, the temporary password, or both. */
+function secretsOf(user: StaffUserWithPassword): Secret[] {
+  return [
+    ...(user.invite_path ? [{ label: "Invite link", value: `${window.location.origin}${user.invite_path}` }] : []),
+    ...(user.temporary_password ? [{ label: "Temporary password", value: user.temporary_password }] : []),
+  ];
+}
+
+function secretNote(user: StaffUserWithPassword): string {
+  if (user.invite_path) {
+    return `${whatsappLine(user.whatsapp ?? { state: "Skipped", note: null }, user.full_name)} The link works once. ${
+      user.temporary_password ? "Or give the temporary password. " : ""
+    }Either way ${user.full_name} chooses their own password. Shown only now.`;
+  }
+  return `Give ${user.email} this temporary password now. It is shown once and cannot be retrieved; they must change it at first sign-in.`;
+}
 
 const IDS = adminKeys.usersAll;
 
@@ -36,6 +57,10 @@ export function AdminUsers() {
   const reactivate = useApiMutation((user: StaffUser) => adminApi.reactivateUser(user.user_id), {
     success: (u) => `${u.full_name} reactivated`,
     invalidate: [[...IDS]],
+  });
+  const invite = useApiMutation((user: StaffUser) => adminApi.sendInvite(user.user_id), {
+    invalidate: [[...IDS]],
+    onSuccess: (user) => setSecret({ title: `New invite for ${user.full_name}`, user }),
   });
   const reset = useApiMutation((user: StaffUser) => adminApi.resetPassword(user.user_id), {
     invalidate: [[...IDS]],
@@ -150,9 +175,31 @@ export function AdminUsers() {
                                 >
                                   <Plus className="size-3.5" /> Role
                                 </Button>
+                                {u.must_change_password && u.is_active && (
+                                  <ConfirmDialog
+                                    title={`Send ${u.full_name} a new invite?`}
+                                    consequence="A new one-time link goes to their WhatsApp number. Any earlier link stops working."
+                                    confirmLabel="Send invite"
+                                    onConfirm={() => invite.mutateAsync(u).then(() => undefined)}
+                                  >
+                                    <Button variant="outline" size="sm" aria-label={`Send invite to ${u.full_name}`}>
+                                      <Send className="size-3.5" /> Invite
+                                    </Button>
+                                  </ConfirmDialog>
+                                )}
+                                {u.is_locked && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setAction({ kind: "unlock", user: u })}
+                                    aria-label={`Unlock ${u.full_name}`}
+                                  >
+                                    <LockOpen className="size-3.5" /> Unlock
+                                  </Button>
+                                )}
                                 <ConfirmDialog
                                   title={`Reset password for ${u.full_name}?`}
-                                  consequence="A new temporary password is shown once and every session of this person ends. They must change the password at their next sign-in."
+                                  consequence="A new temporary password is shown once and every session of this person ends. They must change the password at their next sign-in. (People can also reset their own password from the sign-in page.)"
                                   confirmLabel="Reset password"
                                   onConfirm={() => reset.mutateAsync(u).then(() => undefined)}
                                 >
@@ -205,15 +252,8 @@ export function AdminUsers() {
         <ReasonDialog title={`Revoke ${action.scope.role_name}`} user={action.user} scope={action.scope} onClose={() => setAction(null)} />
       )}
       {action?.kind === "deactivate" && <ReasonDialog title="Deactivate account" user={action.user} onClose={() => setAction(null)} />}
-      {secret && (
-        <SecretDialog
-          title={secret.title}
-          description={`Give ${secret.user.email} this temporary password now. It is shown once and cannot be retrieved; they must change it at first sign-in.`}
-          label="Temporary password"
-          value={secret.user.temporary_password}
-          onClose={() => setSecret(null)}
-        />
-      )}
+      {action?.kind === "unlock" && <ReasonDialog title="Unlock account" user={action.user} unlock onClose={() => setAction(null)} />}
+      {secret && <SecretDialog title={secret.title} description={secretNote(secret.user)} secrets={secretsOf(secret.user)} onClose={() => setSecret(null)} />}
     </>
   );
 }
@@ -258,7 +298,7 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
   return (
     <FormDialog
       title="Add staff user"
-      description="A temporary password is generated and shown once; the user must change it at first sign-in."
+      description="They get a one-time link by WhatsApp (when a phone number is given) to choose their own password. A temporary password is shown only if the link can't be sent."
       submitLabel="Create user"
       onClose={onClose}
       busy={create.isPending}
@@ -333,23 +373,30 @@ function AddRoleDialog({ user, onClose }: { user: StaffUser; onClose: () => void
 }
 
 /** Revoke one role scope (with `scope`) or deactivate the whole account: both need a reason for the audit log. */
-function ReasonDialog({ title, user, scope, onClose }: { title: string; user: StaffUser; scope?: StaffScope; onClose: () => void }) {
+function ReasonDialog({ title, user, scope, unlock, onClose }: { title: string; user: StaffUser; scope?: StaffScope; unlock?: boolean; onClose: () => void }) {
   const form = useForm<{ reason: string }>({ defaultValues: { reason: "" } });
-  const done = scope ? `${scope.role_name} revoked from ${user.full_name}` : `${user.full_name} deactivated`;
+  const done = unlock ? `${user.full_name} can sign in again` : scope ? `${scope.role_name} revoked from ${user.full_name}` : `${user.full_name} deactivated`;
   const save = useApiMutation(
-    (v: { reason: string }) => (scope ? adminApi.revokeScope(user.user_id, scope.scope_id, v.reason) : adminApi.deactivateUser(user.user_id, v.reason)),
+    (v: { reason: string }) =>
+      unlock
+        ? adminApi.unlockUser(user.user_id, v.reason)
+        : scope
+          ? adminApi.revokeScope(user.user_id, scope.scope_id, v.reason)
+          : adminApi.deactivateUser(user.user_id, v.reason),
     { success: done, invalidate: [[...IDS]], onSuccess: onClose, silentValidation: true, onError: (e) => applyServerErrors(form, e) },
   );
   return (
     <FormDialog
       title={title}
       description={
-        scope
-          ? `${user.full_name} · ${scope.role_name} · ${scope.branch_code ?? "all branches"}`
-          : `${user.full_name} can no longer sign in and their sessions end.`
+        unlock
+          ? `${user.full_name} was locked after too many wrong passwords. Unlocking lets them try again now.`
+          : scope
+            ? `${user.full_name} · ${scope.role_name} · ${scope.branch_code ?? "all branches"}`
+            : `${user.full_name} can no longer sign in and their sessions end.`
       }
-      submitLabel={scope ? "Revoke" : "Deactivate"}
-      destructive
+      submitLabel={unlock ? "Unlock" : scope ? "Revoke" : "Deactivate"}
+      destructive={!unlock}
       onClose={onClose}
       busy={save.isPending}
       onSubmit={form.handleSubmit((v) => save.mutate(v))}

@@ -55,3 +55,13 @@ def get_activation(token: str):
 @auth_bp.post("/activate")
 def activate():
     return auth_controller.activate()
+
+
+@auth_bp.post("/reset-code")
+def request_reset_code():
+    return auth_controller.request_reset_code()
+
+
+@auth_bp.post("/reset")
+def reset_password():
+    return auth_controller.reset_password()
