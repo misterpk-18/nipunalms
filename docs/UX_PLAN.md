@@ -181,7 +181,7 @@ figure out what to do next."
 | U7. Sign-in and accounts | **Built, WhatsApp switched off** (db 108) | `20af964` | M |
 | U8. Student: Home and My Learning | **Done** (db 109) | `42451ba` | L |
 | U9. Student: Schedule, Tasks & Tests | **Done** | `c902a9a` | M |
-| U10. Student: Class Materials, My Progress, Certificates | **Done** | `HASH10` | L |
+| U10. Student: Class Materials, My Progress, Certificates | **Done** | `a8807f6` | L |
 | U11. Student: Career, Ask Nipuna, Support, My Account | To do | | M |
 | U12. Trainer: Today, class delivery, Attendance, My requests | To do | | M |
 | U13. Trainer: To grade, Assessments, Batches/Students, Content, Reports, Support | To do | | L |
