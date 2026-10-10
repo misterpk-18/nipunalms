@@ -67,7 +67,9 @@ APP_ENV=development ../venv/bin/flask --app app seed-dev              # staging 
 ```
 
 Rebuilding drops every event the local CRM has sent; ask the CRM side to run `flask lms backfill --force` afterwards
-(Part C). When the CRM's test data must survive, apply a new migration in place instead:
+(Part C). **Tell the CRM before you rebuild:** a rebuild re-issues student codes (`NIT-STU-…`) to different people, while
+the CRM's persons still hold the old ones as `lms_user_id`. The next pull then holds records on a duplicate `lms_user_id`
+until the CRM clears its stale ids (round 5 hit this with 12 persons). When the CRM's test data must survive, apply a new migration in place instead:
 `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/<file>.sql`.
 
 `nipunalms-dev` is shared by the e2e suite and the local CRM. The e2e specs assume a freshly seeded database, so CRM

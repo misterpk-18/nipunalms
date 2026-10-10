@@ -123,8 +123,8 @@ def test_academic_state_follows_the_enrolment_in_crm_vocabulary(client, catalog,
     crm_event("AdmissionQualified", helpers.admission_data())
     (queued,) = _outbox("AdmissionAcademicsChanged")
     assert queued["crm_admission_id"] == "A-100"
-    assert (queued["enrolment_status"], queued["curriculum_status"], queued["curriculum_version_label"]) == \
-        ("Awaiting Batch Allocation", "Mapped", "CV 5.1")
+    assert queued["enrolment_status"] == "Awaiting Batch Allocation"
+    assert "curriculum_status" not in queued and "curriculum_version_label" not in queued  # the CRM holds no curriculum (db 104)
     assert queued["allocations"] == [] and queued["joining_date"] is None
 
     crm_event("AdmissionUpdated", {"crm_admission_id": "A-100", "enrolments": [
@@ -157,12 +157,12 @@ def test_academic_state_is_queued_once_per_change(client, catalog, crm_event, ru
         ["Awaiting Batch Allocation", "Awaiting Batch Allocation"]
 
 
-def test_unmapped_curriculum_reports_mapping_pending(client, catalog, crm_event):
+def test_a_course_without_an_active_version_still_waits_for_a_batch_and_reports_no_curriculum(client, catalog, crm_event):
     crm_event("AdmissionQualified", helpers.admission_data(course="NIT-CRS-052"))
 
     (queued,) = _outbox("AdmissionAcademicsChanged")
-    assert (queued["enrolment_status"], queued["curriculum_status"], queued["curriculum_version_label"]) == \
-        ("Awaiting Batch Allocation", "Mapping Pending", None)
+    assert queued["enrolment_status"] == "Awaiting Batch Allocation"
+    assert "curriculum_status" not in queued and "curriculum_version_label" not in queued
 
 
 def test_combo_admission_reports_its_combo_enrolment(client, catalog, crm_event):
@@ -170,7 +170,7 @@ def test_combo_admission_reports_its_combo_enrolment(client, catalog, crm_event)
     (queued,) = [p for p in _outbox("AdmissionAcademicsChanged") if p["crm_admission_id"] == "A-100"][-1:]
 
     # The combo is one CRM admission (the complimentary 052 enrolment rides on it here, as in the prototype)
-    assert queued["enrolment_status"] == "Awaiting Batch Allocation" and queued["curriculum_status"] == "Mapped"
+    assert queued["enrolment_status"] == "Awaiting Batch Allocation" and "curriculum_status" not in queued
 
 
 # ---------------------------------------------------------------- LMS → CRM: batches
@@ -184,7 +184,7 @@ def test_batch_is_mirrored_to_the_crm_in_its_vocabulary(client, catalog, make_ba
                       "branch_code": "NIT-GNT", "delivery_mode": "Online", "status": "Planned", "readiness": "Ready",
                       "readiness_reason": None, "capacity": 25, "seats_left": 25, "start_date": "2026-10-01",
                       "end_date": None, "schedule_days": None, "start_time": None, "end_time": None, "location": None,
-                      "curriculum_version_label": None, "lead_trainer_email": "trainer.g1@nipuna.test",
+                      "lead_trainer_email": "trainer.g1@nipuna.test",
                       "trainer_emails": ["trainer.g1@nipuna.test"]}
 
     run_sql("UPDATE batches SET state = 'Proposed' WHERE batch_id = :id", id=batch.batch_id)

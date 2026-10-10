@@ -224,16 +224,6 @@ def _branch_finance_snapshot(v: Validator) -> None:
     v.nested("followups", followups, required=True)
 
 
-def _admission_curriculum_mapped(v: Validator) -> None:
-    v.string("crm_admission_id", required=True, max_length=100)
-    v.string("admission_code", nullable=True, max_length=50)       # for logs only
-    v.string("course_code", required=True, upper=True, max_length=30)
-    v.string("track_code", nullable=True, upper=True, max_length=50)
-    v.string("curriculum_version_label", required=True, max_length=100)
-    v.email("mapped_by_email", nullable=True)
-    v.string("reason", nullable=True, max_length=1000)
-
-
 PAYLOAD_RULES = {
     "CourseUpserted": _course_upserted,
     "AdmissionQualified": _admission_qualified,
@@ -242,7 +232,6 @@ PAYLOAD_RULES = {
     "FinanceSummaryUpdated": _finance_summary_updated,
     "BranchUpserted": _branch_upserted,
     "BranchFinanceSnapshot": _branch_finance_snapshot,
-    "AdmissionCurriculumMapped": _admission_curriculum_mapped,
 }
 # Lists that may be left out of a payload
 OPTIONAL_LISTS = {"CourseUpserted": ("components",), "AdmissionUpdated": ("enrolments",),

@@ -33,7 +33,11 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
 | CRM-owned placement (D5) | Not LMS work | | | G001 G004 G005 G006 G008 G038 G039 |
 
 42 of 109 gaps closed (G104 in part); the backend suite is at 660 passing. The status column in [GAPS.md](GAPS.md) is the source of truth. Mark a gap `Done (phase N)`
-there when its phase lands. Migrations used so far: 099–103, so **phase 7 starts at `db/104_*.sql`**.
+there when its phase lands. Migrations used so far: 099–104 (104 is the round-5 CRM curriculum removal).
+
+**Paused for the UX plan (10 Oct 2026).** [UX_PLAN.md](UX_PLAN.md) runs first: it removes Curriculum Mapping Pending
+(`db/105`), merges the Academic Coordinator into the Branch Manager (`db/106`) and redesigns every screen. Phase 7 starts
+after the last UX migration, and phases 7–12 are rewritten in UX phase U18 for the merged role and the new screens.
 
 ## Resuming in a new session
 
@@ -362,7 +366,7 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 - **API only (Part E):** staff handling of slot requests, a picker for another branch's batches, and id fields for topics,
   participants and disruption owners.
 
-## Phase 7: assessments (Modules 19 and 20) (migration 104)
+## Phase 7: assessments (Modules 19 and 20) (migration 105)
 
 **Gaps:** G023 G026 G027 (high); G080–G090 (medium); G100 G107 G108 (low). Link required work to phase 5's `curriculum_assessment_requirements`; review targets already exist (`services/review_clock`).
 

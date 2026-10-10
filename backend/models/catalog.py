@@ -184,13 +184,3 @@ class CurriculumTopic(db.Model):
             "activities": self.activities,
             "depends_on": [t.topic_id for t in self.depends_on],
         }
-
-
-class CurriculumVersionCrmState(db.Model):
-    """Each curriculum version as the CRM mirrors it (kept by triggers, db 097). A deleted Draft stays as a tombstone."""
-
-    __tablename__ = "curriculum_version_crm_state"
-
-    curriculum_version_id: Mapped[int] = mapped_column(Integer, primary_key=True)  # no FK: outlives a deleted Draft
-    payload: Mapped[dict] = mapped_column(JSONB)
-    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

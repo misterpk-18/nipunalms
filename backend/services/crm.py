@@ -16,7 +16,7 @@ from sqlalchemy.exc import DBAPIError
 
 from config.database import db
 from models import (
-    Admission, Branch, BranchFinanceSnapshot, Course, CourseComponent, CrmEvent, CurriculumVersion, Enrolment,
+    Admission, Branch, BranchFinanceSnapshot, Course, CourseComponent, CrmEvent, Enrolment,
     EnrolmentTrack, FinanceSummary, Student, User,
 )
 from repositories import batches as batches_repo
@@ -685,95 +685,6 @@ def _branch_finance_snapshot(event: CrmEvent, data: dict) -> Handled:
     return Handled({"branch_id": branch.branch_id, "branch_code": branch.branch_code, "as_of": data["as_of"].isoformat()})
 
 
-# ---------------------------------------------------------------- AdmissionCurriculumMapped
-
-def _admission_curriculum_mapped(event: CrmEvent, data: dict) -> Handled:
-    """A CRM coordinator mapped the admission (or one track of its combo) to an Active LMS curriculum version. The LMS
-    also maps automatically (a new admission, an activation), so this usually confirms what is already there; it moves an
-    enrolment that waits in Curriculum Mapping Pending, or one still on a retired version, onto the Active one. A change
-    is refused once that course or track has an active allocation: the batch teaches its own version."""
-    admission = _admission(data["crm_admission_id"])
-    if event.source_version < admission.curriculum_source_version:
-        return _stale(event, admission.curriculum_source_version, f"The curriculum mapping of {admission.admission_code}")
-    course = _course(data["course_code"])
-    if course.course_id != admission.course_id:
-        raise BusinessRule(f"Admission {admission.admission_code} is for {admission.course.course_code}, not {course.course_code}")
-    if admission.crm_status == "Cancelled":
-        raise Conflict(f"Admission {admission.admission_code} is cancelled, so its curriculum can't be mapped")
-    enrolment = students_repo.find_enrolment(admission.admission_id, course.course_id)
-    if enrolment is None:
-        raise NotYetApplied(f"Admission {admission.admission_code} has no LMS enrolment yet")
-    if enrolment.status in ("Withdrawn", "Completed"):
-        raise Conflict(f"{enrolment.enrolment_code} is {enrolment.status}, so its curriculum can't be changed")
-
-    track, version = _mapping_target(course, enrolment, data)
-    current_id = track.curriculum_version_id if track is not None else enrolment.curriculum_version_id
-    changed = current_id != version.curriculum_version_id
-    if changed:
-        allocation = _active_allocation_of(enrolment, track)
-        if allocation is not None:
-            current = catalog_repo.get_curriculum_version(current_id) if current_id else None
-            raise Conflict(f"{enrolment.enrolment_code} is already allocated to batch {allocation.batch.batch_code}"
-                           f"{f' on {current.version_label}' if current else ''}. Change the curriculum in the LMS together "
-                           f"with the allocation")
-        if track is not None:
-            track.curriculum_version_id = version.curriculum_version_id
-        else:
-            enrolment.curriculum_version_id = version.curriculum_version_id
-        db.session.flush()
-        audit.record("CURRICULUM_MAPPED_BY_CRM", "enrolment", enrolment.enrolment_code, actor_user_id=None,
-                     old={"curriculum_version_id": current_id},
-                     new={"curriculum_version_id": version.curriculum_version_id, "version_label": version.version_label,
-                          "track_code": data.get("track_code"), "mapped_by_email": data.get("mapped_by_email")},
-                     reason=data.get("reason"), branch_id=enrolment.service_branch_id)
-
-    mapped = enrolment.curriculum_version_id is not None and all(t.curriculum_version_id for t in enrolment.tracks)
-    if enrolment.status == "Curriculum Mapping Pending" and mapped:
-        enrolment.status = ("Allocated — awaiting first regular class" if batches_repo.active_allocation(enrolment.enrolment_id)
-                            else "Allocation Pending")
-    admission.curriculum_source_version = event.source_version
-    db.session.flush()
-    student = students_repo.get_student(admission.student_id)
-    return Handled({**_admission_result(admission, student), "enrolment_code": enrolment.enrolment_code,
-                    "enrolment_status": enrolment.status, "curriculum_status": "Mapped" if mapped else "Mapping Pending",
-                    "curriculum_version_label": version.version_label, "track_code": data.get("track_code"),
-                    "changed": changed})
-
-
-def _mapping_target(course: Course, enrolment: Enrolment, data: dict) -> tuple[EnrolmentTrack | None, CurriculumVersion]:
-    """The enrolment track the mapping is for (None: the course as a whole) and the Active version it names."""
-    label, track_code = data["curriculum_version_label"], data.get("track_code")
-    track = component = None
-    if track_code:
-        component = catalog_repo.get_component_by_track_code(track_code)
-        if component is None or component.parent_course_id != course.course_id:
-            raise BusinessRule(f"{course.course_code} has no track {track_code}")
-        track = next((t for t in enrolment.tracks if t.component_id == component.component_id), None)
-        if track is None:
-            raise BusinessRule(f"{enrolment.enrolment_code} doesn't include track {track_code}")
-    version = catalog_repo.find_curriculum_version(course.course_id, component.component_id if component else None, label)
-    if version is None and component is not None and component.component_course_id:
-        version = catalog_repo.find_curriculum_version(component.component_course_id, None, label)  # a booster's own course
-    where = f"{course.course_code}{f' track {track_code}' if track_code else ''}"
-    if version is None:
-        raise BusinessRule(f"There is no curriculum {label} for {where} in the LMS")
-    if version.status != "Active":
-        active_id = catalog_repo.active_curriculum_version_id(version.course_id, version.component_id)
-        active = catalog_repo.get_curriculum_version(active_id) if active_id else None
-        raise BusinessRule(f"{label} is {version.status} in the LMS, so it can't be mapped. "
-                           + (f"The Active version for {where} is {active.version_label}" if active
-                              else f"{where} has no Active version yet"))
-    return track, version
-
-
-def _active_allocation_of(enrolment: Enrolment, track: EnrolmentTrack | None):
-    """The seat that fixes the curriculum: the track's own allocation, or one for the whole enrolment."""
-    active = [a for a in batches_repo.allocations_of_enrolment(enrolment.enrolment_id) if a.status == "Active"]
-    if track is not None:
-        active = [a for a in active if a.enrolment_track_id in (None, track.enrolment_track_id)]
-    return active[0] if active else None
-
-
 HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
     "CourseUpserted": _course_upserted,
     "AdmissionQualified": _admission_qualified,
@@ -782,7 +693,6 @@ HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
     "FinanceSummaryUpdated": _finance_summary_updated,
     "BranchUpserted": _branch_upserted,
     "BranchFinanceSnapshot": _branch_finance_snapshot,
-    "AdmissionCurriculumMapped": _admission_curriculum_mapped,
 }
 
 
@@ -791,12 +701,12 @@ HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
 def status_since(since: datetime, crm_admission_id: str | None = None, crm_person_id: str | None = None) -> dict:
     """The values the CRM stores about the LMS that changed after `since` (see docs/CRM_INTEGRATION.md):
     persons.lms_user_id / lms_provisioned_at; admissions.lms_status / lms_last_activity_at; the academic columns
-    the LMS now owns (enrolment_status, curriculum_status, allocations and joining date, completion); batches;
-    certificates from the LMS Certificate Register; the curriculum catalogue.
+    the LMS now owns (enrolment_status, allocations and joining date, completion); batches; certificates from the
+    LMS Certificate Register. Curriculum stays in the LMS: the CRM no longer holds it (db 104).
 
     `as_of` is read before the rows, so storing it as the next `since` can repeat a row but never skip one. There is
     no paging: one response holds everything changed since `since`. A crm_admission_id / crm_person_id filter narrows
-    it to that admission's (or person's) records, the batches its allocations name and its courses' curricula."""
+    it to that admission's (or person's) records and the batches its allocations name."""
     as_of = crm_repo.pull_as_of()
     now = datetime.now(timezone.utc)
     filters = {k: v for k, v in (("crm_admission_id", crm_admission_id), ("crm_person_id", crm_person_id)) if v is not None}
@@ -810,7 +720,6 @@ def status_since(since: datetime, crm_admission_id: str | None = None, crm_perso
         "academics": [st.academic for st in crm_repo.academics_changed_since(since, scope)],
         "batches": [state.payload for state in crm_repo.batch_states_changed_since(since, scope)],
         "certificates": crm_repo.certificate_states_changed_since(since, scope),
-        "curriculum_versions": crm_repo.curriculum_versions_changed_since(since, scope),
         "as_of": as_of,
     }
     if filters:

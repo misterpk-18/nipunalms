@@ -52,6 +52,7 @@ Vijayawada).
 | `101_academic_calendar.sql` | Gap fix plan phase 4: company holidays and branch closures, working weekdays | ✅ |
 | `102_curriculum_model.sql` | Gap fix plan phase 5: the Module 14 curriculum model | ✅ |
 | `103_batches_delivery.sql` | Gap fix plan phase 6: batch lifecycle and requests, class logs, live-class operations (Modules 15, 16) | ✅ |
+| `104_crm_curriculum_removal.sql` | Round 5: the CRM holds no curriculum (mapping event, catalogue mirror and curriculum fields removed) | ✅ |
 
 ---
 
@@ -293,9 +294,9 @@ Round-2 owner decisions D3 and D4 ([CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5
 | `branches.source_version` (0 = made in the LMS) | `BranchUpserted` is versioned per branch like the other CRM records |
 | `branch_finance_snapshots` (one row per branch: target period, verified collections / target, paid Admissions / target, overdue amount / count / by age band, pending and overdue payment verifications, overdue follow-ups, broken promises, `as_of`, `source_version`) | The CRM-authoritative dashboard figures. Each snapshot replaces the previous one; a target needs its period. A branch without a row shows Not Configured, never 0 |
 
-## 097 — CRM round 3: curriculum mapping
+## 097 — CRM round 3: curriculum catalogue and mapping (removed again in 104)
 
-The CRM maps admissions to curricula; the LMS reports its catalogue (round 3, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+The CRM mapped admissions to curricula; the LMS reported its catalogue (round 3, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -389,3 +390,15 @@ the API adds Module 15's labels (`state_label`).
 | `exception_queue` + `DISRUPTION`, `CLASS_LOG`, `REPLACEMENT` | Disruptions, missing class logs and replacements owed reach the queue |
 | `crm_batch_status`: Proposed, On Hold and Archived pass through | Round 4 request A5 |
 | Settings `session_delay_notice_minutes` (5), `session_disruption_minutes` (15), `material_end_extension_days` (7), `class_log_lookback_days` (14) | |
+
+## 104 — CRM round 5: the CRM holds no curriculum
+
+The CRM no longer holds curriculum, so the LMS stops reporting it and receiving mapping events ([CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+
+| Change | Why |
+|---|---|
+| `crm_events.event_type` no longer accepts `AdmissionCurriculumMapped` (the check is `NOT VALID`: events already received stay in the inbox) | The CRM never sends it again |
+| `admissions.curriculum_source_version` dropped | It versioned that event |
+| `curriculum_version_crm_state` and its functions and triggers dropped | `curriculum_versions[]` left the pull |
+| `admission_academic_core` and `batch_crm_state` no longer emit `curriculum_status` / `curriculum_version_label`; stored states and Pending outbox rows lose the keys without a new change stamp | The CRM ignores them |
+

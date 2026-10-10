@@ -13,7 +13,7 @@ from tests import helpers
 from tests.services_fixtures import world  # noqa: F401
 
 API = "/api/v1/calendar/closures"
-MONDAY = date(2026, 10, 5)
+MONDAY = today_ist() + timedelta(days=7 - today_ist().weekday())   # next Monday: review targets must not be overdue yet
 
 
 def closure(run_sql, starts_on, ends_on=None, branch_id=None, status="Approved"):

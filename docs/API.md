@@ -155,10 +155,10 @@ Codes follow the prototype: `NIT-STU-2026-004182`, `ADM-GNT-2026-000214`, `NIT-G
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/integrations/crm/events` | CRM service key (`X-Service-Key`) | `CourseUpserted`, `AdmissionQualified`, `AdmissionUpdated`, `AdmissionCancelled`, `FinanceSummaryUpdated`, `BranchUpserted`, `BranchFinanceSnapshot`, `AdmissionCurriculumMapped`. A record that hasn't arrived yet is 422 `NOT_YET_APPLIED`. Idempotent on `event_id`; stale `source_version` → `Ignored — stale` |
+| POST | `/integrations/crm/events` | CRM service key (`X-Service-Key`) | `CourseUpserted`, `AdmissionQualified`, `AdmissionUpdated`, `AdmissionCancelled`, `FinanceSummaryUpdated`, `BranchUpserted`, `BranchFinanceSnapshot`. A record that hasn't arrived yet is 422 `NOT_YET_APPLIED`. Idempotent on `event_id`; stale `source_version` → `Ignored — stale` |
 | GET | `/integrations/crm/events` | Super Admin | Inbox with status filters |
 | POST | `/integrations/crm/events/{id}/retry` | Super Admin | Re-apply a failed event |
-| GET | `/integrations/crm/status?since=&crm_admission_id=&crm_person_id=` | CRM service key | What the CRM stores about the LMS, changed since `since`: `persons`, `admissions`, `academics`, `batches`, `certificates`, `curriculum_versions` (the whole catalogue), `as_of`. The optional filters narrow every key to one admission or person and are echoed as `filter`. `as_of` is safe to store as the next `since` (rows can repeat, none are skipped); no paging. Seed rows (`seed_data`) are left out |
+| GET | `/integrations/crm/status?since=&crm_admission_id=&crm_person_id=` | CRM service key | What the CRM stores about the LMS, changed since `since`: `persons`, `admissions`, `academics`, `batches`, `certificates`, `as_of`. The optional filters narrow every key to one admission or person and are echoed as `filter`. `as_of` is safe to store as the next `since` (rows can repeat, none are skipped); no paging. Seed rows (`seed_data`) are left out |
 
 Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2](CRM_INTEGRATION.md#2-the-contract).
 
