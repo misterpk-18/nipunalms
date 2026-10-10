@@ -174,7 +174,7 @@ figure out what to do next."
 | U0. Close CRM round 5 | **Done** | `1193fb3`, `31ceee5` | S |
 | U1. Remove Curriculum Mapping Pending | **Done** (db 105) | `51824f0` | M |
 | U2. Merge Academic Coordinator into Branch Manager | **Done** (db 106) | `9469df1` | L |
-| U3. Design system foundation | **Done** | `U3COMMIT` | M |
+| U3. Design system foundation | **Done** | `b3bee1f` | M |
 | U4. Shell, navigation, search, counts | **Next** | | M |
 | U5. Notifications inbox (all roles) | To do | | S |
 | U6. WhatsApp through the CRM (CRM round 6) | To do | | M |
