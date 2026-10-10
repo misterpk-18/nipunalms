@@ -5,7 +5,7 @@ import pytest
 
 from config.database import db
 from config.timezone import IST
-from models import ActivityEvent, CompletionReview, Enrolment
+from models import ActivityEvent, AttendanceRecord, CompletionReview, Enrolment
 from services import student_home
 from tests.assessment_world import API, assignment_body, hours, iso, released_assignment, world  # noqa: F401 (fixtures)
 from tests.conftest import _commit
@@ -54,7 +54,7 @@ def test_home_cards_report_empty_states_honestly(client, world):
     assert data["next_class"]["state"] == "Empty" and data["next_class"]["message"]
     assert data["due_work"]["state"] == "Empty" and data["upcoming_work"]["state"] == "Empty"
     assert data["latest_recording"]["state"] == "Empty"
-    assert data["continue_learning"]["state"] == "Empty"
+    assert data["continue_learning"]["state"] == "Ready" and data["continue_learning"]["basis"] == "Next topic"  # nothing taught yet: start at the first topic
     assert data["attendance_alert"]["state"] == "Empty"
     assert data["support"] == {"state": "Empty", "open_count": 0, "requests": [], "message": "No open request."}
     assert data["career"]["opted_in"] is False
@@ -87,16 +87,21 @@ def test_next_class_join_state_and_meet_stay_unverified(client, world, make_sess
     assert "meet.google.com" not in str(nxt)
 
 
-def test_continue_learning_follows_the_last_class_taught(client, world, make_session):
+def test_continue_learning_falls_back_to_the_last_class_taught_when_every_topic_is_done(client, world, make_session):
     base = datetime.now(IST)
     make_session(world.batches["G1"], world.people["g1"], base - timedelta(days=3), title="Earlier", state="Delivered",
                  delivered_at=base - timedelta(days=3), topic_id=world.topics[0].topic_id)
     make_session(world.batches["G1"], world.people["g1"], base - timedelta(days=1), title="Latest", state="Delivered",
                  delivered_at=base - timedelta(days=1), topic_id=world.topics[1].topic_id)
+    enrolment = world.students["s1"].enrolments[0]["enrolment_id"]
+    for session_id in db.session.execute(db.text("SELECT session_id FROM class_sessions WHERE title IN ('Earlier', 'Latest')")).scalars().all():
+        db.session.add(AttendanceRecord(session_id=session_id, enrolment_id=enrolment, status="Present", marked_by=world.people["g1"].user_id))
+    _commit()
     card = home(client, world, "s1")["continue_learning"]
     assert card["state"] == "Ready" and card["basis"] == "Last class taught"
     assert card["module"]["title"] == "Core Java" and card["topic"]["title"] == "Streams"
-    assert home(client, world, "s3")["continue_learning"]["state"] == "Empty"  # another batch's classes do not count
+    # another batch's classes do not count: its student has not been taught anything, so the first topic is next
+    assert home(client, world, "s3")["continue_learning"]["basis"] == "Next topic"
 
 
 def test_due_work_and_support_come_from_the_existing_services(client, world, released_assignment):

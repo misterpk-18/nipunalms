@@ -117,6 +117,7 @@ class MaterialChange(_Requested, db.Model):
     decision_note: Mapped[str | None] = mapped_column(Text)
     applied_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reply_by: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # students answer by this time (db/109)
 
     batch: Mapped[Batch] = relationship(lazy="joined")
     requester: Mapped[User] = relationship(lazy="joined", foreign_keys=[requested_by])
@@ -133,7 +134,7 @@ class MaterialChange(_Requested, db.Model):
     def to_dict(self, *, include_responses: bool = True) -> dict:
         return {"change_id": self.change_id, "batch": self.batch.to_summary(), "kind": self.kind, "current_plan": self.current_plan,
                 "proposed_plan": self.proposed_plan, "reason": self.reason, "changes": self.changes, "alternative": self.alternative,
-                "applied_at": self.applied_at, "response_counts": self.counts(),
+                "applied_at": self.applied_at, "reply_by": self.reply_by, "response_counts": self.counts(),
                 **({"responses": [r.to_dict() for r in self.responses]} if include_responses else {}), **self.decision_dict()}
 
 

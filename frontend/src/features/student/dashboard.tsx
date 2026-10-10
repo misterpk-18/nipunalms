@@ -1,253 +1,330 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { useMyHome, type StudentHome } from "@/api/dashboards";
+import { CalendarClock, ClipboardList, PlayCircle, Radio, Sparkles, type LucideIcon } from "lucide-react";
+import { deliveryApi } from "@/api/delivery";
+import { useMyHome, type HomeBatchChange, type StudentHome, type UpNext } from "@/api/dashboards";
 import { EmptyState } from "@/components/lms/empty-state";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { GettingStartedCard } from "@/components/lms/getting-started";
-import { Grid, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Meter } from "@/features/shared/attendance-parts";
-import { CardGap, Tile } from "@/features/shared/dashboard-parts";
+import { CardGap } from "@/features/shared/dashboard-parts";
 import { fmtDate, fmtDateTime, fmtRange } from "@/features/shared/format";
-import { useLanguage, useT } from "@/lib/i18n";
-import { statusInfo } from "@/lib/status";
+import { useApiMutation } from "@/lib/mutation";
+import { useLanguage, useLocalised, useT } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { SlotPreferenceCard } from "./batch-changes";
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+type T = ReturnType<typeof useT>;
 
-function NextClassTile({ card }: { card: StudentHome["next_class"] }) {
+// ---------------------------------------------------------------- Up next
+
+/** The one thing to do now: a live class, work due today, or the next topic. One sentence and one button. */
+function UpNextHero({ up }: { up: UpNext }) {
   const t = useT();
-  if (card.state !== "Ready") return <Tile rank={1} label={t("nextClass")} value="Nothing scheduled" hint={<CardGap card={card} />} />;
-  return (
-    <Tile
-      rank={1}
-      label={t("nextClass")}
-      value={card.title}
-      hint={`${fmtDate(card.starts_at)} · ${fmtRange(card.starts_at, card.ends_at)} · ${card.mode} · Trainer ${card.trainer.full_name}`}
-    />
-  );
-}
+  const pick = useLocalised();
+  const frame = (icon: LucideIcon, eyebrow: string, title: string, detail: ReactNode, action: ReactNode, urgent = false) => {
+    const Icon = icon;
+    return (
+      <section
+        aria-label={t("upNext")}
+        className={cn(
+          "flex flex-col gap-4 rounded-2xl border p-5 shadow-sm sm:flex-row sm:items-center",
+          urgent ? "border-primary/40 bg-primary/5" : "bg-card",
+        )}
+      >
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+          <Icon className="size-6" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("upNext")} · {eyebrow}
+          </p>
+          <h2 className="mt-0.5 text-xl font-semibold leading-snug">{title}</h2>
+          <div className="mt-1 text-sm text-muted-foreground">{detail}</div>
+        </div>
+        <div className="shrink-0">{action}</div>
+      </section>
+    );
+  };
 
-function DueWorkTile({ card }: { card: StudentHome["due_work"] }) {
-  const t = useT();
-  if (card.state === "Unavailable") return <Tile rank={2} label={t("dueWork")} value="Unavailable" hint={<CardGap card={card} />} />;
-  if (card.state !== "Ready") return <Tile rank={2} label={t("dueWork")} value="Nothing due" hint={card.message} />;
-  const value = card.required_assignments > 0 ? plural(card.required_assignments, "required assignment") : plural(card.assignments, "assignment");
-  return (
-    <Tile
-      rank={2}
-      label={t("dueWork")}
-      value={card.assignments > 0 ? value : plural(card.tests, "test")}
-      hint={
+  switch (up.kind) {
+    case "live_class": {
+      const { join } = up;
+      return frame(
+        Radio,
+        up.live ? t("upNextLiveNow") : t("upNextClassSoon"),
+        up.title,
         <>
-          {card.nearest && `${card.nearest.title} · due ${fmtDateTime(card.nearest.due_at)}`}
-          {card.nearest && card.tests > 0 && " · "}
-          {card.assignments > 0 && card.tests > 0 && plural(card.tests, "open test")}
-        </>
-      }
-    />
-  );
+          {fmtDate(up.starts_at)} · {fmtRange(up.starts_at, up.ends_at)} · {up.mode}
+          {up.room ? ` · ${up.room}` : ""}
+          {!join.enabled && join.reason && <span className="block">{join.reason}</span>}
+        </>,
+        join.enabled && join.url ? (
+          <Button asChild size="lg" className="tap">
+            <a href={join.url} target="_blank" rel="noreferrer">
+              {t("joinClass")}
+            </a>
+          </Button>
+        ) : (
+          <Button asChild size="lg" variant="outline" className="tap">
+            <Link to="/sessions/$sessionId" params={{ sessionId: String(up.session_id) }}>
+              {t("viewClass")}
+            </Link>
+          </Button>
+        ),
+        true,
+      );
+    }
+    case "work_due": {
+      const overdue = up.work.state === "Overdue";
+      return frame(
+        ClipboardList,
+        overdue ? t("upNextWorkOverdue") : t("upNextWorkDue"),
+        up.title,
+        <>
+          {overdue ? t("overdueSince", { when: fmtDateTime(up.due_at) }) : t("dueAt", { when: fmtDateTime(up.due_at) })}
+          {up.count > 1 && <span className="block">{t("upNextWorkMore", { n: up.count })}</span>}
+        </>,
+        up.work.kind === "assignment" ? (
+          <Button asChild size="lg" className="tap">
+            <Link to="/assignments/$id" params={{ id: String(up.work.id) }}>
+              {t("openTask")}
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild size="lg" className="tap">
+            <Link to="/tests/$id" params={{ id: String(up.work.id) }}>
+              {t("openTest")}
+            </Link>
+          </Button>
+        ),
+        true,
+      );
+    }
+    case "continue_topic":
+      return frame(
+        PlayCircle,
+        t("upNextContinue"),
+        pick(up.title, up.title_te),
+        pick(up.module.title, up.module.title_te),
+        <Button asChild size="lg" className="tap">
+          <Link to="/topics/$topicId" params={{ topicId: String(up.topic_id) }}>
+            {t("openTopic")}
+          </Link>
+        </Button>,
+      );
+    case "next_class":
+      return frame(
+        CalendarClock,
+        t("upNextNextClass"),
+        up.title,
+        t("startsAt", { when: `${fmtDate(up.starts_at)}, ${fmtRange(up.starts_at, up.ends_at)}` }),
+        <Button asChild size="lg" variant="outline" className="tap">
+          <Link to="/sessions/$sessionId" params={{ sessionId: String(up.session_id) }}>
+            {t("viewClass")}
+          </Link>
+        </Button>,
+      );
+    default:
+      return frame(Sparkles, t("upNextNothing"), t("upNextNothing"), t("upNextNothingHelp"), null);
+  }
 }
 
-function ProgressTile({ card }: { card: StudentHome["course_progress"] }) {
+// ---------------------------------------------------------------- batch change banner
+
+function BatchChangeBanner({ change }: { change: HomeBatchChange }) {
   const t = useT();
+  const respond = useApiMutation((response: "Agreed" | "Declined") => deliveryApi.respondToChange(change.change_id, { response }), {
+    success: t("answerRecorded"),
+    invalidate: [
+      ["me", "home"],
+      ["delivery", "my-material-changes"],
+    ],
+  });
   return (
-    <Tile rank={3} label={t("courseProgress")}>
-      <div className="mt-2 space-y-2">
-        {card.state === "Ready" ? (
-          <Meter value={card.percent} label={`Curriculum delivered (${card.enrolment.course.course_code})`} />
-        ) : (
-          <CardGap card={card} />
-        )}
-        <p className="text-xs text-muted-foreground">Separate from attendance and required learning — see Progress.</p>
+    <section aria-label={t("batchChangeTitle")} className="rounded-xl border border-warning/40 bg-warning-soft p-4">
+      <h2 className="font-semibold">{t("batchChangeTitle")}</h2>
+      <dl className="mt-2 space-y-0.5 text-sm">
+        <div>
+          <dt className="inline text-muted-foreground">{t("batchNow")}: </dt>
+          <dd className="inline">{change.current_plan ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="inline text-muted-foreground">{t("batchProposed")}: </dt>
+          <dd className="inline font-medium">{change.proposed_plan}</dd>
+        </div>
+        <div>
+          <dt className="inline text-muted-foreground">{t("batchWhy")}: </dt>
+          <dd className="inline">{change.reason}</dd>
+        </div>
+      </dl>
+      {change.reply_by && <p className="mt-2 text-sm font-medium">{t("batchReplyBy", { when: fmtDate(change.reply_by) })}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ConfirmDialog
+          title={t("agreeTitle")}
+          consequence={t("agreeConsequence")}
+          confirmLabel={t("agree")}
+          cancelLabel={t("cancel")}
+          onConfirm={() => respond.mutateAsync("Agreed")}
+        >
+          <Button className="tap">{t("agree")}</Button>
+        </ConfirmDialog>
+        <ConfirmDialog
+          title={t("declineTitle")}
+          consequence={t("declineConsequence")}
+          confirmLabel={t("decline")}
+          cancelLabel={t("cancel")}
+          onConfirm={() => respond.mutateAsync("Declined")}
+        >
+          <Button variant="outline" className="tap">
+            {t("decline")}
+          </Button>
+        </ConfirmDialog>
       </div>
-    </Tile>
+    </section>
   );
 }
 
-function JoinClass({ card }: { card: StudentHome["next_class"] }) {
+// ---------------------------------------------------------------- the four cards
+
+function HomeCard({ title, children }: { title: string; children: ReactNode }) {
+  return <Section title={title}>{children}</Section>;
+}
+
+function DueWorkCard({ card }: { card: StudentHome["due_work"] }) {
   const t = useT();
-  if (card.state !== "Ready") return null;
-  const { join } = card;
   return (
-    <div className="mt-2 space-y-1">
-      {join.enabled && join.url ? (
-        <Button asChild>
-          <a href={join.url} target="_blank" rel="noreferrer">
-            {t("joinClass")}
-          </a>
-        </Button>
+    <HomeCard title={t("dueWork")}>
+      {card.state === "Ready" ? (
+        <div className="space-y-2">
+          <p className="text-sm">
+            {card.assignments > 0 && t("openAssignments", { n: card.assignments })}
+            {card.assignments > 0 && card.tests > 0 && " · "}
+            {card.tests > 0 && t("openTests", { n: card.tests })}
+          </p>
+          {card.nearest && (
+            <p className="text-sm text-muted-foreground">
+              {card.nearest.title} · {t("dueAt", { when: fmtDateTime(card.nearest.due_at) })}
+            </p>
+          )}
+        </div>
+      ) : card.state === "Empty" ? (
+        <p className="text-sm text-muted-foreground">{t("nothingDue")}</p>
       ) : (
-        <Button disabled>{t("joinClass")}</Button>
+        <CardGap card={card} />
       )}
-      <p className="text-xs text-muted-foreground">
-        {card.mode === "Classroom"
-          ? join.reason
-          : `${join.reason ?? ""} Join Class opens Google Meet in production${card.organizer_email ? `. Meet organizer: ${card.organizer_email}` : ""} — ${card.meet_status_label}.`}
-      </p>
-    </div>
+      <Link to="/assignments" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
+        {t("allWork")}
+      </Link>
+    </HomeCard>
   );
 }
 
-function HomeCard({ title, className, children }: { title: string; className?: string; children: ReactNode }) {
-  return (
-    <Section title={title} className={className}>
-      {children}
-    </Section>
-  );
-}
-
-function Cards({ home }: { home: StudentHome }) {
+function ContinueCard({ card, progress }: { card: StudentHome["continue_learning"]; progress: StudentHome["course_progress"] }) {
   const t = useT();
-  const cl = home.continue_learning;
-  const rec = home.latest_recording;
-  const up = home.upcoming_work;
-  const att = home.attendance_alert;
-  const cert = home.certificate;
-  const career = home.career;
-  const support = home.support;
-  const ai = home.ask_nipuna;
+  const pick = useLocalised();
   return (
-    <div className="mt-6 grid gap-4 lg:grid-cols-3">
-      <HomeCard title={t("continueLearning")} className="lg:col-span-2">
-        {cl.state === "Ready" ? (
-          <p className="text-sm">
-            {cl.track ? `${cl.track.track_name} → ` : ""}
-            {cl.module.title} →{" "}
-            <Link to="/topics/$topicId" params={{ topicId: String(cl.topic.topic_id) }} className="text-primary underline">
-              {cl.topic.title}
+    <HomeCard title={t("continueLearning")}>
+      {card.state === "Ready" ? (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">{pick(card.module.title, card.module.title_te)}</p>
+          <p className="font-medium">{pick(card.topic.title, card.topic.title_te)}</p>
+          <Button asChild size="sm" className="tap">
+            <Link to="/topics/$topicId" params={{ topicId: String(card.topic.topic_id) }}>
+              {t("openTopic")}
             </Link>
-            <span className="ml-2 text-xs text-muted-foreground">({cl.basis})</span>
-          </p>
-        ) : (
-          <CardGap card={cl} />
-        )}
-      </HomeCard>
-      <HomeCard title={t("latestRecording")}>
-        {rec.state === "Ready" ? (
-          <>
-            <p className="text-sm">
-              <Link to="/recordings" className="text-primary underline">
-                {rec.title}
-              </Link>{" "}
-              · {fmtDate(rec.class_date)}
-            </p>
-            <div className="mt-2">
-              <StatusBadge domain="recording" code={rec.status} />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {rec.access_until ? `Access until ${fmtDate(rec.access_until)}` : "Access window pending — set once your Joining Date is confirmed"}
-            </p>
-          </>
-        ) : (
-          <CardGap card={rec} />
-        )}
-      </HomeCard>
-      <HomeCard title={t("upcomingWork")}>
-        {up.state === "Ready" ? (
-          <>
-            <p className="text-sm">
-              {up.title} · {up.closes_at ? `closes ${fmtDate(up.closes_at)}` : up.opens_at ? `opens ${fmtDate(up.opens_at)}` : up.status}
-            </p>
-            <Link to="/tests" className="text-sm text-primary underline">
-              {t("viewAll")}
-            </Link>
-          </>
-        ) : (
-          <CardGap card={up} />
-        )}
-      </HomeCard>
-      <HomeCard title={t("attendanceAlert")}>
-        {att.state === "Ready" ? (
-          att.latest_absence ? (
-            <StatusNote tone={att.latest_absence.recovery ? "warning" : att.alert ? "danger" : "info"}>
-              {att.latest_absence.recovery
-                ? `Absence on ${fmtDate(att.latest_absence.starts_at)} has a recovery reference (${att.latest_absence.recovery.recovery_code}, ${att.latest_absence.recovery.status}).`
-                : `Absence on ${fmtDate(att.latest_absence.starts_at)} has no recovery request yet.`}
-              {att.alert && ` Attendance is below ${att.alert_threshold}%.`}
-            </StatusNote>
-          ) : att.alert ? (
-            <StatusNote tone="danger">Attendance is below {att.alert_threshold}%.</StatusNote>
-          ) : (
-            <p className="text-sm text-muted-foreground">No absence to recover. Attendance is on track.</p>
-          )
-        ) : (
-          <CardGap card={att} />
-        )}
-      </HomeCard>
-      <HomeCard title={t("certStatus")}>
-        {cert.state === "Ready" ? (
-          <>
-            <StatusBadge domain="certificate" code={cert.status} />
-            <p className="mt-1 text-xs text-muted-foreground">From LMS Certificate Register.</p>
-          </>
-        ) : (
-          <CardGap card={cert} />
-        )}
-      </HomeCard>
-      <HomeCard title={t("careerSupport")}>
-        {career.state === "Ready" ? (
-          <>
-            <p className="text-sm">{career.opted_in ? `Opted in · Profile ${career.profile_percent}% complete` : "Not opted in yet"}</p>
-            <p className="mt-1 text-xs">{t("noGuarantee")}</p>
-          </>
-        ) : (
-          <CardGap card={career} />
-        )}
-      </HomeCard>
-      <HomeCard title={t("support")}>
-        {support.state === "Ready" ? (
-          <p className="text-sm">
-            {plural(support.open_count, "open request")} · Owner: {support.requests[0]?.owner}
-          </p>
-        ) : support.state === "Empty" ? (
-          <p className="text-sm text-muted-foreground">No open request.</p>
-        ) : (
-          <CardGap card={support} />
-        )}
-        <Link to="/support" className="text-sm text-primary underline">
-          {t("raiseRequest")}
-        </Link>
-      </HomeCard>
-      <HomeCard title={t("askNipuna")}>
-        {ai.state === "Ready" ? (
-          <>
-            <StatusBadge
-              domain="assistant"
-              code={ai.status}
-              label={ai.mode === "ai" ? undefined : `${statusInfo("assistant", ai.status).label} (rule-based)`}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {ai.used} of {ai.limit} daily responses used (IST).
-            </p>
-          </>
-        ) : (
-          <CardGap card={ai} />
-        )}
-      </HomeCard>
-    </div>
+          </Button>
+        </div>
+      ) : (
+        <CardGap card={card} />
+      )}
+      {progress.state !== "Unavailable" && "topics" in progress && progress.topics && progress.topics.total > 0 && (
+        <div className="mt-3">
+          <Meter value={progress.topics.percent} label={t("topicsDone", { done: progress.topics.done, total: progress.topics.total })} />
+        </div>
+      )}
+    </HomeCard>
   );
 }
 
-function Freshness({ engagement }: { engagement: StudentHome["engagement"] }) {
-  if (engagement.state === "Stale") return <StatusNote tone="warning">{engagement.message} Shown as out of date rather than as zero.</StatusNote>;
-  if (engagement.state === "Fresh") return <StatusNote tone="success">Engagement data last refreshed {fmtDateTime(engagement.refreshed_at)}.</StatusNote>;
-  if (engagement.state === "Unavailable") return <StatusNote tone="danger">{engagement.message ?? "Engagement data could not be loaded."}</StatusNote>;
-  return <EmptyState reason={engagement.message ?? "No engagement data yet."} />;
+function RecordingCard({ card }: { card: StudentHome["latest_recording"] }) {
+  const t = useT();
+  return (
+    <HomeCard title={t("latestRecording")}>
+      {card.state === "Ready" ? (
+        <div className="space-y-2">
+          <p className="text-sm">
+            <span className="font-medium">{card.title}</span> · {fmtDate(card.class_date)}
+          </p>
+          <StatusBadge domain="recording" code={card.status} />
+          <div>
+            <Button asChild size="sm" variant="outline" className="tap">
+              <Link to="/recordings">{t("watchNow")}</Link>
+            </Button>
+          </div>
+        </div>
+      ) : card.state === "Empty" ? (
+        <p className="text-sm text-muted-foreground">{t("recordingNone")}</p>
+      ) : (
+        <CardGap card={card} />
+      )}
+      <Link to="/recordings" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
+        {t("allRecordings")}
+      </Link>
+    </HomeCard>
+  );
 }
+
+function AttendanceCard({ card }: { card: StudentHome["attendance_alert"] }) {
+  const t = useT();
+  return (
+    <HomeCard title={t("attendanceAlert")}>
+      {card.state === "Ready" ? (
+        card.latest_absence && !card.latest_absence.recovery && card.latest_absence.can_request_recovery ? (
+          <div className="space-y-2">
+            <StatusNote tone={card.alert ? "danger" : "warning"}>
+              {t("attendanceMissed", { when: fmtDate(card.latest_absence.starts_at) })}
+              {card.alert && ` ${t("attendanceLow", { n: card.alert_threshold })}`}
+            </StatusNote>
+            <Button asChild size="sm" className="tap">
+              <Link to="/attendance">{t("askRecovery")}</Link>
+            </Button>
+          </div>
+        ) : card.alert ? (
+          <StatusNote tone="danger">{t("attendanceLow", { n: card.alert_threshold })}</StatusNote>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("attendanceOnTrack")}</p>
+        )
+      ) : card.state === "Empty" ? (
+        <p className="text-sm text-muted-foreground">{t("attendanceNotStarted")}</p>
+      ) : (
+        <CardGap card={card} />
+      )}
+      <Link to="/attendance" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
+        {t("seeAttendance")}
+      </Link>
+    </HomeCard>
+  );
+}
+
+// ---------------------------------------------------------------- the screen
 
 export function StudentHome() {
   const query = useMyHome();
   const { lang } = useLanguage();
   const t = useT();
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-5xl">
       <QueryView query={query}>
         {(home) => (
           <>
             <PageHead
               title={lang === "te" ? `నమస్తే, ${home.student.name_te ?? home.student.full_name}` : `Welcome, ${home.student.full_name}`}
-              description={`${home.student.student_code} · Service branch: ${home.student.service_branch.branch_name}`}
+              description={`${home.student.student_code} · ${home.student.service_branch.branch_name}`}
             />
-            <div className="mb-4">
+            <div className="space-y-4">
               <GettingStartedCard
                 workspace="student"
                 labels={{
@@ -257,16 +334,16 @@ export function StudentHome() {
                   steps: { activate: t("stepActivate"), batch: t("stepBatch"), class: t("stepClass"), task: t("stepTask") },
                 }}
               />
-            </div>
-            <Grid cols={3}>
-              <NextClassTile card={home.next_class} />
-              <DueWorkTile card={home.due_work} />
-              <ProgressTile card={home.course_progress} />
-            </Grid>
-            <JoinClass card={home.next_class} />
-            <Cards home={home} />
-            <div className="mt-6">
-              <Freshness engagement={home.engagement} />
+              {home.batch_changes.state === "Ready" && home.batch_changes.items.map((change) => <BatchChangeBanner key={change.change_id} change={change} />)}
+              <UpNextHero up={home.up_next} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <DueWorkCard card={home.due_work} />
+                <ContinueCard card={home.continue_learning} progress={home.course_progress} />
+                <RecordingCard card={home.latest_recording} />
+                <AttendanceCard card={home.attendance_alert} />
+              </div>
+              {home.needs_batch && <SlotPreferenceCard />}
+              {home.primary_enrolment === null && <EmptyState reason={t("noEnrolments")} />}
             </div>
           </>
         )}

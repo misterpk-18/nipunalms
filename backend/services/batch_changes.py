@@ -13,7 +13,7 @@ date, reason and the Branch Manager's review, after the Branch Manager's indepen
 different mode or timetable needs an applied 'Batch move' material change first. Past classes, attendance and payments stay
 on the original batch.
 """
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import select
 
@@ -21,6 +21,7 @@ from config.database import db
 from models import BatchCapacityRequest, BatchSuccession, MaterialChange, MaterialChangeResponse, Student
 from models.batches import WEEKDAYS
 from repositories import batches as batches_repo
+from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
@@ -214,6 +215,8 @@ def decide_change(change_id: int, decision: str, note: str | None) -> MaterialCh
     if decision == "Rejected" and not note:
         raise ValidationError("A reason is required", {"note": ["Say why the change is not approved"]})
     _decision_fields(change, "Awaiting Agreement" if decision == "Approved" else "Rejected", note)
+    if change.status == "Awaiting Agreement":
+        change.reply_by = _now() + timedelta(days=settings_repo.get_int("batch_change_reply_days", 7))
     db.session.flush()
     audit.record("MATERIAL_CHANGE_DECIDED", "material_change", change.change_id, branch_id=change.batch.branch_id, reason=note,
                  new={"status": change.status})

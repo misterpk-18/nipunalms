@@ -15,63 +15,50 @@ async function apiLogin(request: APIRequestContext, loginId: string) {
   return { token: data.token as string, userId: data.user.user_id as number };
 }
 
-test("student home shows the ranked tiles and every card for Anvitha, and switches to Telugu", async ({ page }, info) => {
+test("student home leads with one thing to do, then four cards, and switches to Telugu", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.student);
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Anvitha K." })).toBeVisible();
-  await expect(page.getByText("NIT-STU-2026-004182 · Service branch: Guntur")).toBeVisible();
+  await expect(page.getByText("NIT-STU-2026-004182 · Guntur")).toBeVisible();
 
-  // three ranked tiles
-  for (const label of ["Next Class", "Due Work", "Current Course Progress"]) await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Curriculum delivered (NIT-CRS-900)")).toBeVisible();
-  await expect(page.getByText("Separate from attendance and required learning")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Join Class" })).toBeDisabled();
+  // the hero: one sentence and one button
+  const hero = page.getByRole("region", { name: "Up next" });
+  await expect(hero).toBeVisible();
+  await expect(hero.getByRole("button").or(hero.getByRole("link")).first()).toBeVisible();
 
-  // the card grid
-  for (const title of [
-    "Continue Learning",
-    "Latest Released Recording",
-    "Upcoming Assignment / Test",
-    "Attendance Alert",
-    "Certificate Status",
-    "Career Support",
-    "Support",
-    "Ask Nipuna",
-  ]) {
+  // four cards; Career, Support, Ask Nipuna and the certificate have left Home
+  for (const title of ["Due Work", "Continue Learning", "Latest Released Recording", "Attendance Alert"]) {
     await expect(page.getByRole("heading", { level: 2, name: title, exact: true })).toBeVisible();
+  }
+  for (const gone of ["Career Support", "Ask Nipuna", "Certificate Status", "Upcoming Assignment / Test"]) {
+    await expect(page.getByRole("heading", { level: 2, name: gone, exact: true })).toHaveCount(0);
   }
   // earlier specs release recordings and deliver classes, so check the shape rather than one fixed title
   const learning = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "Continue Learning", exact: true }) });
-  await expect(learning.getByRole("link")).toHaveAttribute("href", /\/topics\/\d+/);
+  await expect(learning.getByRole("link", { name: "Open topic" })).toHaveAttribute("href", /\/topics\/\d+/);
+  await expect(learning.getByText(/\d+ of \d+ topics done/)).toBeVisible();
   const recording = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "Latest Released Recording", exact: true }) });
-  await expect(recording.getByRole("link")).toHaveAttribute("href", "/recordings");
+  await expect(recording.getByRole("link", { name: "All recordings" })).toHaveAttribute("href", "/recordings");
   await expect(recording.getByText("Available", { exact: true })).toBeVisible();
-  await expect(recording.getByText(/Access until \d{1,2} \w{3,4} \d{4}/)).toBeVisible();
-  await expect(page.getByText(/REC-0041/)).toBeVisible();
-  await expect(page.getByText("Not Yet Eligible")).toBeVisible();
-  await expect(page.getByText(/Opted in · Profile \d+% complete/)).toBeVisible();
-  await expect(page.getByText(/no guaranteed placement/i)).toBeVisible();
-  await expect(page.getByText(/\d+ of 50 daily responses used/)).toBeVisible();
-  await expect(page.getByText(/Engagement data last refreshed|shown as Stale/i).first()).toBeVisible();
 
-  // language setting: the greeting and card titles follow it
+  // language setting: the greeting, the hero and the card titles follow it
   await page.getByRole("button", { name: "తెలుగు" }).click();
   await expect(page.getByRole("heading", { level: 1, name: /^నమస్తే, / })).toBeVisible();
-  await expect(page.getByText("తదుపరి తరగతి", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "తర్వాత చేయాల్సినది" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "అభ్యాసం కొనసాగించండి" })).toBeVisible();
+  const teluguRecording = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "తాజా విడుదలైన రికార్డింగ్", exact: true }) });
+  await expect(teluguRecording.getByText("అందుబాటులో ఉంది", { exact: true })).toBeVisible();
 });
 
-test("student home fits the phone and keeps Join Class within reach @mobile", async ({ page }, info) => {
+test("student home fits the phone with the hero first @mobile", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
   await login(page, USERS.student);
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { level: 1, name: "Welcome, Anvitha K." })).toBeVisible();
-  await expect(page.getByText("Next Class", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Join Class" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Up next" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Continue Learning" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Ask Nipuna" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 });
 

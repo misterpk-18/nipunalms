@@ -9,10 +9,13 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from config.database import db
-from models import ClassSession, Enrolment, Student
+from config.timezone import IST
+from models import ClassSession, CurriculumModule, Enrolment, Student
 from repositories import content as content_repo
 from repositories import students as students_repo
-from services import ask_nipuna, attendance, career, class_sessions, due_work, meet, progress, recordings, support
+from services import (
+    ask_nipuna, attendance, batch_changes, career, class_sessions, due_work, meet, progress, recordings, support, topic_progress,
+)
 from services.cards import safe_card
 from services.context import current_user
 from services.errors import Forbidden
@@ -95,25 +98,33 @@ def _due_work(student: Student) -> dict:
     return {"due_work": tile, "upcoming_work": card}
 
 
-def _course_progress(block: dict | None) -> dict:
+def _course_progress(block: dict | None, enrolment: Enrolment | None) -> dict:
     if block is None:
         return {"state": "Empty", "message": "Progress appears once you are studying a course."}
     delivery = block["delivery"]
+    topics = topic_progress.course_counts(enrolment) if enrolment is not None else None
     return {
         "state": "Ready" if delivery["percent"] is not None else "Empty",
         "enrolment": block["enrolment"],
         "delivered_sessions": delivery["delivered_sessions"],
         "planned_sessions": delivery["planned_sessions"],
         "percent": delivery["percent"],
+        "topics": topics.to_dict() if topics else None,
         "message": None if delivery["percent"] is not None else "No class is planned yet, so delivery cannot be calculated.",
     }
 
 
-def _continue_learning(enrolment_id: int | None) -> dict:
-    """Track -> module -> topic of the last class taught, else the next scheduled one."""
-    if enrolment_id is None:
+def _continue_learning(enrolment: Enrolment | None) -> dict:
+    """Where to carry on: the first topic not yet Done. Without one, the topic of the last class taught, else the next scheduled one."""
+    if enrolment is None:
         return {"state": "Empty", "message": "Your learning path appears once you are studying a course."}
-    sessions: list[ClassSession] = [s for s in class_sessions.sessions_for_enrolment(enrolment_id) if s.topic_id]
+    target = topic_progress.continue_topic(enrolment)
+    if target is not None:
+        version_id = db.session.get(CurriculumModule, target["module"]["module_id"]).curriculum_version_id
+        return {"state": "Ready", "basis": "Next topic", "track": content_repo.track_labels({version_id}).get(version_id),
+                "module": target["module"], "topic": {"topic_id": target["topic_id"], "title": target["title"], "title_te": target["title_te"]},
+                "status": target["status"]}
+    sessions: list[ClassSession] = [s for s in class_sessions.sessions_for_enrolment(enrolment.enrolment_id) if s.topic_id]
     delivered = [s for s in sessions if s.state == "Delivered"]
     upcoming = [s for s in sessions if s.state in UPCOMING_STATES]
     if delivered:
@@ -127,8 +138,8 @@ def _continue_learning(enrolment_id: int | None) -> dict:
     track = content_repo.track_labels({module.curriculum_version_id}).get(module.curriculum_version_id)
     return {
         "state": "Ready", "basis": basis, "track": track,
-        "module": {"module_id": module.module_id, "title": module.title},
-        "topic": {"topic_id": topic.topic_id, "title": topic.title},
+        "module": {"module_id": module.module_id, "title": module.title, "title_te": module.title_te},
+        "topic": {"topic_id": topic.topic_id, "title": topic.title, "title_te": topic.title_te},
     }
 
 
@@ -212,6 +223,48 @@ def _engagement(block: dict | None, now: datetime) -> dict:
     }
 
 
+# ---------------------------------------------------------------- up next, batch changes
+
+def _up_next(student: Student, next_class: dict, continue_card: dict) -> dict:
+    """The one thing to do now, in this order: a class that is live or about to open, work due today (or overdue), the next topic."""
+    if next_class["state"] == "Ready" and (next_class["class_state"] == "Live" or next_class["join"]["enabled"]):
+        return {"kind": "live_class", "title": next_class["title"], "starts_at": next_class["starts_at"], "ends_at": next_class["ends_at"],
+                "mode": next_class["mode"], "room": next_class["room"], "live": next_class["class_state"] == "Live",
+                "session_id": next_class["session_id"], "join": next_class["join"]}
+    assignments, tests = due_work.open_items(student)
+    today = _now().astimezone(IST).date()
+    due: list[dict] = [
+        {"kind": "assignment", "id": a.assignment_id, "title": a.title, "due_at": a.due_at, "state": state}
+        for a, state in assignments if a.due_at.astimezone(IST).date() <= today]
+    due += [{"kind": "test", "id": t.test_id, "title": t.title, "due_at": t.closes_at, "state": status}
+            for t, status in tests if status == "Available" and t.closes_at is not None and t.closes_at.astimezone(IST).date() <= today]
+    if due:
+        item = min(due, key=lambda i: i["due_at"])
+        return {"kind": "work_due", "title": item["title"], "due_at": item["due_at"], "work": item, "count": len(due)}
+    if continue_card["state"] == "Ready" and continue_card["basis"] == "Next topic":
+        return {"kind": "continue_topic", "title": continue_card["topic"]["title"], "title_te": continue_card["topic"].get("title_te"),
+                "topic_id": continue_card["topic"]["topic_id"], "module": continue_card["module"]}
+    if next_class["state"] == "Ready":
+        return {"kind": "next_class", "title": next_class["title"], "starts_at": next_class["starts_at"], "ends_at": next_class["ends_at"],
+                "mode": next_class["mode"], "session_id": next_class["session_id"]}
+    return {"kind": "nothing"}
+
+
+def _batch_changes() -> dict:
+    """Batch changes waiting for this student's Agree / Decline, soonest reply-by first."""
+    waiting = [(c, r) for c, r in batch_changes.my_changes() if c.status == "Awaiting Agreement" and r.response == "Pending"]
+    waiting.sort(key=lambda pair: pair[0].reply_by or pair[0].requested_at)
+    items = [{"change_id": c.change_id, "kind": c.kind, "batch": c.batch.to_summary(), "current_plan": c.current_plan,
+              "proposed_plan": c.proposed_plan, "reason": c.reason, "alternative": c.alternative, "reply_by": c.reply_by}
+             for c, _ in waiting]
+    return {"state": "Ready" if items else "Empty", "items": items}
+
+
+def _needs_batch(student: Student) -> bool:
+    """True when a course of this student has no batch yet: only then does Home offer the preferred-slot request."""
+    return any(e.status == "Allocation Pending" for e in students_repo.enrolments_of_student(student.student_id))
+
+
 # ---------------------------------------------------------------- the response
 
 def my_home() -> dict:
@@ -227,6 +280,8 @@ def my_home() -> dict:
     enrolment = students_repo.get_enrolment(primary["enrolment"]["enrolment_id"]) if primary else None
 
     due = safe_card("due_work", lambda: _due_work(student))
+    next_class = safe_card("next_class", _next_class)
+    continue_card = safe_card("continue_learning", lambda: _continue_learning(enrolment))
     failed = "due_work" not in due  # _card returned its Unavailable marker for both cards
     return {
         "student": {
@@ -235,10 +290,14 @@ def my_home() -> dict:
         },
         "as_of": now,
         "primary_enrolment": primary["enrolment"] if primary else None,
-        "next_class": safe_card("next_class", _next_class),
+        "up_next": ({"kind": "nothing"} if "state" in next_class and next_class["state"] == "Unavailable"
+                    else safe_card("up_next", lambda: _up_next(student, next_class, continue_card))),
+        "batch_changes": safe_card("batch_changes", _batch_changes),
+        "needs_batch": _needs_batch(student),
+        "next_class": next_class,
         "due_work": due if failed else due["due_work"],
-        "course_progress": safe_card("course_progress", lambda: _course_progress(primary)),
-        "continue_learning": safe_card("continue_learning", lambda: _continue_learning(enrolment.enrolment_id if enrolment else None)),
+        "course_progress": safe_card("course_progress", lambda: _course_progress(primary, enrolment)),
+        "continue_learning": continue_card,
         "latest_recording": safe_card("latest_recording", _latest_recording),
         "upcoming_work": due if failed else due["upcoming_work"],
         "attendance_alert": safe_card("attendance_alert", lambda: _attendance_alert(enrolment)),

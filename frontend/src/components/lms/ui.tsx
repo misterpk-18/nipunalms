@@ -5,6 +5,7 @@ import { CircleAlert, CircleCheck, CircleX, Info, TriangleAlert, type LucideIcon
 import { errorMessage } from "@/api/client";
 import { EmptyState } from "@/components/lms/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT } from "@/lib/i18n";
 import { statusInfo, type StatusDomain, type StatusTone } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
@@ -123,11 +124,12 @@ const BADGE_CLASS = "inline-flex max-w-full items-center gap-1 rounded-full bord
  */
 export function StatusBadge({ domain, code, label }: { domain: StatusDomain; code: string | number | null | undefined; label?: ReactNode }) {
   const info = statusInfo(domain, code);
+  const t = useT();
   const Icon = TONE_ICON[info.tone];
   return (
     <span className={cn(BADGE_CLASS, TONE_CLASS[info.tone])} title={info.help || undefined}>
       <Icon className="size-3.5 shrink-0" aria-hidden />
-      <span className="break-words">{label ?? info.label}</span>
+      <span className="break-words">{label ?? (info.tkey ? t(info.tkey) : info.label)}</span>
     </span>
   );
 }

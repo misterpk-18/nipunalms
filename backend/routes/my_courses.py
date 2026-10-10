@@ -45,3 +45,10 @@ def get_module(module_id: int):
 @login_required
 def get_topic(topic_id: int):
     return learning_controller.get_topic(topic_id)
+
+
+@my_courses_bp.get("/me/topics/<int:topic_id>")
+@login_required
+@require_roles("STUDENT")
+def topic_hub(topic_id: int):
+    return learning_controller.topic_hub_page(topic_id)

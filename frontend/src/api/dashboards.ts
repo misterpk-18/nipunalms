@@ -36,10 +36,49 @@ export type HomeNextClass = Card<{
   join: { enabled: boolean; reason: string | null; url: string | null };
 }>;
 
+export type UpNext =
+  | {
+      kind: "live_class";
+      title: string;
+      starts_at: DateTime;
+      ends_at: DateTime;
+      mode: string;
+      room: string | null;
+      live: boolean;
+      session_id: number;
+      join: { enabled: boolean; reason: string | null; url: string | null };
+    }
+  | {
+      kind: "work_due";
+      title: string;
+      due_at: DateTime;
+      count: number;
+      work: { kind: "assignment" | "test"; id: number; title: string; due_at: DateTime; state: string };
+    }
+  | { kind: "continue_topic"; title: string; title_te: string | null; topic_id: number; module: { module_id: number; title: string; title_te: string | null } }
+  | { kind: "next_class"; title: string; starts_at: DateTime; ends_at: DateTime; mode: string; session_id: number }
+  | { kind: "nothing" };
+
+export type HomeBatchChange = {
+  change_id: number;
+  kind: string;
+  batch: BatchRef;
+  current_plan: string | null;
+  proposed_plan: string;
+  reason: string;
+  alternative: string | null;
+  reply_by: DateTime | null;
+};
+
 export type StudentHome = {
   student: { student_id: number; student_code: string; full_name: string; name_te: string | null; service_branch: BranchRef };
   as_of: DateTime;
   primary_enrolment: EnrolmentRef | null;
+  up_next: UpNext;
+  /** Batch changes waiting for this student's Agree / Decline. */
+  batch_changes: Card<{ items: HomeBatchChange[] }>;
+  /** True while a course has no batch yet: only then does Home offer the preferred-slot request. */
+  needs_batch: boolean;
   next_class: HomeNextClass;
   due_work: Card<{
     assignments: number;
@@ -47,12 +86,18 @@ export type StudentHome = {
     tests: number;
     nearest: { kind: "assignment"; id: number; code: string; title: string; due_at: DateTime; state: string; is_required: boolean } | null;
   }>;
-  course_progress: Card<{ enrolment: EnrolmentRef; delivered_sessions: number; planned_sessions: number; percent: number | null }>;
+  course_progress: Card<{
+    enrolment: EnrolmentRef;
+    delivered_sessions: number;
+    planned_sessions: number;
+    percent: number | null;
+    topics: { done: number; total: number; percent: number | null } | null;
+  }>;
   continue_learning: Card<{
     basis: string;
     track: { track_code: string; track_name: string } | null;
-    module: { module_id: number; title: string };
-    topic: { topic_id: number; title: string };
+    module: { module_id: number; title: string; title_te?: string | null };
+    topic: { topic_id: number; title: string; title_te?: string | null };
   }>;
   latest_recording: Card<{
     recording_id: number;

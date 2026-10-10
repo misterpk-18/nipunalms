@@ -22,6 +22,7 @@ export function ConfirmDialog({
   title,
   consequence,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   destructive,
   onConfirm,
 }: {
@@ -29,6 +30,8 @@ export function ConfirmDialog({
   title: string;
   consequence: ReactNode;
   confirmLabel?: string;
+  /** Student screens pass the translated word. */
+  cancelLabel?: string;
   destructive?: boolean;
   onConfirm: () => void | Promise<unknown>;
 }) {
@@ -42,7 +45,7 @@ export function ConfirmDialog({
           <AlertDialogDescription>{consequence}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             disabled={busy}
             className={cn(destructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}

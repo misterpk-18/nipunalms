@@ -15,11 +15,13 @@ def _module(row) -> dict:
         "session_count": row.session_count,
         "delivered_count": row.delivered_count,
         "status": row.status,
+        "topics_done": row.topics_done,
+        "percent": round(row.topics_done * 100 / row.topic_count) if row.topic_count else None,
     }
 
 
 def _track(row) -> dict:
-    return {**row.track.to_dict(), "delivery": row.delivery}
+    return {**row.track.to_dict(), "delivery": row.delivery, "topics": row.topics.to_dict() if row.topics else None}
 
 
 def _card(view) -> dict:
@@ -28,6 +30,8 @@ def _card(view) -> dict:
         **enrolment.to_dict(batch=view.batch.to_summary() if view.batch else None),
         "trainers": [t.to_dict() for t in view.trainers],
         "delivery": view.delivery,
+        "topics": view.topics.to_dict() if view.topics else None,
+        "continue_topic": view.continue_topic,
         "explanation": view.explanation,
         "linked_admission_code": view.linked_admission_code,
     }

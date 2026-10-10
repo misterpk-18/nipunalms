@@ -1,32 +1,67 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { deliveryApi, type MyEnrolment } from "@/api/delivery";
-import { Note, PageHead, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
-import { useT } from "@/lib/i18n";
-import { DeliveryBar, mono } from "@/features/shared/delivery-ui";
-import { MaterialChangesCard, SlotPreferenceCard } from "./batch-changes";
+import { EmptyState } from "@/components/lms/empty-state";
+import { PageHead, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
+import { Button } from "@/components/ui/button";
+import { Meter } from "@/features/shared/attendance-parts";
+import { mono } from "@/features/shared/delivery-ui";
+import { useLocalised, useT, type TranslationKey } from "@/lib/i18n";
 
-const KIND_LABEL: Record<string, string> = {
-  Combo: "Combo (3 + 1)",
-  Standalone: "Standalone",
-  "Separately purchased": "Separately purchased",
-  Complimentary: "Complimentary (promotional)",
+const KIND_KEY: Record<string, TranslationKey> = {
+  Combo: "kind_combo",
+  Standalone: "kind_standalone",
+  "Separately purchased": "kind_separate",
+  Complimentary: "kind_complimentary",
 };
 
-export const kindLabel = (kind: string) => KIND_LABEL[kind] ?? kind;
+const NOTE_KEY: Partial<Record<string, TranslationKey>> = {
+  "Provisioning Pending": "enrol_note_provisioning",
+  "Allocation Pending": "enrol_note_allocation",
+  "Allocated — awaiting first regular class": "enrol_note_allocated",
+  Paused: "enrol_note_paused",
+  Completed: "enrol_note_completed",
+  Withdrawn: "enrol_note_withdrawn",
+};
 
-/** What the enrolment's status means for the learner, in the prototype's wording. */
-export function StatusExplanation({ enrolment }: { enrolment: MyEnrolment }) {
-  return <p className="text-sm text-muted-foreground">{enrolment.explanation}</p>;
+/** What the kind of enrolment is, in the reader's language. */
+export function useKindLabel() {
+  const t = useT();
+  return (kind: string) => (KIND_KEY[kind] ? t(KIND_KEY[kind]) : kind);
+}
+
+/** What the enrolment's status means for the learner. Nothing is said for a course that is simply in progress. */
+export function StatusExplanation({ enrolment }: { enrolment: Pick<MyEnrolment, "status"> }) {
+  const t = useT();
+  const key = NOTE_KEY[enrolment.status];
+  return key ? <p className="text-sm text-muted-foreground">{t(key)}</p> : null;
+}
+
+/** The one button a course card leads with: carry on with the next topic. */
+export function ContinueButton({ enrolment, size = "default" }: { enrolment: MyEnrolment; size?: "default" | "sm" | "lg" }) {
+  const t = useT();
+  const pick = useLocalised();
+  const next = enrolment.continue_topic;
+  if (!next) return null;
+  const started = (enrolment.topics?.done ?? 0) > 0;
+  const title = pick(next.title, next.title_te);
+  return (
+    <Button asChild size={size} className="tap h-auto min-h-9 whitespace-normal text-left">
+      <Link to="/topics/$topicId" params={{ topicId: String(next.topic_id) }}>
+        {started ? t("continueTopic", { title }) : t("startCourse", { title })}
+      </Link>
+    </Button>
+  );
 }
 
 export function MyCourses() {
   const t = useT();
+  const kindLabel = useKindLabel();
   const query = useQuery({ queryKey: ["delivery", "my-enrolments"], queryFn: deliveryApi.myEnrolments });
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHead title={t("myCourses")} description="Your courses, batches and course progress, and any batch changes that need your answer." />
-      <QueryView query={query} isEmpty={(rows) => rows.length === 0} empty="You have no course enrolments yet.">
+      <PageHead title={t("myLearning")} description={t("myLearningHelp")} />
+      <QueryView query={query} isEmpty={(rows) => rows.length === 0} empty={t("noEnrolments")}>
         {(rows) => (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {rows.map((e) => (
@@ -37,46 +72,35 @@ export function MyCourses() {
                 </div>
                 <p className="mt-3">{mono(e.course.course_code)}</p>
                 <h2 className="font-semibold">{e.course.title}</h2>
-                <dl className="mt-2 space-y-1 text-sm">
-                  <div>
-                    <dt className="inline text-muted-foreground">Service branch: </dt>
-                    <dd className="inline">{e.service_branch.branch_name}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline text-muted-foreground">Batch: </dt>
-                    <dd className="inline">{e.batch ? mono(e.batch.batch_code) : "Not allocated"}</dd>
-                  </div>
-                  {e.linked_admission_code && (
-                    <div className="text-xs text-muted-foreground">
-                      Promotional complimentary — linked to qualifying paid Admission {e.linked_admission_code}
-                    </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("batchLabel")}: {e.batch ? e.batch.display_name || e.batch.batch_code : t("notAllocated")}
+                </p>
+                <div className="mt-3 space-y-3">
+                  {e.topics && e.topics.total > 0 ? (
+                    <Meter value={e.topics.percent} label={t("topicsDone", { done: e.topics.done, total: e.topics.total })} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{e.batch ? t("noCurriculumYet") : t("noTopicsYet")}</p>
                   )}
-                </dl>
-                <div className="mt-3">
-                  <DeliveryBar delivery={e.delivery} label="Curriculum delivered" />
-                </div>
-                <div className="mt-3">
                   <StatusExplanation enrolment={e} />
+                  {e.continue_topic ? (
+                    <ContinueButton enrolment={e} />
+                  ) : e.topics && e.topics.total > 0 ? (
+                    <p className="text-sm font-medium text-success">{t("courseDone")}</p>
+                  ) : null}
                 </div>
                 <Link
                   to="/courses/$enrolmentId"
                   params={{ enrolmentId: String(e.enrolment_id) }}
                   className="tap mt-auto inline-flex items-center pt-3 text-sm font-medium text-primary underline"
                 >
-                  Open course
+                  {t("openCourse")}
                 </Link>
               </section>
             ))}
           </div>
         )}
       </QueryView>
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <MaterialChangesCard />
-        <SlotPreferenceCard />
-      </div>
-      <div className="mt-4">
-        <Note>Your second course reuses the same student identity. Admission and finance records remain in the CRM.</Note>
-      </div>
+      {query.data?.length === 0 && <EmptyState reason={t("noEnrolments")} />}
     </div>
   );
 }

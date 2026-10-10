@@ -82,3 +82,34 @@ class EnrolmentProgress(db.Model):
             },
         }
 
+
+
+class TopicProgress(db.Model):
+    """One row per enrolment and topic it follows, from the `topic_progress` view (db/109), never written.
+
+    A topic is Done when the student attended its class (or recovered it) or watched its recording, and every required
+    assignment and required test of the topic is handed in. `status` is Not started / Work to hand in / Done.
+    """
+
+    __tablename__ = "topic_progress"
+
+    enrolment_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    topic_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    module_id: Mapped[int] = mapped_column(Integer)
+    curriculum_version_id: Mapped[int] = mapped_column(Integer)
+    is_required: Mapped[bool] = mapped_column(Boolean)
+    attended: Mapped[bool] = mapped_column(Boolean)
+    recording_watched: Mapped[bool] = mapped_column(Boolean)
+    required_assignments: Mapped[int] = mapped_column(Integer)
+    assignments_handed_in: Mapped[int] = mapped_column(Integer)
+    required_tests: Mapped[int] = mapped_column(Integer)
+    tests_taken: Mapped[int] = mapped_column(Integer)
+    is_done: Mapped[bool] = mapped_column(Boolean)
+    status: Mapped[str] = mapped_column(String(20))
+
+    def to_dict(self) -> dict:
+        return {
+            "status": self.status, "is_done": self.is_done, "attended": self.attended, "recording_watched": self.recording_watched,
+            "required_assignments": self.required_assignments, "assignments_handed_in": self.assignments_handed_in,
+            "required_tests": self.required_tests, "tests_taken": self.tests_taken,
+        }

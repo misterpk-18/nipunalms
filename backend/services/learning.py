@@ -1,6 +1,6 @@
 """Module and topic pages. Staff read any curriculum; a learner reaches only modules and topics of the curriculum versions
 their own enrolments (and combo tracks) point at, and sees only their own class sessions."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from config.database import db
 from models import ClassSession, CurriculumModule, CurriculumTopic, Enrolment, EnrolmentTrack
@@ -8,7 +8,7 @@ from repositories import catalog as catalog_repo
 from repositories import class_sessions as sessions_repo
 from repositories import students as students_repo
 from services import class_sessions as class_sessions_service
-from services import delivery_access, my_courses, scope
+from services import delivery_access, my_courses, scope, topic_progress
 from services.context import current_user
 from services.errors import NotFound
 
@@ -26,6 +26,7 @@ class ModulePage:
     context: Context | None
     topics: list[tuple[CurriculumTopic, int]]  # topic, the learner's session count (0 for staff)
     status: str | None
+    progress: dict = field(default_factory=dict)  # topic_id -> the learner's TopicProgress (empty for staff)
 
 
 @dataclass
@@ -71,7 +72,8 @@ def get_module(module_id: int) -> ModulePage:
     sessions = _my_sessions(context, {t.topic_id for t in module.topics})
     topics = [(t, sum(1 for s in sessions if s.topic_id == t.topic_id and s.state != "Cancelled")) for t in module.topics]
     status = my_courses.module_status(module, sessions)[0] if context is not None else None
-    return ModulePage(module, context, topics, status)
+    progress = topic_progress.rows_for(context.enrolment.enrolment_id) if context is not None else {}
+    return ModulePage(module, context, topics, status, progress)
 
 
 def get_topic(topic_id: int) -> TopicPage:

@@ -1,5 +1,6 @@
 from controllers.common import ok
 from services import learning as learning_service
+from services import topic_hub
 
 
 def _context(context) -> dict | None:
@@ -30,7 +31,9 @@ def get_module(module_id: int):
         **_module_head(page.module),
         "context": _context(page.context),
         "status": page.status,
-        "topics": [{**topic.to_dict(), "session_count": count} for topic, count in page.topics],
+        "topics": [{**topic.to_dict(), "session_count": count,
+                    "progress": page.progress[topic.topic_id].to_dict() if topic.topic_id in page.progress else None}
+                   for topic, count in page.topics],
     })
 
 
@@ -42,3 +45,7 @@ def get_topic(topic_id: int):
         "context": _context(page.context),
         "sessions": [_session(s) for s in page.sessions],
     })
+
+
+def topic_hub_page(topic_id: int):
+    return ok(topic_hub.get_hub(topic_id))

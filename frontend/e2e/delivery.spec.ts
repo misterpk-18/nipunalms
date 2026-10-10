@@ -36,27 +36,41 @@ async function choose(select: Locator, pattern: RegExp) {
 
 test.describe.configure({ mode: "serial" });
 
-test("learner navigates My Courses, a combo track, module, topic and session", async ({ page }) => {
+test("learner navigates My Learning, a combo track, module, topic hub and session", async ({ page }) => {
   await login(page, USERS.student);
   await page.goto("/my-courses");
-  await expect(page.getByRole("heading", { name: "My Courses" })).toBeVisible();
-  await expect(page.getByText("Combo (3 + 1)")).toBeVisible();
-  await expect(page.getByText("Separately purchased")).toBeVisible();
-  await expect(page.getByText("Promotional complimentary — linked to qualifying paid Admission NIT-GNT-2026-000214")).toBeVisible();
-  await expect(page.getByText("Your course is confirmed. Your branch will allocate you to a batch before your first class.").first()).toBeVisible();
-  await expect(page.getByText("You are allocated to batch NIT-VIJ-BAT-2026-000001")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Learning" })).toBeVisible();
+  await expect(page.getByText("Combo programme")).toBeVisible();
+  await expect(page.getByText("Bought separately")).toBeVisible();
+  await expect(page.getByText("Included free")).toBeVisible();
+  await expect(page.getByText("Your course is confirmed. Your branch will give you a batch before your first class.").first()).toBeVisible();
+  await expect(page.getByText("You have a batch. Your joining date is set when you attend your first regular class.")).toBeVisible();
+
+  // every course card leads with the next topic and says how far along the student is
+  await expect(page.getByRole("link", { name: /^(Continue|Start): / }).first()).toBeVisible();
+  await expect(page.getByText(/\d+ of \d+ topics done/).first()).toBeVisible();
 
   await page.getByRole("link", { name: "Open course" }).first().click();
-  await expect(page.getByText("Admission reference (CRM)")).toBeVisible();
-  await expect(page.getByText("NIT-GNT-2026-000214 (CRM)")).toBeVisible();
-  await expect(page.getByText("Combo programme — one paid Admission")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tracks in your programme" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Programme modules" })).toBeVisible();
+  // the admission and branch details are folded away until asked for
+  await expect(page.getByText("Fee ₹")).toBeHidden();
+  await page.getByRole("button", { name: "Course info" }).click();
+  await expect(page.getByText("Fee ₹")).toBeVisible();
 
-  await page.getByRole("listitem").filter({ hasText: "NIT-CRS-900/T2" }).getByRole("link", { name: "Open track" }).click();
+  await page.getByRole("listitem").filter({ hasText: "Machine Learning" }).getByRole("link", { name: "Open track" }).click();
   await expect(page.getByRole("heading", { name: "Machine Learning" })).toBeVisible();
   await page.getByRole("link", { name: "Supervised Learning", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Supervised Learning" })).toBeVisible();
+  await expect(page.getByText(/\d+ of \d+ done/).first()).toBeVisible();
   await page.getByRole("link", { name: "Linear & Logistic Regression" }).click();
-  await expect(page.getByRole("heading", { name: "Linear & Logistic Regression" })).toBeVisible();
+
+  // the topic hub: status, classes, recording, files, work and the next topic on one page
+  await expect(page.getByRole("heading", { level: 1, name: "Linear & Logistic Regression" })).toBeVisible();
+  for (const part of ["Classes", "Recording", "Class materials", "Assignments and tests"]) {
+    await expect(page.getByRole("heading", { level: 2, name: part, exact: true })).toBeVisible();
+  }
+  await expect(page.getByText("Next topic")).toBeVisible();
   await page.getByRole("link", { name: "Linear regression intuition" }).click();
   await expect(page.getByText("Class SES-000101")).toBeVisible();
   await expect(page.getByText("Meet organizer (label)")).toBeVisible();
@@ -191,7 +205,7 @@ test("branch manager sees batches, exceptions, trainers and students of the bran
 test("@mobile learner course list has no horizontal scroll", async ({ page }) => {
   await login(page, USERS.student);
   await page.goto("/my-courses");
-  await expect(page.getByRole("heading", { name: "My Courses" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Learning" })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });

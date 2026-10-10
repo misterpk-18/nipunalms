@@ -11,6 +11,7 @@ from repositories import batches as batches_repo
 from repositories import class_sessions as sessions_repo
 from repositories import students as students_repo
 from services import class_sessions as class_sessions_service
+from services import topic_progress
 from services.context import current_user
 from services.errors import Forbidden, NotFound
 
@@ -25,12 +26,14 @@ class ModuleRow:
     session_count: int
     delivered_count: int
     status: str
+    topics_done: int = 0
 
 
 @dataclass
 class TrackRow:
     track: EnrolmentTrack
     delivery: dict
+    topics: topic_progress.Counts | None = None
 
 
 @dataclass
@@ -41,6 +44,8 @@ class EnrolmentView:
     delivery: dict
     explanation: str
     linked_admission_code: str | None
+    topics: topic_progress.Counts | None = None  # topics Done of all topics (db/109)
+    continue_topic: dict | None = None
     tracks: list[TrackRow] = field(default_factory=list)
     modules: list[ModuleRow] = field(default_factory=list)
     next_sessions: list[ClassSession] = field(default_factory=list)
@@ -127,12 +132,14 @@ def module_status(module: CurriculumModule, sessions: list[ClassSession]) -> tup
     return "Scheduled", len(counted), delivered
 
 
-def _module_rows(version: CurriculumVersion | None, sessions: list[ClassSession]) -> list[ModuleRow]:
-    """Modules of a version with what the learner's sessions say about each."""
+def _module_rows(version: CurriculumVersion | None, sessions: list[ClassSession], done: dict | None = None) -> list[ModuleRow]:
+    """Modules of a version with what the learner's sessions say about each, and how many of its topics are Done."""
     rows = []
     for module in version.modules if version else []:
         status, session_count, delivered = module_status(module, sessions)
-        rows.append(ModuleRow(module, len(module.topics), sum(t.is_required for t in module.topics), session_count, delivered, status))
+        counts = (done or {}).get(module.module_id)
+        rows.append(ModuleRow(module, len(module.topics), sum(t.is_required for t in module.topics), session_count, delivered, status,
+                              counts.done if counts else 0))
     return rows
 
 
@@ -142,8 +149,11 @@ def list_enrolments() -> list[EnrolmentView]:
     for enrolment in students_repo.enrolments_of_student(_student_id()):
         batch = _batch_of(enrolment)
         sessions = class_sessions_service.sessions_for_enrolment(enrolment.enrolment_id)
-        views.append(EnrolmentView(enrolment, batch, [t for t in batch.trainers if t.to_date is None] if batch else [], delivery_counts(sessions),
-                                   explain_status(enrolment, batch), _linked_admission(enrolment)))
+        view = EnrolmentView(enrolment, batch, [t for t in batch.trainers if t.to_date is None] if batch else [], delivery_counts(sessions),
+                             explain_status(enrolment, batch), _linked_admission(enrolment))
+        rows = topic_progress.rows_for(enrolment.enrolment_id)
+        view.topics, view.continue_topic = topic_progress.course_counts(enrolment, rows), topic_progress.continue_topic(enrolment, rows)
+        views.append(view)
     return views
 
 
@@ -161,8 +171,12 @@ def get_enrolment(enrolment_id: int) -> EnrolmentView:
     sessions = class_sessions_service.sessions_for_enrolment(enrolment.enrolment_id)
     view = EnrolmentView(enrolment, batch, [t for t in batch.trainers if t.to_date is None] if batch else [], delivery_counts(sessions),
                          explain_status(enrolment, batch), _linked_admission(enrolment))
-    view.tracks = [TrackRow(t, delivery_counts(_track_sessions(sessions, t.curriculum_version_id))) for t in enrolment.tracks]
-    view.modules = _module_rows(enrolment.curriculum_version, sessions)
+    rows = topic_progress.rows_for(enrolment.enrolment_id)
+    view.topics, view.continue_topic = topic_progress.course_counts(enrolment, rows), topic_progress.continue_topic(enrolment, rows)
+    by_version = topic_progress.version_counts(enrolment.enrolment_id)
+    view.tracks = [TrackRow(t, delivery_counts(_track_sessions(sessions, t.curriculum_version_id)), by_version.get(t.curriculum_version_id))
+                   for t in enrolment.tracks]
+    view.modules = _module_rows(enrolment.curriculum_version, sessions, topic_progress.module_counts(enrolment.enrolment_id))
     view.next_sessions = [s for s in sessions if s.state in UPCOMING_STATES][:3]
     view.finance = students_repo.get_finance_summary(enrolment.admission_id)
     return view
@@ -174,7 +188,8 @@ def get_track(enrolment_id: int, enrolment_track_id: int) -> TrackView:
     if track is None or track.enrolment_id != enrolment.enrolment_id:
         raise NotFound("Track not found")
     sessions = _track_sessions(class_sessions_service.sessions_for_enrolment(enrolment.enrolment_id), track.curriculum_version_id)
-    return TrackView(enrolment, track, delivery_counts(sessions), _module_rows(track.curriculum_version, sessions))
+    return TrackView(enrolment, track, delivery_counts(sessions),
+                     _module_rows(track.curriculum_version, sessions, topic_progress.module_counts(enrolment.enrolment_id)))
 
 
 def schedule(filters: dict, page: int, per_page: int):

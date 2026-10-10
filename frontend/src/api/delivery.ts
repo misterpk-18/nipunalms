@@ -1,5 +1,7 @@
 /** Delivery slice: curriculum, batches, allocation, class sessions, Meet association and the learner's course views. */
 import { del, get, list, patch, post, put, type Query } from "./client";
+import type { Assignment, TestItem } from "./assessments";
+import type { StudentRecording, StudentResource } from "./content";
 import type { BranchRef, DateOnly, DateTime, UserRef } from "./types";
 
 export type CourseRef = { course_id: number; course_code: string; title: string };
@@ -399,6 +401,15 @@ export type MyEnrolment = {
   batch: BatchRef | null;
   trainers: Trainer[];
   delivery: Delivery;
+  /** Topics Done of all topics of the course (db/109), and where to carry on. */
+  topics: { done: number; total: number; percent: number | null } | null;
+  continue_topic: {
+    topic_id: number;
+    title: string;
+    title_te: string | null;
+    module: { module_id: number; title: string; title_te: string | null };
+    status: string;
+  } | null;
   explanation: string;
   linked_admission_code: string | null;
 };
@@ -412,6 +423,8 @@ export type ModuleRow = {
   session_count: number;
   delivered_count: number;
   status: string;
+  topics_done: number;
+  percent: number | null;
 };
 export type TrackRow = {
   enrolment_track_id: number;
@@ -420,6 +433,7 @@ export type TrackRow = {
   role: string;
   curriculum_version: VersionRef | null;
   delivery: Delivery;
+  topics: { done: number; total: number; percent: number | null } | null;
 };
 export type MyEnrolmentDetail = MyEnrolment & {
   tracks: TrackRow[];
@@ -435,7 +449,21 @@ export type TrackDetail = {
 };
 type Context = { enrolment: { enrolment_id: number; enrolment_code: string; course: CourseRef }; track: TrackRow | null } | null;
 type ModuleHead = { module_id: number; title: string; title_te: string | null; sort_order: number; curriculum_version: VersionRef; course_id: number };
-export type ModulePage = ModuleHead & { context: Context; status: string | null; topics: (TopicRow & { session_count: number })[] };
+export type TopicProgress = {
+  status: "Done" | "Work to hand in" | "Not started";
+  is_done: boolean;
+  attended: boolean;
+  recording_watched: boolean;
+  required_assignments: number;
+  assignments_handed_in: number;
+  required_tests: number;
+  tests_taken: number;
+};
+export type ModulePage = ModuleHead & {
+  context: Context;
+  status: string | null;
+  topics: (TopicRow & { session_count: number; progress: TopicProgress | null })[];
+};
 export type TopicPage = TopicRow & {
   module: ModuleHead;
   context: Context;
@@ -452,10 +480,41 @@ export type TopicPage = TopicRow & {
   }[];
 };
 
+/** Everything a student has for one topic (GET /me/topics/{id}). */
+export type TopicHub = {
+  topic: { topic_id: number; title: string; title_te: string | null; outcome: string | null; is_required: boolean; instructional_minutes: number | null };
+  module: { module_id: number; title: string; title_te: string | null };
+  track: { track_code: string; track_name: string } | null;
+  enrolment: { enrolment_id: number; enrolment_code: string; course: CourseRef };
+  progress: TopicProgress | null;
+  sessions: {
+    session_id: number;
+    session_code: string;
+    title: string;
+    starts_at: DateTime;
+    ends_at: DateTime;
+    state: string;
+    state_label?: string;
+    mode: string;
+    trainer: string;
+    attendance: string | null;
+  }[];
+  recordings: StudentRecording[];
+  materials: StudentResource[];
+  assignments: Assignment[];
+  tests: TestItem[];
+  next_topic: { topic_id: number; title: string; title_te: string | null } | null;
+};
+
 // ---------------------------------------------------------------- Module 15 / 16 records
 
 export type Emergency = { emergency_reason?: string; next_action?: string };
-export type MeetIds = { meet_space_id?: string | null; calendar_event_id?: string | null; calendar_series_id?: string | null; conference_record_id?: string | null };
+export type MeetIds = {
+  meet_space_id?: string | null;
+  calendar_event_id?: string | null;
+  calendar_series_id?: string | null;
+  conference_record_id?: string | null;
+};
 export type ClassLog = {
   outcome?: "Held" | "Partially Held";
   actual_start?: string;
@@ -687,7 +746,14 @@ export type SessionOperations = {
   participation: Participation[];
   replacements: SessionRef[];
 };
-export type JobRunRow = { job_name: string; last_started_at: DateTime | null; last_finished_at?: DateTime | null; last_ok_at: DateTime | null; last_result?: unknown; last_error?: string | null };
+export type JobRunRow = {
+  job_name: string;
+  last_started_at: DateTime | null;
+  last_finished_at?: DateTime | null;
+  last_ok_at: DateTime | null;
+  last_result?: unknown;
+  last_error?: string | null;
+};
 export type MeetOpsRow = SessionRef & {
   batch: BatchRef;
   branch: BranchRef;
@@ -723,14 +789,16 @@ const opsCalls = {
   // capacity
   requestCapacity: (batchId: number, body: Record<string, unknown>) => post<CapacityRequest>(`/batches/${batchId}/capacity-requests`, body),
   capacityRequests: (query: Query = {}) => list<CapacityRequest>("/batch-capacity-requests", { per_page: 100, ...query }),
-  decideCapacity: (id: number, body: { decision: "Approved" | "Rejected"; note?: string }) => post<CapacityRequest>(`/batch-capacity-requests/${id}/decision`, body),
+  decideCapacity: (id: number, body: { decision: "Approved" | "Rejected"; note?: string }) =>
+    post<CapacityRequest>(`/batch-capacity-requests/${id}/decision`, body),
   // transfers
   requestTransfer: (enrolmentId: number, body: { to_batch_id: number; enrolment_track_id?: number | null; reason: string; acknowledge_warnings?: boolean }) =>
     post<TransferRequest>(`/enrolments/${enrolmentId}/transfer-requests`, body),
   transferRequests: (query: Query = {}) => list<TransferRequest>("/batch-transfer-requests", { per_page: 100, ...query }),
   confirmDestination: (id: number, body: { decision: "Confirmed" | "Rejected"; note?: string }) =>
     post<TransferRequest>(`/batch-transfer-requests/${id}/destination`, body),
-  decideTransfer: (id: number, body: { decision: "Approved" | "Rejected"; note?: string }) => post<TransferRequest>(`/batch-transfer-requests/${id}/decision`, body),
+  decideTransfer: (id: number, body: { decision: "Approved" | "Rejected"; note?: string }) =>
+    post<TransferRequest>(`/batch-transfer-requests/${id}/decision`, body),
   // material changes
   proposeChange: (batchId: number, body: Record<string, unknown>) => post<MaterialChange>(`/batches/${batchId}/material-changes`, body),
   changes: (query: Query = {}) => list<MaterialChange>("/material-changes", { per_page: 100, ...query }),
@@ -752,29 +820,36 @@ const opsCalls = {
   requestSlot: (body: Record<string, unknown>) => post<SlotPreference>("/me/slot-preferences", body),
   withdrawSlot: (id: number) => post<SlotPreference>(`/me/slot-preferences/${id}/withdraw`),
   slotPreferences: (query: Query = {}) => list<SlotPreference>("/slot-preferences", { per_page: 100, ...query }),
-  setSlotStatus: (id: number, body: { status: string; status_note?: string; batch_id?: number | null }) => patch<SlotPreference>(`/slot-preferences/${id}`, body),
+  setSlotStatus: (id: number, body: { status: string; status_note?: string; batch_id?: number | null }) =>
+    patch<SlotPreference>(`/slot-preferences/${id}`, body),
   // Meet operations
   meetOperations: (query: Query = {}) => get<MeetOperations>("/meet-operations", query),
   sessionOperations: (id: number) => get<SessionOperations>(`/class-sessions/${id}/operations`),
   addPerson: (id: number, body: Record<string, unknown>) => post<SessionPerson>(`/class-sessions/${id}/people`, body),
-  decideGuest: (personId: number, body: { decision: "Approved" | "Rejected"; note?: string }) => post<SessionPerson>(`/session-people/${personId}/decision`, body),
+  decideGuest: (personId: number, body: { decision: "Approved" | "Rejected"; note?: string }) =>
+    post<SessionPerson>(`/session-people/${personId}/decision`, body),
   removePerson: (personId: number) => del<SessionPerson>(`/session-people/${personId}`),
   reportIncident: (id: number, body: { kind: string; description: string; actions_taken: string; replace_link?: boolean }) =>
     post<MeetIncident>(`/class-sessions/${id}/meet-incidents`, body),
-  recordParticipation: (id: number, body: { source?: string; entries: { participant_name?: string; participant_email?: string; joined_at: string; left_at?: string }[] }) =>
-    post<Participation[]>(`/class-sessions/${id}/participation`, body),
+  recordParticipation: (
+    id: number,
+    body: { source?: string; entries: { participant_name?: string; participant_email?: string; joined_at: string; left_at?: string }[] },
+  ) => post<Participation[]>(`/class-sessions/${id}/participation`, body),
   unmatched: (query: Query = {}) => list<Participation>("/meet-participation/unmatched", { per_page: 100, ...query }),
   reviewParticipation: (id: number, body: { match_status: "Matched" | "Dismissed"; user_id?: number | null; note?: string }) =>
     post<Participation>(`/meet-participation/${id}/review`, body),
   recordDisruption: (id: number, body: { kind: string; cause?: string; delay_minutes?: number | null; detail?: string }) =>
     post<Disruption>(`/class-sessions/${id}/disruptions`, body),
-  resolveDisruption: (id: number, body: { recovery_plan: string; undelivered_minutes: number; cause?: string; replacement_session_id?: number | null; owner_user_id?: number | null }) =>
-    post<Disruption>(`/session-disruptions/${id}/resolve`, body),
+  resolveDisruption: (
+    id: number,
+    body: { recovery_plan: string; undelivered_minutes: number; cause?: string; replacement_session_id?: number | null; owner_user_id?: number | null },
+  ) => post<Disruption>(`/session-disruptions/${id}/resolve`, body),
   requestCover: (id: number, body: { cover_role: string; cover_user_id: number; reason: string; scope: string; handover: string }) =>
     post<CoverRequest>(`/class-sessions/${id}/cover-requests`, body),
   decideCover: (id: number, body: { decision: "Approved" | "Rejected"; note?: string }) => post<CoverRequest>(`/session-cover-requests/${id}/decision`, body),
   verifyCover: (id: number, note: string) => post<CoverRequest>(`/session-cover-requests/${id}/verification`, { note }),
-  addRoster: (id: number, body: { batch_id: number; topic_id?: number | null; coverage_note: string }) => post<SessionRoster>(`/class-sessions/${id}/rosters`, body),
+  addRoster: (id: number, body: { batch_id: number; topic_id?: number | null; coverage_note: string }) =>
+    post<SessionRoster>(`/class-sessions/${id}/rosters`, body),
   removeRoster: (id: number, batchId: number) => del<unknown>(`/class-sessions/${id}/rosters/${batchId}`),
 };
 
@@ -834,8 +909,10 @@ export const deliveryApi = {
   proposeBatch: (id: number, note?: string) => post<Batch>(`/batches/${id}/proposal`, { note }),
   decideConfirmation: (id: number, body: { decision: "Confirmed" | "Returned"; note?: string; override_reason?: string }) =>
     post<Batch>(`/batches/${id}/confirmation`, body),
-  recordHandover: (id: number, body: { enrolment_id: number; owner_user_id: number; plan: string; destination: string; destination_batch_id?: number | null }) =>
-    post<BatchHandover>(`/batches/${id}/handovers`, body),
+  recordHandover: (
+    id: number,
+    body: { enrolment_id: number; owner_user_id: number; plan: string; destination: string; destination_batch_id?: number | null },
+  ) => post<BatchHandover>(`/batches/${id}/handovers`, body),
   readiness: (id: number) => get<Readiness>(`/batches/${id}/readiness`),
   setReadiness: (id: number, body: { readiness: string; readiness_reason?: string | null; recovery_owner?: string | null }) =>
     patch<Readiness>(`/batches/${id}/readiness`, body),
@@ -891,4 +968,5 @@ export const deliveryApi = {
   mySchedule: (query: Query) => list<ClassSession>("/me/schedule", { per_page: 100, ...query }),
   module: (id: number) => get<ModulePage>(`/modules/${id}`),
   topic: (id: number) => get<TopicPage>(`/topics/${id}`),
+  topicHub: (id: number) => get<TopicHub>(`/me/topics/${id}`),
 };

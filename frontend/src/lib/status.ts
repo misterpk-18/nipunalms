@@ -28,6 +28,12 @@ export const STATUS = {
     Completed: s("Completed", "success", "You have completed this course."),
     Withdrawn: s("Withdrawn", "neutral", "This enrolment has ended."),
   },
+  /** A student's progress on one topic (db/109 topic_progress). */
+  topic: {
+    Done: s("Done", "success", "You attended or watched, and handed in what was required."),
+    "Work to hand in": s("Work to hand in", "warning", "You took the class. Hand in the required work to finish the topic."),
+    "Not started": s("Not started", "neutral", "Attend the class or watch the recording to start."),
+  },
   /** A student's seat in a batch. */
   seat: {
     Active: s("Seated", "success", "Holds a seat in the batch."),
@@ -345,13 +351,65 @@ export const STATUS = {
 
 export type StatusDomain = keyof typeof STATUS;
 
+/** Translation keys (lib/i18n.ts) for the statuses student screens show, so a Telugu reader gets the badge in Telugu too.
+ *  A status without a key shows its English label; the tooltip help stays English. */
+const TRANSLATED: Partial<Record<StatusDomain, Record<string, TranslationKey>>> = {
+  enrolment: {
+    "Provisioning Pending": "st_enrol_provisioning",
+    "Allocation Pending": "st_enrol_allocation",
+    "Allocated — awaiting first regular class": "st_enrol_allocated",
+    Active: "st_enrol_active",
+    Paused: "st_enrol_paused",
+    Completed: "st_enrol_completed",
+    Withdrawn: "st_enrol_withdrawn",
+  },
+  topic: { Done: "st_topic_done", "Work to hand in": "st_topic_work", "Not started": "st_topic_not_started" },
+  session: {
+    Planned: "st_session_planned",
+    Confirmed: "st_session_confirmed",
+    Scheduled: "st_session_scheduled",
+    "Not scheduled": "st_session_not_scheduled",
+    "In delivery": "st_session_in_delivery",
+    Live: "st_session_live",
+    "In Progress": "st_session_live",
+    Held: "st_session_held",
+    Delivered: "st_session_held",
+    "Partially Held": "st_session_partly",
+    "Not Held": "st_session_not_held",
+    Cancelled: "st_session_cancelled",
+    Rescheduled: "st_session_moved",
+  },
+  work: {
+    Upcoming: "st_work_upcoming",
+    Due: "st_work_due",
+    Overdue: "st_work_overdue",
+    Submitted: "st_work_submitted",
+    "Under Review": "st_work_reviewing",
+    Reviewed: "st_work_reviewed",
+    "Resubmission Requested": "st_work_resubmit",
+  },
+  attendance: { Present: "st_att_present", Absent: "st_att_absent", Late: "st_att_late", Excused: "st_att_excused" },
+  recording: {
+    Processing: "st_rec_processing",
+    Released: "st_rec_available",
+    Partial: "st_rec_partial",
+    Held: "st_rec_held",
+    Unavailable: "st_rec_unavailable",
+    Expired: "st_rec_expired",
+  },
+  test: { Available: "st_test_open", Released: "st_test_open", Closed: "st_test_closed", Scheduled: "st_test_scheduled" },
+};
+
 const warned = new Set<string>();
 
 /** The label, tone and help of a status. Unknown codes show their own text, neutral, and warn once in development. */
 export function statusInfo(domain: StatusDomain, code: string | number | null | undefined): StatusInfo {
   const key = code === null || code === undefined || code === "" ? "—" : String(code);
   const entry = (STATUS[domain] as Record<string, StatusInfo>)[key];
-  if (entry) return entry;
+  if (entry) {
+    const tkey = TRANSLATED[domain]?.[key];
+    return tkey ? { ...entry, tkey } : entry;
+  }
   if (import.meta.env.DEV && key !== "—" && !warned.has(`${domain}:${key}`)) {
     warned.add(`${domain}:${key}`);
     console.warn(`[status] "${key}" is not in the ${domain} status dictionary (lib/status.ts)`);
