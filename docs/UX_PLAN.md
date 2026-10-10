@@ -178,8 +178,8 @@ figure out what to do next."
 | U4. Shell, navigation, search, counts | **Done** | `af7c16a` | M |
 | U5. Notifications inbox (all roles) | **Done** | `fd464dd` | S |
 | U6. WhatsApp through the CRM (CRM round 6) | **Built, switched off** (db 107) | `ea2a1ea` | M |
-| U7. Sign-in and accounts | **Built, WhatsApp switched off** (db 108) | | M |
-| U8. Student: Home and My Learning | **Done** (db 109) | | L |
+| U7. Sign-in and accounts | **Built, WhatsApp switched off** (db 108) | `20af964` | M |
+| U8. Student: Home and My Learning | **Done** (db 109) | `42451ba` | L |
 | U9. Student: Schedule, Tasks & Tests | To do | | M |
 | U10. Student: Class Materials, My Progress, Certificates | To do | | L |
 | U11. Student: Career, Ask Nipuna, Support, My Account | To do | | M |
