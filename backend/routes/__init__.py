@@ -116,3 +116,8 @@ from routes.batch_operations import batch_operations_bp  # noqa: E402
 from routes.session_operations import session_operations_bp  # noqa: E402
 
 BLUEPRINTS += [batch_operations_bp, session_operations_bp]
+
+# UX plan U4: shell counts, Getting started and search
+from routes.nav import nav_bp  # noqa: E402
+
+BLUEPRINTS += [nav_bp]

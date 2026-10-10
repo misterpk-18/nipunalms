@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMyHome, type StudentHome } from "@/api/dashboards";
 import { EmptyState } from "@/components/lms/empty-state";
+import { GettingStartedCard } from "@/components/lms/getting-started";
 import { Grid, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Meter } from "@/features/shared/attendance-parts";
@@ -209,7 +210,11 @@ function Cards({ home }: { home: StudentHome }) {
       <HomeCard title={t("askNipuna")}>
         {ai.state === "Ready" ? (
           <>
-            <StatusBadge domain="assistant" code={ai.status} label={ai.mode === "ai" ? undefined : `${statusInfo("assistant", ai.status).label} (rule-based)`} />
+            <StatusBadge
+              domain="assistant"
+              code={ai.status}
+              label={ai.mode === "ai" ? undefined : `${statusInfo("assistant", ai.status).label} (rule-based)`}
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               {ai.used} of {ai.limit} daily responses used (IST).
             </p>
@@ -232,6 +237,7 @@ function Freshness({ engagement }: { engagement: StudentHome["engagement"] }) {
 export function StudentHome() {
   const query = useMyHome();
   const { lang } = useLanguage();
+  const t = useT();
   return (
     <div className="mx-auto max-w-6xl">
       <QueryView query={query}>
@@ -241,6 +247,17 @@ export function StudentHome() {
               title={lang === "te" ? `నమస్తే, ${home.student.name_te ?? home.student.full_name}` : `Welcome, ${home.student.full_name}`}
               description={`${home.student.student_code} · Service branch: ${home.student.service_branch.branch_name}`}
             />
+            <div className="mb-4">
+              <GettingStartedCard
+                workspace="student"
+                labels={{
+                  title: t("gettingStarted"),
+                  dismiss: t("dismiss"),
+                  go: t("go"),
+                  steps: { activate: t("stepActivate"), batch: t("stepBatch"), class: t("stepClass"), task: t("stepTask") },
+                }}
+              />
+            </div>
             <Grid cols={3}>
               <NextClassTile card={home.next_class} />
               <DueWorkTile card={home.due_work} />

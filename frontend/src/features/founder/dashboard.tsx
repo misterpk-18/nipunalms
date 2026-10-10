@@ -65,14 +65,6 @@ export function FounderDashboard() {
               </Section>
 
               <StatusNote tone="info">Revenue and collections are CRM figures — not shown here.</StatusNote>
-              <div className="flex flex-wrap gap-2 text-sm">
-                <Link to="/admin" className="tap inline-flex items-center rounded-lg border px-3 hover:bg-accent">
-                  Super Admin view
-                </Link>
-                <Link to="/branch" className="tap inline-flex items-center rounded-lg border px-3 hover:bg-accent">
-                  Branch views
-                </Link>
-              </div>
               <Note>Figures from sources that are not connected show as not connected instead of zero.</Note>
             </>
           );

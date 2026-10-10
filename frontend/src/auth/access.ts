@@ -84,13 +84,23 @@ export const WORKSPACE_HOME: Record<Workspace, string> = {
   founder: "/founder",
 };
 
-export type NavItem = { to: string; label: string; icon: LucideIcon; tkey?: TranslationKey; group?: string };
+/** `group` is the heading the item sits under; `badgeKey` names its count in `GET /me/nav-counts` (see api/nav.ts). */
+export type NavItem = { to: string; label: string; icon: LucideIcon; tkey?: TranslationKey; group?: string; badgeKey?: string };
+
+/** One line per workspace for the "Acting as" switcher: what you do in it. */
+export const WORKSPACE_DESCRIPTIONS: Record<Workspace, string> = {
+  student: "Your classes, tasks, results and certificates",
+  trainer: "Run classes, mark attendance and grade work",
+  branch: "Run a branch: batches, schedule, results and certificates",
+  admin: "People and access, integrations and system health",
+  founder: "Decisions waiting for you and company-wide figures",
+};
 
 const STUDENT_NAV: NavItem[] = [
   { to: "/dashboard", label: "Home", tkey: "home", icon: House },
   { to: "/my-courses", label: "My Learning", tkey: "myLearning", icon: BookOpen },
   { to: "/schedule", label: "Schedule", tkey: "schedule", icon: CalendarDays },
-  { to: "/assignments", label: "Tasks", tkey: "tasks", icon: ClipboardList },
+  { to: "/assignments", label: "Tasks", tkey: "tasks", icon: ClipboardList, badgeKey: "tasks" },
   { to: "/recordings", label: "Recordings", tkey: "recordings", icon: Video },
   { to: "/resources", label: "Resources", tkey: "resources", icon: FolderOpen },
   { to: "/tests", label: "Tests", tkey: "tests", icon: FileQuestion },
@@ -100,44 +110,44 @@ const STUDENT_NAV: NavItem[] = [
   { to: "/certificates", label: "Certificates", tkey: "certificates", icon: Award },
   { to: "/career", label: "Career", tkey: "career", icon: Briefcase },
   { to: "/ask-nipuna", label: "Ask Nipuna", tkey: "askNipuna", icon: Sparkles },
-  { to: "/support", label: "Support", tkey: "support", icon: LifeBuoy },
+  { to: "/support", label: "Support", tkey: "support", icon: LifeBuoy, badgeKey: "support" },
   { to: "/notifications", label: "Notifications", tkey: "notifications", icon: Bell },
   { to: "/finance", label: "Fees & Receipts", tkey: "finance", icon: Wallet },
   { to: "/profile", label: "Profile", tkey: "profile", icon: User },
 ];
 
 const TRAINER_NAV: NavItem[] = [
-  { to: "/trainer", label: "Today", icon: House },
-  { to: "/trainer/batches", label: "Batches", icon: Users },
-  { to: "/trainer/students", label: "Students", icon: GraduationCap },
-  { to: "/trainer/reviews", label: "Reviews", icon: ClipboardCheck },
-  { to: "/trainer/sessions", label: "Sessions", icon: CalendarDays },
-  { to: "/trainer/attendance", label: "Attendance", icon: CalendarCheck },
-  { to: "/trainer/content", label: "Content", icon: FolderOpen },
-  { to: "/trainer/assignments", label: "Assignments", icon: ClipboardList },
-  { to: "/trainer/assessments", label: "Assessments", icon: FileQuestion },
-  { to: "/trainer/support", label: "Support", icon: LifeBuoy },
-  { to: "/trainer/notifications", label: "Notifications", icon: Bell },
-  { to: "/trainer/reports", label: "Reports", icon: ChartColumn },
-  { to: "/trainer/ask-nipuna", label: "Ask Nipuna", icon: Sparkles },
+  { to: "/trainer", label: "Today", icon: House, group: "Teach" },
+  { to: "/trainer/sessions", label: "Sessions", icon: CalendarDays, group: "Teach" },
+  { to: "/trainer/attendance", label: "Attendance", icon: CalendarCheck, group: "Teach" },
+  { to: "/trainer/reviews", label: "Reviews", icon: ClipboardCheck, group: "Grade", badgeKey: "to_grade" },
+  { to: "/trainer/assignments", label: "Assignments", icon: ClipboardList, group: "Grade" },
+  { to: "/trainer/assessments", label: "Assessments", icon: FileQuestion, group: "Grade" },
+  { to: "/trainer/content", label: "Content", icon: FolderOpen, group: "Grade" },
+  { to: "/trainer/batches", label: "Batches", icon: Users, group: "People" },
+  { to: "/trainer/students", label: "Students", icon: GraduationCap, group: "People" },
+  { to: "/trainer/support", label: "Support", icon: LifeBuoy, group: "People", badgeKey: "support" },
+  { to: "/trainer/reports", label: "Reports", icon: ChartColumn, group: "Insights" },
+  { to: "/trainer/ask-nipuna", label: "Ask Nipuna", icon: Sparkles, group: "Insights" },
+  { to: "/trainer/notifications", label: "Notifications", icon: Bell, group: "Insights" },
 ];
 
 const BRANCH_NAV: NavItem[] = [
   { to: "/branch", label: "Dashboard", icon: House, group: "Today" },
   { to: "/branch/meet-operations", label: "Meet Operations", icon: Video, group: "Today" },
   { to: "/branch/batches", label: "Batches", icon: Users, group: "Batches & students" },
-  { to: "/branch/operations", label: "Batches, Schedule & People", icon: Building2, group: "Batches & students" },
+  { to: "/branch/operations", label: "Batches, Schedule & People", icon: Building2, group: "Batches & students", badgeKey: "waiting" },
   { to: "/branch/schedule", label: "Schedule", icon: CalendarDays, group: "Batches & students" },
-  { to: "/branch/progress", label: "Attendance & Progress", icon: TrendingUp, group: "Batches & students" },
+  { to: "/branch/progress", label: "Attendance & Progress", icon: TrendingUp, group: "Batches & students", badgeKey: "attendance" },
   { to: "/branch/curriculum", label: "Curriculum", icon: Library, group: "Teaching" },
-  { to: "/branch/content-review", label: "Content Review", icon: FolderOpen, group: "Teaching" },
-  { to: "/branch/assessments", label: "Reviews", icon: ClipboardCheck, group: "Teaching" },
-  { to: "/branch/completion", label: "Completion Review", icon: CircleCheck, group: "Completion" },
-  { to: "/branch/certificates", label: "Certificate Eligibility", icon: Award, group: "Completion" },
-  { to: "/branch/support", label: "Student Support", icon: LifeBuoy, group: "Help" },
-  { to: "/branch/exceptions", label: "Exceptions", icon: TriangleAlert, group: "Help" },
-  { to: "/branch/recording-exceptions", label: "Recording Exceptions", icon: Video, group: "Help" },
-  { to: "/branch/requests", label: "Escalations & Extensions", icon: Briefcase, group: "Help" },
+  { to: "/branch/content-review", label: "Content Review", icon: FolderOpen, group: "Teaching", badgeKey: "content_review" },
+  { to: "/branch/assessments", label: "Reviews", icon: ClipboardCheck, group: "Teaching", badgeKey: "marks" },
+  { to: "/branch/completion", label: "Completion Review", icon: CircleCheck, group: "Completion", badgeKey: "completion" },
+  { to: "/branch/certificates", label: "Certificate Eligibility", icon: Award, group: "Completion", badgeKey: "certificates" },
+  { to: "/branch/support", label: "Student Support", icon: LifeBuoy, group: "Help", badgeKey: "support" },
+  { to: "/branch/exceptions", label: "Exceptions", icon: TriangleAlert, group: "Help", badgeKey: "issues" },
+  { to: "/branch/recording-exceptions", label: "Recording Exceptions", icon: Video, group: "Help", badgeKey: "recording_issues" },
+  { to: "/branch/requests", label: "Escalations & Extensions", icon: Briefcase, group: "Help", badgeKey: "requests" },
   { to: "/branch/academic-reports", label: "Academic Reports", icon: ChartColumn, group: "Reports" },
   { to: "/branch/reports", label: "Certificates & Reports", icon: ScrollText, group: "Reports" },
   { to: "/branch/notifications", label: "Notifications", icon: Bell, group: "Reports" },
@@ -145,24 +155,21 @@ const BRANCH_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   { to: "/admin", label: "Super Admin", icon: ShieldCheck },
-  { to: "/admin/integrations", label: "Integration Readiness", icon: Plug },
-  { to: "/admin/exceptions", label: "Exception Queues", icon: TriangleAlert },
-  { to: "/admin/calendar", label: "Academic Calendar", icon: CalendarDays },
-  { to: "/admin/security", label: "Security Readiness", icon: Lock },
-  { to: "/admin/users", label: "Users & Access", icon: UserCog },
-  { to: "/admin/students", label: "Student Accounts", icon: GraduationCap },
-  { to: "/admin/crm-sync", label: "CRM Sync", icon: RefreshCw },
-  { to: "/admin/audit", label: "Audit Log", icon: ScrollText },
-  { to: "/admin/notifications", label: "Notifications", icon: Bell },
-  { to: "/branch", label: "Branch views", icon: Building2 },
+  { to: "/admin/users", label: "Users & Access", icon: UserCog, group: "People", badgeKey: "users" },
+  { to: "/admin/students", label: "Student Accounts", icon: GraduationCap, group: "People" },
+  { to: "/admin/exceptions", label: "Exception Queues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
+  { to: "/admin/calendar", label: "Academic Calendar", icon: CalendarDays, group: "Operations" },
+  { to: "/admin/crm-sync", label: "CRM Sync", icon: RefreshCw, group: "Operations", badgeKey: "crm_sync" },
+  { to: "/admin/integrations", label: "Integration Readiness", icon: Plug, group: "System" },
+  { to: "/admin/security", label: "Security Readiness", icon: Lock, group: "System" },
+  { to: "/admin/audit", label: "Audit Log", icon: ScrollText, group: "System" },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "System" },
 ];
 
 const FOUNDER_NAV: NavItem[] = [
   { to: "/founder", label: "Founder Dashboard", icon: ShieldCheck },
-  { to: "/founder/curriculum", label: "Curriculum Approvals", icon: Library },
-  { to: "/founder/certificates", label: "Certificate Decisions", icon: Award },
-  { to: "/admin", label: "Super Admin view", icon: Lock },
-  { to: "/branch", label: "Branch views", icon: Building2 },
+  { to: "/founder/curriculum", label: "Curriculum Approvals", icon: Library, group: "Approvals", badgeKey: "curriculum" },
+  { to: "/founder/certificates", label: "Certificate Decisions", icon: Award, group: "Approvals", badgeKey: "certificates" },
 ];
 
 export const NAV: Record<Workspace, NavItem[]> = {
@@ -176,7 +183,7 @@ export const NAV: Record<Workspace, NavItem[]> = {
 /** Destinations pinned to the phone bottom bar (4 slots + More); workspaces without a list use their first four items. */
 const MOBILE_BAR: Partial<Record<Workspace, string[]>> = {
   student: ["/dashboard", "/my-courses", "/schedule", "/assignments"],
-  trainer: ["/trainer", "/trainer/batches", "/trainer/students", "/trainer/reviews"],
+  trainer: ["/trainer", "/trainer/sessions", "/trainer/reviews", "/trainer/students"],
   branch: ["/branch", "/branch/batches", "/branch/assessments", "/branch/exceptions"],
 };
 

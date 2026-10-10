@@ -194,7 +194,10 @@ React SPA in `frontend/`, built to mirror **nipuna-crm/frontend**. The product i
 | Workspace from URL | `workspaceForPath(path)` — `/trainer*` trainer, `/branch*` branch, `/admin*` admin, `/founder*` founder, everything else student (except `/login`, `/activate`, `/change-password`; `/account/*` has no workspace of its own and is framed by the user's home workspace) | Same rule as the prototype |
 | Who may open a workspace | `profile.workspaces` from `/auth/me` (already expanded per role: Super Admin also holds branch, Founder also admin and branch); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
 | Guard | Root route: public paths (`/login`, `/activate`) → anonymous → `/login?redirect=` → `must_change_password` → `/change-password` → workspace not permitted → **Permission Restricted** view (link home) → `/` redirects to `home_route`. Not a security boundary; every endpoint re-checks scope | Same as the CRM |
-| Workspace switcher | Header `<select>` shown only when the user has more than one workspace; goes to that workspace's home | Replaces the prototype's UAT role simulator; no prototype banner, no "Demo" badges |
+| "Acting as" switcher | Header pill "Acting as: <role> ▾" (`acting-as.tsx`), shown when the user has more than one workspace or, in the Branch Manager workspace, more than one branch. A menu lists each workspace with a one-line description and goes to that workspace's home; the branch picker (All branches / one branch) is kept per user in `localStorage` (`lib/acting-branch.ts`, `auth/acting.ts`) and narrows the nav counts and the Getting started card. Single-role, single-branch users keep the static "role · branch" chip. The cross-workspace nav items ("Branch views", "Super Admin view") are gone | Replaces the prototype's UAT role simulator; no prototype banner, no "Demo" badges |
+| Navigation | `NavItem` has `group` (heading in the sidebar and the More sheet) and `badgeKey` (the count shown from `GET /me/nav-counts`, polled every minute). The count is a visual badge plus a screen-reader description outside the link, so a link's name stays the page name. Trainer, Branch Manager, Super Admin and Founder navs are grouped; the student nav stays flat until its screens merge (UX U9 / U10) | One place that says what waits for you |
+| Search | Ctrl/Cmd+K or the header search button opens `command-palette.tsx`: the pages of every workspace the user holds, plus `GET /search` records (students, batches, certificates) within scope. A record opens the list that holds it in the current workspace (record pages arrive with their screens) | Find a screen or a person without remembering where it is |
+| Getting started | `getting-started.tsx` on the Student, Trainer, Branch Manager and Super Admin homes, from `GET /me/getting-started`; hidden once every step is done; dismissal kept in `localStorage` | First-run guidance that ticks itself |
 | Session | Bearer token in memory + `sessionStorage` (`nipuna-lms-session`); `["me"]` query holds the profile; `FRESH_AUTH_REQUIRED` opens a password dialog and retries once | Same as the CRM |
 | Language | `en` / `te`, dictionary in `src/lib/i18n.ts`; choice stored per user in `localStorage` (`nipuna-lms-lang:<user_id>`), default `profile.student.preferred_language`; sets `<html lang>` (Telugu switches font and line height). Only student-workspace labels and the sign-in / activation screens are translated | Same scope as the prototype |
 | Look | Prototype tokens (navy header, blue primary, tone colours) as CSS variables mapped onto shadcn variables; IBM Plex Sans + Noto Sans Telugu; `.tap` = 44px touch target | Visual parity with the approved prototype |
@@ -216,12 +219,12 @@ frontend/
     ├── api/                   client.ts (fetch wrapper: ApiError, bearer token, get / post / patch / put / del / list / upload / download),
     │                          types.ts, auth.ts, and one file per domain (delivery, content, assessments, support, notifications,
     │                          career, profile, ask-nipuna, admin, dashboards, exceptions, …)
-    ├── auth/                  auth.tsx (AuthProvider, useAuth(), fresh-auth dialog), access.ts (workspaceForPath, canOpen, NAV, mobileBarItems)
+    ├── auth/                  auth.tsx (AuthProvider, useAuth(), fresh-auth dialog), access.ts (workspaceForPath, canOpen, NAV, mobileBarItems), acting.ts (useActing: the branch pick)
     ├── lib/                   i18n.ts (dictionary, useT, useLanguage), mutation.ts (useApiMutation), format.ts (IST helpers, formatMoney), utils.ts (cn)
     ├── hooks/                 use-mobile.tsx
     ├── components/
     │   ├── ui/                shadcn primitives (copied from the CRM)
-    │   └── lms/               app-shell, ui, forms, auth-page, language-toggle, password-field
+    │   └── lms/               app-shell, acting-as, command-palette, getting-started, ui, forms, auth-page, language-toggle, password-field
     ├── routes/                thin file routes (see §5)
     └── features/              student/ trainer/ academic/ branch/ admin/ founder/ shared/
 ```

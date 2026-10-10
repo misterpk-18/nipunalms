@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useAdminSummary } from "@/api/dashboards";
+import { GettingStartedCard } from "@/components/lms/getting-started";
 import { DataTable, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { istDateTime } from "@/features/admin/format";
 import { CrmTile, QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
@@ -8,7 +9,6 @@ const LINKS = [
   ["/admin/integrations", "Integration readiness"],
   ["/admin/exceptions", "Exception queues"],
   ["/admin/security", "Security readiness"],
-  ["/branch", "Branch views"],
 ] as const;
 
 export function AdminDashboard() {
@@ -19,6 +19,7 @@ export function AdminDashboard() {
         {(d) => (
           <>
             <PageHead title="Super Admin — all authorised branches" description="Check integration readiness and work through the open exception queues." />
+            <GettingStartedCard workspace="admin" />
             <TileRow label="Priority tiles">
               <Tile
                 rank={1}

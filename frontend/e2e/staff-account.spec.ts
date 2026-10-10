@@ -17,7 +17,7 @@ for (const s of STAFF) {
     await page.getByRole("banner").getByRole("link", { name: "Notifications" }).click();
     await expect(page).toHaveURL(new RegExp(`${s.path}$`));
     await expect(page.getByRole("heading", { level: 1, name: "Notifications" })).toBeVisible();
-    await page.getByLabel("Search", { exact: true }).fill(s.seeded.slice(0, 20)); // other specs add notifications, so find the seeded one
+    await page.locator("#main").getByLabel("Search", { exact: true }).fill(s.seeded.slice(0, 20)); // other specs add notifications, so find the seeded one
     await expect(page.getByText(s.seeded).first()).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Notifications" })).toBeVisible();
     await page.getByRole("tab", { name: "Action Required" }).click();

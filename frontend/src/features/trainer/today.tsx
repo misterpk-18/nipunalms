@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { dashboardKeys, dashboardsApi, useTrainerToday, type TodaySession, type TrainerToday } from "@/api/dashboards";
 import { deliveryApi } from "@/api/delivery";
 import { EmptyState } from "@/components/lms/empty-state";
+import { GettingStartedCard } from "@/components/lms/getting-started";
 import { Grid, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -217,6 +218,9 @@ export function TrainerToday() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHead title="Today" description="Run today's classes and see what needs your attention." />
+      <div className="mb-4">
+        <GettingStartedCard workspace="trainer" />
+      </div>
       <QueryView query={query}>
         {(data) => (
           <>

@@ -168,8 +168,7 @@ test.describe("Founder overview", () => {
     await expect(decisions).toContainText("Recording access exception after 2nd anniversary");
     await expect(decisions).toContainText("Sample Learner F.");
     await expect(decisions).toContainText("Awaiting a decision");
-    await expect(page.locator("#main").getByRole("link", { name: "Super Admin view" })).toBeVisible();
-    await expect(page.locator("#main").getByRole("link", { name: "Branch views" })).toBeVisible();
+    await expect(page.locator("#main").getByRole("link", { name: "Branch views" })).toHaveCount(0); // the switcher in the header does this
   });
 });
 

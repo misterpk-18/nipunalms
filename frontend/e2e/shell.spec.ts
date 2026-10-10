@@ -5,7 +5,7 @@ import { USERS, login } from "./helpers";
 
 const ROLES = [
   { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Fees & Receipts", "Profile"], other: "/trainer" },
-  { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Batches", "Students", "Reviews", "Ask Nipuna"], other: "/branch" },
+  { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Sessions", "Reviews", "Batches", "Students", "Ask Nipuna"], other: "/branch" },
   {
     name: "branch manager",
     user: USERS.bmGnt,
@@ -17,10 +17,10 @@ const ROLES = [
     name: "super admin",
     user: USERS.admin,
     home: "/admin",
-    nav: ["Super Admin", "Integration Readiness", "Security Readiness", "Branch views"],
+    nav: ["Super Admin", "Users & Access", "Integration Readiness", "Security Readiness"],
     other: "/founder",
   },
-  { name: "founder", user: USERS.founder, home: "/founder", nav: ["Founder Dashboard", "Super Admin view", "Branch views"], other: "/trainer" },
+  { name: "founder", user: USERS.founder, home: "/founder", nav: ["Founder Dashboard", "Curriculum Approvals", "Certificate Decisions"], other: "/trainer" },
 ];
 
 for (const role of ROLES) {
@@ -38,19 +38,56 @@ for (const role of ROLES) {
   });
 }
 
-test("only users with several workspaces get the workspace switcher", async ({ page }, info) => {
+test("only users with several workspaces get the Acting as switcher", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "header layout is checked on desktop");
   await login(page, USERS.trainerG1);
-  await expect(page.getByLabel("Workspace", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Acting as" })).toHaveCount(0);
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/);
 
   await login(page, USERS.admin);
-  const switcher = page.getByLabel("Workspace", { exact: true });
+  const switcher = page.getByRole("button", { name: "Acting as" });
   await expect(switcher).toBeVisible();
-  await switcher.selectOption({ label: "Branch Manager" });
+  await switcher.click();
+  await expect(page.getByRole("menuitem", { name: /Branch Manager/ })).toContainText("Run a branch");
+  await page.getByRole("menuitem", { name: /Branch Manager/ }).click();
   await expect(page).toHaveURL(/\/branch$/);
+  await expect(page.getByRole("button", { name: "Acting as" })).toContainText("Branch Manager");
+
+  // a person who may see several branches picks one; the pill says which
+  await page.getByRole("button", { name: "Acting as" }).click();
+  await page.getByRole("menuitem", { name: "Guntur" }).click();
+  await expect(page.getByRole("button", { name: "Acting as" })).toContainText("Guntur");
+  await page.getByRole("button", { name: "Acting as" }).click();
+  await page.getByRole("menuitem", { name: "All branches" }).click();
+  await expect(page.getByRole("button", { name: "Acting as" })).not.toContainText("Guntur");
+});
+
+test("navigation items show how many things wait there, without changing the link name", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "sidebar is desktop only");
+  await login(page, USERS.bmGnt);
+  const link = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Exceptions", exact: true });
+  await expect(link.getByTestId("nav-badge")).toBeVisible();
+  await expect(link).toHaveAccessibleDescription(/\d+ waiting/);
+});
+
+test("Ctrl+K finds pages and records the person may open", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "keyboard shortcut is a desktop feature");
+  await login(page, USERS.bmGnt);
+  await page.keyboard.press("Control+k");
+  const search = page.getByRole("dialog").getByLabel("Search");
+  await expect(search).toBeFocused();
+  await search.fill("curric");
+  await page
+    .getByRole("option", { name: /Curriculum/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/branch\/curriculum$/);
+
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("dialog").getByLabel("Search").fill("Sample");
+  await expect(page.getByRole("dialog").getByText("Students", { exact: true })).toBeVisible();
 });
 
 test("anonymous visitors are sent to sign in and back", async ({ page }) => {

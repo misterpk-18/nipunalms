@@ -652,3 +652,21 @@ Nothing here calls an external system.
   ([CRM_INTEGRATION.md §2.1](CRM_INTEGRATION.md#21-crm--lms-events), finance snapshot figures).
 - The AI rupee ceiling is `app_settings.ai_monthly_ceiling_inr`; absent = `Configuration Pending` (Founder decision).
   "Critical integration failures" counts the readiness register (Failed / Misconfigured), not live monitoring.
+
+### 4.12 Shell: navigation counts, Getting started and search (UX phase 4; no migration)
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/me/nav-counts` | Signed in | `?workspace=student\|trainer\|branch\|admin\|founder` (required, must be a workspace the user holds, else 403); `?branch_id=` narrows the branch workspace (404 outside scope). Returns `{badgeKey: n}`, cheap counts only, polled every minute with the bell |
+| GET | `/me/getting-started` | Signed in | Same query. `{workspace, steps: [{key, label, done, to}], complete}`; the Founder has no steps. Whether the card was dismissed is kept in the browser, not here |
+| GET | `/search` | Signed in | `?q=` (two characters or more). `[{kind: student\|batch\|certificate, id, title, subtitle}]`, at most 5 per kind, within the caller's scope: Branch Manager their branches, trainer the batches they teach and the students in them, Super Admin / Founder everything, a student nothing. Pages are not searched here (the client lists the pages of the user's workspaces). A record outside scope is simply absent |
+
+**Badge keys** (the `badgeKey` of a navigation item in `frontend/src/auth/access.ts`):
+- `student`: `tasks` (open assignments and tests), `support` (requests waiting on the student).
+- `trainer`: `to_grade` (submissions awaiting review plus test attempts awaiting grading, for the trainer's own reviews), `support` (open requests they own).
+- `branch`: `waiting` (enrolments in Allocation Pending), `requests` (open reschedule requests, escalations, extension requests), `content_review`, `marks` (results awaiting publication), `completion` (open completion reviews), `certificates` (Eligibility Review or Awaiting Approval), `issues` (open exceptions), `recording_issues`, `support` (open requests past, or within 4 hours of, `sla_due_at`), `attendance` (recoveries requested plus corrections pending).
+- `admin`: `crm_sync` (failed events), `issues` (exceptions with no named owner), `users` (locked accounts).
+- `founder`: `curriculum` (versions Under Review), `certificates` (Awaiting Approval), `access` (access requests that need an exception).
+
+**Getting started steps** (done is read from the records, so the card ticks itself): student: activate (always), batch (an active seat), class (attended one), task (submitted one). Trainer: open a class (one of theirs is Live or Delivered), mark attendance, grade a submission. Branch Manager: create a batch, allocate students, create classes (anything at the branches in view). Admin: add a staff user (a `USER_CREATED` audit entry by the caller), review setup (an integration is no longer Not Configured).
+

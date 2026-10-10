@@ -1,4 +1,5 @@
 import { useBranchDashboard } from "@/api/dashboards";
+import { GettingStartedCard } from "@/components/lms/getting-started";
 import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { CrmTile, QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 import { AcademicDashboard } from "@/features/academic/dashboard";
@@ -17,6 +18,7 @@ export function BranchDashboard() {
         {(d) => (
           <>
             <PageHead title="Branch dashboard" description={`${d.scope.label} · see what needs your attention`} />
+            <GettingStartedCard workspace="branch" />
             <TileRow label="Priority tiles">
               <CrmTile rank={1} label="Branch verified collections against target" figure={d.crm.verified_collections} />
               <CrmTile rank={2} label="Branch new paid Admissions" figure={d.crm.new_paid_admissions} />

@@ -175,7 +175,7 @@ figure out what to do next."
 | U1. Remove Curriculum Mapping Pending | **Done** (db 105) | `51824f0` | M |
 | U2. Merge Academic Coordinator into Branch Manager | **Done** (db 106) | `9469df1` | L |
 | U3. Design system foundation | **Done** | `b3bee1f` | M |
-| U4. Shell, navigation, search, counts | **Next** | | M |
+| U4. Shell, navigation, search, counts | **Done** | `U4_COMMIT` | M |
 | U5. Notifications inbox (all roles) | To do | | S |
 | U6. WhatsApp through the CRM (CRM round 6) | To do | | M |
 | U7. Sign-in and accounts | To do | | M |
@@ -345,6 +345,13 @@ figure out what to do next."
   - Branch Manager: create a batch, allocate students, create classes.
   - Admin: add a staff user, review setup and health.
   - The card can be dismissed.
+- **As built (10 Oct 2026).**
+  - **Endpoints** `GET /me/nav-counts`, `GET /me/getting-started` (both take `?workspace=` and, for the Branch Manager workspace, `?branch_id=`) and `GET /search?q=`, in `services/nav.py`, `services/search.py` and their repositories. Badge keys and step rules are listed in [API.md](API.md) §4.12. Search returns **records only**: the client lists the pages of the workspaces the user holds, because the nav lives in the frontend. A found record opens the list that holds it in the current workspace; deep links come with the record pages (U13 trainer, U14 branch, U17 admin).
+  - **Navs.** Trainer, Branch Manager, Super Admin and Founder navs are grouped (`NavItem.group`) with `badgeKey`; "Branch views" / "Super Admin view" left the sidebars and the dashboards. Labels are unchanged on purpose: the screen phases rename them (U13–U17). The trainer phone bar is Today, Sessions, Reviews, Students. The student nav stays flat (its final form comes with the merges in U9 / U10), with counts on Tasks and Support. The Notifications items stay until U5.
+  - **Counts** are a visual badge plus a screen-reader description outside the link (`aria-describedby`), so a link's name stays the page name.
+  - **"Acting as"** shows for people with more than one workspace, or more than one branch in the Branch Manager workspace; single-role, single-branch users keep the static chip. The branch pick is stored per user in the browser (`lib/acting-branch.ts`) and narrows the counts and the card; the dashboards still read all branches until U14 adds the picker to "My work".
+  - **Getting started** shows on the Student (translated), Trainer, Branch Manager and Super Admin homes, disappears once every step is done, and its dismissal is stored in the browser. The Founder has no card. The student's step labels are translated by key in `lib/i18n.ts`.
+  - **Tests:** `tests/test_nav.py` (8). e2e: `shell.spec.ts` (grouped navs, switcher with branch picker, badge, Ctrl+K), `dashboards-staff.spec.ts` (cross-workspace links gone). Still failing in the e2e from earlier phases and not caused by U4: `dashboards-staff.spec.ts` "overview: tiles, sync status" (counts failed CRM events, which other specs add).
 
 ## U5. Notifications inbox, all roles (no migration unless needed)
 - **One effective status per item:** New / Needs action / Done. Done means read, acknowledged or the action is complete, whichever the type needs. One primary button per item, labelled by type.
