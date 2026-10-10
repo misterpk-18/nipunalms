@@ -32,21 +32,25 @@ test("student sees attendance with approved recovery, four separate progress mea
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.student);
 
+  // the old address still works and lands on the Attendance tab of My Progress
   await page.goto("/attendance");
-  await expect(page.getByText("Absent — recovery approved (REC-0041)").first()).toBeVisible();
-  await expect(page.getByText("Present (trainer-confirmed)").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/progress\?tab=attendance/);
+  const approved = page.getByRole("row", { name: /Linear regression intuition/ });
+  await expect(approved).toContainText("Absent");
+  await expect(approved).toContainText("Approved");
+  await expect(approved).toContainText("Decided by your Branch Manager");
   await expect(page.getByText("Joining Date: 12 Jan 2026")).toBeVisible();
 
   await page.goto("/progress");
-  for (const title of ["1 · Curriculum delivered", "2 · Attendance / approved recovery", "3 · Required learning completed", "4 · LMS engagement"]) {
+  for (const title of ["1 · Classes taught", "2 · Attendance", "3 · Required topics covered", "4 · Activity on the LMS"]) {
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
   }
-  await expect(page.getByText("12 attended of 14 marked classes")).toBeVisible();
+  await expect(page.getByText("12 attended out of 14 marked classes")).toBeVisible();
   await expect(page.getByText("86%").first()).toBeVisible();
 
   await page.goto("/certificates");
-  await expect(page.getByText("Not Yet Eligible").first()).toBeVisible();
-  await expect(page.getByText(/Configuration Pending — completion rule not configured/)).toBeVisible();
+  await expect(page.getByText("Not yet eligible").first()).toBeVisible();
+  await expect(page.getByText(/the completion rule for your complimentary course is not set up/)).toBeVisible();
 });
 
 test("coordinator sees alerts and partial data, then recommends a certificate; the branch manager approves and issues it", async ({ page }, info) => {
@@ -117,7 +121,7 @@ test("register shows the reissue history and public verification shows the prese
 
 test("attendance, progress and certificate screens fit a phone without horizontal scroll @mobile", async ({ page }) => {
   await login(page, USERS.student);
-  for (const path of ["/attendance", "/progress", "/certificates"]) {
+  for (const path of ["/progress?tab=attendance", "/progress", "/certificates"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

@@ -47,17 +47,18 @@ test("trainer uploads and submits content, coordinator approves and releases it,
   await expect(page.getByRole("row", { name: new RegExp(TITLE) })).toContainText("Released");
 
   await signInAs(page, USERS.student);
-  await page.goto("/resources");
-  await expect(page.getByRole("row", { name: new RegExp(TITLE) })).toBeVisible();
-  await expect(page.getByRole("row", { name: /Regression notes/ })).toContainText("Until 12 Jan 2027");
-  await expect(page.getByRole("row", { name: /AWS lab guide/ })).toContainText("Pending — no Joining Date yet");
-  await page.getByLabel("Type").selectOption("Link");
-  await expect(page.getByRole("row", { name: /scikit-learn docs/ })).toContainText("External link");
-  await expect(page.getByRole("row", { name: /Regression notes/ })).toHaveCount(0);
-  await page.getByLabel("Type").selectOption("");
+  await page.goto("/resources"); // the old address opens the Files tab of Class Materials
+  await expect(page).toHaveURL(/\/materials\?tab=files/);
+  const file = (name: RegExp) => page.getByRole("listitem").filter({ hasText: name });
+  await expect(file(new RegExp(TITLE))).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Data Science & Applied AI Combo" }).first()).toContainText("Available until 12 Jan 2027");
+  await expect(page.getByRole("listitem").filter({ hasText: "AWS with DevOps" }).first()).toContainText("Starts from your joining date");
+  await page.getByLabel("Type", { exact: true }).selectOption("Link");
+  await expect(file(/scikit-learn docs/)).toContainText("External link");
+  await expect(file(/Regression notes/)).toHaveCount(0);
+  await page.getByLabel("Type", { exact: true }).selectOption("");
   const download = page.waitForEvent("download");
-  await page
-    .getByRole("row", { name: /Regression notes/ })
+  await file(/Regression notes/)
     .getByRole("button", { name: "Download" })
     .click();
   expect((await download).suggestedFilename()).toBe("regression-notes.pdf");
@@ -70,15 +71,15 @@ test("student recordings show status, expiry and policy; the coordinator works t
   test.skip(info.project.name === "mobile", "desktop flow");
 
   await signInAs(page, USERS.student);
-  await page.goto("/recordings");
-  await expect(page.getByRole("row", { name: /Window functions lab/ })).toContainText("Available");
-  await expect(page.getByRole("row", { name: /Window functions lab/ })).toContainText("Until 12 Jan 2027");
-  await expect(page.getByRole("row", { name: /Window functions lab/ })).toContainText("Streaming only — download not permitted");
-  await expect(page.getByRole("row", { name: /Linear regression intuition/ })).toContainText("Partly available");
-  await expect(page.getByRole("row", { name: /Logistic regression & odds/ })).toContainText("Not playable");
-  await expect(page.getByText("EXT-031 pending")).toBeVisible();
-  await page
-    .getByRole("row", { name: /Window functions lab/ })
+  await page.goto("/recordings"); // the old address opens Class Materials
+  await expect(page).toHaveURL(/\/materials$/);
+  const card = (name: RegExp) => page.getByRole("listitem").filter({ hasText: name });
+  await expect(page.getByRole("listitem").filter({ hasText: "Data Science & Applied AI Combo" }).first()).toContainText("Available until 12 Jan 2027");
+  await expect(card(/Window functions lab/)).toContainText("Watch only, no download");
+  await expect(card(/Linear regression intuition/)).toContainText("Partly available");
+  await expect(card(/Logistic regression & odds/)).toContainText("Can't be played now");
+  await expect(page.getByText("Extension request waiting for a decision")).toBeVisible();
+  await card(/Window functions lab/)
     .getByRole("button", { name: "Watch" })
     .click();
   await expect(page.getByRole("dialog")).toContainText("Google Drive recording integration");
@@ -106,8 +107,13 @@ test("student recordings show status, expiry and policy; the coordinator works t
   await expect(page.getByRole("row", { name: /RX-0013/ })).toContainText("Resolved");
 
   await signInAs(page, USERS.student);
-  await page.goto("/recordings");
-  await expect(page.getByRole("row", { name: /Logistic regression & odds/ })).toContainText("Available");
+  await page.goto("/materials");
+  await expect(
+    page
+      .getByRole("listitem")
+      .filter({ hasText: /Logistic regression & odds/ })
+      .getByRole("button", { name: "Watch" }),
+  ).toBeVisible();
 });
 
 test("an access-extension request is approved by the branch and the student sees the new expiry", async ({ page, request }, info) => {
@@ -138,14 +144,14 @@ test("an access-extension request is approved by the branch and the student sees
   expect(refused.status()).toBe(403);
 
   await signInAs(page, USERS.student);
-  await page.goto("/resources");
-  await expect(page.getByRole("row", { name: /Regression notes/ })).toContainText("Until 12 Jan 2028");
+  await page.goto("/materials?tab=files");
+  await expect(page.getByRole("listitem").filter({ hasText: "Data Science & Applied AI Combo" }).first()).toContainText("Available until 12 Jan 2028");
   await expect(page.getByText("Extension already used").first()).toBeVisible();
 });
 
 test("library screens fit a phone @mobile", async ({ page }) => {
   await signInAs(page, USERS.student);
-  for (const path of ["/resources", "/recordings"]) {
+  for (const path of ["/materials", "/materials?tab=files"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByRole("status")).toHaveCount(0);

@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Recordings } from "@/features/student/recordings";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/recordings")({ component: Recordings });
+/** Recordings are part of Class Materials now. */
+export const Route = createFileRoute("/recordings")({
+  beforeLoad: () => {
+    throw redirect({ to: "/materials", replace: true });
+  },
+});

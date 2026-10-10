@@ -1,4 +1,4 @@
-from flask import request
+from flask import Response, request
 
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated
 from models import Certificate
@@ -7,6 +7,7 @@ from models.certificates import APPROVAL_STATUSES, REQUEST_KINDS
 from repositories import certificates as certificates_repo
 from services import certificate_requests as requests_service
 from services import certificates as certificates_service
+from services import student_certificates
 
 
 def _entry(certificate: Certificate, actions: list[str]) -> dict:
@@ -30,8 +31,15 @@ def list_register():
 
 
 def my_certificates():
-    result = certificates_service.my_certificates()
-    return ok({"certificates": [c.to_dict() for c in result["certificates"]], "configuration_pending": result["configuration_pending"]})
+    result = student_certificates.get_overview()
+    return ok({"certificates": [c.to_dict() for c in result["certificates"]], "configuration_pending": result["configuration_pending"],
+               "cards": result["cards"]})
+
+
+def my_certificate_pdf(certificate_id: int):
+    content, filename = student_certificates.certificate_pdf(certificate_id)
+    return Response(content, mimetype="application/pdf", headers={"Content-Disposition": f'attachment; filename="{filename}"',
+                                                                  "Cache-Control": "private, no-store"})
 
 
 def get_certificate(certificate_id: int):

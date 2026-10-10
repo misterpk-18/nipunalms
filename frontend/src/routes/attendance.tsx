@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Attendance } from "@/features/student/attendance";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/attendance")({ component: Attendance });
+/** Attendance is a tab of My Progress now. */
+export const Route = createFileRoute("/attendance")({
+  beforeLoad: () => {
+    throw redirect({ to: "/progress", search: { tab: "attendance" }, replace: true });
+  },
+});

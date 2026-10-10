@@ -201,6 +201,15 @@ def pending_correction_keys(session_ids: list[int]) -> set[tuple[int, int]]:
     return {(s, e) for s, e in db.session.execute(stmt).all()}
 
 
+def latest_corrections(session_ids: list[int], enrolment_id: int) -> dict[int, AttendanceCorrection]:
+    """session_id -> the enrolment's most recent correction request for that class (any status)."""
+    if not session_ids:
+        return {}
+    stmt = (select(AttendanceCorrection).where(AttendanceCorrection.session_id.in_(session_ids), AttendanceCorrection.enrolment_id == enrolment_id)
+            .order_by(AttendanceCorrection.correction_id))
+    return {c.session_id: c for c in db.session.execute(stmt).unique().scalars()}  # later rows overwrite earlier ones
+
+
 def corrections_stmt(filters: dict, scope_condition) -> Select:
     stmt = (
         select(AttendanceCorrection)

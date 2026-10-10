@@ -390,7 +390,7 @@ def release(content_item_id: int) -> ContentItem:
                  branch_id=item.branch_id)
     notify(category="Content", title=f"New material: {item.title}",
            body=("Updated" if previous else "Added") + f" in {item.course.title}" + (f" · {item.topic.title}" if item.topic else ""),
-           link="/resources", recipient_user_ids=_audience_user_ids(item), branch_id=item.branch_id,
+           link="/materials?tab=files", recipient_user_ids=_audience_user_ids(item), branch_id=item.branch_id,
            event_key=f"content-released-{version.content_version_id}")
     return item
 
@@ -411,7 +411,7 @@ def retire(content_item_id: int, reason: str) -> ContentItem:
     audit.record("CONTENT_RETIRED", "content_item", item.item_code, old={"status": old_status}, new={"status": "Retired"},
                  reason=reason, branch_id=item.branch_id)
     if was_released:
-        notify(category="Content", title=f"Material withdrawn: {item.title}", body=reason, link="/resources",
+        notify(category="Content", title=f"Material withdrawn: {item.title}", body=reason, link="/materials?tab=files",
                recipient_user_ids=_audience_user_ids(item), branch_id=item.branch_id, event_key=f"content-retired-{item.content_item_id}")
     return item
 
@@ -509,7 +509,7 @@ def _student_item(content_item_id: int) -> tuple[ContentItem, Enrolment, student
     window = ctx.windows[enrolment.enrolment_id]
     if window.state("Material", ctx.today) == "Expired":
         raise BusinessRule(f"Your access to materials for {enrolment.course.title} ended on {window.expiry['Material']:%d %b %Y}. "
-                           "You can request an extension from the Resources screen.")
+                           "You can request an extension from Class Materials.")
     return item, enrolment, ctx
 
 

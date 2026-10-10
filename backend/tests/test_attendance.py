@@ -90,7 +90,7 @@ def test_marking_is_audited_and_absent_students_are_told(client, w):
     audit = db.session.execute(select(AuditLog).where(AuditLog.action == "ATTENDANCE_MARKED")).scalar_one()
     assert audit.entity_id == w.recent.session_code and audit.actor_user_id == w.t1.user_id
     told = db.session.execute(select(Notification).where(Notification.category == "Attendance")).scalars().all()
-    assert len(told) == 1 and told[0].title.startswith("Marked absent") and told[0].link == "/attendance"
+    assert len(told) == 1 and told[0].title.startswith("Marked absent") and told[0].link == "/progress?tab=attendance"
 
 
 def test_remarking_before_the_lock_replaces_the_entry(client, w):

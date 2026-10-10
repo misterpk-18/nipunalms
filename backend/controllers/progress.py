@@ -3,10 +3,15 @@ from flask import request
 from controllers.common import Validator, get_page_params, ok, paginated
 from models.enums import ENROLMENT_STATUSES
 from services import progress as progress_service
+from services import student_progress
 
 
 def my_progress():
     return ok(progress_service.my_progress())
+
+
+def my_next_steps():
+    return ok(student_progress.next_steps())
 
 
 def get_enrolment_progress(enrolment_id: int):

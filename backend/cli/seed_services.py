@@ -93,7 +93,7 @@ def _notifications(ctx: "SeedContext") -> None:
     student = users_repo.get_by_student_id(ctx.students["anvitha"]["student_id"]).user_id
     notify(category="Assignment", title="Assignment 'Regression on housing dataset' due 29 Sep", event_key="seed:n1", link="/tasks",
            recipient_user_ids=[student], action_required=True)
-    notify(category="Recording", title="Recording for 24 Sep held for review", event_key="seed:n2", link="/recordings", recipient_user_ids=[student])
+    notify(category="Recording", title="Recording for 24 Sep held for review", event_key="seed:n2", link="/materials", recipient_user_ids=[student])
     notify(category="Session", title="Module test scheduled 03 Oct", event_key="seed:n5", link="/tests", recipient_user_ids=[student])
     db.session.execute(text("UPDATE notifications SET read_at = now(), acknowledged_at = now() WHERE event_key = 'seed:n2'"))
     db.session.execute(text("INSERT INTO notifications (recipient_user_id, category, title, event_key, channel, delivery_status, delivery_note) "

@@ -35,6 +35,8 @@ class BaseConfig:
     # Where the LMS hands WhatsApp messages to the CRM (POST {CRM_BASE_URL}/lms/whatsapp, same service key). Unset = not available.
     CRM_BASE_URL = os.getenv("CRM_BASE_URL")
     CRM_REQUEST_TIMEOUT = float(os.getenv("CRM_REQUEST_TIMEOUT", "10"))
+    # The address people open the LMS at (https://lms.example.com): printed, with a QR code, on certificate PDFs so they can be verified. Unset = no QR code.
+    PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL")
 
     # Uploaded files (assignment submissions, content): local disk until production storage is decided
     UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))

@@ -1,6 +1,6 @@
 /** Completion review and the LMS Certificate Register (docs/API.md §4.7). */
 import { useQuery } from "@tanstack/react-query";
-import { get, list, post, type Query } from "./client";
+import { download, get, list, post, type Query } from "./client";
 import type { DateOnly, DateTime, UserRef } from "./types";
 import type { Measures } from "./attendance";
 
@@ -16,14 +16,7 @@ export const CERTIFICATE_STATUSES = [
 ] as const;
 export const COMPLETION_DECISIONS = ["Complete", "Not Yet", "Needs Recovery"] as const;
 export type CompletionDecision = (typeof COMPLETION_DECISIONS)[number];
-export type CertificateAction =
-  | "recommend"
-  | "approve"
-  | "return"
-  | "issue"
-  | "request_correction"
-  | "request_revocation"
-  | "request_reinstatement";
+export type CertificateAction = "recommend" | "approve" | "return" | "issue" | "request_correction" | "request_revocation" | "request_reinstatement";
 export type RequestKind = "Correction" | "Revocation" | "Reinstatement";
 export type ApprovalStatus = "Pending" | "Approved" | "Rejected";
 
@@ -126,9 +119,35 @@ export type Verification = {
   current_version: { version: number; state: string } | null;
 };
 
+export type CertificateStepState = "done" | "current" | "todo";
+export type CertificateBlockerCode =
+  "not_completed" | "in_review" | "ready_to_issue" | "fee_outstanding" | "fee_unknown" | "revoked" | "internship_evidence" | "config_pending";
+
+/** One course's certificate on the student's screen: the tracker, what it is waiting for, and whether it can be downloaded. */
+export type CertificateCard = {
+  key: string;
+  enrolment: EnrolmentRef;
+  course: { course_id: number; course_code: string; title: string };
+  certificate_type: (typeof CERTIFICATE_TYPES)[number];
+  certificate: {
+    certificate_id: number;
+    certificate_number: string | null;
+    version: number;
+    status: (typeof CERTIFICATE_STATUSES)[number];
+    issue_date: DateOnly | null;
+    holder_name: string;
+  } | null;
+  steps: { key: "completed" | "review" | "issued"; state: CertificateStepState }[];
+  blocker: { code: CertificateBlockerCode; params: Record<string, string | null> } | null;
+  fee: { state: string; cleared: boolean; balance: string | null } | null;
+  can_download: boolean;
+  verify_path: string | null;
+};
+
 export type MyCertificates = {
   certificates: Certificate[];
   configuration_pending: { enrolment: EnrolmentRef; state: string; message: string }[];
+  cards: CertificateCard[];
 };
 
 export type CompletionReview = {
@@ -161,6 +180,8 @@ export type CompletionRow = {
 export const certificatesApi = {
   register: (query: Query) => list<Certificate>("/certificates", query),
   mine: () => get<MyCertificates>("/me/certificates"),
+  /** The PDF of an issued certificate, saved as a file. */
+  downloadPdf: (id: number, filename: string) => download(`/me/certificates/${id}/pdf`, undefined, filename),
   detail: (id: number) => get<CertificateDetail>(`/certificates/${id}`),
   recommend: (id: number, note?: string) => post<Certificate>(`/certificates/${id}/recommendation`, { note }),
   returnToReview: (id: number, reason: string) => post<Certificate>(`/certificates/${id}/return`, { reason }),
@@ -175,8 +196,7 @@ export const certificatesApi = {
   exceptions: (query: Query) => list<FinancialException>("/certificate-financial-exceptions", query),
   decideException: (id: number, decision: "Approved" | "Rejected", note: string) =>
     post<FinancialException>(`/certificate-financial-exceptions/${id}/decision`, { decision, note }),
-  verify: (number: string, version?: number) =>
-    get<Verification>(`/certificates/verify/${encodeURIComponent(number)}`, version ? { version } : undefined),
+  verify: (number: string, version?: number) => get<Verification>(`/certificates/verify/${encodeURIComponent(number)}`, version ? { version } : undefined),
   completion: (query: Query) => list<CompletionRow>("/completion-reviews", query),
   openReview: (enrolment_id: number) => post<CompletionReview>("/completion-reviews", { enrolment_id }),
   recommendCompletion: (id: number, recommendation: CompletionDecision, comment?: string) =>

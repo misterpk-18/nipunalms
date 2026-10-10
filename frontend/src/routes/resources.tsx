@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Resources } from "@/features/student/resources";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/resources")({ component: Resources });
+/** Resources are the Files tab of Class Materials now. */
+export const Route = createFileRoute("/resources")({
+  beforeLoad: () => {
+    throw redirect({ to: "/materials", search: { tab: "files" }, replace: true });
+  },
+});

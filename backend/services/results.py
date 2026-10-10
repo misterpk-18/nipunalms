@@ -110,7 +110,7 @@ def publish(filters: dict) -> list[Result]:
         item = result.item()
         student_user = _student_user_id(result.student_id)
         if student_user:
-            link = f"/assignments/{item['item_id']}" if item["kind"] == "Assignment" else "/results"
+            link = f"/assignments/{item['item_id']}" if item["kind"] == "Assignment" else f"/tests/{item['item_id']}"
             notifications.notify(category="Results", title="Result published", body=f"Your result for {item['title']} is published.",
                                  link=link, event_key=f"result-published:{result.result_id}", recipient_user_ids=[student_user],
                                  branch_id=result.batch.branch_id)

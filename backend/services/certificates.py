@@ -92,9 +92,13 @@ def paying_admission_id(enrolment: Enrolment) -> int:
 
 
 def fee_clearance(certificate: Certificate) -> dict:
+    return fee_clearance_for(certificate.enrolment, certificate.certificate_type)
+
+
+def fee_clearance_for(enrolment: Enrolment, certificate_type: str) -> dict:
     """Cleared when the CRM reports the paying admission Paid (or no balance); otherwise Outstanding or Not Received, unless a
     Founder / CEO or Super Admin approved a financial-release exception for this certificate type."""
-    admission_id = paying_admission_id(certificate.enrolment)
+    admission_id = paying_admission_id(enrolment)
     summary = db.session.get(FinanceSummary, admission_id)
     if summary is None:
         state, balance = "Not Received", None
@@ -104,7 +108,7 @@ def fee_clearance(certificate: Certificate) -> dict:
         state, balance = "Outstanding", summary.balance
     exception = None
     if state != "Cleared":
-        exception = certificates_repo.approved_exception(admission_id, certificate.certificate_type)
+        exception = certificates_repo.approved_exception(admission_id, certificate_type)
     return {
         "state": "Released by exception" if exception is not None else state,
         "cleared": state == "Cleared" or exception is not None,

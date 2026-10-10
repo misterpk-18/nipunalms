@@ -102,6 +102,8 @@ export type FieldDef = {
   kind: "textarea" | "text" | "select" | "date";
   required?: boolean;
   options?: readonly string[];
+  /** Text to show for an option instead of its value (a translation); the value is what is sent. */
+  optionLabels?: Record<string, string>;
   initial?: string;
   hint?: string;
 };
@@ -115,8 +117,13 @@ export function FormDialog({
   fields,
   onSubmit,
   destructive,
+  open: controlledOpen,
+  onOpenChange,
 }: {
-  trigger: ReactNode;
+  /** The button that opens the form. Leave it out and pass `open` / `onOpenChange` to open it from somewhere else (a menu item). */
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: string;
   description?: ReactNode;
   submitLabel: string;
@@ -125,7 +132,9 @@ export function FormDialog({
   destructive?: boolean;
 }) {
   const initial = () => Object.fromEntries(fields.map((f) => [f.name, f.initial ?? (f.kind === "select" ? (f.options?.[0] ?? "") : "")]));
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlledOpen ?? ownOpen;
+  const setOpen = onOpenChange ?? setOwnOpen;
   const [values, setValues] = useState<Record<string, string>>(initial);
   const [busy, setBusy] = useState(false);
   const missing = fields.some((f) => f.required && !values[f.name]?.trim());
@@ -145,7 +154,7 @@ export function FormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -166,7 +175,7 @@ export function FormDialog({
                   id={`fd-${f.name}`}
                   value={values[f.name]}
                   onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
-                  options={(f.options ?? []).map((o) => ({ value: o, label: o }))}
+                  options={(f.options ?? []).map((o) => ({ value: o, label: f.optionLabels?.[o] ?? o }))}
                 />
               )}
             </Field>

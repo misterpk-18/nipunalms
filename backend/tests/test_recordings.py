@@ -99,7 +99,7 @@ def test_release_makes_the_recording_watchable_and_tells_the_batch(client, login
     assert student_titles(client, login, world.students.s3) == {}  # another branch
     user = users_repo.get_by_student_id(world.students.s1.student_id)
     notice = db.session.execute(select(Notification).where(Notification.recipient_user_id == user.user_id, Notification.category == "Recording")).scalar_one()
-    assert notice.title == "Recording available: OOP basics" and notice.link == "/recordings"
+    assert notice.title == "Recording available: OOP basics" and notice.link == "/materials"
     assert actions(recording["recording_code"]) == ["RECORDING_REGISTERED", "RECORDING_RELEASED"]
     assert post(client, f"/recordings/{recording['recording_id']}/release", auth(login, world.people.ac), 422) is None
 

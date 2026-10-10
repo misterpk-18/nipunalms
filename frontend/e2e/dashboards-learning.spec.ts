@@ -40,7 +40,7 @@ test("student home leads with one thing to do, then four cards, and switches to 
   await expect(learning.getByRole("link", { name: "Open topic" })).toHaveAttribute("href", /\/topics\/\d+/);
   await expect(learning.getByText(/\d+ of \d+ topics done/)).toBeVisible();
   const recording = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "Latest Released Recording", exact: true }) });
-  await expect(recording.getByRole("link", { name: "All recordings" })).toHaveAttribute("href", "/recordings");
+  await expect(recording.getByRole("link", { name: "All recordings" })).toHaveAttribute("href", "/materials");
   await expect(recording.getByText("Available", { exact: true })).toBeVisible();
 
   // language setting: the greeting, the hero and the card titles follow it

@@ -93,7 +93,7 @@ export function TopicDetail() {
                             <StatusBadge domain="recording" code={r.status} />
                             {r.playable && (
                               <Button asChild size="sm" variant="outline">
-                                <Link to="/recordings">{t("watchNow")}</Link>
+                                <Link to="/materials">{t("watchNow")}</Link>
                               </Button>
                             )}
                           </div>
@@ -110,7 +110,7 @@ export function TopicDetail() {
                     <ul className="divide-y">
                       {hub.materials.map((m) => (
                         <li key={m.content_item_id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                          <Link to="/resources" className="text-primary underline">
+                          <Link to="/materials" search={{ tab: "files" }} className="text-primary underline">
                             {m.title}
                           </Link>
                           <Tag>{m.content_type}</Tag>

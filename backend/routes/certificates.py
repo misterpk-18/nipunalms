@@ -28,6 +28,13 @@ def my_certificates():
     return certificates_controller.my_certificates()
 
 
+@certificates_bp.get("/me/certificates/<int:certificate_id>/pdf")
+@login_required
+@require_roles("STUDENT")
+def my_certificate_pdf(certificate_id: int):
+    return certificates_controller.my_certificate_pdf(certificate_id)
+
+
 @certificates_bp.get("/certificates/<int:certificate_id>")
 @login_required
 @require_roles("STUDENT", *REGISTER_READERS)

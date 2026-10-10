@@ -20,6 +20,38 @@ export type SessionRef = { session_id: number; session_code: string; title: stri
 
 export type RecoveryRef = { recovery_id: number; recovery_code: string; status: "Requested" | "Approved" | "Rejected" | "Completed"; method: string };
 
+/** A student's own recovery request on an attendance row: its status, what the decider said, and who decides. */
+export type RecoveryStatus = RecoveryRef & { decision_note: string | null; target_date: DateOnly | null; decided_at: DateTime | null; decides: string };
+
+/** The latest "report a mistake" request for a class. */
+export type CorrectionStatus = {
+  correction_id: number;
+  status: "Pending" | "Approved" | "Rejected";
+  requested_status: AttendanceStatus;
+  reason: string;
+  requested_at: DateTime;
+  decided_at: DateTime | null;
+  decision_note: string | null;
+  decides: string;
+};
+
+/** One thing to do next (My Progress). The screen words each kind and knows where it leads; `params` fill the sentence. */
+export type NextStep = {
+  kind:
+    | "work_overdue"
+    | "work_todo"
+    | "recovery"
+    | "attendance_low"
+    | "access_ended"
+    | "access_ending"
+    | "certificate_fee"
+    | "certificate_ready"
+    | "topics_left"
+    | "inactive";
+  course: { course_code: string; title: string } | null;
+  params: Record<string, string | number | boolean | null>;
+};
+
 export type RegisterSession = {
   session_id: number;
   session_code: string;
@@ -106,7 +138,8 @@ export type StudentAttendanceRow = {
   remarks: string | null;
   marked_at: DateTime | null;
   locked: boolean;
-  recovery: RecoveryRef | null;
+  recovery: RecoveryStatus | null;
+  correction: CorrectionStatus | null;
   correction_pending: boolean;
   can_request_recovery: boolean;
 };
@@ -178,6 +211,7 @@ export const attendanceApi = {
   decideCorrection: (id: number, body: { decision: "Approved" | "Rejected"; decision_note?: string }) =>
     post<Correction>(`/attendance/corrections/${id}/decision`, body),
   myProgress: () => get<ProgressBlock[]>("/me/progress"),
+  nextSteps: () => get<NextStep[]>("/me/progress/next-steps"),
   progress: (query: Query) => list<ProgressRow>("/progress/students", query),
   summary: (query: Query) => get<BranchSummary>("/progress/summary", query),
 };
@@ -190,6 +224,7 @@ export const attendanceKeys = {
   recoveries: (query: Query) => ["attendance", "recoveries", query] as const,
   corrections: (query: Query) => ["attendance", "corrections", query] as const,
   myProgress: ["progress", "mine"] as const,
+  nextSteps: ["progress", "next-steps"] as const,
   progress: (query: Query) => ["progress", "students", query] as const,
   summary: (query: Query) => ["progress", "summary", query] as const,
 };
@@ -200,6 +235,7 @@ export const useRegister = (sessionId: number | null) =>
 export const useMyAttendance = () => useQuery({ queryKey: attendanceKeys.mine, queryFn: attendanceApi.mine });
 export const useRecoveries = (query: Query) => useQuery({ queryKey: attendanceKeys.recoveries(query), queryFn: () => attendanceApi.recoveries(query) });
 export const useCorrections = (query: Query) => useQuery({ queryKey: attendanceKeys.corrections(query), queryFn: () => attendanceApi.corrections(query) });
+export const useNextSteps = () => useQuery({ queryKey: attendanceKeys.nextSteps, queryFn: attendanceApi.nextSteps });
 export const useMyProgress = () => useQuery({ queryKey: attendanceKeys.myProgress, queryFn: attendanceApi.myProgress });
 export const useProgressRows = (query: Query) => useQuery({ queryKey: attendanceKeys.progress(query), queryFn: () => attendanceApi.progress(query) });
 export const useBranchSummary = (query: Query) => useQuery({ queryKey: attendanceKeys.summary(query), queryFn: () => attendanceApi.summary(query) });

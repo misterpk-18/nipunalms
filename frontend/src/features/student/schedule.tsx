@@ -122,7 +122,7 @@ function PastRow({ session }: { session: ClassSession }) {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {recording?.playable ? (
             <Button asChild size="sm" variant="outline">
-              <Link to="/recordings">{t("watchNow")}</Link>
+              <Link to="/materials">{t("watchNow")}</Link>
             </Button>
           ) : recording ? (
             <StatusBadge domain="recording" code={recording.status} />

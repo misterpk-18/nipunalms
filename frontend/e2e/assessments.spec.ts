@@ -78,9 +78,9 @@ test("trainer reviews it, the coordinator publishes, the student sees the publis
   await page.evaluate(() => window.sessionStorage.clear());
   await page.goto("/login");
   await login(page, USERS.student);
-  await page.goto("/results");
+  await page.goto("/progress?tab=results");
   await expect(page.getByRole("row", { name: /Regression on housing dataset/ })).toContainText("17.00 / 20.00");
-  await expect(page.getByRole("row", { name: /SQL coding exercise/ })).toContainText("Provisional — pending moderation");
+  await expect(page.getByRole("row", { name: /SQL coding exercise/ })).toContainText("Provisional");
   await expect(page.getByRole("row", { name: /SQL coding exercise/ })).not.toContainText(/\d+\.\d\d \/ /);
   await expect(page.getByRole("row", { name: /Python Foundations module test/ })).toContainText("42.00 / 50.00");
 });
@@ -145,7 +145,7 @@ test("mock interview slot is confirmed by the trainer", async ({ page }, info) =
 
 test("assessment screens fit a phone @mobile", async ({ page }) => {
   await login(page, USERS.student);
-  for (const path of ["/tasks", "/schedule", "/results"]) {
+  for (const path of ["/tasks", "/schedule", "/progress?tab=results"]) {
     await page.goto(path);
     await expect(page.getByRole("heading").first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

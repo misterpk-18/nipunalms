@@ -181,7 +181,7 @@ figure out what to do next."
 | U7. Sign-in and accounts | **Built, WhatsApp switched off** (db 108) | `20af964` | M |
 | U8. Student: Home and My Learning | **Done** (db 109) | `42451ba` | L |
 | U9. Student: Schedule, Tasks & Tests | **Done** | `c902a9a` | M |
-| U10. Student: Class Materials, My Progress, Certificates | To do | | L |
+| U10. Student: Class Materials, My Progress, Certificates | **Done** | `HASH10` | L |
 | U11. Student: Career, Ask Nipuna, Support, My Account | To do | | M |
 | U12. Trainer: Today, class delivery, Attendance, My requests | To do | | M |
 | U13. Trainer: To grade, Assessments, Batches/Students, Content, Reports, Support | To do | | L |
@@ -195,7 +195,7 @@ figure out what to do next."
 - **Backend first.** U0–U2 change roles and rules that every later screen depends on.
 - **Shared parts next.** U3–U5 build the shared components the screen phases reuse.
 - **Messaging before sign-in.** U6 has to come before U7, because the reset code and the links need the sending path.
-- **Migrations.** `db/105` is U1, `db/106` is U2, `db/107` is U6, `db/108` is U7, `db/109` is U8 and `db/110` is the WhatsApp status events (CRM round 6 reply) (U4 and U5 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+- **Migrations.** `db/105` is U1, `db/106` is U2, `db/107` is U6, `db/108` is U7, `db/109` is U8 and `db/110` is the WhatsApp status events (CRM round 6 reply) (U4, U5, U9 and U10 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
 
 ## Resuming in a new session
 
@@ -476,6 +476,16 @@ figure out what to do next."
   - Cards with the 3-step tracker and the blocker, including a fee banner linked to Fees.
   - **Certificate PDF.** New: render `GET /me/certificates/{id}/pdf` server-side from the issued version. No PDF generation exists today.
   - Copy verification link.
+
+- **As built (10 Oct 2026).**
+  - **Class Materials** (`/materials`, `?tab=files`): Recordings and Files tabs with counts, grouped by course and then by topic (a recording with no topic falls under "Week of <Monday>"; a file with no topic under its module, else "General"). Recordings are video cards; files are rows with Open / Download and filters by course, type and title. Each course has one access line ("Available until 12 Jan 2027 · Request extension"); the extension dialog lives in `access-window.tsx` and the rules in "How access works". `/recordings` and `/resources` redirect (`/resources` to the Files tab). The Drive-not-connected note left the page; the Watch dialog still states it when it applies.
+  - **My Progress** (`/progress`, `?tab=attendance|results`): Overview, Attendance, Results. `GET /me/progress/next-steps` (`services/student_progress.py`) returns up to six steps as `{kind, course, params}` and no sentences, so the screen words them in English and Telugu; the order and kinds are in API.md. Attendance rows carry the student's recovery and "report a mistake" requests with status, decision note and who decides (the Branch Manager); `Request recovery` shows only on an Absent row with no live recovery, `Report a mistake` is in a row menu (off while one is waiting). Result rows link to the assignment or test, where the feedback is. `/attendance` and `/results` redirect. Notification links, the dashboard, schedule, topic and test pages now point at the new routes.
+  - **Certificates**: one card per course (and per live register entry) with the three-step tracker and one blocker (`GET /me/certificates` gains `cards`, built in `services/student_certificates.py`; blocker codes in API.md). An unpaid fee shows a banner above the cards with a link to Fees. Issued cards offer **Download PDF** and **Copy verification link** (`<origin>/verify/<number>`).
+  - **Certificate PDF** (`GET /me/certificates/{id}/pdf`): rendered with **reportlab** (pure Python wheels, no system libraries; added to `requirements.txt` with its `pillow` and `charset-normalizer` dependencies, installed in the repo venv). `services/pdf.py` holds the renderer and small helpers (`safe_text`, `wrap`); **U11 reuses it for receipt PDFs**. One landscape A4 page from the issued version's own data (a reissue is drawn with its own name and "version 2"), with a QR code when the new setting `PUBLIC_BASE_URL` is set (otherwise it prints the number and the `/verify/` path). Only the owner may download, only an Issued certificate (not Revoked, Superseded or in progress; those answer 422 with the reason; another student's certificate is 404); each download is audited. The standard PDF fonts hold Latin-1 only, so a holder name in Telugu script prints "?" for those letters (a script font would need bundling; the register keeps the true name).
+  - **Student nav** is now Home · My Learning · Schedule · Tasks & Tests · Class Materials · My Progress · Certificates · Career · Ask Nipuna · Support, followed by Fees & Receipts and Profile until U11 moves them into My Account. The phone bar is unchanged (the new items sit under More).
+  - **Telugu**: every string on the three screens goes through `t()`, including the statuses added to the dictionary translations (attendance not-marked, requests, certificate, result). Data that comes from the API (course, class and trainer names, decision notes) stays as sent.
+  - **Also changed**: `FormDialog` can be opened from a menu and translates option labels; `download()` shows the API's own message when a download is refused; amounts show as "₹ 15,000". No migration.
+  - **Tests**: `test_student_certificates.py` (12: tracker states, fee blocker, revoked, PDF owner-only, not-issued / revoked / superseded refused, reissue, QR address, Latin-1 fallback), `test_student_progress.py` (12: each next-step kind, order and cap, request status on attendance rows); full backend suite passes. e2e `student-u10.spec.ts` (Materials, Progress with recovery and mistake flows, Results link, Certificates from review to a downloaded PDF and copied link, phone layout) and the student parts of `attendance`, `content`, `assessments`, `dashboards-learning` and `shell` updated. Still failing and not caused by this: the trainer "Today" flow, the trainer review step of `assessments.spec.ts` ("trainer reviews it..."), `attendance.spec.ts` "trainer marks a class" and `delivery.spec.ts` "coordinator creates a batch" (fixed seed dates and state left by earlier specs); because the specs in a file are serial, the student steps that follow them did not run in a full pass, so the changed selectors in `assessments.spec.ts` were checked through `student-u10.spec.ts` instead.
 
 ## U11. Student: Career, Ask Nipuna, Support, My Account
 - **Career.** 4-step checklist on top. Apply is disabled with "Needs: …" and a link. The disclaimer becomes a note near Jobs.

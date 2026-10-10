@@ -155,7 +155,10 @@ export async function download(path: string, query?: Query, filename = "export.c
   const response = await fetch(`${API_BASE}${path}${buildQuery(query)}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!response.ok) throw new ApiError(response.status, "HTTP_ERROR", `Download failed (${response.status})`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null); // the API explains why in JSON (for example a certificate that was revoked)
+    throw new ApiError(response.status, payload?.error?.code ?? "HTTP_ERROR", payload?.error?.message ?? `Download failed (${response.status})`);
+  }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

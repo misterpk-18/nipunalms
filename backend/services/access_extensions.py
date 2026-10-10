@@ -129,7 +129,7 @@ def decide(request_id: int, decision: str, note: str | None, new_expiry=None) ->
         body = (f"Your {request.scope.lower()} access now runs until {approved:%d %b %Y}." if approved
                 else f"Your request was not approved: {note}")
         notify(category="Access", title=f"Access extension {request.request_code} {request.status.lower()}", body=body,
-               link="/recordings", recipient_user_ids=[student_user.user_id], branch_id=request.branch_id,
+               link="/materials", recipient_user_ids=[student_user.user_id], branch_id=request.branch_id,
                event_key=f"ext-decided-{request.request_code}")
     return request
 

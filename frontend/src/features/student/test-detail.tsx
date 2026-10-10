@@ -417,7 +417,7 @@ function Receipt({ code, submittedAt, timedOut, score, total, formal }: { code: 
         </Button>
         {formal && (
           <Button asChild variant="outline">
-            <Link to="/results">{t("seeResults")}</Link>
+            <Link to="/progress" search={{ tab: "results" }}>{t("seeResults")}</Link>
           </Button>
         )}
       </div>

@@ -261,7 +261,7 @@ function RecordingCard({ card }: { card: StudentHome["latest_recording"] }) {
           <StatusBadge domain="recording" code={card.status} />
           <div>
             <Button asChild size="sm" variant="outline" className="tap">
-              <Link to="/recordings">{t("watchNow")}</Link>
+              <Link to="/materials">{t("watchNow")}</Link>
             </Button>
           </div>
         </div>
@@ -270,7 +270,7 @@ function RecordingCard({ card }: { card: StudentHome["latest_recording"] }) {
       ) : (
         <CardGap card={card} />
       )}
-      <Link to="/recordings" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
+      <Link to="/materials" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
         {t("allRecordings")}
       </Link>
     </HomeCard>
@@ -289,7 +289,7 @@ function AttendanceCard({ card }: { card: StudentHome["attendance_alert"] }) {
               {card.alert && ` ${t("attendanceLow", { n: card.alert_threshold })}`}
             </StatusNote>
             <Button asChild size="sm" className="tap">
-              <Link to="/attendance">{t("askRecovery")}</Link>
+              <Link to="/progress" search={{ tab: "attendance" }}>{t("askRecovery")}</Link>
             </Button>
           </div>
         ) : card.alert ? (
@@ -302,7 +302,7 @@ function AttendanceCard({ card }: { card: StudentHome["attendance_alert"] }) {
       ) : (
         <CardGap card={card} />
       )}
-      <Link to="/attendance" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
+      <Link to="/progress" search={{ tab: "attendance" }} className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
         {t("seeAttendance")}
       </Link>
     </HomeCard>

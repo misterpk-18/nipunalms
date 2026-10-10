@@ -16,6 +16,13 @@ def my_progress():
     return progress_controller.my_progress()
 
 
+@progress_bp.get("/me/progress/next-steps")
+@login_required
+@require_roles("STUDENT")
+def my_next_steps():
+    return progress_controller.my_next_steps()
+
+
 @progress_bp.get("/progress/enrolments/<int:enrolment_id>")
 @login_required
 @require_roles("STUDENT", *STAFF)

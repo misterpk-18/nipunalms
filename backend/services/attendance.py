@@ -227,13 +227,30 @@ def mark_attendance(session_id: int, entries: list[dict], default_status: str | 
                      branch_id=session.batch.branch_id)
     for enrolment in newly_absent:
         notify(category="Attendance", title=f"Marked absent: {session.title}",
-               body="Your trainer marked you absent. You can request recovery from the Attendance screen.",
-               link="/attendance", branch_id=session.batch.branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
+               body="Your trainer marked you absent. You can request recovery from My Progress.",
+               link="/progress?tab=attendance", branch_id=session.batch.branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
                event_key=f"attendance-absent:{session.session_id}:{enrolment.enrolment_id}")
     return get_register(session_id)
 
 
 # ---------------------------------------------------------------- one enrolment's attendance
+
+def _recovery_status(recovery: AttendanceRecovery | None) -> dict | None:
+    """A recovery request as the student sees it: its status, the decision note and who decides (the Branch Manager)."""
+    if recovery is None:
+        return None
+    return {**recovery.to_summary(), "decision_note": recovery.decision_note, "target_date": recovery.target_date,
+            "decided_at": recovery.decided_at, "decides": "Branch Manager"}
+
+
+def _correction_status(correction: AttendanceCorrection | None) -> dict | None:
+    """The latest "report a mistake" request for a class: what was asked, its status, the decision note and who decides."""
+    if correction is None:
+        return None
+    return {"correction_id": correction.correction_id, "status": correction.status, "requested_status": correction.requested_status,
+            "reason": correction.reason, "requested_at": correction.requested_at, "decided_at": correction.decided_at,
+            "decision_note": correction.decision_note, "decides": "Branch Manager"}
+
 
 def enrolment_attendance(enrolment: Enrolment) -> dict:
     """Attendance measure plus one row per Live / Delivered session since the seat (what the student's Attendance screen shows)."""
@@ -241,6 +258,7 @@ def enrolment_attendance(enrolment: Enrolment) -> dict:
     records = [r for _, r in session_rows if r is not None]
     recoveries = attendance_repo.recoveries_by_attendance([r.attendance_id for r in records])
     pending = attendance_repo.pending_correction_keys([s.session_id for s, _ in session_rows])
+    corrections = attendance_repo.latest_corrections([s.session_id for s, _ in session_rows], enrolment.enrolment_id)
     now = datetime.now(timezone.utc)
     rows = []
     for session, record in session_rows:
@@ -256,7 +274,8 @@ def enrolment_attendance(enrolment: Enrolment) -> dict:
             "remarks": record.remarks if record else None,
             "marked_at": record.marked_at if record else None,
             "locked": is_locked(session, now),
-            "recovery": recovery.to_summary() if recovery else None,
+            "recovery": _recovery_status(recovery),
+            "correction": _correction_status(corrections.get(session.session_id)),
             "correction_pending": (session.session_id, enrolment.enrolment_id) in pending,
             "can_request_recovery": record is not None and record.status == "Absent" and recovery is None,
         })
@@ -337,7 +356,7 @@ def decide_recovery(recovery_id: int, decision: str, note: str | None, target_da
                  new={"status": decision, "target_date": target_date}, reason=note, branch_id=enrolment.service_branch_id)
     notify(category="Attendance", title=f"Recovery {decision.lower()} ({recovery.recovery_code})",
            body=note or f"Your recovery for {recovery.attendance.session.title} was approved. Complete it as agreed.",
-           link="/attendance", branch_id=enrolment.service_branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
+           link="/progress?tab=attendance", branch_id=enrolment.service_branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
            event_key=f"recovery-decided:{recovery.recovery_id}")
     return recovery
 
@@ -361,7 +380,7 @@ def complete_recovery(recovery_id: int, evidence_note: str) -> AttendanceRecover
     audit.record("RECOVERY_COMPLETED", "attendance_recovery", recovery.recovery_code, old={"status": "Approved"},
                  new={"status": "Completed"}, reason=evidence_note, branch_id=enrolment.service_branch_id)
     notify(category="Attendance", title=f"Recovery completed ({recovery.recovery_code})", body="Your trainer verified your recovery work.",
-           link="/attendance", branch_id=enrolment.service_branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
+           link="/progress?tab=attendance", branch_id=enrolment.service_branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
            event_key=f"recovery-completed:{recovery.recovery_id}")
     return recovery
 
@@ -435,7 +454,7 @@ def decide_correction(correction_id: int, decision: str, note: str | None) -> At
                  reason=note, branch_id=enrolment.service_branch_id)
     if correction.requested_by != user.user_id:
         notify(category="Attendance", title=f"Attendance correction {decision.lower()}: {correction.session.title}",
-               body=note or f"The entry now says {correction.requested_status}.", link="/attendance",
+               body=note or f"The entry now says {correction.requested_status}.", link="/progress?tab=attendance",
                branch_id=enrolment.service_branch_id, recipient_user_ids=[correction.requested_by],
                event_key=f"correction-decided:{correction.correction_id}")
     return correction

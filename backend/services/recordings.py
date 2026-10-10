@@ -91,7 +91,7 @@ def _batch_student_user_ids(batch_id: int) -> list[int]:
 
 
 def _notify_students(session: ClassSession, recording: Recording, title: str, body: str, kind: str) -> None:
-    notify(category="Recording", title=title, body=body, link="/recordings", recipient_user_ids=_batch_student_user_ids(session.batch_id),
+    notify(category="Recording", title=title, body=body, link="/materials", recipient_user_ids=_batch_student_user_ids(session.batch_id),
            branch_id=session.batch.branch_id, event_key=f"recording-{kind}-{recording.recording_id}-{int(_now().timestamp())}")
 
 
@@ -445,7 +445,7 @@ def watch(recording_id: int) -> dict:
         raise BusinessRule(STATUS_NOTES.get(recording.status, "This recording cannot be watched"))
     if window.state("Recording", ctx.today) == "Expired":
         raise BusinessRule(f"Your access to recordings for {enrolment.course.title} ended on {window.expiry['Recording']:%d %b %Y}. "
-                           "You can request an extension from the Recordings screen.")
+                           "You can request an extension from Class Materials.")
     content_repo.record_activity(ctx.student_id, enrolment.enrolment_id, "recording_view",
                                  {"recording_id": recording.recording_id, "session_code": recording.session.session_code})
     drive_status = recordings_repo.drive_verification_status()

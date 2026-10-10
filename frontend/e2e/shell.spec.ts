@@ -133,7 +133,7 @@ test.describe("phone layout @mobile", () => {
     await expect(page).toHaveURL(/\/profile/);
     await expect(sheet).toHaveCount(0);
 
-    for (const path of ["/dashboard", "/my-courses", "/attendance", "/finance"]) {
+    for (const path of ["/dashboard", "/my-courses", "/progress?tab=attendance", "/finance"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
