@@ -57,7 +57,7 @@ def test_detail_shows_enrolments_activation_state_and_recent_audit(client, make_
 
     data = client.get(f"/api/v1/admin/students/{student.student_id}", headers=headers).get_json()["data"]
 
-    assert data["enrolments"][0]["course_code"] == "NIT-CRS-047" and data["enrolments"][0]["status"] in ("Allocation Pending", "Curriculum Mapping Pending")
+    assert data["enrolments"][0]["course_code"] == "NIT-CRS-047" and data["enrolments"][0]["status"] == "Allocation Pending"
     assert data["activation"]["status"] == "valid" and "token" not in data["activation"]
     assert data["audit"][0]["action"] == "ACTIVATION_REISSUED"
     assert data["suspension"] is None

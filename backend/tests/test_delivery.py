@@ -111,15 +111,19 @@ def test_a_super_admin_cannot_approve_a_version_they_submitted(world, client, lo
     data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve"), 200)
 
 
-def test_activation_maps_waiting_enrolments_and_batches(world, client, login, make_student, make_batch, run_sql):
+def test_activation_gives_the_version_to_batches_and_students_without_one(world, client, login, make_student, make_batch, allocate):
     people, _, _ = world
     waiting = make_student(course="NIT-CRS-052", admission_id="A-052")
-    assert waiting.enrolments[0]["status"] == "Curriculum Mapping Pending"
+    assert waiting.enrolments[0]["status"] == "Allocation Pending"      # allocatable although the course has no curriculum yet
     from repositories import catalog as catalog_repo
 
     course = catalog_repo.get_course_by_code("NIT-CRS-052")
-    blocked = make_batch(1, course_code="NIT-CRS-052", trainers=[people["g2"]], readiness="Blocked",
-                         readiness_reason="Curriculum Mapping Pending: NIT-CRS-052 has no Active curriculum version", recovery_owner="AC")
+    blocked = make_batch(1, course_code="NIT-CRS-052", trainers=[people["g2"]])
+    review = data(call(client, login, people["ac"], "get", f"/batches/{blocked.batch_id}/readiness"), 200)
+    assert review["readiness"] == "Ready" and next(c for c in review["checks"] if c["key"] == "curriculum")["status"] == "warn"
+    assert next(c for c in review["checklist"] if c["key"] == "course_version")["status"] == "warn"  # confirming warns, never refuses
+    allocate(waiting, blocked)
+    assert data(call(client, login, waiting.student_code, "get", "/me/enrolments"), 200)[0]["curriculum_version"] is None
 
     vid = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course.course_id, "version_label": "CV 1.0"}), 201)["curriculum_version_id"]
     module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
@@ -132,10 +136,10 @@ def test_activation_maps_waiting_enrolments_and_batches(world, client, login, ma
     assert result["status"] == "Active"
     assert result["released"] == {"enrolments_released": 1, "batches_mapped": 1}
     student = data(call(client, login, waiting.student_code, "get", "/me/enrolments"), 200)
-    assert student[0]["status"] == "Allocation Pending"
+    assert student[0]["status"] == "Allocated — awaiting first regular class"
     assert student[0]["curriculum_version"]["version_label"] == "CV 1.0"
     detail = data(call(client, login, people["ac"], "get", f"/batches/{blocked.batch_id}"), 200)
-    assert detail["readiness"] != "Blocked"
+    assert detail["curriculum_version"]["version_label"] == "CV 1.0" and detail["readiness"] == "Ready"
     assert any(e["event_type"] == "Curriculum mapped" for e in detail["history"])
 
 
@@ -241,11 +245,9 @@ def test_allocation_review_allocate_transfer_deallocate(world, client, login, ma
     queue = data(call(client, login, people["ac"], "get", "/allocation-queue"), 200)
     assert [q["enrolment_id"] for q in queue] == [eid]
 
-    # The batch has no curriculum version: the review blocks
+    # The batch has no curriculum version yet: that never blocks a seat
     review = data(call(client, login, people["ac"], "get", f"/batches/{batch.batch_id}/allocation-review?enrolment_id={eid}"), 200)
-    assert review["result"] == "Blocked" and any("no curriculum version" in b for b in review["blocking"])
-    r = call(client, login, people["ac"], "post", f"/batches/{batch.batch_id}/allocations", json={"enrolment_id": eid})
-    assert r.status_code == 422 and r.get_json()["error"]["details"]["blocking"]
+    assert review["result"] == "Ready to allocate" and not review["blocking"]
 
     good = make_batch(1, trainers=[people["g2"]], capacity=1, state="Running", curriculum_version_id=_java_version())
     review = data(call(client, login, people["ac"], "get", f"/batches/{good.batch_id}/allocation-review?enrolment_id={eid}"), 200)
@@ -253,6 +255,10 @@ def test_allocation_review_allocate_transfer_deallocate(world, client, login, ma
     allocation = data(call(client, login, people["ac"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid, "reason": "first seat"}), 201)
     assert allocation["status"] == "Active"
     assert data(call(client, login, student.student_code, "get", "/me/enrolments"), 200)[0]["status"] == "Allocated — awaiting first regular class"
+    from config.database import db
+    from models import Enrolment
+
+    assert db.session.get(Enrolment, eid).curriculum_version_id == _java_version()  # the student follows the version of the batch
     assert data(call(client, login, people["ac"], "get", f"/batches/{good.batch_id}"), 200)["state"] == "Full"  # derived from capacity
     assert data(call(client, login, people["ac"], "get", "/allocation-queue"), 200) == []
     assert call(client, login, people["ac"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid}).status_code == 422
@@ -517,7 +523,7 @@ def test_combo_course_tracks_modules_and_topics(world, client, login, make_stude
     combo = next(c for c in cards if c["kind"] == "Combo")
     comp = next(c for c in cards if c["kind"] == "Complimentary")
     assert comp["linked_admission_code"] == combo["admission"]["admission_code"]
-    assert "Curriculum Mapping Pending" in comp["explanation"]
+    assert "allocate you to a batch" in comp["explanation"]
     overview = data(call(client, login, student.student_code, "get", f"/me/enrolments/{combo['enrolment_id']}"), 200)
     assert len(overview["tracks"]) == 4
     ml = next(t for t in overview["tracks"] if t["track_code"] == "NIT-CRS-018/T2")

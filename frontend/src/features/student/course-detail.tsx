@@ -53,7 +53,7 @@ export function CourseDetail() {
                     ["Collecting branch (CRM)", e.collecting_branch.branch_name],
                     ["Batch", e.batch ? mono(e.batch.batch_code) : "Not allocated"],
                     ["Trainer(s)", e.trainers.length ? e.trainers.map((t) => `${t.full_name} (${t.role})`).join(", ") : "Not assigned"],
-                    ["Curriculum version", e.curriculum_version?.version_label ?? "Curriculum Mapping Pending"],
+                    ...(e.curriculum_version ? [["Curriculum version", e.curriculum_version.version_label] as [string, string]] : []),
                     ["Delivery mode", e.mode],
                     ["Joining Date", e.joining_date ? fmtDay(e.joining_date) : "Pending — first confirmed regular class"],
                     [
@@ -105,7 +105,7 @@ export function CourseDetail() {
                         {mono(t.track_code)}
                       </div>
                       <p className="mt-1 font-medium">{t.track_name}</p>
-                      <p className="text-xs text-muted-foreground">{t.curriculum_version?.version_label ?? "Curriculum Mapping Pending"}</p>
+                      {t.curriculum_version && <p className="text-xs text-muted-foreground">{t.curriculum_version.version_label}</p>}
                       <div className="mt-2">
                         <DeliveryBar delivery={t.delivery} label="Delivered" />
                       </div>
@@ -145,13 +145,6 @@ export function CourseDetail() {
               </Section>
             )}
 
-            {!e.curriculum_version && (
-              <div className="mt-4">
-                <StatusNote state="Pending Verification">
-                  Curriculum Mapping Pending — Recovery Owner: Academic Coordinator — {e.service_branch.branch_name}.
-                </StatusNote>
-              </div>
-            )}
             <div className="mt-4">
               <Note>Hierarchy: My Course / Combo → Track → Module → Topic → Class session.</Note>
             </div>

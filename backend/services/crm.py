@@ -35,8 +35,7 @@ logger = logging.getLogger(__name__)
 
 STALE = "Ignored — stale"
 CLEARABLE_PERSON_FIELDS = ("email", "name_te")
-OPEN_STATUSES = ("Allocation Pending", "Allocated — awaiting first regular class", "Active", "Paused",
-                 "Curriculum Mapping Pending", "Provisioning Pending")
+OPEN_STATUSES = ("Allocation Pending", "Allocated — awaiting first regular class", "Active", "Paused", "Provisioning Pending")
 
 
 @dataclass
@@ -373,7 +372,7 @@ def _ensure_enrolment(admission: Admission, student: Student, item: dict, warnin
         enrolment = Enrolment(admission_id=admission.admission_id, student_id=student.student_id,
                               course_id=course.course_id, kind=kind, service_branch_id=admission.service_branch_id,
                               mode=item.get("mode") or admission.mode,
-                              status="Provisioning Pending" if gate and not gate["met"] else "Curriculum Mapping Pending")
+                              status="Provisioning Pending" if gate and not gate["met"] else "Allocation Pending")
         if kind == "Complimentary":
             # The qualifying paid enrolment: in this admission, or in the paid admission this one is complimentary to
             parent_course = _course(item["parent_course_code"])
@@ -385,7 +384,7 @@ def _ensure_enrolment(admission: Admission, student: Student, item: dict, warnin
                                    f"{parent_course.course_code} in the same admission or its paid admission")
             enrolment.parent_enrolment_id = parent.enrolment_id
         db.session.add(enrolment)
-    elif enrolment.status not in ("Curriculum Mapping Pending", "Provisioning Pending"):
+    elif enrolment.status != "Provisioning Pending":
         _link_batch(enrolment, item, warnings)
         return enrolment  # already being served: a repeated qualification never resets its progress
 
@@ -402,8 +401,8 @@ def _ensure_enrolment(admission: Admission, student: Student, item: dict, warnin
 
 
 def _map_curriculum(enrolment: Enrolment, course: Course, track_codes: list[str] | None) -> None:
-    """Attach the Active curriculum versions; without them the enrolment waits in Curriculum Mapping Pending
-    (never a guessed version)."""
+    """Attach the Active curriculum versions. Without one the enrolment keeps none (never a guessed version) and is allocatable
+    all the same: it follows the version of its batch, and activating a version gives it to the enrolments still without."""
     enrolment.curriculum_version_id = catalog_repo.active_curriculum_version_id(course.course_id)
 
     if enrolment.kind == "Combo":
@@ -428,16 +427,10 @@ def _map_curriculum(enrolment: Enrolment, course: Course, track_codes: list[str]
         db.session.flush()
 
     gate_blocked = enrolment.benefit_gate_met is False
-    unmapped = enrolment.curriculum_version_id is None or any(t.curriculum_version_id is None for t in enrolment.tracks)
     if gate_blocked:
         enrolment.status = "Provisioning Pending"
-    elif unmapped:
-        enrolment.status = "Curriculum Mapping Pending"
-        if enrolment.mapping_owner_user_id is None:  # a named academic owner for the recovery (Module 14 §8)
-            coordinators = sorted(users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", enrolment.service_branch_id))
-            enrolment.mapping_owner_user_id = coordinators[0] if coordinators else None
     elif batches_repo.active_allocation(enrolment.enrolment_id) is not None:
-        enrolment.status = "Allocated — awaiting first regular class"  # a seat was reserved while mapping was pending
+        enrolment.status = "Allocated — awaiting first regular class"  # a seat was reserved while provisioning was pending
     else:
         enrolment.status = "Allocation Pending"
     db.session.flush()
@@ -482,9 +475,7 @@ def _resumed_status(enrolment: Enrolment) -> str:
         return "Active"
     if batches_repo.active_allocation(enrolment.enrolment_id) is not None:
         return "Allocated — awaiting first regular class"
-    if enrolment.curriculum_version_id is not None and all(t.curriculum_version_id for t in enrolment.tracks):
-        return "Allocation Pending"
-    return "Curriculum Mapping Pending"
+    return "Allocation Pending"
 
 
 def _admission_updated(event: CrmEvent, data: dict) -> Handled:

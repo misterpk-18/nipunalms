@@ -127,7 +127,7 @@ export function AcademicBatches() {
               },
               { h: "Course", c: (b) => `${b.course.course_code} — ${b.course.title}` },
               ...(branches.length > 1 ? [{ h: "Branch", c: (b: (typeof page.data)[number]) => b.branch.branch_name }] : []),
-              { h: "Curriculum", c: (b) => b.curriculum_version?.version_label ?? "Curriculum Mapping Pending" },
+              { h: "Curriculum", c: (b) => b.curriculum_version?.version_label ?? "No approved curriculum yet" },
               { h: "Capacity", c: (b) => `${b.allocated_count} / ${b.capacity}` },
               { h: "Trainer", c: (b) => b.trainers.map((t) => t.full_name).join(", ") || "Unassigned" },
               { h: "State", c: (b) => <StateBadge label={b.state_label} /> },

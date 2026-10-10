@@ -53,6 +53,7 @@ Vijayawada).
 | `102_curriculum_model.sql` | Gap fix plan phase 5: the Module 14 curriculum model | ✅ |
 | `103_batches_delivery.sql` | Gap fix plan phase 6: batch lifecycle and requests, class logs, live-class operations (Modules 15, 16) | ✅ |
 | `104_crm_curriculum_removal.sql` | Round 5: the CRM holds no curriculum (mapping event, catalogue mirror and curriculum fields removed) | ✅ |
+| `105_curriculum_mapping_removed.sql` | UX phase U1: the *Curriculum Mapping Pending* enrolment state, its owner column and its exception source are removed | ✅ |
 
 ---
 
@@ -255,7 +256,7 @@ Nothing is seeded as Verified.
 | `exception_recovery_steps` | Append-only log (trigger blocks UPDATE / DELETE): `source`, `source_id`, `branch_id`, `reason`, `logged_by`, `logged_at` |
 | `exception_queue` (view) | One row per open exception: `source`, `source_id`, `reference`, `queue`, `branch_id` (NULL = company-wide), `title`, `detail`, `owner_user_id` / `owner_name` (NULL = awaiting a named owner), `owner_label` (role that should own it), `opened_at`, `state`, `link` (SPA route), `step_count`, `last_step_at` |
 
-The view unions, without copying: enrolments in `Curriculum Mapping Pending` / `Allocation Pending` / `Provisioning
+The view unions, without copying: enrolments in `Allocation Pending` / `Provisioning
 Pending` (003), unresolved `recording_exceptions` (020), pending `access_extension_requests` with `needs_exception`
 (020), results not yet `Published` per batch (030), open `support_requests` that are escalated or past their SLA (050),
 `crm_events` with status Failed (003) and integrations that Failed verification or are Misconfigured (001 / 060). The
@@ -358,7 +359,7 @@ Phase 5 of the gap fix plan ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
 | `curriculum_assessment_requirements` (Draft only) | The assessments a version requires; assignments and tests will link to them (phase 7) |
 | `course_components.equivalence_*`; `curriculum_version_components` | A combo parent pins its track and booster versions; reusing a standalone curriculum needs a recorded review (G058) |
 | `equivalence_rules`, `academic_mappings` (`proposed_credits`), `learning_credits`; `enrolment_covered_topics` also counts credits | Individual version moves with comparison, plan, acceptance and independent approval; credit never becomes attendance (G014) |
-| `enrolments.mapping_owner_user_id`; `exception_queue` shows it | A named owner for each Curriculum Mapping Pending recovery (G061) |
+| `enrolments.mapping_owner_user_id` (dropped again in 105) | The named owner of the removed Curriculum Mapping Pending recovery (G061) |
 | `curriculum_variations` | Branch and batch variations; a required-topic constraint needs a remedial plan (G060) |
 | `library_modules`, `library_module_versions`, `curriculum_modules.library_version_id` | Reusable modules with explicit, independently approved versions (G059) |
 
@@ -402,3 +403,13 @@ The CRM no longer holds curriculum, so the LMS stops reporting it and receiving 
 | `curriculum_version_crm_state` and its functions and triggers dropped | `curriculum_versions[]` left the pull |
 | `admission_academic_core` and `batch_crm_state` no longer emit `curriculum_status` / `curriculum_version_label`; stored states and Pending outbox rows lose the keys without a new change stamp | The CRM ignores them |
 
+## 105 — UX phase U1: Curriculum Mapping Pending is removed
+
+A new enrolment is always allocatable. With no Active curriculum version it has none, follows the version of the batch it joins, and receives the version when one is activated ([UX_PLAN.md](UX_PLAN.md)).
+
+| Change | Why |
+|---|---|
+| Enrolments in *Curriculum Mapping Pending* move to *Allocation Pending*; each gets a closing recovery step (`CURRICULUM_MAPPING` stays a valid source of `exception_recovery_steps` for that history) | Existing rows convert in place |
+| `enrolment_status` is replaced by a type without the value (PostgreSQL cannot drop a value); the two constraints, three triggers on `status` and `crm_enrolment_status()` that use it are recreated | |
+| `enrolments.mapping_owner_user_id` dropped; `exception_queue` loses the `CURRICULUM_MAPPING` branch | The state no longer exists |
+| Batches blocked only by *Curriculum Mapping Pending* become Ready | A batch without a curriculum warns instead of blocking |

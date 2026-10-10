@@ -19,7 +19,7 @@ ACTIVATION_CHANNELS = ("CRM provisioning", "Staff issued")  # student_activation
 ADMISSION_STATUSES = ("Active", "Paused", "Cancelled")
 ENROLMENT_KINDS = ("Combo", "Standalone", "Separately purchased", "Complimentary")
 ENROLMENT_STATUSES = (
-    "Provisioning Pending", "Curriculum Mapping Pending", "Allocation Pending",
+    "Provisioning Pending", "Allocation Pending",
     "Allocated — awaiting first regular class", "Active", "Paused", "Completed", "Withdrawn",
 )
 CRM_EVENT_STATUSES = ("Received", "Applied", "Ignored — stale", "Failed")

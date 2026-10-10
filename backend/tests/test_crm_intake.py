@@ -112,9 +112,9 @@ def test_combo_gets_tracks_and_complimentary_is_linked_to_the_parent(catalog, cr
 
     by_course = {e["course_code"]: e for e in result["enrolments"]}
     assert by_course["NIT-CRS-018"]["kind"] == "Combo" and by_course["NIT-CRS-018"]["status"] == "Allocation Pending"
-    # NIT-CRS-052 has no Active curriculum version, so its complimentary enrolment waits for mapping
+    # NIT-CRS-052 has no Active curriculum version; its complimentary enrolment is allocatable all the same
     assert by_course["NIT-CRS-052"]["kind"] == "Complimentary"
-    assert by_course["NIT-CRS-052"]["status"] == "Curriculum Mapping Pending"
+    assert by_course["NIT-CRS-052"]["status"] == "Allocation Pending"
 
     combo = db.session.get(Enrolment, by_course["NIT-CRS-018"]["enrolment_id"])
     complimentary = db.session.get(Enrolment, by_course["NIT-CRS-052"]["enrolment_id"])
@@ -147,10 +147,11 @@ def test_complimentary_needs_a_parent_and_a_gate(catalog, crm_event):
     assert set(response.get_json()["error"]["details"]["enrolments"]["1"]) == {"parent_course_code", "benefit_gate"}
 
 
-def test_enrolment_waits_for_curriculum_when_no_version_is_active(catalog, crm_event):
+def test_enrolment_is_allocatable_when_no_version_is_active(catalog, crm_event):
     result = qualify(crm_event, helpers.admission_data(course="NIT-CRS-052"))["result"]
 
-    assert result["enrolments"][0]["status"] == "Curriculum Mapping Pending"
+    assert result["enrolments"][0]["status"] == "Allocation Pending"
+    assert db.session.get(Enrolment, result["enrolments"][0]["enrolment_id"]).curriculum_version_id is None
 
 
 def test_qualification_notifies_the_branch_academic_coordinator_once(catalog, crm_event, make_user):
@@ -326,21 +327,17 @@ def test_finance_summary_for_an_unknown_admission_fails(crm_event):
     assert crm_event("FinanceSummaryUpdated", helpers.finance_data("A-404")).status_code == 422
 
 
-# ---------------------------------------------------------------- curriculum mapping
+# ---------------------------------------------------------------- curriculum
 
-def test_a_reserved_seat_waits_for_curriculum_then_the_enrolment_moves_on(catalog, crm_event, make_batch, run_sql):
+def test_a_seat_in_a_batch_without_curriculum_is_held_straight_away(catalog, crm_event, make_batch):
     batch = make_batch(1, course_code="NIT-CRS-052", crm_batch_id="CRM-B-52")
     data = helpers.admission_data(course="NIT-CRS-052", enrolments=[{"course_code": "NIT-CRS-052", "crm_batch_id": "CRM-B-52"}])
 
     first = qualify(crm_event, data)["result"]
-    assert first["enrolments"][0]["status"] == "Curriculum Mapping Pending"  # seat held, no curriculum yet
+
+    assert first["enrolments"][0]["status"] == "Allocated — awaiting first regular class"  # no curriculum yet, and no wait
     assert db.session.execute(db.text("SELECT batch_id FROM batch_allocations")).scalar_one() == batch.batch_id
-
-    run_sql("""INSERT INTO curriculum_versions (course_id, version_label, status, approved_at)
-               SELECT course_id, 'CV 1.0', 'Active', now() FROM courses WHERE course_code = 'NIT-CRS-052'""")
-    resent = qualify(crm_event, data, source_version=2)["result"]
-
-    assert resent["enrolments"][0]["status"] == "Allocated — awaiting first regular class"
+    assert db.session.get(Enrolment, first["enrolments"][0]["enrolment_id"]).curriculum_version_id is None
 
 
 def test_a_booster_uses_the_version_written_for_it_in_the_combo_before_the_course_own(catalog, crm_event, run_sql):

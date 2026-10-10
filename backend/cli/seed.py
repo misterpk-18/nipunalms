@@ -86,8 +86,8 @@ COMBO = {
 }
 
 # course, track (None = whole course), version label, [(module, module in Telugu, [topics])]. Every version is Active,
-# except that NIT-CRS-052 deliberately has none: its enrolments stay in Curriculum Mapping Pending until its CV 3.0 draft
-# (under review) is activated, which the CRM's round 2 uses to test Mapping Pending → Mapped. NIT-CRS-028 has none either.
+# except that NIT-CRS-052 deliberately has none: its enrolments are allocatable and its batch has no curriculum until its
+# CV 3.0 draft (under review) is activated, which gives the batch and its students the version. NIT-CRS-028 has none either.
 CURRICULA = [
     ("NIT-CRS-018", None, "CV 2026.1", [
         ("Python & SQL Foundations", None, ["Python Basics & Data Structures", "Joins, Window Functions"]),
@@ -151,9 +151,7 @@ BATCHES = {
                mode="Classroom", state="Full", start=date(2026, 6, 15), end=date(2026, 12, 11),
                trainers=["trainer_g3"], crm="CRM-BAT-102", fillers=30),
     "G3": dict(code="NIT-GNT-BAT-2026-000003", course="NIT-CRS-052", branch=GNT, version=None, capacity=25,
-               mode="Classroom", state="Forming", readiness="Blocked",
-               reason="Curriculum Mapping Pending: NIT-CRS-052 has no Active curriculum version",
-               recovery_owner="Academic Coordinator GNT", start=date(2026, 10, 15), end=None,
+               mode="Classroom", state="Forming", start=date(2026, 10, 15), end=None,
                trainers=[], crm="CRM-BAT-103", fillers=3),
     "V1": dict(code="NIT-VIJ-BAT-2026-000001", course="NIT-CRS-007", branch=VIJ, version="CV 4.0", capacity=25,
                mode="Live Online", state="Starting", readiness="Pending Verification",
@@ -499,7 +497,7 @@ def seed_delivery(ctx: SeedContext) -> None:
                                       actor_user_id=ctx.users["coord_gnt" if batch.branch_id == GNT else "coord_vij"],
                                       created_at=datetime.combine(BATCHES[key]["start"], time(9, 0), tzinfo=IST)))
 
-    # NIT-CRS-052: a draft submitted for review (still no Active version, so its enrolments stay in Curriculum Mapping Pending)
+    # NIT-CRS-052: a draft submitted for review (still no Active version: its enrolments and its batch have no curriculum yet)
     course = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-052")).scalar_one()
     draft = CurriculumVersion(course_id=course.course_id, version_label="CV 3.0", status="Under Review")
     db.session.add(draft)

@@ -166,8 +166,8 @@ def next_topic_order(module_id: int) -> int:
     return (highest or 0) + 1
 
 
-def pending_enrolments(course_id: int) -> list[Enrolment]:
-    """Enrolments of the course, or combo enrolments with a track built on it, still waiting for a curriculum version."""
+def enrolments_without_version(course_id: int) -> list[Enrolment]:
+    """Open enrolments of the course, or combo enrolments with a track built on it, that have no curriculum version yet."""
     track_enrolments = (
         select(EnrolmentTrack.enrolment_id)
         .join(CourseComponent, CourseComponent.component_id == EnrolmentTrack.component_id)
@@ -175,17 +175,18 @@ def pending_enrolments(course_id: int) -> list[Enrolment]:
     )
     stmt = (
         select(Enrolment)
-        .where(Enrolment.status == "Curriculum Mapping Pending",
+        .where(Enrolment.status.not_in(("Completed", "Withdrawn")),
                or_(Enrolment.course_id == course_id, Enrolment.enrolment_id.in_(track_enrolments)))
         .order_by(Enrolment.enrolment_id)
     )
     return list(db.session.execute(stmt).scalars())
 
 
-def pending_enrolment_counts() -> dict[int, int]:
-    """course_id -> enrolments waiting in Curriculum Mapping Pending."""
+def batch_counts_without_version() -> dict[int, int]:
+    """course_id -> open batches that have no approved curriculum yet."""
     return dict(db.session.execute(
-        select(Enrolment.course_id, func.count()).where(Enrolment.status == "Curriculum Mapping Pending").group_by(Enrolment.course_id)
+        select(Batch.course_id, func.count()).where(Batch.curriculum_version_id.is_(None),
+                                                    Batch.state.not_in(("Completed", "Cancelled", "Archived"))).group_by(Batch.course_id)
     ).all())
 
 

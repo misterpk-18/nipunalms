@@ -11,8 +11,8 @@ from tests.library_helpers import API, auth, get, post
 
 @pytest.fixture
 def world(catalog, make_user, make_student, make_batch, make_session, run_sql):
-    """Guntur: a Curriculum Mapping Pending enrolment, an Allocation Pending one and an unresolved recording exception.
-    Vijayawada: a Curriculum Mapping Pending enrolment. Company-wide: a failed CRM event and a failed integration."""
+    """Guntur: two Allocation Pending enrolments (one for a course with no curriculum yet) and an unresolved recording exception.
+    Vijayawada: an Allocation Pending enrolment. Company-wide: a failed CRM event and a failed integration."""
     people = SimpleNamespace(
         ac_g=make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="AC Guntur"),
         ac_v=make_user(roles=[("ACADEMIC_COORDINATOR", 2)], full_name="AC Vijayawada"),
@@ -21,9 +21,9 @@ def world(catalog, make_user, make_student, make_batch, make_session, run_sql):
         founder=make_user(roles=[("FOUNDER_CEO", None)], full_name="Founder"),
         trainer=make_user(roles=[("TRAINER", 1)], full_name="Trainer G"),
     )
-    g_mapping = make_student(course="NIT-CRS-052", person_id="P-GM", admission_id="A-GM", email="gm@example.test")
+    g_nocv = make_student(course="NIT-CRS-052", person_id="P-GM", admission_id="A-GM", email="gm@example.test")
     g_alloc = make_student(course="NIT-CRS-047", person_id="P-GA", admission_id="A-GA", email="ga@example.test")
-    v_mapping = make_student(course="NIT-CRS-052", person_id="P-VM", admission_id="A-VM", email="vm@example.test",
+    v_nocv = make_student(course="NIT-CRS-052", person_id="P-VM", admission_id="A-VM", email="vm@example.test",
                              service="NIT-VIJ", collecting="NIT-VIJ", original="NIT-VIJ")
     batch = make_batch(branch_id=1, trainers=(people.trainer,))
     from datetime import datetime, timezone
@@ -33,7 +33,7 @@ def world(catalog, make_user, make_student, make_batch, make_session, run_sql):
     run_sql("INSERT INTO crm_events (event_id, event_type, source_version, occurred_at, payload, status, error) "
             "VALUES ('evt-failed', 'AdmissionQualified', 1, now(), '{}', 'Failed', 'Unknown course')")
     run_sql("UPDATE integrations SET verification_status = 'Failed' WHERE integration_code = 'EMAIL'")
-    return SimpleNamespace(people=people, g_mapping=g_mapping, g_alloc=g_alloc, v_mapping=v_mapping)
+    return SimpleNamespace(people=people, g_nocv=g_nocv, g_alloc=g_alloc, v_nocv=v_nocv)
 
 
 def rows_of(client, login, who, query=""):
@@ -45,12 +45,13 @@ def rows_of(client, login, who, query=""):
 def test_coordinator_sees_only_their_branch(client, login, world):
     rows = rows_of(client, login, world.people.ac_g)
     by_source = {r["source"] for r in rows}
-    assert by_source == {"CURRICULUM_MAPPING", "ALLOCATION", "RECORDING"}
+    assert by_source == {"ALLOCATION", "RECORDING"}
     assert all(r["branch"]["branch_id"] == 1 for r in rows)
-    assert {r["reference"] for r in rows if r["source"] == "CURRICULUM_MAPPING"} == {world.g_mapping.enrolments[0]["enrolment_code"]}
+    assert {r["reference"] for r in rows if r["source"] == "ALLOCATION"} == {
+        world.g_nocv.enrolments[0]["enrolment_code"], world.g_alloc.enrolments[0]["enrolment_code"]}
 
     other = rows_of(client, login, world.people.ac_v)
-    assert {r["source"] for r in other} == {"CURRICULUM_MAPPING"} and all(r["branch"]["branch_id"] == 2 for r in other)
+    assert {r["source"] for r in other} == {"ALLOCATION"} and all(r["branch"]["branch_id"] == 2 for r in other)
 
 
 def test_company_wide_items_are_for_the_super_admin_and_founder(client, login, world):
@@ -61,14 +62,14 @@ def test_company_wide_items_are_for_the_super_admin_and_founder(client, login, w
     assert crm["branch"] is None and crm["queue"] == "CRM/LMS sync" and crm["link"] == "/admin/crm-sync"
     assert len(rows_of(client, login, world.people.founder)) == len(everything)
     # a branch manager reads their own branch and none of the company-wide items
-    assert {r["source"] for r in rows_of(client, login, world.people.bm_g)} == {"CURRICULUM_MAPPING", "ALLOCATION", "RECORDING"}
+    assert {r["source"] for r in rows_of(client, login, world.people.bm_g)} == {"ALLOCATION", "RECORDING"}
 
 
 def test_filters_by_source_branch_and_state(client, login, world):
     sa = world.people.sa
-    mapping = rows_of(client, login, sa, "?source=CURRICULUM_MAPPING")
-    assert len(mapping) == 2
-    assert [r["branch"]["branch_id"] for r in rows_of(client, login, sa, "?source=CURRICULUM_MAPPING&branch_id=2")] == [2]
+    allocation = rows_of(client, login, sa, "?source=ALLOCATION")
+    assert len(allocation) == 3
+    assert [r["branch"]["branch_id"] for r in rows_of(client, login, sa, "?source=ALLOCATION&branch_id=2")] == [2]
     assert {r["source"] for r in rows_of(client, login, sa, "?state=Failed")} == {"CRM_EVENT", "INTEGRATION"}
     # a branch filter cannot widen a coordinator's scope
     assert rows_of(client, login, world.people.ac_g, "?branch_id=2") == []
@@ -77,38 +78,36 @@ def test_filters_by_source_branch_and_state(client, login, world):
 
 def test_rows_without_a_named_owner_say_so(client, login, world):
     rows = rows_of(client, login, world.people.sa)
-    # Curriculum Mapping Pending gets a named coordinator when one exists (Module 14 §8); every other row waits for an owner
-    assert all(r["awaiting_owner"] and r["owner"] is None for r in rows
-               if not (r["source"] == "CURRICULUM_MAPPING" and r["owner"] is not None))
-    assert {r["owner_label"] for r in rows if r["source"] == "CURRICULUM_MAPPING"} == {"Academic Coordinator — Guntur", "Academic Coordinator — Vijayawada"}
-    assert {r["source"] for r in rows_of(client, login, world.people.sa, "?awaiting_owner=false")} == {"CURRICULUM_MAPPING"}
+    # every row waits for an owner until somebody logs a recovery step on it
+    assert all(r["awaiting_owner"] and r["owner"] is None for r in rows)
+    assert rows_of(client, login, world.people.sa, "?awaiting_owner=false") == []
 
 
 def test_staff_without_a_queue_role_are_refused(client, login, world):
     assert client.get(f"{API}/exceptions", headers=auth(login, world.people.trainer)).status_code == 403
-    assert client.get(f"{API}/exceptions", headers=auth(login, world.g_mapping)).status_code == 403
+    assert client.get(f"{API}/exceptions", headers=auth(login, world.g_nocv)).status_code == 403
     assert client.get(f"{API}/exceptions").status_code == 401
 
 
 def test_logging_a_step_is_audited_and_names_the_owner(client, login, world):
-    ref = world.g_mapping.enrolments[0]
-    item = next(r for r in rows_of(client, login, world.people.ac_g) if r["source"] == "CURRICULUM_MAPPING")
-    path = f"/exceptions/CURRICULUM_MAPPING/{item['source_id']}/steps"
-    data = post(client, path, auth(login, world.people.ac_g), expect=201, json={"reason": "Curriculum v2 sent for approval"})
-    assert data["step"]["reason"] == "Curriculum v2 sent for approval" and data["step"]["logged_by"]["full_name"] == "AC Guntur"
+    ref = world.g_nocv.enrolments[0]
+    item = next(r for r in rows_of(client, login, world.people.ac_g) if r["reference"] == ref["enrolment_code"])
+    path = f"/exceptions/ALLOCATION/{item['source_id']}/steps"
+    data = post(client, path, auth(login, world.people.ac_g), expect=201, json={"reason": "Batch proposed for the October intake"})
+    assert data["step"]["reason"] == "Batch proposed for the October intake" and data["step"]["logged_by"]["full_name"] == "AC Guntur"
     assert data["exception"]["state"] == "Recovery In Progress" and data["exception"]["step_count"] == 1
     assert data["exception"]["owner"]["full_name"] == "AC Guntur" and data["exception"]["awaiting_owner"] is False
     assert ref["enrolment_code"] == data["exception"]["reference"]
 
     entry = db.session.execute(select(AuditLog).where(AuditLog.action == "EXCEPTION_STEP_LOGGED")).scalar_one()
-    assert entry.reason == "Curriculum v2 sent for approval" and entry.branch_id == 1
-    assert entry.entity_id == f"CURRICULUM_MAPPING:{item['source_id']}" and entry.actor_user_id == world.people.ac_g.user_id
+    assert entry.reason == "Batch proposed for the October intake" and entry.branch_id == 1
+    assert entry.entity_id == f"ALLOCATION:{item['source_id']}" and entry.actor_user_id == world.people.ac_g.user_id
 
     steps = get(client, path, auth(login, world.people.bm_g))
-    assert [s["reason"] for s in steps] == ["Curriculum v2 sent for approval"]
+    assert [s["reason"] for s in steps] == ["Batch proposed for the October intake"]
     # the next step is listed newest first
-    post(client, path, auth(login, world.people.sa), expect=201, json={"reason": "Approved, re-mapping now"})
-    assert [s["reason"] for s in get(client, path, auth(login, world.people.ac_g))][0] == "Approved, re-mapping now"
+    post(client, path, auth(login, world.people.sa), expect=201, json={"reason": "Batch confirmed, allocating now"})
+    assert [s["reason"] for s in get(client, path, auth(login, world.people.ac_g))][0] == "Batch confirmed, allocating now"
 
 
 def test_a_step_needs_a_reason(client, login, world):
@@ -120,8 +119,8 @@ def test_a_step_needs_a_reason(client, login, world):
 
 
 def test_steps_are_permission_checked_and_branch_scoped(client, login, world):
-    item = next(r for r in rows_of(client, login, world.people.ac_g) if r["source"] == "CURRICULUM_MAPPING")
-    path = f"{API}/exceptions/CURRICULUM_MAPPING/{item['source_id']}/steps"
+    item = next(r for r in rows_of(client, login, world.people.ac_g) if r["source"] == "ALLOCATION")
+    path = f"{API}/exceptions/ALLOCATION/{item['source_id']}/steps"
     body = {"json": {"reason": "Trying to log a step"}}
     # read-only roles
     assert client.post(path, headers=auth(login, world.people.bm_g), **body).status_code == 403

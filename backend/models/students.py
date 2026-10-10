@@ -171,7 +171,6 @@ class Enrolment(db.Model):
     access_end: Mapped[date | None] = mapped_column(Date)
     certificate_status: Mapped[str] = mapped_column(String(100), default="Not Yet Eligible")
     benefit_gate_met: Mapped[bool | None] = mapped_column(Boolean)
-    mapping_owner_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))  # Curriculum Mapping Pending owner
     benefit_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())

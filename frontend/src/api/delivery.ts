@@ -122,7 +122,7 @@ export type CurriculumRow = {
   active_version: VersionRef | null;
   latest_version: VersionRef | null;
   readiness: string;
-  pending_enrolments: number;
+  waiting_batches: number;
   borrowed_from: CourseRef | null;
 };
 export type CurriculumEvent = {
@@ -822,7 +822,6 @@ export const deliveryApi = {
   decideLibraryVersion: (id: number, decision: string) => post<LibraryVersion>(`/curriculum-library-versions/${id}/decision`, { decision }),
   insertLibraryModule: (versionId: number, libraryVersionId: number) =>
     post<ModuleContent>(`/curriculum-versions/${versionId}/library-modules`, { library_version_id: libraryVersionId }),
-  setMappingOwner: (enrolmentId: number, body: { owner_user_id: number; note: string }) => put<unknown>(`/enrolments/${enrolmentId}/mapping-owner`, body),
   deleteTopic: (id: number) => del<null>(`/curriculum-topics/${id}`),
 
   // batches

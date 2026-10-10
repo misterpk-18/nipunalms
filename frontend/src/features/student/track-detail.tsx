@@ -27,12 +27,12 @@ export function TrackDetail() {
               / {track.track_code}
             </nav>
             <div className="mb-3 rounded-lg border bg-muted px-3 py-2 text-sm">
-              <strong>Parent programme:</strong> {enrolment.course.course_code} — {enrolment.course.title} ·{" "}
-              {enrolment.curriculum_version?.version_label ?? "Curriculum Mapping Pending"}
+              <strong>Parent programme:</strong> {enrolment.course.course_code} — {enrolment.course.title}
+              {enrolment.curriculum_version ? ` · ${enrolment.curriculum_version.version_label}` : ""}
             </div>
             <PageHead
               title={track.track_name}
-              description={`${track.track_code} · ${track.role} · ${track.curriculum_version?.version_label ?? "Curriculum Mapping Pending"}`}
+              description={[track.track_code, track.role, track.curriculum_version?.version_label].filter(Boolean).join(" · ")}
             />
             <div className="mb-4">
               <DeliveryBar delivery={delivery} label="Track curriculum delivered" />

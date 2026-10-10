@@ -33,10 +33,10 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
 | CRM-owned placement (D5) | Not LMS work | | | G001 G004 G005 G006 G008 G038 G039 |
 
 42 of 109 gaps closed (G104 in part); the backend suite is at 660 passing. The status column in [GAPS.md](GAPS.md) is the source of truth. Mark a gap `Done (phase N)`
-there when its phase lands. Migrations used so far: 099–104 (104 is the round-5 CRM curriculum removal).
+there when its phase lands. Migrations used so far: 099–105 (104 is the round-5 CRM curriculum removal, 105 the UX phase U1 removal of Curriculum Mapping Pending).
 
 **Paused for the UX plan (10 Oct 2026).** [UX_PLAN.md](UX_PLAN.md) runs first: it removes Curriculum Mapping Pending
-(`db/105`), merges the Academic Coordinator into the Branch Manager (`db/106`) and redesigns every screen. Phase 7 starts
+(`db/105`, done), merges the Academic Coordinator into the Branch Manager (`db/106`) and redesigns every screen. Phase 7 starts
 after the last UX migration, and phases 7–12 are rewritten in UX phase U18 for the merged role and the new screens.
 
 ## Resuming in a new session
@@ -90,8 +90,8 @@ Start here before phase 7.
   - Batch completion is refused while a cancelled regular class owes a replacement or a student still owed teaching has
     no handover.
 - **Failing e2e regardless of these phases:** two `e2e/assessments.spec.ts` tests (fixed seed dates that have passed),
-  `admin.spec.ts` "student accounts" (fails on the phase 5 frontend too) and `dashboards-staff.spec.ts` "logs a recovery
-  step" (it expects a Curriculum Mapping Pending row without an owner; phase 5 names one automatically).
+  `admin.spec.ts` "student accounts" (fails on the phase 5 frontend too). `dashboards-staff.spec.ts` "logs a recovery
+  step" was fixed in UX phase U1 (it now logs a step on an Allocation row).
 
 **Shared helpers built so far:**
 - `services/approvals.require_independent(*involved_user_ids, message=)`: the independent-approver rule, as a 422.

@@ -19,8 +19,8 @@ from services import ask_nipuna, crm_sync, scope
 from services import exceptions as exceptions_service
 from services import integrations as integrations_service
 
-# Enrolment statuses that are waiting for a seat (Curriculum Mapping Pending is included, as in the prototype)
-AWAITING_ALLOCATION = ("Curriculum Mapping Pending", "Allocation Pending")
+# Enrolment statuses that are waiting for a seat
+AWAITING_ALLOCATION = ("Allocation Pending",)
 # Certificate register states that wait for a person to decide
 CERTIFICATE_REVIEW = ("Eligibility Review", "Awaiting Approval")
 AI_CEILING_SETTING = "ai_monthly_ceiling_inr"
@@ -131,7 +131,6 @@ def academic_summary(branch_id: int | None = None) -> dict:
         "scope": _scope_block(branch_ids),
         "allocation_queue": {
             "count": sum(enrolments.get(s, 0) for s in AWAITING_ALLOCATION),
-            "curriculum_mapping_pending": enrolments.get("Curriculum Mapping Pending", 0),
             "allocation_pending": enrolments.get("Allocation Pending", 0),
         },
         "results_awaiting_publication": {"count": dash_repo.results_awaiting_publication(branch_ids)},

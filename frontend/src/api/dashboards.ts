@@ -232,7 +232,7 @@ type Count = { count: number };
 export type AcademicSummary = {
   as_of: DateTime;
   scope: Scope;
-  allocation_queue: Count & { curriculum_mapping_pending: number; allocation_pending: number };
+  allocation_queue: Count & { allocation_pending: number };
   results_awaiting_publication: Count;
   recording_exceptions: Count;
   batches_ready: { ready: number; total: number };

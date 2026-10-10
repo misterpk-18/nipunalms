@@ -12,11 +12,10 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from config.database import db
-from models import AcademicMapping, CurriculumVersion, Enrolment, EquivalenceRule, ExceptionRecoveryStep, LearningCredit
+from models import AcademicMapping, CurriculumVersion, Enrolment, EquivalenceRule, LearningCredit
 from repositories import batches as batches_repo
 from repositories import catalog as catalog_repo
 from repositories import students as students_repo
-from repositories import users as users_repo
 from repositories.common import paginate
 from services import approvals, audit, delivery_notices, scope
 from services.context import current_user
@@ -180,10 +179,6 @@ def decide_mapping(mapping_id: int, decision: str, note: str | None, student_acc
                                           original_evidence=credit["original_evidence"], rule_id=mapping.rule_id,
                                           reviewed_by=current_user().user_id))
         db.session.flush()
-        if enrolment.status == "Curriculum Mapping Pending" and enrolment.curriculum_version_id \
-                and all(t.curriculum_version_id for t in enrolment.tracks):
-            enrolment.status = ("Allocated — awaiting first regular class" if batches_repo.active_allocation(enrolment.enrolment_id)
-                                else "Allocation Pending")
         delivery_notices.notify_student(enrolment.student_id, title=f"Your curriculum version changed: {enrolment.course.title}",
                                         body=mapping.migration_plan[:300], event_key=f"academic-mapping-applied:{mapping.mapping_id}",
                                         link="/my-courses", branch_id=enrolment.service_branch_id)
@@ -204,33 +199,3 @@ def list_mappings(filters: dict, page: int, per_page: int):
         if filters.get(key):
             stmt = stmt.where(getattr(AcademicMapping, key) == filters[key])
     return paginate(stmt, page, per_page)
-
-
-# ---------------------------------------------------------------- Curriculum Mapping Pending owner
-
-def assign_mapping_owner(enrolment_id: int, owner_user_id: int, note: str) -> Enrolment:
-    """Name the academic owner of a Curriculum Mapping Pending enrolment's recovery (Module 14 §8)."""
-    enrolment = students_repo.get_enrolment(enrolment_id)
-    if enrolment is None:
-        raise NotFound("Enrolment not found")
-    scope.require_branch(enrolment.service_branch_id)
-    if not current_user().has_role("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", branch_id=enrolment.service_branch_id):
-        raise Forbidden("You don't have access to this action")
-    if enrolment.status != "Curriculum Mapping Pending":
-        raise BusinessRule(f"Enrolment {enrolment.enrolment_code} is {enrolment.status}, not Curriculum Mapping Pending")
-    owners = set(users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", enrolment.service_branch_id)) | \
-        set(users_repo.user_ids_with_role("SUPER_ADMIN", None))
-    if owner_user_id not in owners:
-        raise ValidationError("Invalid request data", {"owner_user_id": ["Choose an Academic Coordinator of the branch or a Super Admin"]})
-    old = enrolment.mapping_owner_user_id
-    enrolment.mapping_owner_user_id = owner_user_id
-    owner = users_repo.get_by_id(owner_user_id)
-    db.session.add(ExceptionRecoveryStep(source="CURRICULUM_MAPPING", source_id=enrolment.enrolment_id, branch_id=enrolment.service_branch_id,
-                                         reason=f"Owner: {owner.full_name}. {note}", logged_by=current_user().user_id))
-    db.session.flush()
-    audit.record("MAPPING_OWNER_ASSIGNED", "enrolment", enrolment.enrolment_code, old={"owner": old}, new={"owner": owner_user_id},
-                 reason=note, branch_id=enrolment.service_branch_id)
-    notify(category="Curriculum", title=f"You own the curriculum mapping of {enrolment.enrolment_code}", body=note,
-           link="/admin/exceptions", recipient_user_ids=[owner_user_id], branch_id=enrolment.service_branch_id,
-           event_key=f"mapping-owner:{enrolment.enrolment_id}:{owner_user_id}", action_required=True)
-    return enrolment

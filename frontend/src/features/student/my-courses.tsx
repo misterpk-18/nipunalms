@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { deliveryApi, type MyEnrolment } from "@/api/delivery";
-import { Note, PageHead, QueryView, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { Note, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
 import { useT } from "@/lib/i18n";
 import { DeliveryBar, mono } from "@/features/shared/delivery-ui";
 import { MaterialChangesCard, SlotPreferenceCard } from "./batch-changes";
@@ -15,9 +15,8 @@ const KIND_LABEL: Record<string, string> = {
 
 export const kindLabel = (kind: string) => KIND_LABEL[kind] ?? kind;
 
-/** The status explanation as the prototype words it: a Pending Verification note while the curriculum is being mapped. */
+/** What the enrolment's status means for the learner, in the prototype's wording. */
 export function StatusExplanation({ enrolment }: { enrolment: MyEnrolment }) {
-  if (enrolment.status === "Curriculum Mapping Pending") return <StatusNote state="Pending Verification">{enrolment.explanation}</StatusNote>;
   return <p className="text-sm text-muted-foreground">{enrolment.explanation}</p>;
 }
 

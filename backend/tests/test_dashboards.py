@@ -24,12 +24,12 @@ def assert_not_configured(block):
 def test_academic_dashboard_counts_the_coordinators_branch_only(client, login, world):
     data = summary(client, login, world.people.ac_g, "/academic/summary")
     assert [b["branch_id"] for b in data["scope"]["branches"]] == [1] and data["scope"]["all_branches"] is False
-    assert data["allocation_queue"] == {"count": 2, "curriculum_mapping_pending": 1, "allocation_pending": 1}
+    assert data["allocation_queue"] == {"count": 2, "allocation_pending": 2}
     assert data["recording_exceptions"]["count"] == 1
     assert data["results_awaiting_publication"]["count"] == 0
     assert data["batches_ready"] == {"ready": 1, "total": 1}
-    # mapping + allocation + recording exceptions; Curriculum Mapping Pending has a named coordinator (Module 14 §8)
-    assert data["open_exceptions"] == {"count": 3, "awaiting_owner": 2}
+    # two allocation exceptions and a recording exception, none with a named owner yet
+    assert data["open_exceptions"] == {"count": 3, "awaiting_owner": 3}
 
     other = summary(client, login, world.people.ac_v, "/academic/summary")
     assert other["allocation_queue"]["count"] == 1 and other["recording_exceptions"]["count"] == 0
@@ -44,14 +44,14 @@ def test_academic_dashboard_branch_lock_and_admin_view(client, login, world):
     assert only_v["allocation_queue"]["count"] == 1
     assert summary(client, login, world.people.founder, "/academic/summary")["allocation_queue"]["count"] == 3
     summary(client, login, world.people.trainer, "/academic/summary", expect=403)
-    summary(client, login, world.g_mapping, "/academic/summary", expect=403)
+    summary(client, login, world.g_nocv, "/academic/summary", expect=403)
 
 
 def test_academic_dashboard_lists_batches_that_are_not_ready(client, login, world, run_sql):
-    run_sql("UPDATE batches SET readiness = 'Blocked', readiness_reason = 'Curriculum Mapping Pending', recovery_owner = 'Academic Coordinator — Guntur'")
+    run_sql("UPDATE batches SET readiness = 'Blocked', readiness_reason = 'No lead trainer assigned', recovery_owner = 'Academic Coordinator — Guntur'")
     data = summary(client, login, world.people.ac_g, "/academic/summary")
     assert data["batches_ready"] == {"ready": 0, "total": 1}
-    assert data["batch_risks"][0]["reason"] == "Curriculum Mapping Pending" and data["batch_risks"][0]["recovery_owner"].startswith("Academic")
+    assert data["batch_risks"][0]["reason"] == "No lead trainer assigned" and data["batch_risks"][0]["recovery_owner"].startswith("Academic")
 
 
 # ---------------------------------------------------------------- branch
@@ -91,8 +91,8 @@ def test_admin_dashboard(client, login, world):
     assert_not_configured(data["crm"]["overdue_payment_verifications"])
     assert data["integration_failures"] == {"count": 1, "codes": ["EMAIL"], "source": data["integration_failures"]["source"]}
     assert data["integrations_verified"]["verified"] == 0 and data["integrations_verified"]["total"] >= 8
-    assert data["open_exceptions"]["count"] == 6 and data["awaiting_owner"]["count"] == 4  # the two mapping rows have an owner
-    assert data["open_exceptions"]["by_source"]["CURRICULUM_MAPPING"]["count"] == 2
+    assert data["open_exceptions"]["count"] == 6 and data["awaiting_owner"]["count"] == 6
+    assert data["open_exceptions"]["by_source"]["ALLOCATION"]["count"] == 3
     assert data["sync"]["failed_events"] == 1 and data["sync"]["failed_event_items"][0]["source"] == "CRM_EVENT"
     flows = {f["flow"]: f for f in data["sync"]["flows"]}
     assert flows["LMS → CRM status outbox"]["state"] == "Integration Unavailable"

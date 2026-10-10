@@ -85,7 +85,8 @@ until the next rebuild.
 - The CRM's eight courses (codes, titles and categories as in the CRM, all single courses) plus the seed-only combo
   **NIT-CRS-900** (3 + 1: tracks T1–T3 and the Power BI booster NIT-CRS-019; the CRM has no combo yet).
 - Curriculum versions with modules and topics for every course except NIT-CRS-028 and NIT-CRS-052. NIT-CRS-052 has a
-  `CV 3.0` draft under review, so its enrolments wait in *Curriculum Mapping Pending*.
+  `CV 3.0` draft under review, so its enrolments are allocatable and its batch (NIT-GNT-BAT-2026-000003) has no curriculum until
+  that draft is activated.
 - Five batches across both branches and class sessions for Sep–Oct 2026, with display names, type and pattern, verified
   capacity and recording provision; a sixth, the weekend Java batch NIT-GNT-BAT-2026-000004, is **Proposed** and waits for
   the Guntur Branch Manager's confirmation.

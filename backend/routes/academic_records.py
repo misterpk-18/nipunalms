@@ -52,13 +52,6 @@ def decide_mapping(mapping_id: int):
     return controller.decide_mapping(mapping_id)
 
 
-@academic_records_bp.put("/enrolments/<int:enrolment_id>/mapping-owner")
-@login_required
-@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
-def assign_mapping_owner(enrolment_id: int):
-    return controller.assign_mapping_owner(enrolment_id)
-
-
 @academic_records_bp.get("/curriculum-variations")
 @login_required
 @require_roles(*STAFF_ROLES)

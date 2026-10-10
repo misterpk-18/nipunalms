@@ -84,10 +84,8 @@ def explain_status(enrolment: Enrolment, batch: Batch | None) -> str:
     match enrolment.status:
         case "Provisioning Pending":
             return enrolment.benefit_note or "Your access is being set up. Course content opens once the qualifying payment is verified."
-        case "Curriculum Mapping Pending":
-            return f"Curriculum Mapping Pending · Recovery Owner: Academic Coordinator — {branch}. Your Admission and receipt are preserved."
         case "Allocation Pending":
-            return "Your course is confirmed. Your Academic Coordinator will allocate you to a batch before your first class."
+            return "Your course is confirmed. Your branch will allocate you to a batch before your first class."
         case "Allocated — awaiting first regular class":
             where = f" to batch {batch.batch_code}" if batch else ""
             return f"You are allocated{where}. Your Joining Date is set when you attend your first confirmed regular class (a demo does not count)."

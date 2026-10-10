@@ -43,7 +43,7 @@ test("learner navigates My Courses, a combo track, module, topic and session", a
   await expect(page.getByText("Combo (3 + 1)")).toBeVisible();
   await expect(page.getByText("Separately purchased")).toBeVisible();
   await expect(page.getByText("Promotional complimentary — linked to qualifying paid Admission NIT-GNT-2026-000214")).toBeVisible();
-  await expect(page.getByText("Curriculum Mapping Pending · Recovery Owner: Academic Coordinator — Guntur")).toBeVisible();
+  await expect(page.getByText("Your course is confirmed. Your branch will allocate you to a batch before your first class.").first()).toBeVisible();
   await expect(page.getByText("You are allocated to batch NIT-VIJ-BAT-2026-000001")).toBeVisible();
 
   await page.getByRole("link", { name: "Open course" }).first().click();
@@ -75,7 +75,7 @@ test("coordinator creates a batch and allocates a waiting student after the revi
   await login(page, USERS.coordGnt);
   await page.goto("/academic/batches");
   await expect(page.getByRole("heading", { name: "Batch Management" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ })).toContainText("Blocked");
+  await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ })).toContainText("No approved curriculum yet");
   await expect(page.getByRole("row", { name: /Sample Learner K\./ })).toContainText("None"); // no open Power BI batch yet
 
   await page.getByRole("button", { name: "New batch" }).click();
@@ -156,12 +156,12 @@ test("coordinator approves the request; the session is rescheduled with history"
   await expect(page.getByRole("row", { name: /PCA lab/ }).first()).toContainText("Rescheduled");
 });
 
-test("super admin approves and activates the curriculum; the waiting student is released", async ({ page }) => {
+test("super admin approves and activates the curriculum; the batch and its students pick it up", async ({ page }) => {
   await login(page, USERS.admin);
   await page.goto("/academic/curriculum");
   await expect(page.getByRole("heading", { name: "Course Curriculum & Versions" })).toBeVisible();
   const row = page.getByRole("row", { name: /NIT-CRS-052/ });
-  await expect(row).toContainText("Curriculum Mapping Pending");
+  await expect(row).toContainText("batch(es) have no curriculum yet");
   await row.getByRole("button", { name: "Manage versions" }).click();
   await page.getByRole("button", { name: /CV 3\.0 · Under Review/ }).click();
   await expect(page.getByText("Django & REST APIs")).toBeVisible();
@@ -174,7 +174,7 @@ test("super admin approves and activates the curriculum; the waiting student is 
   await page.goto("/login");
   await login(page, USERS.student);
   await page.goto("/my-courses");
-  await expect(page.getByText("Your course is confirmed. Your Academic Coordinator will allocate you to a batch before your first class.")).toBeVisible();
+  await expect(page.getByText("Your course is confirmed. Your branch will allocate you to a batch before your first class.").first()).toBeVisible();
 });
 
 test("branch manager sees batches, exceptions, trainers and students of the branch", async ({ page }) => {

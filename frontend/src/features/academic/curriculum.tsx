@@ -239,7 +239,7 @@ export function VersionEditor({ versionId }: { versionId: number }) {
                       </Button>
                     }
                     title={`Retire ${v.version_label}`}
-                    description="New enrolments will wait in Curriculum Mapping Pending until another version is Active."
+                    description="Batches and students already on it keep it. Batches created after this will have no curriculum until another version is activated."
                     fields={[{ name: "reason", label: "Reason", type: "textarea" }]}
                     submitLabel="Retire"
                     onSubmit={(f) => act.mutateAsync({ action: "retire", reason: f["reason"] || undefined })}
@@ -415,7 +415,7 @@ export function AcademicCurriculum() {
                 c: (r) => (
                   <>
                     <StatusBadge>{r.readiness}</StatusBadge>
-                    {r.pending_enrolments > 0 && <div className="mt-1 text-xs text-muted-foreground">{r.pending_enrolments} enrolment(s) waiting</div>}
+                    {r.waiting_batches > 0 && <div className="mt-1 text-xs text-muted-foreground">{r.waiting_batches} batch(es) have no curriculum yet</div>}
                   </>
                 ),
               },

@@ -19,7 +19,7 @@ export function TrainerBatches() {
             cols={[
               { h: "Batch", c: (b) => mono(b.batch_code) },
               { h: "Course", c: (b) => `${b.course.course_code} — ${b.course.title}` },
-              { h: "Curriculum", c: (b) => b.curriculum_version?.version_label ?? "Curriculum Mapping Pending" },
+              { h: "Curriculum", c: (b) => b.curriculum_version?.version_label ?? "No approved curriculum yet" },
               { h: "Mode", c: (b) => b.mode },
               { h: "Dates", c: (b) => `${fmtDay(b.planned_start)} → ${fmtDay(b.planned_end)}` },
               { h: "Students", c: (b) => <RosterDialog batch={b} /> },

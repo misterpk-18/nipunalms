@@ -1,8 +1,9 @@
 """Putting students into batches: the review checks shown before allocating, allocate, deallocate, the roster. Moving a
 seat between batches is a transfer request (services/batch_transfers.py).
 
-A seat is only given after the batch allocation review: service branch, course or track, curriculum mapping / version,
-capacity, delivery mode, the student's other classes and the enrolment's own state. A failed check blocks; a warning
+A seat is only given after the batch allocation review: service branch, course or track, capacity, delivery mode, the
+student's other classes and the enrolment's own state. The curriculum never blocks a seat: the student follows the
+curriculum version of the batch they join (a batch with none yet picks one up when it is activated). A failed check blocks; a warning
 (different mode, a timetable clash) needs the coordinator to acknowledge it. Ended and transferred allocations stay as
 history; nothing the student did in a previous batch is touched.
 """
@@ -13,7 +14,6 @@ from config.timezone import IST
 from models import Batch, BatchAllocation, Enrolment
 from models.batches import BATCH_STATE_LABELS
 from repositories import batches as batches_repo
-from repositories import catalog as catalog_repo
 from repositories import enrolments as enrolments_repo
 from repositories import students as students_repo
 from repositories.common import paginate
@@ -26,7 +26,7 @@ from services.notifications import notify
 
 # Statuses from which an enrolment can be given a first seat / can no longer be moved
 ALLOCATION_READY = "Allocation Pending"
-AWAITING_SEAT = ("Curriculum Mapping Pending", "Allocation Pending")
+AWAITING_SEAT = ("Allocation Pending",)
 ESCALATE_BEFORE_START = timedelta(hours=24)
 SEATED_STATUSES = ("Allocated — awaiting first regular class", "Active")
 
@@ -63,27 +63,6 @@ def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False, enrolm
     what = (f"{enrolment.course.course_code} track {track.component.track_code}" if track else
             f"{enrolment.course.course_code}" + (f" — combo with {len(enrolment.tracks)} tracks" if enrolment.tracks else ""))
     checks = [branch_check, _check("course", "Course / track", "fail" if problem else "pass", problem or what)]
-
-    if track is not None:
-        learner_version, learner_label = track.curriculum_version_id, track.component.track_code
-        unmapped = learner_version is None
-    else:
-        unmapped_tracks = [t.component.track_code for t in enrolment.tracks if t.curriculum_version_id is None]
-        learner_version, learner_label = enrolment.curriculum_version_id, "the course"
-        unmapped = enrolment.curriculum_version_id is None or bool(unmapped_tracks)
-        if enrolment.curriculum_version_id is not None and unmapped_tracks:
-            learner_label = ", ".join(unmapped_tracks)
-    if unmapped:
-        checks.append(_check("curriculum", "Curriculum mapping / version", "fail", f"Curriculum Mapping Pending ({learner_label})"))
-    elif batch.curriculum_version_id is None:
-        checks.append(_check("curriculum", "Curriculum mapping / version", "fail", "The batch has no curriculum version yet"))
-    elif batch.curriculum_version_id != learner_version:
-        own = catalog_repo.get_curriculum_version(learner_version)
-        checks.append(_check("curriculum", "Curriculum mapping / version", "fail",
-                             f"The learner is on {own.version_label}; the batch runs {batch.curriculum_version.version_label}. "
-                             "An approved academic mapping must move the student first (Module 14 §8)"))
-    else:
-        checks.append(_check("curriculum", "Curriculum mapping / version", "pass", batch.curriculum_version.version_label))
 
     if already_here or any(a.batch_id == batch.batch_id for a in seats):
         checks.append(_check("capacity", "Capacity", "pass", f"{taken} of {batch.capacity} seats taken (already holds a seat)"))

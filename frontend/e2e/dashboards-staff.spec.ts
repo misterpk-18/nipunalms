@@ -3,9 +3,9 @@ import { USERS, login } from "./helpers";
 
 /**
  * Staff dashboards (Academic, Branch, Super Admin, Founder) and the exception queues (P3). Needs the API on the dev
- * database seeded with `seed-dev`: Guntur has four Curriculum Mapping Pending enrolments, one awaiting allocation,
- * two open recording exceptions and an escalated support request; Vijayawada has two recording exceptions and nothing
- * waiting for a seat.
+ * database seeded with `seed-dev`: Guntur has enrolments awaiting a batch seat (some for NIT-CRS-052, which has no
+ * curriculum yet), two open recording exceptions and an escalated support request; Vijayawada has two recording
+ * exceptions and nothing waiting for a seat.
  */
 
 const RUN = Date.now().toString(36);
@@ -30,12 +30,11 @@ test.describe("Academic dashboard and exception queue", () => {
     await expect(page.getByText("Guntur · LMS academic domain")).toBeVisible();
     // Counts depend on what earlier specs resolved, so the tiles are checked for shape, not for the seed's exact numbers
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/\d/);
-    await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/Curriculum Mapping Pending \(\d+\)/);
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
     await expect(tile(page, "Academic results awaiting publication review")).toBeVisible();
     await expect(tile(page, "Batches delivery-ready")).toContainText("/");
     await expect(tile(page, "Open exceptions")).toContainText("awaiting a named owner");
-    await expect(page.getByText("NIT-GNT-BAT-2026-000003: Curriculum Mapping Pending")).toBeVisible();
+    await expect(page.getByText("NIT-GNT-BAT-2026-000003:")).toHaveCount(0); // a batch with no curriculum yet is not at risk
     await expect(page.getByText("Four distinct records")).toBeVisible();
     await expect(page.locator("#main").getByRole("link", { name: "Recording exceptions" })).toBeVisible();
     // the Vijayawada batch is not part of a Guntur view
@@ -59,7 +58,7 @@ test.describe("Academic dashboard and exception queue", () => {
     await login(page, USERS.coordGnt);
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Exceptions", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
-    const row = page.getByRole("row").filter({ hasText: "Curriculum Mapping Pending" }).filter({ hasText: "Awaiting named owner" }).first();
+    const row = page.getByRole("row").filter({ hasText: "Awaiting batch allocation" }).filter({ hasText: "Awaiting named owner" }).first();
     await expect(row).toContainText("Awaiting named owner");
     await expect(row).toContainText("Academic Coordinator — Guntur");
     const reference = (await row.getByRole("cell").first().innerText()).trim();
@@ -67,7 +66,7 @@ test.describe("Academic dashboard and exception queue", () => {
     await row.getByRole("button", { name: /^Update ENR-/ }).click();
     const confirm = page.getByRole("button", { name: "Log recovery step" });
     await expect(confirm).toBeDisabled();
-    await page.getByLabel("What was done, or will be done").fill(`Curriculum v2 sent for approval ${RUN}`);
+    await page.getByLabel("What was done, or will be done").fill(`Batch proposed for the October intake ${RUN}`);
     await confirm.click();
     await expect(page.getByText("Recovery step logged.")).toBeVisible();
 
@@ -161,7 +160,7 @@ test.describe("Founder overview", () => {
     }
     await expect(tile(page, "Active enrolments in delivery")).toContainText("Guntur");
     await expect(tile(page, "Active enrolments in delivery")).toContainText("Vijayawada");
-    await expect(tile(page, "Batches at delivery risk")).toContainText("Curriculum Mapping Pending");
+    await expect(tile(page, "Batches at delivery risk")).toContainText("Meet organizer");
     await expect(tile(page, "Certificates awaiting approval")).toBeVisible();
 
     const decisions = page.locator("section").filter({ has: page.getByRole("heading", { name: "Decisions needing you" }) });

@@ -12,8 +12,7 @@ from models import Batch, BatchAllocation, Enrolment
 from repositories import batches as batches_repo
 from services.errors import BusinessRule
 
-# A seat can be reserved while the curriculum is still being mapped; the status only moves on once it is
-ALLOCATABLE_STATUSES = ("Curriculum Mapping Pending", "Allocation Pending", "Allocated — awaiting first regular class", "Active")
+ALLOCATABLE_STATUSES = ("Allocation Pending", "Allocated — awaiting first regular class", "Active")
 NO_NEW_SEATS = ("Completed", "Cancelled", "Archived", "On Hold")
 
 
@@ -75,8 +74,23 @@ def allocate(enrolment: Enrolment, batch: Batch, *, created_by: int | None = Non
     db.session.add(allocation)
     if enrolment.status == "Allocation Pending":
         enrolment.status = "Allocated — awaiting first regular class"
+    follow_batch_version(enrolment, batch, enrolment_track_id)
     db.session.flush()
     return allocation
+
+
+def follow_batch_version(enrolment: Enrolment, batch: Batch, enrolment_track_id: int | None = None) -> None:
+    """A student follows the curriculum version of the batch they sit in. A batch with no version yet changes nothing: it hands
+    its version to its students when one is activated (services/curriculum.py)."""
+    if batch.curriculum_version_id is None:
+        return
+    if enrolment_track_id is None:
+        enrolment.curriculum_version_id = batch.curriculum_version_id
+        return
+    track = next((t for t in enrolment.tracks if t.enrolment_track_id == enrolment_track_id), None)
+    # a track batch (or the track's own course batch) carries the track's version; a combined batch carries the parent's
+    if track is not None and (batch.component_id is not None or batch.course_id == track.component.component_course_id):
+        track.curriculum_version_id = batch.curriculum_version_id
 
 
 def _close(allocation: BatchAllocation, status: str, reason: str | None) -> None:

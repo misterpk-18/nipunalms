@@ -172,8 +172,8 @@ figure out what to do next."
 | Phase | Status | Commit | Size |
 |---|---|---|---|
 | U0. Close CRM round 5 | **Done** | `1193fb3`, `31ceee5` | S |
-| U1. Remove Curriculum Mapping Pending | To do | | M |
-| U2. Merge Academic Coordinator into Branch Manager | To do | | L |
+| U1. Remove Curriculum Mapping Pending | **Done** (db 105) | `PENDING` | M |
+| U2. Merge Academic Coordinator into Branch Manager | **Next** | | L |
 | U3. Design system foundation | To do | | M |
 | U4. Shell, navigation, search, counts | To do | | M |
 | U5. Notifications inbox (all roles) | To do | | S |

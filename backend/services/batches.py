@@ -32,6 +32,7 @@ from services.errors import BusinessRule, Conflict, Forbidden, NotFound, Validat
 
 CLOSED_STATES = ("Completed", "Cancelled", "Archived")
 PUBLISHED_STATUSES = ("Approved", "Active")
+NO_CURRICULUM = "No approved curriculum yet. Classes can be scheduled without topics, and the batch picks up the curriculum when one is activated"
 # The Branch Manager confirms, holds and archives; Super Admin covers every branch (Module 15 §5, §19)
 CONFIRM_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
 # Enrolments that still owe teaching when a batch completes: each needs a named owner, plan and destination (§19)
@@ -151,8 +152,7 @@ def readiness_checks(batch: Batch, allocated: int) -> list[dict]:
     checks = []
     version = batch.curriculum_version
     if version is None:
-        checks.append({"key": "curriculum", "label": "Curriculum version", "status": "fail",
-                       "detail": f"Curriculum Mapping Pending: {batch.course.course_code} has no Active curriculum version"})
+        checks.append({"key": "curriculum", "label": "Curriculum version", "status": "warn", "detail": NO_CURRICULUM})
     elif version.status not in PUBLISHED_STATUSES:
         checks.append({"key": "curriculum", "label": "Curriculum version", "status": "fail",
                        "detail": f"{version.version_label} is {version.status} and not yet approved"})
@@ -209,7 +209,7 @@ def _course_item(batch: Batch) -> dict:
     version = batch.curriculum_version
     label = "1. Course and curriculum version"
     if version is None:
-        return _item("course_version", label, "fail", "No curriculum version (Curriculum Mapping Pending)")
+        return _item("course_version", label, "warn", NO_CURRICULUM)
     if version.status not in PUBLISHED_STATUSES:
         return _item("course_version", label, "fail", f"{version.version_label} is {version.status}")
     if batch.component_id is None and batch.course.is_combo:
@@ -633,8 +633,6 @@ def transition(batch_id: int, state: str, reason: str | None) -> Batch:
     if state in ("Starting", "Proposed"):
         raise BusinessRule("Propose the batch and have the Branch Manager confirm it")
     if state == "Running":
-        if batch.curriculum_version_id is None:
-            raise BusinessRule(f"Batch {batch.batch_code} has no curriculum version yet (Curriculum Mapping Pending)")
         if batches_repo.lead_trainer(batch.batch_id) is None:
             raise BusinessRule(f"Batch {batch.batch_code} needs a lead trainer before it can start")
     if state == "Completed":

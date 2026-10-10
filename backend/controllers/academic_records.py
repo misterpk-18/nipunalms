@@ -1,4 +1,4 @@
-"""Module 14 records: academic mappings and credits, equivalence rules, Mapping Pending owners, branch variations, library."""
+"""Module 14 records: academic mappings and credits, equivalence rules, branch variations, library."""
 from flask import request
 
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated
@@ -75,15 +75,6 @@ def list_mappings():
 def decide_mapping(mapping_id: int):
     data = _decision("student_acceptance")
     return ok(academic_mappings.decide_mapping(mapping_id, data["decision"], data.get("note"), data.get("student_acceptance")).to_dict())
-
-
-def assign_mapping_owner(enrolment_id: int):
-    v = Validator(json_body())
-    v.integer("owner_user_id", required=True, min_value=1)
-    v.string("note", required=True, max_length=1000)
-    data = v.validate()
-    enrolment = academic_mappings.assign_mapping_owner(enrolment_id, data["owner_user_id"], data["note"])
-    return ok({"enrolment_id": enrolment.enrolment_id, "mapping_owner_user_id": enrolment.mapping_owner_user_id})
 
 
 # ---------------------------------------------------------------- variations

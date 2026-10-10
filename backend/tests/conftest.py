@@ -137,7 +137,7 @@ def crm_event(client):
 
 @pytest.fixture
 def catalog(app, crm_event, make_user):
-    """Courses through CRM events, with Active curriculum versions for all but NIT-CRS-052 (Curriculum Mapping Pending).
+    """Courses through CRM events, with Active curriculum versions for all but NIT-CRS-052 (no curriculum yet).
 
     NIT-CRS-018: combo (tracks T1-T3 + included booster NIT-CRS-019); NIT-CRS-047 and NIT-CRS-019 standalone.
     """

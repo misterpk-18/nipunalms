@@ -1,5 +1,5 @@
 """Module 14 curriculum model: topic classes and fields, dependencies, verified hours and the completion profile, required
-assessments, combo pins and equivalence, individual academic mappings and credits, Mapping Pending owners, variations and the
+assessments, combo pins and equivalence, individual academic mappings and credits, variations and the
 reusable library."""
 import pytest
 from sqlalchemy import select
@@ -141,26 +141,16 @@ def test_a_combo_parent_pins_its_tracks_and_borrowing_needs_an_equivalence_revie
     assert len(detail["components"]) == 2 and detail["totals"]["booster"]["track_code"] == "NIT-CRS-019"
 
 
-def test_a_booster_without_an_equivalence_review_waits_in_mapping_pending_with_an_owner(client, login, catalog, crm_event, people, run_sql):
+def test_a_booster_without_an_equivalence_review_has_no_version_yet_but_is_allocatable(client, login, catalog, crm_event, people, run_sql):
     booster = catalog_repo.get_component_by_track_code("NIT-CRS-019")
     run_sql("UPDATE course_components SET equivalence_note = NULL, equivalence_reviewed_by = NULL, equivalence_reviewed_at = NULL "
             "WHERE component_id = :c", c=booster.component_id)
     crm_event("AdmissionQualified", helpers.combo_admission_data())
     combo = db.session.execute(select(Enrolment).where(Enrolment.kind == "Combo")).scalar_one()
-    assert combo.status == "Curriculum Mapping Pending"
-    assert combo.mapping_owner_user_id in (people["ac"].user_id, people["ac2"].user_id)    # a named academic owner
+    assert combo.status == "Allocation Pending"
+    assert {t.component.track_code: t.curriculum_version_id is not None for t in combo.tracks}["NIT-CRS-019"] is False
     queue = client.get(f"{API}/exceptions", headers=login(people["ac"].email)).get_json()["data"]
-    row = next(r for r in queue if r["source"] == "CURRICULUM_MAPPING")
-    assert row["owner"]["user_id"] == combo.mapping_owner_user_id
-
-    assert call(client, login, people["t1"], "put", f"/enrolments/{combo.enrolment_id}/mapping-owner",
-                json={"owner_user_id": people["ac2"].user_id, "note": "x"}).status_code == 403
-    data(call(client, login, people["bm"], "put", f"/enrolments/{combo.enrolment_id}/mapping-owner",
-              json={"owner_user_id": people["ac2"].user_id, "note": "Covering while AC Guntur is on leave"}), 200)
-    db.session.refresh(combo)
-    assert combo.mapping_owner_user_id == people["ac2"].user_id
-    assert db.session.execute(select(ExceptionRecoveryStep.reason).where(ExceptionRecoveryStep.source_id == combo.enrolment_id)).scalar_one() \
-        .startswith("Owner: AC Guntur 2")
+    assert [r["source"] for r in queue if r["reference"] == combo.enrolment_code] == ["ALLOCATION"]
 
 
 # ---------------------------------------------------------------- academic mappings and credit
@@ -177,8 +167,7 @@ def test_a_student_moves_versions_only_through_an_approved_mapping_with_credit(c
 
     batch = make_batch(1, course_code="NIT-CRS-047", trainers=[people["t1"]], state="Running", curriculum_version_id=new_vid)
     review = data(call(client, login, people["ac"], "get", f"/batches/{batch.batch_id}/allocation-review?enrolment_id={enrolment_id}"), 200)
-    curriculum = next(c for c in review["checks"] if c["key"] == "curriculum")
-    assert curriculum["status"] == "fail" and "academic mapping" in curriculum["detail"]
+    assert review["result"] == "Ready to allocate" and not any(c["key"] == "curriculum" for c in review["checks"])  # the version never blocks a seat
 
     streams = data(call(client, login, people["ac"], "get", f"/curriculum-versions/{new_vid}"), 200)["modules"][0]["topics"][0]["topic_id"]
     body = {"to_version_id": new_vid, "comparison": "Outcomes 1-4 met in CV 5.1; streams covered by the old lab; records remain",
@@ -206,8 +195,8 @@ def test_a_student_moves_versions_only_through_an_approved_mapping_with_credit(c
     assert db.session.execute(select(LearningCredit.topic_id)).scalar_one() == streams
     progress = data(call(client, login, student.student_code, "get", f"/progress/enrolments/{enrolment_id}"), 200)
     assert progress["required_learning"]["covered_topics"] == 1 and progress["attendance"]["present"] == 0  # credit is not attendance
-    review = data(call(client, login, people["ac"], "get", f"/batches/{batch.batch_id}/allocation-review?enrolment_id={enrolment_id}"), 200)
-    assert next(c for c in review["checks"] if c["key"] == "curriculum")["status"] == "pass"
+    data(call(client, login, people["ac"], "post", f"/batches/{batch.batch_id}/allocations", json={"enrolment_id": enrolment_id}), 201)
+    assert db.session.get(Enrolment, enrolment_id).curriculum_version_id == new_vid
 
 
 def test_the_preparer_never_approves_their_own_mapping(client, login, catalog, make_student, people):

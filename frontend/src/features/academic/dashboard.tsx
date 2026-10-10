@@ -24,7 +24,6 @@ export function AcademicDashboard() {
                 rank={1}
                 label="Enrolments awaiting batch allocation"
                 value={d.allocation_queue.count}
-                hint={`Includes Curriculum Mapping Pending (${d.allocation_queue.curriculum_mapping_pending})`}
                 to="/academic/batches"
               />
               <Tile

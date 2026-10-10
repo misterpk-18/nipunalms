@@ -194,9 +194,10 @@ a course of the admission is running; **Inactive** — student suspended, or all
 - Every event is stored in `crm_events` (Super Admin → **CRM sync**, `/admin/crm-sync`, with retry). Rules in §2.1.
 - **Curriculum is the LMS's alone** (round 5, db 104): a new admission gets its course's Active curriculum version when
   `AdmissionQualified` is applied, and activating a version moves every enrolment still waiting onto it. Allocation
-  never waits on the CRM: its rules are the batch allocation review (service branch, course or track, the learner's
-  version against the batch's, a seat left). A course with no Active version keeps its enrolments in *Curriculum
-  Mapping Pending* (an LMS state, owned by the branch's Academic Coordinator) until one is activated. The CRM no longer
+  never waits on the CRM, nor on a curriculum (UX phase U1, db 105): its rules are the batch allocation review (service
+  branch, course or track, a seat left). A course with no Active version gives its enrolments none and they are allocatable
+  all the same (an admission leaves *Awaiting Batch Allocation* as soon as a seat is given); a student follows the version of
+  the batch they join, and activating a version hands it to the batches and enrolments still without one. The CRM no longer
   sends `AdmissionCurriculumMapped` (a 400 now) and the pull no longer carries `curriculum_versions[]`,
   `curriculum_status` or `curriculum_version_label`.
 - **Jobs** (`flask jobs run`): `allocation-escalation` raises an enrolment still without a batch 24 hours before its

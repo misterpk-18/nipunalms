@@ -63,7 +63,7 @@ Identical to the CRM:
   404 `NOT_FOUND` (also for records outside the user's scope), 409 `CONFLICT`, 422 `BUSINESS_RULE` / `INVALID_REFERENCE`, 429 `TOO_MANY_ATTEMPTS`.
 - Lists: `?page=&per_page=` (max 100), filters as query params (`?branch_id=1&batch_id=3&status=Due`).
 - Timestamps ISO 8601 with offset; business dates in IST (`Asia/Kolkata`). Money as strings with 2 decimals.
-- Enum values exactly as stored (`"Curriculum Mapping Pending"`). Every response carries numeric `*_id` plus the human
+- Enum values exactly as stored (`"Allocation Pending"`). Every response carries numeric `*_id` plus the human
   code (`student_code`, `batch_code`, `certificate_number`, …).
 - Audit: services write `audit_log` for sensitive changes (publishing results, certificate issue / revoke, role changes,
   access extensions, recording release, account activation / recovery) with old and new values.
@@ -109,7 +109,7 @@ Codes follow the prototype: `NIT-STU-2026-004182`, `ADM-GNT-2026-000214`, `NIT-G
 | `students` | Student Master: `student_code`, `crm_person_id` (unique), full_name, name_te, email (optional), mobile (not unique), original / service branch, preferred_language, `activation_status` (`Account Created` / `Activation Pending` / `Activated` / `Suspended`), mfa_status |
 | `student_activations` | Activation tokens (hash, expires_at, used_at, issued_by, channel) |
 | `admissions` | CRM projection: `crm_admission_id` unique, `admission_code`, student, **one course**, original / service / collecting branch, crm status, mode, seat type, planned start, `complimentary_of_admission_id`, `source_version` |
-| `enrolments` | `enrolment_code`, admission, student, course, `kind` (`Combo`, `Standalone`, `Separately purchased`, `Complimentary`), `parent_enrolment_id` (complimentary → qualifying enrolment), curriculum_version, service branch, mode, `status` (`Provisioning Pending`, `Curriculum Mapping Pending`, `Allocation Pending`, `Allocated — awaiting first regular class`, `Active`, `Paused`, `Completed`, `Withdrawn`), joining_date (first regular class attended), access_start / end, certificate_status, benefit gate note |
+| `enrolments` | `enrolment_code`, admission, student, course, `kind` (`Combo`, `Standalone`, `Separately purchased`, `Complimentary`), `parent_enrolment_id` (complimentary → qualifying enrolment), curriculum_version, service branch, mode, `status` (`Provisioning Pending`, `Allocation Pending`, `Allocated — awaiting first regular class`, `Active`, `Paused`, `Completed`, `Withdrawn`), joining_date (first regular class attended), access_start / end, certificate_status, benefit gate note |
 | `enrolment_tracks` | Combo enrolment → component track + its curriculum version |
 | `finance_summaries` | Read-only per-admission finance snapshot from CRM: fee, verified paid, pending verification, waived, refunded, balance, payment completion, invoice numbers, instalments (+ `installments_scope`, `invoice_course_count`), next due, receipts, `as_of`, `source_version` |
 | `crm_events` | Inbox: `event_id` unique, `event_type`, payload jsonb, `source_version`, original event time, received / processed time, status (`Received` / `Applied` / `Ignored — stale` / `Failed`), error, retries |
@@ -169,8 +169,8 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 - `CourseUpserted` is the whole catalog row: components it leaves out are removed, and the event is refused with 422
   while a removed component is still used by enrolment tracks or curriculum versions.
 - `AdmissionQualified` upserts the Student by `crm_person_id` (one Student / one LMS login per Person, reused for later
-  admissions), the Admission projection and its Enrolment. An enrolment waits in *Curriculum Mapping Pending* when its
-  course has no Active curriculum version, else *Allocation Pending*. A new login gets an activation token; the branch
+  admissions), the Admission projection and its Enrolment. A new enrolment is *Allocation Pending* (or *Provisioning
+  Pending* while a complimentary gate is unmet); it follows the Active curriculum version when its course has one, else it has none yet. A new login gets an activation token; the branch
   Academic Coordinator is notified. The response includes `lms_user_id` and `lms_status`. A repeat with a higher
   version is a full refresh: it never creates a second login or resets an enrolment being served.
 - `AdmissionCancelled` withdraws only that admission's enrolments. `FinanceSummaryUpdated` replaces the read-only
@@ -193,11 +193,11 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/curriculum/overview` | Staff | One row per course: Active version, versions in review, mapped / pending enrolments (Curriculum Mapping Pending) |
+| GET | `/curriculum/overview` | Staff | One row per course: Active version, versions in review, `waiting_batches` (open batches with no approved curriculum yet) |
 | GET / POST | `/curriculum-versions` | Staff / AC, Super Admin | List (filters `course_id`, `status`); create a Draft (optionally copied from an earlier version) |
 | GET / PATCH / DELETE | `/curriculum-versions/{id}` | Staff / AC, Super Admin | Detail with modules, topics, review trail and publish blockers; rename; delete only a never-published Draft |
 | POST | `/curriculum-versions/{id}/submit`, `/return` | AC, Super Admin (`return` also Founder / CEO) | Draft → Under Review; `return` (back to Draft) needs a reason. Submitting notifies the Founder / CEO (link `/founder/curriculum`) and Super Admin |
-| POST | `/curriculum-versions/{id}/approve`, `/activate`, `/retire` | Founder / CEO, Super Admin (fresh auth; never the submitter, Module 14 §5) | Under Review → Approved → Active → Retired. Activating maps Curriculum Mapping Pending enrolments and batches and returns the counts |
+| POST | `/curriculum-versions/{id}/approve`, `/activate`, `/retire` | Founder / CEO, Super Admin (fresh auth; never the submitter, Module 14 §5) | Under Review → Approved → Active → Retired. Activating gives the version to the course's batches and enrolments that had none and returns the counts (`enrolments_released`, `batches_mapped`) |
 | POST | `/curriculum-versions/{id}/modules`, `/curriculum-modules/{id}/topics` | AC, Super Admin | Add to a Draft (optional `position`) |
 | PATCH / DELETE | `/curriculum-modules/{id}`, `/curriculum-topics/{id}` | AC, Super Admin | Draft only; sort order re-sequenced. A topic has `topic_class` (Required / Recommended / Optional; `is_required` follows it), `outcome`, `instructional_minutes`, `independent_minutes`, `weight`, `evidence`, `activities` and `depends_on` (topic ids of the same version, no loops) |
 | POST / PUT | `/curriculum-versions/{id}/hours-verification`, `/completion-profile` | AC, Super Admin | Draft only. Verifying needs every topic estimated; changing minutes clears it. Profile: `attendance_minimum_pct`, `pass_mark_pct`, `recovery_rule`, `reassessment_rule` |
@@ -206,7 +206,6 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 | GET / POST | `/academic-mappings`, `/enrolments/{id}/academic-mappings` | Staff / trainer, AC, SA (a trainer of a batch on the target version may prepare it) | `{to_version_id, enrolment_track_id?, comparison, migration_plan, trainer_evidence?, rule_id?, credits?: [{topic_id, original_evidence}]}`; credits need an approved equivalence rule between the two versions |
 | POST | `/academic-mappings/{id}/decision` | AC (receiving branch), SA; fresh auth; never the preparer | `{decision, note?, student_acceptance}` (acceptance required to approve). Approving moves the enrolment or track and records `learning_credits`, which count as covered required learning, never attendance |
 | GET / POST | `/equivalence-rules`, `/{id}/decision` | Staff / AC, SA propose; Founder, SA decide (fresh auth; never the proposer) | `{from_version_id, to_version_id, description}` |
-| PUT | `/enrolments/{id}/mapping-owner` | AC, BM, SA | `{owner_user_id, note}`: the named owner of a Curriculum Mapping Pending recovery (one is assigned automatically); shown in the exception queue and logged as a recovery step |
 | GET / POST | `/curriculum-variations`, `/{id}/decision` | Staff / AC, BM, SA; decisions by AC (local) or Founder, SA (required topic constraint) | Kinds Local example, Equivalent exercise, Teaching language, Sequencing (a coordinator's own entry is approved), Required topic constraint (needs `topic_id` and `remedial_plan`) |
 | GET / POST | `/curriculum-library`, `/curriculum-modules/{id}/library`, `/curriculum-library/{id}/versions`, `/curriculum-library-versions/{id}/decision`, `/curriculum-versions/{id}/library-modules` | Staff / AC, SA | Reusable modules with explicit versions; another reviewer approves each version; inserting copies an approved version into a Draft and keeps `library_version_id` |
 | GET | `/enrolments`, `/allocation-queue` | Staff / AC, BM, Super Admin | Branch-scoped enrolment list; the queue of payment-cleared enrolments waiting for a seat, each with `allocation_due_on` (Module 15 §6: one working day after Admission for a confirmed seat, 48 hours before the first class for a future plan, never after the first class) |
@@ -237,8 +236,9 @@ default; Module 15 §9 assumes no weekend is closed) and no approved company hol
 **Rules:**
 - Submitting a version needs (Module 14 §5): every Required topic with an outcome, an instructional estimate, a weight and
   evidence; verified hours; a completion profile; and, for a combo parent, a pinned version for every track and the booster.
-  A borrowed booster curriculum needs the component's equivalence review; without it the enrolment waits in Curriculum
-  Mapping Pending. An allocation to a batch on another version is refused until an academic mapping moves the student.
+  A borrowed booster curriculum needs the component's equivalence review; without it the track has no version yet. A
+  batch never refuses a student over the version: the student follows the version of the batch they are allocated to,
+  and an academic mapping (with credit) is how a student on one version is credited when moving to another.
 - Curriculum versions are snapshots: modules and topics change only while the version is a Draft (database trigger);
   an Active version is retired only when another takes over or with a reason. Approval by the submitter is refused.
 - Allocation is the only path to a seat: the review returns per-check results, a blocked check cannot be overridden, a
@@ -621,7 +621,7 @@ Nothing here calls an external system.
 **Rules:**
 - `exception_queue` is a **view** over each module's own records, so an exception leaves the queue when its module
   resolves it; nothing is copied or closed by the queue. Sources (`source`; the id is the record's id in its own table):
-  `CURRICULUM_MAPPING` and `ALLOCATION` (enrolments in `Curriculum Mapping Pending` / `Allocation Pending`),
+  `ALLOCATION` (enrolments in `Allocation Pending`; `CURRICULUM_MAPPING` rows ended with db 105 and stay only as recovery-step history),
   `PROVISIONING` (enrolments in `Provisioning Pending`: a complimentary offer whose qualifying payment gate is unmet),
   `RECORDING` (unresolved `recording_exceptions`), `CRM_EVENT` (events with status Failed; company-wide), `SUPPORT`
   (open requests escalated or past `sla_due_at`), `RESULTS` (provisional or moderated results, one row per batch),

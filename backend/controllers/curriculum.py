@@ -38,7 +38,7 @@ def overview():
         "active_version": _summary(row.active),
         "latest_version": _summary(row.latest),
         "readiness": row.readiness,
-        "pending_enrolments": row.pending_enrolments,
+        "waiting_batches": row.waiting_batches,
         "borrowed_from": row.borrowed_from.to_summary() if row.borrowed_from else None,
     } for row in curriculum_service.overview()])
 

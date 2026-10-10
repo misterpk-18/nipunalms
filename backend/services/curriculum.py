@@ -3,9 +3,9 @@
 Draft -> Under Review -> Approved -> Active -> Retired. Content is editable only in a Draft; once submitted a version is a snapshot
 that enrolments and batches point at (the database refuses edits to published content). Academic Coordinators draft, submit and
 review; the Founder / CEO or Super Admin approve, activate and retire (Module 14 §5), and whoever submitted a version cannot
-approve it (independent review). Activating a version retires the previous Active one for that course / track, then maps every enrolment
-and batch that was waiting in *Curriculum Mapping Pending* and tells the branch that they can now be allocated.
-Enrolments and batches already on the older version stay on it.
+approve it (independent review). Activating a version retires the previous Active one for that course / track, then gives it
+to every batch of the course that had none and to the enrolments still without one. Nothing waits for a curriculum: a student
+can be allocated without one and follows the version of their batch. Enrolments and batches already on the older version stay on it.
 
 Module 14: each topic has an outcome, a Required / Recommended / Optional class, estimated minutes, a progress weight,
 evidence and (only where necessary) dependencies; a version has verified hours, a completion profile and its required
@@ -27,7 +27,7 @@ from services import approvals, audit, batches as batches_service, delivery_noti
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, NotFound, ValidationError
 
-BLOCKED_PREFIX = "Curriculum Mapping Pending"
+BLOCKED_PREFIX = "Curriculum Mapping Pending"  # readiness reason of a batch blocked before db/105; unblocked when it gets a version
 
 
 @dataclass
@@ -48,7 +48,7 @@ class OverviewRow:
     active: CurriculumVersion | None
     latest: CurriculumVersion | None
     readiness: str
-    pending_enrolments: int
+    waiting_batches: int
     borrowed_from: Course | None  # an included booster without its own track version reuses the booster course's Active version
 
 
@@ -165,7 +165,7 @@ def list_versions(filters: dict) -> list[VersionDetail]:
 def overview() -> list[OverviewRow]:
     """One row per course (and per track of a combo): the Active version, the newest one in progress, and delivery readiness."""
     versions = catalog_repo.list_versions({})
-    pending = catalog_repo.pending_enrolment_counts()
+    waiting = catalog_repo.batch_counts_without_version()
     by_slot: dict[tuple[int, int | None], list[CurriculumVersion]] = {}
     for version in versions:
         by_slot.setdefault((version.course_id, version.component_id), []).append(version)
@@ -187,7 +187,7 @@ def overview() -> list[OverviewRow]:
                 active, booster_latest = pick((booster.course_id, None))
                 borrowed, latest = (booster, latest or booster_latest) if active else (None, latest)
             rows.append(OverviewRow(course, component, active, latest, "Ready" if active else BLOCKED_PREFIX,
-                                    pending.get(course.course_id, 0) if component is None else 0, borrowed))
+                                    waiting.get(course.course_id, 0) if component is None else 0, borrowed))
     return rows
 
 
@@ -628,57 +628,53 @@ def retire(curriculum_version_id: int, reason: str | None) -> CurriculumVersion:
 # ---------------------------------------------------------------- what activation releases
 
 def _release_mapping(version: CurriculumVersion) -> dict:
-    """Give the new Active version to every enrolment, combo track and batch that had none, and re-evaluate enrolments in
-    Curriculum Mapping Pending: fully mapped ones go to Allocation Pending (or straight back to Allocated if a seat was reserved)."""
+    """Give the new Active version to every batch, enrolment and combo track of the course that had none. A student follows the
+    curriculum of their batch, so the students of a batch that waited for a version get it together with the batch."""
     version_id = version.curriculum_version_id
-    mapped_batches = 0
+    mapped_batches: list[Batch] = []
+    given: list[Enrolment] = []
+    pins = {p.component_id: p.component_version_id for p in catalog_repo.version_components(version_id)} if version.component_id is None else {}
+    for enrolment in catalog_repo.enrolments_without_version(version.course_id):
+        gained = False
+        if version.component_id is None and enrolment.course_id == version.course_id and enrolment.curriculum_version_id is None:
+            enrolment.curriculum_version_id = version_id
+            gained = True
+        for track in enrolment.tracks:
+            if track.curriculum_version_id is not None:
+                continue
+            if version.component_id is not None:
+                if track.component_id == version.component_id:
+                    track.curriculum_version_id = version_id
+                    gained = True
+            elif enrolment.curriculum_version_id == version_id and track.component_id in pins:
+                track.curriculum_version_id = pins[track.component_id]  # the combo parent pins it
+                gained = True
+            elif catalog_repo.active_curriculum_version_id(enrolment.course_id, track.component_id) is None \
+                    and track.component.component_course_id == version.course_id and track.component.equivalence_reviewed_at is not None:
+                track.curriculum_version_id = version_id  # a reviewed component reuses its course's own version
+                gained = True
+        if gained:
+            given.append(enrolment)
     if version.component_id is None:
-        pins = {p.component_id: p.component_version_id for p in catalog_repo.version_components(version_id)}
-        for enrolment in catalog_repo.pending_enrolments(version.course_id):
-            if enrolment.course_id == version.course_id and enrolment.curriculum_version_id is None:
-                enrolment.curriculum_version_id = version_id
-            for track in enrolment.tracks:
-                if track.curriculum_version_id is not None:
-                    continue
-                if enrolment.curriculum_version_id == version_id and track.component_id in pins:
-                    track.curriculum_version_id = pins[track.component_id]  # the combo parent pins it
-                    continue
-                own = catalog_repo.active_curriculum_version_id(enrolment.course_id, track.component_id)
-                if own is None and track.component.component_course_id == version.course_id \
-                        and track.component.equivalence_reviewed_at is not None:
-                    track.curriculum_version_id = version_id  # a reviewed component reuses its course's own version
         for batch in catalog_repo.batches_without_version(version.course_id):
             _map_batch(batch, version)
-            mapped_batches += 1
-    else:
-        for enrolment in catalog_repo.pending_enrolments(version.course_id):
-            for track in enrolment.tracks:
-                if track.component_id == version.component_id and track.curriculum_version_id is None:
-                    track.curriculum_version_id = version_id
+            mapped_batches.append(batch)
     db.session.flush()
 
-    released: list[Enrolment] = []
-    for enrolment in catalog_repo.pending_enrolments(version.course_id):
-        if enrolment.status == "Curriculum Mapping Pending" and enrolment.curriculum_version_id is not None \
-                and all(t.curriculum_version_id for t in enrolment.tracks):
-            enrolment.status = ("Allocated — awaiting first regular class" if batches_repo.active_allocation(enrolment.enrolment_id)
-                                else "Allocation Pending")
-            released.append(enrolment)
-    db.session.flush()
-
-    by_branch: dict[int, list[Enrolment]] = {}
-    for enrolment in released:
-        by_branch.setdefault(enrolment.service_branch_id, []).append(enrolment)
+    for enrolment in given:
         delivery_notices.notify_student(enrolment.student_id, title=f"Your curriculum is ready: {enrolment.course.title}",
-                                        body="Your course content is mapped. Your Academic Coordinator will allocate you to a batch.",
+                                        body="Your course content is now available.",
                                         event_key=f"curriculum-released-{enrolment.enrolment_id}-{version_id}", link="/my-courses",
                                         branch_id=enrolment.service_branch_id)
+    by_branch: dict[int, list[Batch]] = {}
+    for batch in mapped_batches:
+        by_branch.setdefault(batch.branch_id, []).append(batch)
     for branch_id, group in by_branch.items():
-        delivery_notices.notify_branch_managers(branch_id, title=f"{len(group)} enrolment(s) ready for batch allocation", category="Enrolment",
-                                                body=f"{version.version_label} was activated for {group[0].course.course_code}.",
-                                                event_key=f"curriculum-released-branch-{branch_id}-{version_id}", link="/academic/batches",
-                                                action_required=True)
-    return {"enrolments_released": len(released), "batches_mapped": mapped_batches}
+        delivery_notices.notify_branch_managers(branch_id, title=f"{len(group)} batch(es) now have a curriculum", category="Enrolment",
+                                                body=f"{version.version_label} was activated for {group[0].course.course_code}; "
+                                                     "its batches and their students follow it.",
+                                                event_key=f"curriculum-released-branch-{branch_id}-{version_id}", link="/academic/batches")
+    return {"enrolments_released": len(given), "batches_mapped": len(mapped_batches)}
 
 
 def _map_batch(batch: Batch, version: CurriculumVersion) -> None:
