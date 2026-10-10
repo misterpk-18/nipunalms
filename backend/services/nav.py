@@ -12,9 +12,8 @@ from sqlalchemy import func, select
 from config.database import db
 from repositories import dashboards as dash_repo
 from repositories import nav as nav_repo
-from repositories import students as students_repo
 from repositories import tests as tests_repo
-from services import assessment_scope, due_work, scope, submissions
+from services import assessment_scope, scope, student_work, submissions
 from services import exceptions as exceptions_service
 from services import crm_sync
 from services.auth import workspaces_for
@@ -44,9 +43,7 @@ def _branches(branch_id: int | None) -> set[int] | None:
 
 def _student_counts() -> dict[str, int]:
     user = current_user()
-    student = students_repo.get_student(user.student_id)
-    assignments, tests = due_work.open_items(student)
-    return {"tasks": len(assignments) + len(tests), "support": nav_repo.support_waiting_on_student(student.student_id)}
+    return {"tasks": student_work.todo_count(), "support": nav_repo.support_waiting_on_student(user.student_id)}
 
 
 def _trainer_counts() -> dict[str, int]:
@@ -121,7 +118,7 @@ def _student_steps() -> list[dict]:
         _step("activate", "Activate your account", True, "/dashboard"),
         _step("batch", "Check your batch", nav_repo.student_has_batch(student_id), "/my-courses"),
         _step("class", "Join your first class", nav_repo.student_joined_a_class(student_id), "/schedule"),
-        _step("task", "Submit your first task", nav_repo.student_submitted_a_task(student_id), "/assignments"),
+        _step("task", "Submit your first task", nav_repo.student_submitted_a_task(student_id), "/tasks"),
     ]
 
 

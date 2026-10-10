@@ -279,7 +279,9 @@ export type EnrolmentRow = {
 
 export type Join = { enabled: boolean; reason: string | null; url: string | null };
 export type SessionPurpose = "Regular" | "Replacement" | "Remedial" | "Extra";
-export type ClassSession = {
+/** On the Past tab of the student's schedule: the student's attendance and the recording to watch. */
+export type PastDetails = { attendance?: string | null; recording?: { recording_id: number; status: string; playable: boolean } | null };
+export type ClassSession = PastDetails & {
   session_id: number;
   session_code: string;
   batch: BatchRef;

@@ -1,79 +1,74 @@
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import { Breadcrumbs } from "@/components/lms/breadcrumbs";
-import { deliveryApi, type ClassSession } from "@/api/delivery";
-import { Button } from "@/components/ui/button";
-import { KeyValue, PageHead, QueryView, Section, StatusNote } from "@/components/lms/ui";
+import { deliveryApi } from "@/api/delivery";
+import { KeyValue, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { fmtDate, fmtTime } from "@/features/shared/delivery-ui";
 import { useT } from "@/lib/i18n";
-import { MeetBadge, StateBadge, fmtDate, fmtTime } from "@/features/shared/delivery-ui";
-
-/** The Join Class button: enabled only while the class is Live or about to start and Meet is Associated. */
-export function JoinButton({ session }: { session: ClassSession }) {
-  const t = useT();
-  const join = session.join;
-  if (session.mode === "Classroom") return <p className="text-sm text-muted-foreground">{join?.reason ?? "Classroom session"}</p>;
-  return (
-    <div>
-      {join?.enabled && join.url ? (
-        <Button asChild>
-          <a href={join.url} target="_blank" rel="noreferrer">
-            {t("joinClass")}
-          </a>
-        </Button>
-      ) : (
-        <Button disabled>{t("joinClass")}</Button>
-      )}
-      {!join?.enabled && join?.reason && <p className="mt-1 text-xs text-muted-foreground">{join.reason}</p>}
-    </div>
-  );
-}
+import { JoinButton, startsText, useNow } from "./class-time";
 
 export function SessionDetail() {
+  const t = useT();
+  const now = useNow();
   const { sessionId } = useParams({ strict: false }) as { sessionId: string };
-  const query = useQuery({ queryKey: ["delivery", "session", sessionId], queryFn: () => deliveryApi.session(Number(sessionId)) });
+  const query = useQuery({
+    queryKey: ["delivery", "session", sessionId],
+    queryFn: () => deliveryApi.session(Number(sessionId)),
+    // the Join link appears 15 minutes before the class
+    refetchInterval: 30_000,
+  });
   return (
-    <div className="mx-auto max-w-5xl">
-      <QueryView query={query}>
-        {(s) => (
-          <>
-            <Breadcrumbs
-              items={[
-                s.topic_path ? { label: s.topic_path.title, to: `/topics/${s.topic_path.topic_id}` } : { label: "Schedule", to: "/schedule" },
-                { label: s.title },
-              ]}
-            />
-            <PageHead title={s.title} description={`Class ${s.session_code}`} actions={<StateBadge label={s.state_label} />} />
-            <Section>
-              <KeyValue
+    <div className="mx-auto max-w-4xl">
+      <QueryView query={query} skeleton="detail">
+        {(s) => {
+          const countdown = s.state === "Cancelled" ? null : startsText(t, s, now);
+          return (
+            <>
+              <Breadcrumbs
                 items={[
-                  ["Date / time", `${fmtDate(s.starts_at)} · ${fmtTime(s.starts_at)}–${fmtTime(s.ends_at)} IST`],
-                  ["Mode", s.mode + (s.room ? ` · ${s.room}` : "")],
-                  ["Trainer", s.trainer.full_name],
-                  ["Branch", s.branch.branch_name],
-                  [
-                    "Batch",
-                    <span key="b" className="font-mono text-xs">
-                      {s.batch.batch_code}
-                    </span>,
-                  ],
-                  ["Meet organizer (label)", s.organizer_email ? `${s.organizer_email} — ${s.meet_status_label}` : "Not needed for a classroom session"],
-                  ["Meet", <MeetBadge key="m" session={s} />],
+                  s.topic_path ? { label: s.topic_path.title, to: `/topics/${s.topic_path.topic_id}` } : { label: t("schedule"), to: "/schedule" },
+                  { label: s.title },
                 ]}
               />
-              <div className="mt-4">
-                <JoinButton session={s} />
-              </div>
-            </Section>
-            {s.mode !== "Classroom" && s.meet_status !== "Linked" && (
-              <div className="mt-4">
-                <StatusNote tone="warning">
-                  The Meet link for this class is not associated yet. It appears here once your branch has confirmed it — nothing is assumed from the class
-                  time.
-                </StatusNote>
-              </div>
-            )}
-          </>
-        )}
+              <PageHead
+                title={s.title}
+                description={t("classCode", { code: s.session_code })}
+                actions={
+                  <>
+                    <StatusBadge domain="session" code={s.state_label} />
+                    {s.mode !== "Classroom" && s.meet_status !== "Linked" && <StatusBadge domain="meet" code={s.meet_status_label} />}
+                  </>
+                }
+              />
+              <Section>
+                <div className="mb-4">
+                  {countdown && s.state !== "Cancelled" && <p className="mb-2 text-lg font-semibold">{countdown}</p>}
+                  {s.state === "Cancelled" ? <StatusNote tone="warning">{t("cancelledNote")}</StatusNote> : <JoinButton session={s} />}
+                </div>
+                <KeyValue
+                  items={[
+                    [t("whenLabel"), `${fmtDate(s.starts_at)} · ${fmtTime(s.starts_at)}–${fmtTime(s.ends_at)} IST`],
+                    [t("deliveryMode"), s.mode + (s.room ? ` · ${s.room}` : "")],
+                    [t("trainerLabel"), s.trainer.full_name],
+                    [t("serviceBranch"), s.branch.branch_name],
+                    [t("batchLabel"), <span key="b" className="font-mono text-xs">{s.batch.batch_code}</span>],
+                    ...(s.topic_path
+                      ? ([
+                          [
+                            t("topicLabel"),
+                            <Link key="t" to="/topics/$topicId" params={{ topicId: String(s.topic_path.topic_id) }} className="text-primary underline">
+                              {s.topic_path.title}
+                            </Link>,
+                          ],
+                        ] as [string, ReactNode][])
+                      : []),
+                  ]}
+                />
+              </Section>
+            </>
+          );
+        }}
       </QueryView>
     </div>
   );

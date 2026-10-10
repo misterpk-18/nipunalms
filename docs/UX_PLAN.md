@@ -180,7 +180,7 @@ figure out what to do next."
 | U6. WhatsApp through the CRM (CRM round 6) | **Built, switched off** (db 107) | `ea2a1ea` | M |
 | U7. Sign-in and accounts | **Built, WhatsApp switched off** (db 108) | `20af964` | M |
 | U8. Student: Home and My Learning | **Done** (db 109) | `42451ba` | L |
-| U9. Student: Schedule, Tasks & Tests | To do | | M |
+| U9. Student: Schedule, Tasks & Tests | **Done** | `c902a9a` | M |
 | U10. Student: Class Materials, My Progress, Certificates | To do | | L |
 | U11. Student: Career, Ask Nipuna, Support, My Account | To do | | M |
 | U12. Trainer: Today, class delivery, Attendance, My requests | To do | | M |
@@ -454,6 +454,13 @@ figure out what to do next."
   - Submit confirm with the unanswered count.
   - Question navigator with answered and flagged states.
   - After submitting: links to Back to tasks and to where the result will appear.
+
+- **As built (10 Oct 2026).**
+  - **Schedule:** `GET /me/schedule` now returns everything still to come (cancelled and moved classes included, so a student sees why a class is not on) and `?past=1` the classes that ended, newest first, with the student's attendance and recording (`services/my_courses.py`, new filter `window` in `repositories/class_sessions.py`). The screen groups Today / Tomorrow / This week (the next five days) / Later and has Coming up and Past tabs. Each class carries one plain state (Live now, Starts in 2 h within a day, otherwise Starts 10:00, Cancelled, Moved) and a "Link not ready" chip when the Meet link is missing. The Join button (`features/student/class-time.tsx`) appears 15 minutes before and is highlighted while live; the pages refetch every 30 s so the link shows without a reload. A past class that was never recorded as held says so instead of "Planned".
+  - **Tasks & Tests:** `GET /me/work` (`services/student_work.py`, route and controller beside it) merges the rows the assignment and test lists already compute, so all three agree. Rules beyond the plan: a window that closed with nothing handed in is **Missed** and goes to Done (otherwise it would sit in To do for ever); a formal test that is marked but not published waits under Waiting for review; unreleased tests are not tasks; a practice quiz that can be retaken shows "Try again" in Done. The nav badge `tasks` now counts To do (it used to count open items without the Missed rule). `/tasks` is the route; `/assignments` and `/tests` redirect; the nav item is "Tasks & Tests" (the phone bar too); getting-started and the seed notice link to `/tasks`. `PillTabs` takes `labels` so tab names can be translated.
+  - **Assignment page:** the brief first, a Submit button beside the title that jumps to the form, then earlier versions and details. **Test page:** start and submit use `ConfirmDialog` (minutes, "can't be paused", attempts left; unanswered count and flagged count); a question navigator (sticky on desktop) shows answered and flagged, flags are kept only in the page; the receipt links to Back to tasks and to Results for formal tests (Results stays until U10 merges it into My Progress).
+  - **Telugu:** every string on these screens goes through `t()`, including question types, test kinds and the statuses added to the dictionary (`Missed`, test `In progress` / `Marked`, slot and Meet states). Text that comes from the API (a window's reason, the AI-use and late policies, trainer-written feedback) stays as sent.
+  - **Tests:** `test_student_work.py` (15: states, sections, Missed, resubmission, formal wait, mock interview, nav badge, coming / past schedule, attendance isolation); e2e `assessments.spec.ts`, `delivery.spec.ts` and `shell.spec.ts` rewritten for the new screens. Still failing and not caused by this: the trainer "Today" flow (`In Progress` wording from U3) and the specs that depend on the seed's fixed dates.
 
 ## U10. Student: Class Materials, My Progress, Certificates
 - **Class Materials.**

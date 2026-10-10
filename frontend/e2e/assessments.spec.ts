@@ -9,30 +9,48 @@ import { USERS, login } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
-test("student sees each assignment state and submits the Due one", async ({ page }, info) => {
+test("Tasks & Tests groups the work by what the student must do, and the old lists redirect", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.student);
   await page.goto("/assignments");
-  await expect(page.getByRole("link", { name: "Regression on housing dataset" })).toBeVisible(); // Due is the default tab
-  for (const [tab, title] of [
-    ["Upcoming", "Decision tree tuning notebook"],
-    ["Overdue", "Data cleaning checkpoint"],
-    ["Submitted", "Pandas cleaning practice"],
-    ["Under Review", "EDA mini report"],
-    ["Reviewed", "SQL window functions set"],
-    ["Resubmission Requested", "Python data structures worksheet"],
-  ]) {
-    await page.getByRole("tab", { name: tab, exact: true }).click();
-    await expect(page.getByRole("link", { name: title })).toBeVisible();
-  }
+  await expect(page).toHaveURL(/\/tasks$/);
+  await page.goto("/tests");
+  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page.getByRole("heading", { name: "Tasks & Tests", level: 1 })).toBeVisible();
 
-  await page.getByRole("tab", { name: "Due", exact: true }).click();
-  await page.getByRole("link", { name: "Regression on housing dataset" }).click();
-  await expect(page.getByRole("heading", { name: "Regression on housing dataset" })).toBeVisible();
+  // three tabs with counts; work that is handed in waits, reviewed work is done
+  await expect(page.getByRole("tab", { name: /^To do/ })).toBeVisible();
+  await page.getByRole("tab", { name: /^Waiting for review/ }).click();
+  await expect(page.getByRole("link", { name: "Pandas cleaning practice" })).toBeVisible(); // submitted
+  await expect(page.getByRole("link", { name: "EDA mini report" })).toBeVisible(); // under review
+  await expect(page.getByText("Waiting for confirmation")).toBeVisible(); // the booked mock interview slot
+  await page.getByRole("tab", { name: /^Done/ }).click();
+  await expect(page.getByRole("link", { name: "SQL window functions set" })).toBeVisible(); // reviewed and published
+
+  await page.getByRole("button", { name: "How marks and results work" }).click();
+  await expect(page.getByText(/Marks stay provisional/)).toBeVisible();
+});
+
+test("student opens a task, reads the brief and submits near the top", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop flow");
+  await login(page, USERS.student);
+  await page.goto("/tasks");
+  // the first open assignment on the To do tab (the seed's dates are fixed, so which one it is depends on today)
+  await expect(page.getByRole("tab", { name: /^To do/ })).toBeVisible(); // the list has loaded
+  const open = page.locator('a[href^="/assignments/"]').first();
+  test.skip((await open.count()) === 0, "no open assignment left in the seeded data");
+  await open.click();
+  await expect(page.getByRole("heading", { name: "The brief" })).toBeVisible();
+  test.skip((await page.getByRole("button", { name: "Submit your work" }).count()) === 0, "its submission window has closed in the seeded data");
+  await expect(page.getByRole("button", { name: "Submit your work" })).toBeVisible(); // the button next to the title
+  await page.getByRole("button", { name: "Submit your work" }).click(); // jumps to the form
+  await expect(page.getByLabel("Notes")).toBeFocused();
   await page.getByLabel("Notes").fill("Linear regression with three features; assumptions in the notebook.");
   await page.getByRole("button", { name: "Submit", exact: true }).click();
-  await expect(page.getByText(/Submitted as v1\. Receipt SUB-/)).toBeVisible();
-  await expect(page.getByText("Your submissions")).toBeVisible();
+  await expect(page.getByText(/Submitted as version 1\. Receipt SUB-/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your earlier versions" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to tasks" }).first().click();
+  await expect(page).toHaveURL(/\/tasks$/);
 });
 
 test("trainer reviews it, the coordinator publishes, the student sees the published result", async ({ page }, info) => {
@@ -67,28 +85,39 @@ test("trainer reviews it, the coordinator publishes, the student sees the publis
   await expect(page.getByRole("row", { name: /Python Foundations module test/ })).toContainText("42.00 / 50.00");
 });
 
-test("student takes the practice quiz and gets a receipt; the tests list shows the seeded states", async ({ page }, info) => {
+test("student takes the practice quiz: start and submit both ask first, then a receipt shows where to go next", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.student);
-  await page.goto("/tests");
-  await expect(page.getByText("Submitted — receipt RCPT-T-00931")).toBeVisible();
-  await expect(page.getByText("Slot Confirmation Pending")).toBeVisible();
-  await expect(page.getByText("Configuration Pending").first()).toBeVisible();
-  await expect(page.getByText("Not Released")).toBeVisible();
-  await expect(page.getByText(/Scheduled 03 Oct 2026/)).toBeVisible();
+  await page.goto("/tasks");
+  await page.getByRole("link", { name: "Regression practice quiz" }).first().click();
 
-  await page.getByRole("link", { name: "Regression practice quiz" }).click();
+  // starting says what it means before the clock runs
   await page.getByRole("button", { name: "Start test" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("Attempts left");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Start now" }).click();
   await expect(page.getByLabel("Time remaining")).toBeVisible();
+
+  // the navigator shows what is answered and what is flagged
+  const navigator = page.getByRole("navigation", { name: "Questions" });
+  await expect(navigator).toContainText("0 of");
   await page.getByLabel("True").check();
+  await expect(navigator).toContainText("1 of");
+  await page.getByRole("button", { name: "Flag for review" }).first().click();
+  await expect(navigator).toContainText("1 flagged");
+
   await page.getByLabel("Your answer").fill("3");
   await page.getByLabel("F1-score").check();
   await page.getByLabel("L1 (Lasso)").check();
   await page.getByLabel("L2 (Ridge)").check();
+
+  // submitting warns about anything left unanswered
   await page.getByRole("button", { name: "Submit test" }).click();
-  await expect(page.getByRole("heading", { name: "Submission Receipt" })).toBeVisible();
+  await expect(page.getByRole("alertdialog")).toContainText(/answered all|not answered/);
+  await page.getByRole("alertdialog").getByRole("button", { name: "Submit now" }).click();
+  await expect(page.getByRole("heading", { name: "Submission receipt" })).toBeVisible();
   await expect(page.getByText(/RCPT-T-\d{5}/).first()).toBeVisible();
-  await expect(page.getByText(/Score: 6\.00 \/ 6\.00/)).toBeVisible(); // practice quizzes are scored at once
+  await expect(page.getByText(/Score 6\.00 \/ 6\.00/)).toBeVisible(); // practice quizzes are scored at once
+  await expect(page.getByRole("link", { name: "Back to tasks" }).first()).toBeVisible();
 });
 
 test("trainer authors and releases an assignment", async ({ page }, info) => {
@@ -116,7 +145,7 @@ test("mock interview slot is confirmed by the trainer", async ({ page }, info) =
 
 test("assessment screens fit a phone @mobile", async ({ page }) => {
   await login(page, USERS.student);
-  for (const path of ["/assignments", "/tests", "/results"]) {
+  for (const path of ["/tasks", "/schedule", "/results"]) {
     await page.goto(path);
     await expect(page.getByRole("heading").first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

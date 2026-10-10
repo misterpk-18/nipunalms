@@ -6,11 +6,15 @@ learning, engagement) come from the attendance slice and are not computed here.
 """
 from dataclasses import dataclass, field
 
-from models import Batch, ClassSession, CurriculumModule, CurriculumVersion, Enrolment, EnrolmentTrack, FinanceSummary
+from sqlalchemy import select
+
+from config.database import db
+from models import AttendanceRecord, Batch, ClassSession, CurriculumModule, CurriculumVersion, Enrolment, EnrolmentTrack, FinanceSummary
 from repositories import batches as batches_repo
 from repositories import class_sessions as sessions_repo
 from repositories import students as students_repo
 from services import class_sessions as class_sessions_service
+from services import recordings as recordings_service
 from services import topic_progress
 from services.context import current_user
 from services.errors import Forbidden, NotFound
@@ -192,11 +196,48 @@ def get_track(enrolment_id: int, enrolment_track_id: int) -> TrackView:
                      _module_rows(track.curriculum_version, sessions, topic_progress.module_counts(enrolment.enrolment_id)))
 
 
-def schedule(filters: dict, page: int, per_page: int):
-    """Upcoming sessions across the batches the learner is allocated to (optionally one course), soonest first, with the enrolment each belongs to."""
-    _student_id()
-    rows, meta = class_sessions_service.list_sessions({**filters, "upcoming": True}, page, per_page)
-    enrolments = {e.enrolment_id: e for e in students_repo.enrolments_of_student(_student_id())}
+@dataclass
+class SchedulePage:
+    rows: list
+    meta: dict
+    by_batch: dict
+    past: bool = False
+    attendance: dict = field(default_factory=dict)  # Past tab: session id -> the learner's attendance status
+    recording: dict = field(default_factory=dict)   # Past tab: session id -> the recording to watch
+
+
+def schedule(filters: dict, page: int, per_page: int) -> SchedulePage:
+    """The learner's classes across the batches they are allocated to (optionally one course) with the enrolment each belongs to.
+
+    Coming (the default): everything still to happen, soonest first, cancelled and moved classes included so the learner sees
+    why a class is not on. Past (`past`): classes that have ended, newest first, with the learner's attendance and recording.
+    """
+    student_id = _student_id()
+    filters = dict(filters)
+    past = bool(filters.pop("past", False))
+    rows, meta = class_sessions_service.list_sessions({**filters, "window": "past" if past else "coming"}, page, per_page)
+    enrolments = {e.enrolment_id: e for e in students_repo.enrolments_of_student(student_id)}
     allocations = batches_repo.active_allocations(list(enrolments))
-    by_batch = {a.batch_id: enrolments[a.enrolment_id] for a in allocations.values()}
-    return rows, meta, by_batch
+    result = SchedulePage(rows, meta, {a.batch_id: enrolments[a.enrolment_id] for a in allocations.values()}, past)
+    if past:
+        result.attendance, result.recording = _past_details([r.session.session_id for r in rows], set(enrolments))
+    return result
+
+
+def _past_details(session_ids: list[int], enrolment_ids: set[int]) -> tuple[dict[int, str], dict[int, dict]]:
+    """Session id -> the learner's attendance status, and session id -> the recording to watch (a playable one first). A class
+    the learner has no mark or recording for has no entry."""
+    if not session_ids:
+        return {}, {}
+    stmt = select(AttendanceRecord.session_id, AttendanceRecord.status).where(
+        AttendanceRecord.session_id.in_(session_ids), AttendanceRecord.enrolment_id.in_(enrolment_ids))
+    attendance = {session_id: str(status) for session_id, status in db.session.execute(stmt).all()}
+    recording: dict[int, dict] = {}
+    for entry in recordings_service.student_recordings({}):
+        session_id = entry["session"]["session_id"]
+        if session_id not in session_ids:
+            continue
+        mine = {"recording_id": entry["recording_id"], "status": entry["status"], "playable": entry["playable"]}
+        if session_id not in recording or (mine["playable"] and not recording[session_id]["playable"]):
+            recording[session_id] = mine
+    return attendance, recording

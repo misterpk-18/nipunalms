@@ -113,6 +113,7 @@ export const STATUS = {
     "Under Review": s("Being reviewed", "info", "Your trainer is reviewing it."),
     Reviewed: s("Reviewed", "success", "Your trainer has reviewed it."),
     "Resubmission Requested": s("Resubmit", "warning", "Your trainer asked for another version."),
+    Missed: s("Missed", "danger", "The window closed before this was handed in."),
   },
   /** A test as the author or the student sees it. */
   test: {
@@ -387,6 +388,7 @@ const TRANSLATED: Partial<Record<StatusDomain, Record<string, TranslationKey>>> 
     "Under Review": "st_work_reviewing",
     Reviewed: "st_work_reviewed",
     "Resubmission Requested": "st_work_resubmit",
+    Missed: "st_work_missed",
   },
   attendance: { Present: "st_att_present", Absent: "st_att_absent", Late: "st_att_late", Excused: "st_att_excused" },
   recording: {
@@ -397,7 +399,28 @@ const TRANSLATED: Partial<Record<StatusDomain, Record<string, TranslationKey>>> 
     Unavailable: "st_rec_unavailable",
     Expired: "st_rec_expired",
   },
-  test: { Available: "st_test_open", Released: "st_test_open", Closed: "st_test_closed", Scheduled: "st_test_scheduled" },
+  test: {
+    Available: "st_test_open",
+    Released: "st_test_open",
+    Closed: "st_test_closed",
+    Scheduled: "st_test_scheduled",
+    "In progress": "st_test_in_progress",
+    Graded: "st_test_graded",
+  },
+  slot: {
+    Open: "st_slot_open",
+    "Slot Confirmation Pending": "st_slot_pending",
+    Confirmed: "st_slot_confirmed",
+    Completed: "st_slot_done",
+    Cancelled: "st_slot_cancelled",
+  },
+  meet: {
+    Associated: "st_meet_ready",
+    Linked: "st_meet_ready",
+    "Pending Verification": "st_meet_not_ready",
+    Failed: "st_meet_none",
+    Unavailable: "st_meet_none",
+  },
 };
 
 const warned = new Set<string>();

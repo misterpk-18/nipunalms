@@ -91,7 +91,7 @@ def _support(ctx: "SeedContext") -> None:
 
 def _notifications(ctx: "SeedContext") -> None:
     student = users_repo.get_by_student_id(ctx.students["anvitha"]["student_id"]).user_id
-    notify(category="Assignment", title="Assignment 'Regression on housing dataset' due 29 Sep", event_key="seed:n1", link="/assignments",
+    notify(category="Assignment", title="Assignment 'Regression on housing dataset' due 29 Sep", event_key="seed:n1", link="/tasks",
            recipient_user_ids=[student], action_required=True)
     notify(category="Recording", title="Recording for 24 Sep held for review", event_key="seed:n2", link="/recordings", recipient_user_ids=[student])
     notify(category="Session", title="Module test scheduled 03 Oct", event_key="seed:n5", link="/tests", recipient_user_ids=[student])

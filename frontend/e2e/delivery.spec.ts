@@ -73,16 +73,25 @@ test("learner navigates My Learning, a combo track, module, topic hub and sessio
   await expect(page.getByText("Next topic")).toBeVisible();
   await page.getByRole("link", { name: "Linear regression intuition" }).click();
   await expect(page.getByText("Class SES-000101")).toBeVisible();
-  await expect(page.getByText("Meet organizer (label)")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Join Class" })).toBeDisabled();
+  await expect(page.getByText("Trainer", { exact: true })).toBeVisible();
 });
 
-test("learner schedule lists upcoming classes of the allocated batches", async ({ page }) => {
+test("learner schedule groups upcoming classes by day and has a Past tab", async ({ page }) => {
   await login(page, USERS.student);
   await page.goto("/schedule");
-  await expect(page.getByText("All times in IST")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Random forests & boosting" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Join Class" }).first()).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Schedule", level: 1 })).toBeVisible();
+  await expect(page.getByText(/times in IST/)).toBeVisible();
+  // coming classes are grouped by day (the seeded dates are fixed, so an empty week is fine too)
+  const groups = page.getByRole("heading", { level: 2 }).filter({ hasText: /^(Today|Tomorrow|This week|Later)/ });
+  await expect(groups.first().or(page.getByText("No classes coming up."))).toBeVisible();
+  if (await groups.count()) await expect(page.getByText(/Starts (in|\d)|Live now|The Join button opens/).first()).toBeVisible();
+
+  // the Past tab: attendance and the recording link of classes that have ended
+  await page.getByRole("tab", { name: "Past" }).click();
+  const missed = page.getByRole("listitem").filter({ hasText: "Linear regression intuition" });
+  await expect(missed).toContainText("Absent");
+  await expect(missed.getByRole("link", { name: "Watch" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Window functions lab" })).toContainText("Present");
 });
 
 test("coordinator creates a batch and allocates a waiting student after the review", async ({ page }) => {

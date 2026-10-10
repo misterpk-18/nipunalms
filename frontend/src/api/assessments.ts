@@ -320,11 +320,55 @@ export type ReviewQueueRow = {
   can_moderate: boolean;
 };
 
+// ---------------------------------------------------------------- Tasks & Tests (GET /me/work)
+
+export type WorkSection = "todo" | "waiting" | "done";
+export type WorkAction = "Submit" | "Resubmit" | "Start test" | "Resume test" | "Try again" | "Book a slot" | "View";
+
+/** One assignment or test on the student's list. `state` is a code of the `state_domain` status dictionary. */
+export type WorkItem = {
+  kind: "assignment" | "test";
+  id: number;
+  code: string;
+  title: string;
+  /** The kind of assignment or test (Project, Practice quiz, Mock interview, ...). */
+  type: string;
+  is_required: boolean;
+  batch: Ref;
+  module: { module_id: number; title: string } | null;
+  topic: { topic_id: number; title: string } | null;
+  enrolment_id: number;
+  section: WorkSection;
+  state: string;
+  state_domain: "work" | "test" | "slot";
+  action: WorkAction;
+  due_at: DateTime | null;
+  opens_at: DateTime | null;
+  overdue: boolean;
+  late: boolean;
+  sort_at: DateTime | null;
+  marks: string | null;
+  max_marks: string | null;
+  duration_minutes: number | null;
+  attempts_remaining: number | null;
+  in_progress: boolean;
+};
+
+export type MyWork = {
+  counts: { todo: number; waiting: number; done: number; overdue: number };
+  todo: WorkItem[];
+  waiting: WorkItem[];
+  done: WorkItem[];
+};
+
 // ---------------------------------------------------------------- calls
 
 type Filters = Record<string, string | number | boolean | undefined>;
 
 export const assessmentsApi = {
+  // Tasks & Tests
+  myWork: () => get<MyWork>("/me/work"),
+
   // assignments
   assignments: (query?: Filters): Promise<Page<Assignment>> => list("/assignments", { per_page: 100, ...query }),
   assignment: (id: number) => get<Assignment>(`/assignments/${id}`),

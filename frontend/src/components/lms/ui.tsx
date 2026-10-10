@@ -217,6 +217,7 @@ export function PillTabs<T extends string>({
   onChange,
   label,
   counts,
+  labels,
 }: {
   tabs: readonly T[];
   value: T;
@@ -224,6 +225,8 @@ export function PillTabs<T extends string>({
   label: string;
   /** A number beside a tab's name, shown when above zero. */
   counts?: Partial<Record<T, number>>;
+  /** Text to show instead of the tab's own name (a translation). */
+  labels?: Partial<Record<T, string>>;
 }) {
   return (
     <div role="tablist" aria-label={label} className="mb-4 flex flex-wrap gap-2">
@@ -238,7 +241,7 @@ export function PillTabs<T extends string>({
             value === tab ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
           )}
         >
-          {tab}
+          {labels?.[tab] ?? tab}
           {!!counts?.[tab] && (
             <span className={cn("ml-2 rounded-full px-1.5 text-xs", value === tab ? "bg-primary-foreground/20" : "bg-primary/10 text-primary")}>
               {counts[tab]}

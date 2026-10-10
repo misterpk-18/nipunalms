@@ -4,7 +4,7 @@ import { USERS, login } from "./helpers";
 /** Shell, per-role navigation and workspace guard (Phase 1b). Needs the API on :5060 with the staging users. */
 
 const ROLES = [
-  { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Fees & Receipts", "Profile"], other: "/trainer" },
+  { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Tasks & Tests", "Fees & Receipts", "Profile"], other: "/trainer" },
   { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Sessions", "Reviews", "Batches", "Students", "Ask Nipuna"], other: "/branch" },
   {
     name: "branch manager",
@@ -105,6 +105,12 @@ test("student can switch the labels to Telugu", async ({ page }, info) => {
   await page.getByRole("button", { name: "తెలుగు" }).click();
   await expect(nav.getByRole("link", { name: "నా అభ్యాసం" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "te");
+  // the new screens are translated too, statuses included
+  await nav.getByRole("link", { name: "పనులు & పరీక్షలు" }).click();
+  await expect(page.getByRole("heading", { name: "పనులు & పరీక్షలు", level: 1 })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /చేయాల్సినవి/ })).toBeVisible();
+  await nav.getByRole("link", { name: "షెడ్యూల్" }).click();
+  await expect(page.getByRole("tab", { name: "రాబోయేవి" })).toBeVisible();
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(nav.getByRole("link", { name: "My Learning" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
@@ -118,7 +124,7 @@ test.describe("phone layout @mobile", () => {
     await login(page, USERS.student);
     const bar = page.getByRole("navigation", { name: "Bottom" });
     await expect(bar.getByRole("link")).toHaveCount(4);
-    for (const item of ["Home", "My Learning", "Schedule", "Tasks"]) await expect(bar.getByRole("link", { name: item, exact: true })).toBeVisible();
+    for (const item of ["Home", "My Learning", "Schedule", "Tasks & Tests"]) await expect(bar.getByRole("link", { name: item, exact: true })).toBeVisible();
 
     await bar.getByRole("button", { name: "More" }).click();
     const sheet = page.getByRole("dialog", { name: "More" });

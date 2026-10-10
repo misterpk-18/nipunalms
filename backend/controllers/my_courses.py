@@ -68,11 +68,16 @@ def schedule():
     v.integer("course_id", min_value=1)
     v.date("from")
     v.date("to")
+    v.boolean("past", default=False)
     page, per_page = get_page_params()
-    rows, meta, by_batch = my_courses_service.schedule(v.validate(), page, per_page)
+    result = my_courses_service.schedule(v.validate(), page, per_page)
     data = []
-    for row in rows:
-        enrolment = by_batch.get(row.session.batch_id)
-        data.append({**row.session.to_dict(include_link=False, join=row.join),
-                     "enrolment": {"enrolment_id": enrolment.enrolment_id, "enrolment_code": enrolment.enrolment_code} if enrolment else None})
-    return paginated(data, meta)
+    for row in result.rows:
+        enrolment = result.by_batch.get(row.session.batch_id)
+        item = {**row.session.to_dict(include_link=False, join=row.join),
+                "enrolment": {"enrolment_id": enrolment.enrolment_id, "enrolment_code": enrolment.enrolment_code} if enrolment else None}
+        if result.past:
+            item["attendance"] = result.attendance.get(row.session.session_id)
+            item["recording"] = result.recording.get(row.session.session_id)
+        data.append(item)
+    return paginated(data, result.meta)

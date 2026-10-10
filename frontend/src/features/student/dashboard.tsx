@@ -215,7 +215,7 @@ function DueWorkCard({ card }: { card: StudentHome["due_work"] }) {
       ) : (
         <CardGap card={card} />
       )}
-      <Link to="/assignments" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
+      <Link to="/tasks" className="tap mt-2 inline-flex items-center text-sm font-medium text-primary underline">
         {t("allWork")}
       </Link>
     </HomeCard>

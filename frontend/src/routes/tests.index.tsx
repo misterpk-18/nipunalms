@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Tests } from "@/features/student/tests";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/tests/")({ component: Tests });
+/** The test list is part of Tasks & Tests now. */
+export const Route = createFileRoute("/tests/")({
+  beforeLoad: () => {
+    throw redirect({ to: "/tasks", replace: true });
+  },
+});

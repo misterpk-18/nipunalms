@@ -27,6 +27,7 @@ from routes.my_courses import my_courses_bp
 from routes.assignments import assignments_bp
 from routes.questions import questions_bp
 from routes.results import results_bp
+from routes.student_work import student_work_bp
 from routes.tests import tests_bp
 
 BLUEPRINTS = [
@@ -55,6 +56,7 @@ BLUEPRINTS = [
     questions_bp,
     tests_bp,
     results_bp,
+    student_work_bp,
 ]
 
 

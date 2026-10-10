@@ -19,7 +19,7 @@ def _start_of_day(day: date) -> datetime:
 def list_stmt(filters: dict, branch_ids: set[int] | None, trainer_batch_ids: set[int], enrolment_ids: set[int]) -> Select:
     """Class sessions in time order: those of the user's branches (None = all), of the batches they teach, or of batches
     their own enrolments are (or were) allocated to; narrowed by batch / branch / course / state / trainer / Meet status,
-    'upcoming', and IST dates (from and to both inclusive)."""
+    'upcoming', 'window' (coming | past, newest first), and IST dates (from and to both inclusive)."""
     stmt = select(ClassSession).join(Batch, Batch.batch_id == ClassSession.batch_id).order_by(ClassSession.starts_at, ClassSession.session_id)
     if branch_ids is not None:
         visible = Batch.batch_id.in_(trainer_batch_ids)
@@ -48,6 +48,12 @@ def list_stmt(filters: dict, branch_ids: set[int] | None, trainer_batch_ids: set
         stmt = stmt.where(ClassSession.approval_status == filters["approval_status"])
     if filters.get("upcoming"):
         stmt = stmt.where(ClassSession.state.in_(("Scheduled", "Rescheduled", "Live")), ClassSession.ends_at >= func.now())
+    if filters.get("window") == "coming":
+        # a student's schedule: anything still to come (cancelled or moved classes included) and a class running over its end
+        stmt = stmt.where(or_(ClassSession.ends_at >= func.now(), ClassSession.state == "Live"))
+    elif filters.get("window") == "past":
+        stmt = stmt.where(ClassSession.ends_at < func.now(), ClassSession.state != "Live")
+        stmt = stmt.order_by(None).order_by(ClassSession.starts_at.desc(), ClassSession.session_id.desc())
     if filters.get("from"):
         stmt = stmt.where(ClassSession.starts_at >= _start_of_day(filters["from"]))
     if filters.get("to"):
