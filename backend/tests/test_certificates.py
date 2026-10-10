@@ -8,7 +8,7 @@ from sqlalchemy.exc import DBAPIError
 
 from config.database import db
 from config.timezone import IST
-from models import AuditLog, Certificate, Enrolment, Notification
+from models import AuditLog, Certificate, Enrolment, Notification, WhatsappMessage
 from tests import attendance_world, helpers
 
 API = attendance_world.API
@@ -331,3 +331,13 @@ def test_database_needs_a_completed_enrolment_for_eligibility(client, w, run_sql
     with pytest.raises(DBAPIError, match="only after a Complete completion decision"):
         run_sql("UPDATE certificates SET status = 'Eligibility Review' WHERE certificate_id = :c", c=cid)
     db.session.rollback()
+
+
+def test_issuing_queues_one_whatsapp_message_with_the_number_for_the_button(client, w, run_sql):
+    run_sql("UPDATE app_settings SET setting_value = 'true' WHERE setting_key = 'whatsapp_enabled'")
+    run_sql("UPDATE app_settings SET setting_value = '[\"nipuna_lms_certificate_issued_u_v1\"]' WHERE setting_key = 'whatsapp_approved_templates'")
+    cid, certificate = issued(client, w)
+    message = db.session.execute(select(WhatsappMessage)).scalar_one()
+    assert message.template_name == "nipuna_lms_certificate_issued_u_v1" and message.status in ("Queued", "Skipped")
+    assert message.params[4] == certificate["certificate_number"] and message.button_params == [certificate["certificate_number"]]
+    assert message.dedupe_key == f"certificate-issued:{cid}:1"

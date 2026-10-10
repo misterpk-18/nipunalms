@@ -29,7 +29,7 @@ export type NotificationOverview = { unread: number; action_required: number; ne
 
 export type PreferenceGroup = "Service" | "Learning reminders" | "Placement" | "Promotions & alumni";
 export type Preferences = {
-  channels: { channel: string; always_on: boolean; configuration_status: string | null; verification_status: string | null }[];
+  channels: { channel: string; always_on: boolean; live: boolean; configuration_status: string | null; verification_status: string | null }[];
   groups: { group: PreferenceGroup; settings: Record<string, boolean> }[];
 };
 

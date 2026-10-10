@@ -9,6 +9,7 @@ from models.notification_preferences import CHANNELS, PREFERENCE_GROUPS
 from repositories import notifications as notifications_repo
 from repositories.common import paginate
 from services.context import current_user
+from services import whatsapp
 from services.errors import BusinessRule, NotFound, ValidationError
 
 # Groups whose external channels start enabled (essential service messages); the others start muted
@@ -82,6 +83,17 @@ def mark_action_done(notification_id: int) -> Notification:
 
 # ---------------------------------------------------------------- preferences
 
+def _channel_is_live(channel: str, integrations: dict) -> bool:
+    """In-app always; WhatsApp when the switch is on, the CRM endpoint is set and a template is approved; email once its
+    integration is configured and verified."""
+    if channel == "In-app":
+        return True
+    if channel == "WhatsApp":
+        return whatsapp.is_live()
+    integration = integrations.get(channel)
+    return bool(integration and integration.configuration_status == "Configured" and integration.verification_status == "Verified")
+
+
 def get_preferences() -> dict:
     """Every group x channel with its current setting, and the state of each external channel's integration."""
     stored = notifications_repo.preferences(current_user().user_id)
@@ -91,6 +103,7 @@ def get_preferences() -> dict:
             {
                 "channel": channel,
                 "always_on": channel == "In-app",
+                "live": _channel_is_live(channel, integrations),
                 "configuration_status": integrations[channel].configuration_status if channel in integrations else None,
                 "verification_status": integrations[channel].verification_status if channel in integrations else None,
             }

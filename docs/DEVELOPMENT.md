@@ -46,6 +46,7 @@ The layout, layers and conventions are the same as `nipuna-crm`.
 | `DEV_DATABASE_URL` | Dev replica `nipunalms-dev` with staging data; used when `APP_ENV=development` |
 | `TEST_DATABASE_URL` | Optional; defaults to `DATABASE_URL` + `_test` (`nipunalms_test`) |
 | `SECRET_KEY`, `LOG_LEVEL`, `UPLOAD_DIR` | App settings |
+| `CRM_BASE_URL` | Optional. The CRM API base (dev `http://127.0.0.1:5050/api/v1`) the LMS hands WhatsApp messages to (`POST /lms/whatsapp`, same service key). Unset = WhatsApp not available. Turn it on with `app_settings.whatsapp_enabled` and `whatsapp_approved_templates` (`flask whatsapp status` shows why it is off) |
 | `CRM_SERVICE_KEY` | Shared secret the CRM sends as `X-Service-Key` on `/integrations/crm/*` (dev: `dev-crm-service-key`) |
 | `ANTHROPIC_API_KEY`, `AI_MODEL` | Ask Nipuna; without a key the rule-based fallback answers |
 
@@ -148,7 +149,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-admin` | First Super Admin on a fresh database |
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
-| `jobs list`, `jobs run [name]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`. Each run is recorded in `job_runs`. Locally nothing runs them on a schedule |
+| `jobs list`, `jobs run [name]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally nothing runs them on a schedule |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 
 ### 6. Testing
@@ -499,7 +500,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
 | WhatsApp / email / telephony | In-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check` and `class-log-check`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 

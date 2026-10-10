@@ -202,8 +202,13 @@ a course of the admission is running; **Inactive** — student suspended, or all
   `curriculum_status` or `curriculum_version_label`.
 - **Jobs** (`flask jobs run`): `allocation-escalation` raises an enrolment still without a batch 24 hours before its
   admission's planned start to the service branch's Branch Managers (it replaced the CRM's `batch-allocation` job).
+- **WhatsApp (round 6, db 107):** the LMS never calls Pinbot. It queues each message in `whatsapp_outbox` with the change that
+  caused it and the `whatsapp-send` job posts it after the commit to the CRM's `POST /lms/whatsapp` (W4), which applies its own
+  switch, test numbers, consent and backoff. Nine LMS templates ([whatsapp-templates/](whatsapp-templates/README.md)); a timeout is
+  never resent; messages older than 48 hours are skipped. The code ships switched off until the CRM ships the endpoint and the
+  owner has the templates approved. See [API.md §4.13](API.md).
 - **Rules the CRM relies on:** nothing pulled is ever deleted; a Blocked batch is not offered for sale; the LMS sends no
-  promotional messages (in-app service notifications only), so the CRM's "stop contact" stays CRM-only.
+  promotional messages (service and learning messages only), so the CRM's "stop contact" stays CRM-only.
 - **Staff** use the same email in both systems: the pull names trainers and completion authorisers by email.
 
 ---
@@ -212,7 +217,7 @@ a course of the admission is running; **Inactive** — student suspended, or all
 
 | Item | Notes |
 |---|---|
-| Activation link delivery | Decided (D1): Branch Managers reissue links in the LMS ("Activation link from: CRM provisioning" filter on Student Accounts) until the CRM can send WhatsApp / email; then the CRM delivers `{LMS}/activate?token=…`, storing the token encrypted until sent. No LMS change needed |
+| Activation link delivery | **The LMS sends it** (answer to W2, round 6): template `nipuna_lms_student_activation_link_u_v1` through the CRM's `POST /lms/whatsapp`, wired in UX phase U7. Until then Branch Managers reissue and copy links in the LMS ("Activation link from: CRM provisioning" filter on Student Accounts) |
 | Placement | Decided (D5): the CRM owns employers, openings and applications. The LMS Career screen will read approved openings and submit applications / CVs through new CRM service endpoints. Later round |
 | Support cross-link | CRM `support_cases` (money, admission) and LMS support requests (academic, LMS) stay separate; a request that belongs to the other side should be routed with both references stored. Not designed yet |
 | Staff accounts | Same email in both systems today; single sign-on or provisioning from the CRM later |
@@ -234,3 +239,4 @@ drop them there; they are deleted once the round is recorded here, and stay in g
 | 2 | 1 Oct 2026 | The CRM applies the pull and becomes a read-only mirror of academics, batches and certificates. LMS (db 095): a gap-free `as_of`, one change stamp per admission, nothing pulled ever deleted, `track_code` on allocations, the `allocation-escalation` job. Owner decisions D1–D5 (§4); `BranchUpserted` and `BranchFinanceSnapshot` built on both sides (db 096) |
 | 3 | 2–3 Oct 2026 | Curriculum mapping writable from the CRM; the CRM pushes after commit and pulls every minute. LMS (db 097): `curriculum_versions[]`, `AdmissionCurriculumMapped`, `NOT_YET_APPLIED`, the pull filter. For the CRM's sales playbook (db 098): batch timetable, `readiness` and `seats_left` in `batches[]`. Joint tests all passed, including an LMS outage |
 | 5 | 10 Oct 2026 | The CRM holds no curriculum. LMS (db 104): `AdmissionCurriculumMapped` and its handler removed (`NOT_YET_APPLIED` stays for branch, course and admission events), `curriculum_versions[]` and the curriculum fields on `academics[]` / `batches[]` dropped from the pull and the outbox, `curriculum_version_crm_state` and `admissions.curriculum_source_version` dropped. Reply: `LMS_CURRICULUM_REMOVAL_REPLY.md`. Joint tests T1–T5 all passed on 10 Oct 2026 (migration 104 applied in place, course `NIT-CRS-047`): CRM-created admission auto-mapped to CV 5.1, allocated with no CRM mapping, pull has no curriculum keys, reconcile drift 0. One finding, not from this change: an earlier LMS dev rebuild re-issued student codes that CRM persons still held, so 3 person records were held on a duplicate `lms_user_id` until the CRM cleared 12 stale ids. See `docs/DEVELOPMENT.md` before rebuilding |
+| 6 | 10 Oct 2026 | **Open.** WhatsApp through the CRM (W1–W4 of `CRM_WHATSAPP_CONNECTION.md`). LMS (db 107, built, switched off): `whatsapp_outbox`, the `whatsapp-send` and `class-reminders` jobs, nine templates, triggers for class reminder / cancelled / rescheduled, result published, certificate issued and batch change. Reply: `LMS_WHATSAPP_REPLY.md` in the CRM's `nipuna lms-docs/` (W1 the nine templates, W2 the LMS sends activation links, W3 yes to status, W4 yes: the CRM builds `POST /lms/whatsapp`). Waiting for the CRM endpoint and the owner's Pinbot approvals; the CRM's brief stays in `nipuna crm-docs/` until then |

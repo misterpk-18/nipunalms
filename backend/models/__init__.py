@@ -87,3 +87,4 @@ from models.delivery_ops import (  # noqa: E402
 __all__ += ["BatchCapacityRequest", "BatchHandover", "BatchSuccession", "BatchTransferRequest", "JobRun", "MaterialChange",
             "MaterialChangeResponse", "MeetIncident", "MeetParticipation", "SessionCoverRequest", "SessionDisruption", "SessionPerson",
             "SessionRoster", "SlotPreference"]
+from models.whatsapp import WhatsappMessage  # noqa: E402

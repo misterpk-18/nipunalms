@@ -32,6 +32,9 @@ class BaseConfig:
 
     # The CRM proves who it is with this key (header X-Service-Key) when it posts events
     CRM_SERVICE_KEY = os.getenv("CRM_SERVICE_KEY")
+    # Where the LMS hands WhatsApp messages to the CRM (POST {CRM_BASE_URL}/lms/whatsapp, same service key). Unset = not available.
+    CRM_BASE_URL = os.getenv("CRM_BASE_URL")
+    CRM_REQUEST_TIMEOUT = float(os.getenv("CRM_REQUEST_TIMEOUT", "10"))
 
     # Uploaded files (assignment submissions, content): local disk until production storage is decided
     UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))

@@ -97,3 +97,15 @@ def test_review_queue_summarises_per_assessment_and_lists_tests_not_ready(client
     bm = client.get(f"{API}/assessment-reviews", headers=world.h["bm"]).get_json()["data"]
     assert bm and all(r["can_moderate"] is True for r in bm)
     assert client.get(f"{API}/assessment-reviews", headers=world.h["s1"]).status_code == 403
+
+
+def test_publishing_queues_a_whatsapp_message_per_student_without_the_marks(client, world, provisional, run_sql):
+    from models import WhatsappMessage
+
+    run_sql("UPDATE app_settings SET setting_value = 'true' WHERE setting_key = 'whatsapp_enabled'")
+    run_sql("UPDATE app_settings SET setting_value = '[\"nipuna_lms_result_published_u_v1\"]' WHERE setting_key = 'whatsapp_approved_templates'")
+    assignment, _ = provisional
+    client.post(f"{API}/results/publish", json={"assignment_id": assignment["assignment_id"]}, headers=world.h["ac"])
+    rows = db.session.execute(select(WhatsappMessage)).scalars().all()
+    assert len(rows) == 2 and {m.template_name for m in rows} == {"nipuna_lms_result_published_u_v1"}
+    assert all(not any(mark in " ".join(m.params) for mark in ("18", "12")) for m in rows)  # marks are private; the app shows them

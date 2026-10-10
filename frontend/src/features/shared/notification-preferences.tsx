@@ -15,8 +15,8 @@ export function NotificationPreferences() {
     <Section title="Notification preferences">
       <QueryView query={query}>
         {(prefs) => {
-          // In-app is always on; WhatsApp and email appear once they are set up and checked
-          const channels = prefs.channels.filter((c) => c.always_on || (c.configuration_status === "Configured" && c.verification_status === "Verified"));
+          // In-app is always on; WhatsApp and email appear only once they are really switched on
+          const channels = prefs.channels.filter((c) => c.live);
           return (
             <div className="space-y-3">
               {channels.length === 1 ? (

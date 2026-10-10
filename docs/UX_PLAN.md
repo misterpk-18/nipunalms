@@ -176,8 +176,8 @@ figure out what to do next."
 | U2. Merge Academic Coordinator into Branch Manager | **Done** (db 106) | `9469df1` | L |
 | U3. Design system foundation | **Done** | `b3bee1f` | M |
 | U4. Shell, navigation, search, counts | **Done** | `af7c16a` | M |
-| U5. Notifications inbox (all roles) | To do | | S |
-| U6. WhatsApp through the CRM (CRM round 6) | To do | | M |
+| U5. Notifications inbox (all roles) | **Done** | `U5_COMMIT` | S |
+| U6. WhatsApp through the CRM (CRM round 6) | **Built, switched off** (db 107) | `U6_COMMIT` | M |
 | U7. Sign-in and accounts | To do | | M |
 | U8. Student: Home and My Learning | To do | | L |
 | U9. Student: Schedule, Tasks & Tests | To do | | M |
@@ -195,7 +195,7 @@ figure out what to do next."
 - **Backend first.** U0–U2 change roles and rules that every later screen depends on.
 - **Shared parts next.** U3–U5 build the shared components the screen phases reuse.
 - **Messaging before sign-in.** U6 has to come before U7, because the reset code and the links need the sending path.
-- **Migrations.** `db/105` is U1 and `db/106` is U2. Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+- **Migrations.** `db/105` is U1, `db/106` is U2 and `db/107` is U6 (U4 and U5 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
 
 ## Resuming in a new session
 
@@ -360,6 +360,14 @@ figure out what to do next."
 - **Bell.** A preview dropdown (latest 5 plus "Open inbox"). Remove the Notifications sidebar item from every nav.
 - **Preferences.** Move to My Account (student) or Account (staff). Channels that aren't live are hidden.
 
+- **As built (10 Oct 2026).**
+  - **One status per item** (`Notification.status`: New / Needs action / Done; Failed for a channel problem) and the new views `needs_action`, `new`, `done` on `GET /notifications` (the older views stay for the API). `GET /notifications/overview` adds `needs_action` and `new`; the bell counts both.
+  - **Inbox** (`features/shared/notification-centre.tsx`): tabs Needs action (opens first when there is anything, with a count) · All · Done; one button per item named by kind ("View schedule", "Open task", "View request"), "Mark as done" on open actions, "Mark as read" when there is no link. The Delivery, Read and Acknowledged columns are gone; the Super Admin alone keeps a "System issues" tab, and delivery failures are listed for nobody else.
+  - **Bell** (`components/lms/notification-bell.tsx`): a preview of the latest five and "Open inbox". The Notifications sidebar item is gone from every nav; the per-workspace inbox routes stay.
+  - **Links.** Every `notify()` call in the services already carried a link (a test now fails if one stops), and the one seed notice without a link got one. Links go to the screen that holds the item; item-level deep links come with the record pages in later phases.
+  - **Preferences** moved to the Profile / account screen (`notification-preferences.tsx`), offering only channels with `live: true`.
+  - Tests: `test_notification_centre.py` (status, views, failures hidden, every notify has a link); e2e `services.spec.ts` and `staff-account.spec.ts` rewritten for the inbox.
+
 ## U6. WhatsApp through the CRM: CRM round 6 (`db/107`)
 - **Reply to the CRM.** Write `~/nipuna-crm/nipuna lms-docs/LMS_WHATSAPP_REPLY.md`:
   - W1: the 9 templates in [whatsapp-templates/](whatsapp-templates/README.md).
@@ -382,6 +390,12 @@ figure out what to do next."
   - the CRM ships `POST /lms/whatsapp`, and
   - the owner submits the templates.
   - **Until then,** build the outbox and the job with a "CRM endpoint not available" state; the code ships switched off.
+
+- **As built (10 Oct 2026).**
+  - **Reply written** to `~/nipuna-crm/nipuna lms-docs/LMS_WHATSAPP_REPLY.md` (W1 nine templates, W2 the LMS sends activation links, W3 yes to status, W4 yes, plus the proposed `POST /lms/whatsapp` contract and the U1 / U2 notes). The CRM's brief stays in `nipuna crm-docs/` until the round closes (a row for round 6 is open in `CRM_INTEGRATION.md` §5).
+  - **Built and tested, switched off** (db 107, applied in place to `nipunalms-dev`): `whatsapp_outbox`, `services/whatsapp.py` (queue, rules, job), `services/whatsapp_templates.py` (registry and value checks), `services/whatsapp_messages.py` (builders), jobs `whatsapp-send` and `class-reminders`, `flask whatsapp status | list`. Triggers wired for templates 4-9; 1-3 are U7. Details and dedupe keys in [API.md §4.13](API.md).
+  - **Choices not in the plan:** a message that cannot go out is kept as **Skipped** with the reason (so nothing floods out when the switch is turned on); `whatsapp_enabled`, `whatsapp_approved_templates` and `whatsapp_max_age_hours` are `app_settings`; class reminders are a "Learning reminders" message that starts **off** per person (the other templates are "Service", on); WhatsApp is offered in preferences only when live (switch on, `CRM_BASE_URL` set, a template approved); the batch-change message uses a reply-by of 7 days until U8 stores one; the "reminder 2 days before the reply-by date" of template 9 is not built.
+  - **Blocked until** the CRM ships `POST /lms/whatsapp` and the owner submits the templates and sets `CRM_BASE_URL`. Tests: `test_whatsapp.py` (17) plus trigger checks in `test_certificates.py`, `test_results.py` and `test_batches_delivery.py`; the CRM is always faked.
 
 ## U7. Sign-in and accounts (`db/108`)
 - **Login page.** One form, "Student ID or email", plus a "First time here? Activate your account" link. The activation panel leaves the page.

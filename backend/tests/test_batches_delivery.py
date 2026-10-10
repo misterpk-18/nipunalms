@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 
 from config.database import db
 from config.timezone import IST, today_ist
-from models import Notification
+from models import Notification, WhatsappMessage
 from services.jobs import JOBS
 from tests.test_delivery import _java_version, call, data, future, iso, world  # noqa: F401
 
@@ -157,6 +157,8 @@ def test_material_change_needs_each_students_agreement(world, client, login, mak
     assert call(client, login, people["bm"], "post", f"/material-changes/{change['change_id']}/decision", json={"decision": "Approved"}).status_code == 422  # a Branch Manager's own request
     data(call(client, login, people["admin"], "post", f"/material-changes/{change['change_id']}/decision", json={"decision": "Approved"}), 200)
     assert any("agreement is needed" in t for t in titles_for(_user_of(student)))
+    queued = db.session.execute(select(WhatsappMessage).where(WhatsappMessage.template_name == "nipuna_lms_batch_change_agreement_u_v1")).scalars().all()
+    assert len(queued) == 2 and queued[0].status == "Skipped"  # one per student; WhatsApp ships switched off
 
     mine = data(call(client, login, student.student_code, "get", "/me/material-changes"), 200)
     assert [m["change_id"] for m in mine] == [change["change_id"]] and mine[0]["my_response"]["response"] == "Pending"

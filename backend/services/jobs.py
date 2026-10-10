@@ -10,6 +10,7 @@ from services import batch_allocations as batch_allocations_service
 from services import recordings as recordings_service
 from services import session_ops
 from services import support as support_service
+from services import whatsapp, whatsapp_messages
 
 
 def recording_check() -> dict:
@@ -48,12 +49,25 @@ def class_log_check() -> dict:
     return session_ops.check_class_logs()
 
 
+def class_reminders() -> dict:
+    """Queue a WhatsApp reminder for each student of a confirmed class that starts within about two hours. Run every 15 minutes."""
+    return whatsapp_messages.class_reminders()
+
+
+def whatsapp_send() -> dict:
+    """Hand queued WhatsApp messages to the CRM (POST /lms/whatsapp). Does nothing while WhatsApp is switched off or the CRM
+    endpoint is not available. Run every few minutes."""
+    return whatsapp.send_pending()
+
+
 JOBS: dict[str, Callable[[], object]] = {
     "allocation-escalation": allocation_escalation,
     "attempts-expire": attempts_expire,
     "attendance-unconfirmed": attendance_unconfirmed,
     "class-log-check": class_log_check,
+    "class-reminders": class_reminders,
     "recording-check": recording_check,
     "session-delay-check": session_delay_check,
     "support-escalate-overdue": support_escalate_overdue,
+    "whatsapp-send": whatsapp_send,
 }

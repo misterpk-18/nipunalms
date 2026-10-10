@@ -473,10 +473,10 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 | POST | `/support-requests/{id}/escalate` | Staff | A trainer-owned request goes to the Branch Manager (the owner changes); any other request is marked escalated to the Branch Manager |
 | POST | `/support-requests/{id}/assign` | BM / admin | `{owner_user_id}`, must work at the request's branch |
 | GET | `/trainer/students` | Trainer | Students with active seats in their batches + open-request flag |
-| GET | `/notifications` | Signed in | Own only. `view` = my, action, unread, completed or system; `category`, `q`; each item has `delivery_label`. Staff see a branch notice only while they still hold its role (any role, for notices to named people) at that branch or company-wide; the same rule applies to counts, read and actions. Students keep their own |
-| GET | `/notifications/overview` | Signed in | `{unread, action_required, categories}` for the header bell |
+| GET | `/notifications` | Signed in | Own only. `view` = my (all), needs_action, new, done (the inbox views), or the older action, unread, completed, system; `category`, `q`. Each item has one `status` (**New** / **Needs action** / **Done**; **Failed** for a channel that could not deliver), a `link` to its screen and a `delivery_label`. Delivery failures are listed only for the Super Admin (the `system` view); everyone else sees only delivered messages. Staff see a branch notice only while they still hold its role (any role, for notices to named people) at that branch or company-wide; the same rule applies to counts, read and actions. Students keep their own |
+| GET | `/notifications/overview` | Signed in | `{unread, action_required, needs_action, new, categories}`: the bell shows `new + needs_action` |
 | POST | `/notifications/{id}/read`, `/acknowledge`, `/action-done`, `/notifications/read-all` | Recipient | Separate states; acknowledging also reads, does not complete the action |
-| GET / PUT | `/notifications/preferences` | Signed in | Group × channel matrix; In-app always on; WhatsApp / Email carry their integration status |
+| GET / PUT | `/notifications/preferences` | Signed in | Group × channel matrix; In-app always on. Each channel has `live`: WhatsApp is live only when `whatsapp_enabled` is on, `CRM_BASE_URL` is set and a template is approved; Email when its integration is Configured and Verified. The screen offers only live channels |
 | GET | `/me/career` | Student | Profile + completeness, CVs, eligible opportunities, applications, outcomes, next action |
 | PUT | `/me/career/profile`, `/me/career/consent` | Student | Opt in / out; employer-sharing consent is separate |
 | POST | `/me/career/cvs` (multipart `file`, `label`) | Student | New version, older ones marked Superseded |
@@ -669,4 +669,25 @@ Nothing here calls an external system.
 - `founder`: `curriculum` (versions Under Review), `certificates` (Awaiting Approval), `access` (access requests that need an exception).
 
 **Getting started steps** (done is read from the records, so the card ticks itself): student: activate (always), batch (an active seat), class (attended one), task (submitted one). Trainer: open a class (one of theirs is Live or Delivered), mark attendance, grade a submission. Branch Manager: create a batch, allocate students, create classes (anything at the branches in view). Admin: add a staff user (a `USER_CREATED` audit entry by the caller), review setup (an integration is no longer Not Configured).
+
+### 4.13 WhatsApp through the CRM (UX phase 6, `107`)
+
+No LMS endpoint: messages are queued in `whatsapp_outbox` by the service that made the change and handed to the CRM by the `whatsapp-send` job. The CRM endpoint the LMS calls is `POST {CRM_BASE_URL}/lms/whatsapp` (contract in `LMS_WHATSAPP_REPLY.md`, summarised in [CRM_INTEGRATION.md §3.2](CRM_INTEGRATION.md)).
+
+**Triggers** (`services/whatsapp_messages.py`; the template is in `services/whatsapp_templates.py`, drafts in [whatsapp-templates/](whatsapp-templates/README.md)):
+| Template | Queued by | Dedupe key |
+|---|---|---|
+| `nipuna_lms_class_reminder_u_v1` | job `class-reminders` (confirmed, approved classes that start in 15 minutes to 2 hours); preference group *Learning reminders* (off until the person turns it on) | `class-reminder:<session>:<student>:<start>` |
+| `nipuna_lms_class_cancelled_u_v1` | `class_sessions.cancel` | `class-cancelled:<session>:<student>` |
+| `nipuna_lms_class_rescheduled_u_v1` | `class_sessions` reschedule (only a change of time) | `class-rescheduled:<session>:<student>:<new start>` |
+| `nipuna_lms_result_published_u_v1` | `results.publish` (no marks in the message) | `result-published:<result>:<published at>` |
+| `nipuna_lms_certificate_issued_u_v1` | `certificates.issue` and a corrected reissue | `certificate-issued:<certificate>:<version>` |
+| `nipuna_lms_batch_change_agreement_u_v1` | `batch_changes.decide_change` when approved (reply-by: 7 days until phase U8 stores one) | `batch-change:<change>:<student>` |
+
+Templates 1-3 (reset code, student activation link, staff invite) are queued by sign-in in phase U7.
+
+**Rules:**
+- `enqueue` always records the message. It is **Queued** only when `whatsapp_enabled` is on, the template is in `whatsapp_approved_templates`, every value is present, the person has a number and has not switched that kind off, and it is not stale; otherwise it is **Skipped** with the reason (`status_note`). One row per dedupe key.
+- `send_pending` (job `whatsapp-send`) posts Queued rows after the commit with `X-Service-Key`, commits around each call, and records Sent / Skipped / Failed from the CRM's answer: 401/403 stops the run (the row stays Queued), 429/5xx back off 60 s doubling to 30 min and fail after 5 tries, a timeout or a 200 without confirmation is **Failed "check before resending"** and never auto-resent, a post with no recorded answer after 15 minutes is Failed. A message older than `whatsapp_max_age_hours` (48), or for a class that has begun, is never sent.
+- The code ships **switched off** (`whatsapp_enabled` false, no approved template, `CRM_BASE_URL` unset). `flask whatsapp status` and `flask whatsapp list` show why and what is queued.
 

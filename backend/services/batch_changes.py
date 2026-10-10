@@ -18,13 +18,13 @@ from datetime import datetime, time, timezone
 from sqlalchemy import select
 
 from config.database import db
-from models import BatchCapacityRequest, BatchSuccession, MaterialChange, MaterialChangeResponse
+from models import BatchCapacityRequest, BatchSuccession, MaterialChange, MaterialChangeResponse, Student
 from models.batches import WEEKDAYS
 from repositories import batches as batches_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import allocations, approvals, audit, delivery_access, delivery_notices, scope
+from services import allocations, approvals, audit, delivery_access, delivery_notices, scope, whatsapp_messages
 from services.batches import CAPACITY_SIDES, CLOSED_STATES, CONFIRM_ROLES, check_capacity_sides, load_managed_batch, sync_full
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
@@ -225,6 +225,7 @@ def decide_change(change_id: int, decision: str, note: str | None) -> MaterialCh
                                             body=f"Now: {change.current_plan}. Proposed: {change.proposed_plan}. Why: {change.reason}",
                                             event_key=f"material-change-{change.change_id}-ask", link="/my-courses",
                                             branch_id=enrolment.service_branch_id)
+            whatsapp_messages.batch_change_agreement(change, db.session.get(Student, enrolment.student_id))
     return change
 
 

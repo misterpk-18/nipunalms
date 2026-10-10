@@ -426,3 +426,11 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 | Open `support_requests`, unresolved `recording_exceptions`, open `session_disruptions`, started-but-unfinished reviews and the reviewer on assignments and tests move to the branch's lowest-id Branch Manager (a Super Admin when the branch has none) | Open items keep an owner |
 | `batches_confirmer_independent`, `batch_capacity_requests_independent`, `batch_transfer_requests_independent` dropped | The proposer may confirm a batch, the requester may decide a capacity increase or a transfer (one Branch Manager step). Every other `*_independent` constraint stays; the services add the rule that a Branch Manager's own request is decided by the Founder / CEO or a Super Admin |
 | `exception_queue` owner labels read *Branch Manager* and links point at `/branch/*` | The Branch Manager owns what the coordinator did |
+
+## 107 — UX phase U6: WhatsApp through the CRM
+
+| Change | Why |
+|---|---|
+| Enum `whatsapp_status` (Queued, Sent, Failed, Skipped) and table `whatsapp_outbox` (template, language, `recipient_user_id`, `lms_user_id`, `to_number`, `params`, `button_params`, unique `dedupe_key`, `occurred_at`, `expires_at`, status and note, `provider_message_id`, `attempts`, `next_attempt_at`, `attempt_started_at`, `sent_at`) | The LMS writes the message in the same transaction as the change; a job posts it to the CRM after the commit. A row in flight (`attempt_started_at`) is never auto-resent |
+| `app_settings`: `whatsapp_enabled` (false), `whatsapp_approved_templates` (`[]`), `whatsapp_max_age_hours` (48) | The code ships switched off; only approved templates are sent; older messages are skipped |
+
