@@ -53,7 +53,7 @@ def test_trainer_creates_a_draft_that_students_cannot_see_until_it_is_released(c
 def test_only_people_who_run_the_batch_can_create_assignments(client, world):
     body = assignment_body(world)
     assert client.post(f"{API}/assignments", json=body, headers=world.h["s1"]).status_code == 403
-    assert client.post(f"{API}/assignments", json=body, headers=world.h["bm"]).status_code == 403  # the Branch Manager reads
+    assert client.post(f"{API}/assignments", json=body, headers=world.h["founder"]).status_code == 403  # the Founder / CEO reads
     assert client.post(f"{API}/assignments", json=body, headers=world.h["g2"]).status_code == 404  # another batch's trainer
     assert client.post(f"{API}/assignments", json=body, headers=world.h["ac_vij"]).status_code == 404  # another branch
     assert client.post(f"{API}/assignments", json=body, headers=world.h["ac"]).status_code == 201
@@ -116,8 +116,7 @@ def test_staff_lists_are_scoped_and_carry_counts(client, world, released_assignm
     assert listed[0]["can_manage"] is True
     assert client.get(f"{API}/assignments", headers=world.h["g2"]).get_json()["data"] == []
     assert len(client.get(f"{API}/assignments", headers=world.h["bm"]).get_json()["data"]) == 1
-    bm_view = client.get(f"{API}/assignments", headers=world.h["bm"]).get_json()["data"][0]
-    assert bm_view["can_manage"] is False
+    assert client.get(f"{API}/assignments", headers=world.h["bm"]).get_json()["data"][0]["can_manage"] is True  # the Branch Manager manages it
     assert client.get(f"{API}/assignments/{released_assignment['assignment_id']}", headers=world.h["g2"]).status_code == 404
     assert client.get(f"{API}/assignments/{released_assignment['assignment_id']}", headers=world.h["ac_vij"]).status_code == 404
     assert client.get(f"{API}/assignments?batch_id={world.batches['G1'].batch_id}", headers=world.h["g2"]).status_code == 404
@@ -237,7 +236,7 @@ def test_review_gives_provisional_marks_that_students_only_see_once_published(cl
     assert review(client, world, submission_id, outcome="Reviewed", feedback="Good work", marks=25).status_code == 400  # over the maximum
     assert review(client, world, submission_id, who="g2", outcome="Reviewed", feedback="x", marks=10).status_code == 404
     assert review(client, world, submission_id, who="s1", outcome="Reviewed", feedback="x", marks=10).status_code == 403
-    assert review(client, world, submission_id, who="bm", outcome="Reviewed", feedback="x", marks=10).status_code == 403
+    assert review(client, world, submission_id, who="founder", outcome="Reviewed", feedback="x", marks=10).status_code == 403
 
     reviewed = review(client, world, submission_id, outcome="Reviewed", feedback="Good partitioning", marks=18)
     assert reviewed.status_code == 201, reviewed.get_json()

@@ -43,7 +43,7 @@ def test_kind_defaults_and_what_is_missing(client, world):
     test = client.post(f"{API}/tests", json=body, headers=world.h["g1"]).get_json()["data"]
     assert test["test_code"].startswith("TST-") and test["duration_minutes"] == 30 and test["attempts_allowed"] == 1
     assert test["release_status"] == "Configuration Pending" and test["status"] == "Configuration Pending"
-    assert test["is_formal"] is True and set(test["gaps"]) == {"Select the questions", "Set the pass marks", "Set the closing time", "Academic Coordinator approval"}
+    assert test["is_formal"] is True and set(test["gaps"]) == {"Select the questions", "Set the pass marks", "Set the closing time", "Branch Manager approval"}
 
     practice = client.post(f"{API}/tests", json={**body, "kind": "Practice quiz", "title": "Warm-up"}, headers=world.h["g1"]).get_json()["data"]
     assert practice["duration_minutes"] is None and practice["attempts_allowed"] is None and practice["is_formal"] is False
@@ -57,17 +57,17 @@ def test_kind_defaults_and_what_is_missing(client, world):
 def test_only_the_batch_staff_change_tests(client, world):
     body = {"batch_id": world.batches["G1"].batch_id, "kind": "Practice quiz", "title": "Quiz"}
     assert client.post(f"{API}/tests", json=body, headers=world.h["s1"]).status_code == 403
-    assert client.post(f"{API}/tests", json=body, headers=world.h["bm"]).status_code == 403
+    assert client.post(f"{API}/tests", json=body, headers=world.h["founder"]).status_code == 403
     assert client.post(f"{API}/tests", json=body, headers=world.h["g2"]).status_code == 404
     assert client.post(f"{API}/tests", json=body, headers=world.h["ac_vij"]).status_code == 404
     test = client.post(f"{API}/tests", json=body, headers=world.h["g1"]).get_json()["data"]
     url = f"{API}/tests/{test['test_id']}"
     assert client.patch(url, json={"title": "x"}, headers=world.h["g2"]).status_code == 404
-    assert client.patch(url, json={"title": "x"}, headers=world.h["bm"]).status_code == 403
+    assert client.patch(url, json={"title": "x"}, headers=world.h["founder"]).status_code == 403
     assert client.get(url, headers=world.h["g2"]).status_code == 404
     assert client.get(url, headers=world.h["s3"]).status_code == 404  # a student of another batch
     assert client.get(url, headers=world.h["s1"]).status_code == 200
-    assert client.get(url, headers=world.h["bm"]).status_code == 200
+    assert client.get(url, headers=world.h["founder"]).status_code == 200
 
 
 def test_settings_are_validated(client, world):
@@ -115,7 +115,7 @@ def test_a_formal_test_needs_approval_and_a_change_asks_again(client, world):
     tid = test["test_id"]
     client.put(f"{API}/tests/{tid}/questions", json={"questions": [{"question_id": q["question_id"]}]}, headers=world.h["g1"])
     state = client.get(f"{API}/tests/{tid}", headers=world.h["g1"]).get_json()["data"]
-    assert state["release_status"] == "Configuration Pending" and state["gaps"] == ["Academic Coordinator approval"]
+    assert state["release_status"] == "Configuration Pending" and state["gaps"] == ["Branch Manager approval"]
     assert client.post(f"{API}/tests/{tid}/release", json={}, headers=world.h["g1"]).status_code == 422
     assert client.post(f"{API}/tests/{tid}/approve", headers=world.h["g1"]).status_code == 403  # trainers do not approve
     assert client.post(f"{API}/tests/{tid}/approve", headers=world.h["ac_vij"]).status_code == 404

@@ -270,7 +270,7 @@ class RecordingException(db.Model):
     owner_user: Mapped[User | None] = relationship(foreign_keys=[owner_user_id], lazy="joined")
 
     def to_dict(self, owner_label: str, age_hours: int, escalation: str | None) -> dict:
-        """owner_label ("Academic Coordinator GNT") and the age / escalation step are worked out by the service."""
+        """owner_label ("Branch Manager GNT") and the age / escalation step are worked out by the service."""
         s = self.session
         return {
             "exception_id": self.exception_id,

@@ -4,7 +4,7 @@ seat between batches is a transfer request (services/batch_transfers.py).
 A seat is only given after the batch allocation review: service branch, course or track, capacity, delivery mode, the
 student's other classes and the enrolment's own state. The curriculum never blocks a seat: the student follows the
 curriculum version of the batch they join (a batch with none yet picks one up when it is activated). A failed check blocks; a warning
-(different mode, a timetable clash) needs the coordinator to acknowledge it. Ended and transferred allocations stay as
+(different mode, a timetable clash) needs the Branch Manager to acknowledge it. Ended and transferred allocations stay as
 history; nothing the student did in a previous batch is touched.
 """
 from datetime import date, datetime, timedelta
@@ -120,7 +120,7 @@ def review(batch: Batch, enrolment: Enrolment, *, transfer: bool = False, enrolm
         "result": "Blocked" if blocking else "Review needed" if warnings else "Ready to allocate",
         "blocking": blocking,
         "warnings": warnings,
-        "recovery_owner": f"Academic Coordinator — {enrolment.service_branch.branch_name}" if blocking else None,
+        "recovery_owner": f"Branch Manager — {enrolment.service_branch.branch_name}" if blocking else None,
     }
 
 
@@ -260,7 +260,7 @@ def escalate_unallocated() -> int:
                                  f"{admission.planned_start_date.isoformat()}",
                            body=f"{enrolment.enrolment_code} · {enrolment.course.course_code} · {enrolment.status}. "
                                 f"Record who is responsible, the blockage, the recovery and what the student is told.",
-                           link="/academic/batches" if role_code == "BRANCH_MANAGER" else "/admin/exceptions", role_code=role_code,
+                           link="/branch/batches" if role_code == "BRANCH_MANAGER" else "/admin/exceptions", role_code=role_code,
                            branch_id=enrolment.service_branch_id, action_required=True)
         escalated += 1 if sent else 0
     return escalated

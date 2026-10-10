@@ -6,7 +6,7 @@ Planned (Scheduled), Confirmed (Scheduled and confirmed), In Progress (Live), He
 outcome), Rescheduled and Cancelled. Scheduling never marks anything delivered: the trainer starts it and logs the actual
 start, end, breaks and any unfulfilled portion, and only Delivered sessions count as taught. A reschedule keeps the row and its
 original slot; a cancellation is never a student absence and leaves a replacement owed until a Replacement class or a
-recorded waiver accounts for it. Replacement, remedial and extra classes are proposed by the coordinator and approved by the
+recorded waiver accounts for it. Replacement, remedial and extra classes are proposed by the Branch Manager and approved by the
 Branch Manager before students see them (§16). All times are IST for people, timestamptz in the database.
 """
 import re
@@ -23,7 +23,7 @@ from repositories import catalog as catalog_repo
 from repositories import class_sessions as sessions_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import approvals, audit, delivery_access, delivery_notices, meet, scope
+from services import audit, delivery_access, delivery_notices, meet, scope
 from services import batches as batches_service
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
@@ -310,7 +310,7 @@ def create_sessions(data: dict) -> list[ClassSession]:
         delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", batch.branch_id), category="Session",
                                       action_required=True, title=f"Approve a {purpose.lower()} class: {first.title}",
                                       body=f"{batch.batch_code} · {_slot(first.starts_at, first.ends_at)}",
-                                      event_key=f"session-purpose-{first.session_id}", link="/academic/schedule", branch_id=batch.branch_id)
+                                      event_key=f"session-purpose-{first.session_id}", link="/branch/schedule", branch_id=batch.branch_id)
         return created
     if len(created) == 1:
         title, body = f"New class: {first.title}", _slot(first.starts_at, first.ends_at)
@@ -324,14 +324,13 @@ def create_sessions(data: dict) -> list[ClassSession]:
 
 
 def decide_purpose(session_id: int, decision: str, note: str | None) -> ClassSession:
-    """The Branch Manager (or Super Admin), not the proposer, approves the trainer, time and resources of a replacement,
-    remedial or extra class. A rejected proposal is cancelled and owes nothing."""
+    """The Branch Manager (or Super Admin) approves the trainer, time and resources of a replacement, remedial or extra
+    class, alone: the Branch Manager may propose and approve the same class. A rejected proposal is cancelled and owes nothing."""
     session = _load_for_change(session_id)
     if not current_user().has_role(*batches_service.CONFIRM_ROLES, branch_id=session.batch.branch_id):
         raise Forbidden("Only the Branch Manager of this branch or a Super Admin approves this class")
     if session.approval_status != "Pending":
         raise BusinessRule(f"Session {session.session_code} is not waiting for approval")
-    approvals.require_independent(session.proposed_by, message="The person who proposed the class cannot approve it")
     session.approved_by, session.approved_at = actor_id(), _now()
     if decision == "Rejected":
         if not note:
@@ -577,7 +576,7 @@ def deliver(session_id: int, log: dict) -> ClassSession:
     if outcome == "Partially Held":
         delivery_notices.notify_branch_managers(session.batch.branch_id, title=f"Partially held: {session.title}", category="Session",
                                                 body=f"{session.batch.batch_code} · {session.unfulfilled_note}", action_required=True,
-                                                event_key=f"session-partial-{session.session_id}", link="/academic/schedule")
+                                                event_key=f"session-partial-{session.session_id}", link="/branch/schedule")
     return session
 
 
@@ -596,7 +595,7 @@ def save_notes(session_id: int, notes: str) -> ClassSession:
 # ---------------------------------------------------------------- reschedule requests
 
 def request_reschedule(session_id: int, proposed_starts_at: datetime, proposed_ends_at: datetime, reason: str) -> SessionChangeRequest:
-    """A trainer asks to move a class they teach; the branch's coordinators and manager decide."""
+    """A trainer asks to move a class they teach; the branch's Branch Managers and manager decide."""
     session = _load_for_change(session_id, allow_own_trainer=True)
     _require_open(session, "rescheduled")
     _check_future(proposed_starts_at, proposed_ends_at, "proposed_starts_at")
@@ -609,7 +608,7 @@ def request_reschedule(session_id: int, proposed_starts_at: datetime, proposed_e
     delivery_notices.notify_branch_managers(
         session.batch.branch_id, title=f"Reschedule requested: {session.title}", category="Session", action_required=True,
         body=f"{session.trainer.full_name} asks to move {_slot(session.starts_at, session.ends_at)} to {_slot(proposed_starts_at, proposed_ends_at)}. {reason}",
-        event_key=f"reschedule-request-{request.request_id}", link="/academic/schedule")
+        event_key=f"reschedule-request-{request.request_id}", link="/branch/schedule")
     return request
 
 
@@ -695,7 +694,7 @@ def mark_meet_failed(session_id: int, detail: str) -> ClassSession:
     db.session.flush()
     delivery_notices.notify_branch_managers(
         session.batch.branch_id, title=f"Meet association failed: {session.title}", category="Session", action_required=True,
-        body=f"{_slot(session.starts_at, session.ends_at)}. {detail}", event_key=f"meet-failed-{event.event_id}", link="/academic/schedule")
+        body=f"{_slot(session.starts_at, session.ends_at)}. {detail}", event_key=f"meet-failed-{event.event_id}", link="/branch/schedule")
     return session
 
 

@@ -40,10 +40,10 @@ class TestRaisingAndRouting:
         [note] = notifications_for(world.people.t1.user_id)
         assert note.title.startswith("New support request") and note.action_status == "Open" and note.link == "/trainer/support"
 
-    def test_recording_access_goes_to_the_academic_coordinator(self, client, world):
+    def test_recording_access_goes_to_the_branch_manager(self, client, world):
         request = raise_request(client, world, world.students.s1, "Recording access")
         assert request["owner"]["user_id"] == world.people.ac.user_id
-        assert request["owner"]["label"] == "Academic Coordinator — Guntur"
+        assert request["owner"]["label"] == "Branch Manager — Guntur"
 
     @pytest.mark.parametrize("category", ["LMS", "Account", "Device access"])
     def test_lms_and_account_requests_go_to_the_super_admin_as_lms_support(self, client, world, category):
@@ -248,19 +248,17 @@ class TestStatus:
 
 
 class TestEscalationAndAssignment:
-    def test_a_trainer_request_escalates_to_the_coordinator_then_the_branch_manager(self, client, world):
+    def test_a_trainer_request_escalates_to_the_branch_manager_once(self, client, world):
         request = raise_request(client, world, world.students.s1, "Academic")
         url = f"{API}/{request['support_request_id']}"
-        first = client.post(f"{url}/escalate", headers=world.h(world.people.t1), json={"reason": "Needs coordinator decision"})
+        first = client.post(f"{url}/escalate", headers=world.h(world.people.t1), json={"reason": "Needs a Branch Manager decision"})
         assert first.status_code == 200
         data = first.get_json()["data"]
-        assert data["escalation_level"] == "Academic Coordinator" and data["owner"]["user_id"] == world.people.ac.user_id
-        assert any(n.title.startswith("Escalated to you") for n in notifications_for(world.people.ac.user_id))
+        assert data["escalation_level"] == "Branch Manager" and data["owner"]["user_id"] == world.people.ac.user_id
+        assert any("needs the Branch Manager" in n.title for n in notifications_for(world.people.bm.user_id))
 
         second = client.post(f"{url}/escalate", headers=world.h(world.people.ac), json={"reason": "Unresolved for days"})
-        assert second.get_json()["data"]["escalation_level"] == "Branch Manager"
-        assert any("needs the Branch Manager" in n.title for n in notifications_for(world.people.bm.user_id))
-        assert client.post(f"{url}/escalate", headers=world.h(world.people.ac), json={"reason": "again"}).status_code == 422
+        assert second.status_code == 422                                          # already with the Branch Manager
 
     def test_the_branch_manager_lists_escalations(self, client, world):
         escalated = raise_request(client, world, world.students.s1, "Recording access")

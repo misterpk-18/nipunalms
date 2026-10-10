@@ -38,7 +38,7 @@ def notify_users(user_ids: list[int], *, title: str, body: str, event_key: str, 
 
 def notify_branch_managers(branch_id: int, *, title: str, body: str, event_key: str, link: str, category: str = "Batch",
                            action_required: bool = False) -> None:
-    """The Academic Coordinators and Branch Managers of the branch."""
-    holders = users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", branch_id) + users_repo.user_ids_with_role("BRANCH_MANAGER", branch_id)
+    """The Branch Managers of the branch."""
+    holders = users_repo.user_ids_with_role("BRANCH_MANAGER", branch_id)
     notify_users(holders, title=title, body=body, event_key=event_key, link=link, branch_id=branch_id, category=category,
                  action_required=action_required)

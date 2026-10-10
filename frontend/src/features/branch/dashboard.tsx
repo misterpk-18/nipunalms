@@ -1,6 +1,7 @@
 import { useBranchDashboard } from "@/api/dashboards";
 import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { CrmTile, QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
+import { AcademicDashboard } from "@/features/academic/dashboard";
 
 const LINKS = [
   ["/branch/operations", "Batches, schedule & people"],
@@ -15,7 +16,7 @@ export function BranchDashboard() {
       <QueryView query={query}>
         {(d) => (
           <>
-            <PageHead title="Branch academic dashboard" description={`${d.scope.label} · LMS academic domain (Module 25 ordering)`} />
+            <PageHead title="Branch dashboard" description={`${d.scope.label} · what needs the Branch Manager`} />
             <TileRow label="Priority tiles">
               <CrmTile rank={1} label="Branch verified collections against target" figure={d.crm.verified_collections} />
               <CrmTile rank={2} label="Branch new paid Admissions" figure={d.crm.new_paid_admissions} />
@@ -52,6 +53,7 @@ export function BranchDashboard() {
           </>
         )}
       </QueryView>
+      <AcademicDashboard embedded />
     </div>
   );
 }

@@ -18,9 +18,9 @@ def world(make_user, make_student, make_batch, make_session, allocate, login):
     people = SimpleNamespace(
         t1=make_user(roles=[("TRAINER", 1)], full_name="Trainer One"),
         t2=make_user(roles=[("TRAINER", 1)], full_name="Trainer Two"),
-        ac=make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="Coordinator Guntur"),
+        ac=make_user(roles=[("BRANCH_MANAGER", 1)], full_name="Coordinator Guntur"),
         bm=make_user(roles=[("BRANCH_MANAGER", 1)], full_name="Manager Guntur"),
-        ac_vij=make_user(roles=[("ACADEMIC_COORDINATOR", 2)], full_name="Coordinator Vijayawada"),
+        ac_vij=make_user(roles=[("BRANCH_MANAGER", 2)], full_name="Coordinator Vijayawada"),
         bm_vij=make_user(roles=[("BRANCH_MANAGER", 2)], full_name="Manager Vijayawada"),
         admin=make_user(roles=[("SUPER_ADMIN", None)], full_name="Super Admin"),
         founder=make_user(roles=[("FOUNDER_CEO", None)], full_name="Founder"),

@@ -43,12 +43,11 @@ export function LifecycleActions({ batch }: { batch: BatchDetail }) {
     (v: { state: Parameters<typeof deliveryApi.batchState>[1]["state"]; reason?: string }) => deliveryApi.batchState(batch.batch_id, v),
     "Batch state updated",
   );
-  const propose = useDelivery((note?: string) => deliveryApi.proposeBatch(batch.batch_id, note), "Proposed — the Branch Manager decides");
+  const propose = useDelivery((note?: string) => deliveryApi.proposeBatch(batch.batch_id, note), "Proposed — confirm it when you are ready");
   const decide = useDelivery(
     (v: { decision: "Confirmed" | "Returned"; note?: string; override_reason?: string }) => deliveryApi.decideConfirmation(batch.batch_id, v),
     "Decision recorded",
   );
-  const own = batch.proposed_by?.user_id === profile?.user.user_id;
   const s = batch.state;
   const live = s === "Running" || s === "Full";
   const reason = { name: "reason", label: "Reason", type: "textarea" as const, required: true };
@@ -66,13 +65,13 @@ export function LifecycleActions({ batch }: { batch: BatchDetail }) {
         <ActionDialog
           trigger={button("Propose batch", "default")}
           title={`Propose ${batch.batch_code}`}
-          description="Sends the batch to the Branch Manager for confirmation. The first six points of the readiness record must pass."
+          description="Proposes the batch for confirmation. The first six points of the readiness record must pass."
           fields={[{ name: "note", label: "Note", type: "textarea" }]}
           submitLabel="Propose"
           onSubmit={(v) => propose.mutateAsync(v["note"] || undefined)}
         />
       )}
-      {s === "Proposed" && approver && !own && (
+      {s === "Proposed" && approver && (
         <>
           <ActionDialog
             trigger={button("Confirm batch", "default")}
@@ -88,14 +87,13 @@ export function LifecycleActions({ batch }: { batch: BatchDetail }) {
           <ActionDialog
             trigger={button("Return to draft")}
             title={`Return ${batch.batch_code}`}
-            description="The coordinator edits the batch and proposes it again."
+            description="The Branch Manager edits the batch and proposes it again."
             fields={[{ name: "note", label: "What needs to change", type: "textarea", required: true }]}
             submitLabel="Return"
             onSubmit={(v) => decide.mutateAsync({ decision: "Returned", note: v["note"] })}
           />
         </>
       )}
-      {s === "Proposed" && own && <StatusBadge tone="info">Waiting for another Branch Manager to confirm</StatusBadge>}
       {s === "Starting" && (
         <ActionDialog
           trigger={button("Start running", "default")}
@@ -313,7 +311,7 @@ export function RequestTransferDialog({
 }
 
 export function HandoverDialog({ batch, row, targets }: { batch: BatchDetail; row: RosterRow; targets: Batch[] }) {
-  const owners = useStaffOptions(batch.branch.branch_id, ["ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "TRAINER"]);
+  const owners = useStaffOptions(batch.branch.branch_id, ["BRANCH_MANAGER", "TRAINER"]);
   const record = useDelivery((body: Parameters<typeof deliveryApi.recordHandover>[1]) => deliveryApi.recordHandover(batch.batch_id, body), "Handover recorded");
   return (
     <ActionDialog

@@ -3,7 +3,7 @@ import { USERS, login } from "./helpers";
 
 /**
  * Governance (gap fix plan phase 3): the Founder / CEO approves curriculum and decides certificate requests; a correction is
- * requested by the coordinator and decided by the Branch Manager; the Super Admin can switch AI off.
+ * requested by the Branch Manager and decided by the Super Admin; the Super Admin can switch AI off.
  * Mutates data: run against a freshly seeded staging database, after attendance.spec.ts.
  */
 
@@ -19,10 +19,10 @@ test("the founder has curriculum approvals and certificate decisions", async ({ 
   await expect(page.getByText("No certificate request is waiting for a decision.")).toBeVisible();
 });
 
-test("a correction is requested by the coordinator and approved by the branch manager", async ({ page }, info) => {
+test("a branch manager's correction request is approved by the super admin", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/certificates");
+  await page.goto("/branch/certificates");
   const row = page.getByRole("row", { name: /NIT-CERT-2026-000001.*Issued/ });
   await row.getByRole("button", { name: "Request correction" }).click();
   const dialog = page.getByRole("dialog");
@@ -34,7 +34,7 @@ test("a correction is requested by the coordinator and approved by the branch ma
 
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
-  await login(page, USERS.bmGnt);
+  await login(page, USERS.admin);
   await page.goto("/branch/reports");
   const request = page.getByRole("row", { name: /Surname spelling/ });
   await request.getByRole("button", { name: "Decide" }).click();

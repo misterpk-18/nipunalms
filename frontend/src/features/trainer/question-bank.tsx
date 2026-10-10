@@ -146,7 +146,7 @@ function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New question</DialogTitle>
-          <DialogDescription>Saved as a draft; the Academic Coordinator approves it before it can go in a test.</DialogDescription>
+          <DialogDescription>Saved as a draft; the Branch Manager approves it before it can go in a test.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <Field label="Course" htmlFor="q-course">
@@ -211,7 +211,7 @@ function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange
 
 const STATUS_TABS = ["All", "Draft", "Approved", "Retired"] as const;
 
-/** The bank of the user's branch(es). `canApprove` shows the Academic Coordinator's approve / retire actions. */
+/** The bank of the user's branch(es). `canApprove` shows the Branch Manager's approve / retire actions. */
 export function QuestionBank({ canApprove = false, initialStatus = "All" }: { canApprove?: boolean; initialStatus?: (typeof STATUS_TABS)[number] }) {
   const [status, setStatus] = useState<(typeof STATUS_TABS)[number]>(initialStatus);
   const [creating, setCreating] = useState(false);

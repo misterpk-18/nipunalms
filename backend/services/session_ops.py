@@ -3,7 +3,7 @@ Meet participation evidence, delayed starts and disruptions, missing class logs,
 and the Meet operations view.
 
 Meet participation is evidence for review only: it never marks attendance. A delayed start is a provider or institute
-problem, not a student absence: at 5 minutes the students are told, at 15 a disruption is recorded and the coordinator and
+problem, not a student absence: at 5 minutes the students are told, at 15 a disruption is recorded and the Branch Manager and
 Branch Manager are alerted to agree a recovery plan; the undelivered minutes are recorded when it is resolved.
 """
 from datetime import date, datetime, time, timedelta, timezone
@@ -30,7 +30,7 @@ from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
 OPEN = ("Scheduled", "Rescheduled")
-STAFF_ROLES_FOR_HOSTING = ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+STAFF_ROLES_FOR_HOSTING = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
 DELAY_LOOKBACK = timedelta(hours=12)
 
 
@@ -109,7 +109,7 @@ def add_person(session_id: int, data: dict) -> SessionPerson:
     if role == "Guest":
         delivery_notices.notify_branch_managers(session.batch.branch_id, title=f"Approve a class guest: {session.title}", category="Session",
                                                 body=f"{person.guest_name} — {person.purpose}", action_required=True,
-                                                event_key=f"session-guest-{person.session_person_id}", link="/academic/meet-operations")
+                                                event_key=f"session-guest-{person.session_person_id}", link="/branch/meet-operations")
     else:
         delivery_notices.notify_users([person.user_id], title=f"You are the {role.lower()} for {session.title}", category="Session",
                                       body=_slot(session.starts_at, session.ends_at), event_key=f"session-person-{person.session_person_id}",
@@ -118,7 +118,7 @@ def add_person(session_id: int, data: dict) -> SessionPerson:
 
 
 def decide_guest(person_id: int, decision: str, note: str | None) -> SessionPerson:
-    """The Academic Coordinator or Branch Manager approves a class guest, not the person who proposed them. A guest gets no LMS
+    """The Branch Manager approves a class guest, not the person who proposed them. A guest gets no LMS
     content or recording rights."""
     person = db.session.get(SessionPerson, person_id)
     if person is None or person.role != "Guest":
@@ -126,7 +126,7 @@ def decide_guest(person_id: int, decision: str, note: str | None) -> SessionPers
     session = _load_for_change(person.session_id)
     if person.status != "Pending":
         raise BusinessRule(f"The guest is already {person.status}")
-    approvals.require_independent(person.added_by, message="The person who proposed the guest cannot approve them")
+    approvals.require_independent(person.added_by, message="The person who proposed the guest cannot approve them", requester=person.added_by)
     person.status, person.decided_by, person.decided_at = decision, actor_id(), _now()
     db.session.flush()
     audit.record("SESSION_GUEST_DECIDED", "class_session", session.session_id, branch_id=session.batch.branch_id, reason=note,
@@ -165,7 +165,7 @@ def report_incident(session_id: int, data: dict) -> MeetIncident:
     db.session.flush()
     delivery_notices.notify_branch_managers(session.batch.branch_id, title=f"Meet incident: {session.title}", category="Session",
                                             body=f"{data['kind']} — {data['description']}. Done: {data['actions_taken']}", action_required=True,
-                                            event_key=f"meet-incident-{incident.incident_id}", link="/academic/meet-operations")
+                                            event_key=f"meet-incident-{incident.incident_id}", link="/branch/meet-operations")
     incident.manager_alerted_at = _now()
     if incident.link_replaced:
         body = "The class link was replaced for security. Join from the LMS; do not use or share the old link."
@@ -252,12 +252,12 @@ def _alert_disruption(session: ClassSession, disruption: SessionDisruption) -> N
         session.batch.branch_id, title=f"Class disrupted: {session.title}", category="Session", action_required=True,
         body=f"{session.batch.batch_code} · {disruption.kind}" + (f" ({disruption.delay_minutes} min)" if disruption.delay_minutes else "")
         + ". Agree and communicate a recovery or replacement plan.",
-        event_key=f"session-disruption-{disruption.disruption_id}", link="/academic/meet-operations")
+        event_key=f"session-disruption-{disruption.disruption_id}", link="/branch/meet-operations")
 
 
 def check_delays(now: datetime | None = None) -> dict:
     """Job: an online or hybrid class not started 5 minutes after its start tells its students; at 15 minutes a disruption is
-    recorded and the coordinator and Branch Manager are alerted (once each per class). The LMS only knows a class started
+    recorded and the Branch Manager are alerted (once each per class). The LMS only knows a class started
     when the trainer starts it, so a late classroom class is recorded by hand (`record_disruption`)."""
     now = now or _now()
     notice_after = timedelta(minutes=settings_repo.get_int("session_delay_notice_minutes", 5))
@@ -303,7 +303,7 @@ def record_disruption(session_id: int, data: dict) -> SessionDisruption:
 
 
 def resolve_disruption(disruption_id: int, data: dict) -> SessionDisruption:
-    """The coordinator or Branch Manager records the cause, the undelivered minutes and the recovery or replacement plan; the
+    """The Branch Manager or Branch Manager records the cause, the undelivered minutes and the recovery or replacement plan; the
     students are told the plan."""
     disruption = db.session.get(SessionDisruption, disruption_id)
     if disruption is None:
@@ -348,7 +348,7 @@ def log_due_on(session: ClassSession) -> date:
 
 
 def check_class_logs() -> dict:
-    """Job: a class still not logged (not Delivered or Cancelled) after its working day raises an Academic Coordinator
+    """Job: a class still not logged (not Delivered or Cancelled) after its working day raises a Branch Manager
     review task, once."""
     today = today_ist()
     since = datetime.combine(today - timedelta(days=settings_repo.get_int("class_log_lookback_days", 14)), time.min, tzinfo=IST)
@@ -361,10 +361,10 @@ def check_class_logs() -> dict:
         if log_due_on(session) >= today:
             continue
         session.log_overdue_at = _now()
-        delivery_notices.notify_users(users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", session.batch.branch_id), category="Session",
+        delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", session.batch.branch_id), category="Session",
                                       title=f"Class log missing: {session.title}", action_required=True,
                                       body=f"{session.batch.batch_code} · {_slot(session.starts_at, session.ends_at)} · {session.trainer.full_name}",
-                                      event_key=f"class-log-missing-{session.session_id}", link="/academic/schedule",
+                                      event_key=f"class-log-missing-{session.session_id}", link="/branch/schedule",
                                       branch_id=session.batch.branch_id)
         flagged += 1
     db.session.flush()
@@ -396,7 +396,7 @@ def request_cover(session_id: int, data: dict) -> SessionCoverRequest:
     delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", session.batch.branch_id), category="Session",
                                   action_required=True, title=f"Approve {data['cover_role'].lower()} cover: {session.title}",
                                   body=f"{_slot(session.starts_at, session.ends_at)}. {data['reason']}",
-                                  event_key=f"cover-request-{request.request_id}", link="/academic/meet-operations",
+                                  event_key=f"cover-request-{request.request_id}", link="/branch/meet-operations",
                                   branch_id=session.batch.branch_id)
     return request
 
@@ -417,7 +417,8 @@ def decide_cover(request_id: int, decision: str, note: str | None) -> SessionCov
     _require_confirmer(request.session.batch.branch_id)
     if request.approved_at is not None:
         raise BusinessRule("The cover is already approved")
-    approvals.require_independent(request.requested_by, message="The requester cannot approve their own cover request")
+    approvals.require_independent(request.requested_by, message="The requester cannot approve their own cover request",
+                                  requester=request.requested_by)
     if decision == "Rejected":
         if not note:
             raise ValidationError("A reason is required", {"note": ["Say why"]})
@@ -430,10 +431,10 @@ def decide_cover(request_id: int, decision: str, note: str | None) -> SessionCov
 
 
 def verify_cover(request_id: int, note: str) -> SessionCoverRequest:
-    """The Academic Coordinator (or Super Admin) verifies the cover's competence, scope and handover."""
+    """The Branch Manager (or Super Admin) verifies the cover's competence, scope and handover."""
     request = _load_cover(request_id)
-    if not current_user().has_role("ACADEMIC_COORDINATOR", "SUPER_ADMIN", branch_id=request.session.batch.branch_id):
-        raise Forbidden("Only the Academic Coordinator of this branch or a Super Admin verifies cover")
+    if not current_user().has_role("BRANCH_MANAGER", "SUPER_ADMIN", branch_id=request.session.batch.branch_id):
+        raise Forbidden("Only the Branch Manager of this branch or a Super Admin verifies cover")
     if request.verified_at is not None:
         raise BusinessRule("The cover is already verified")
     request.verified_by, request.verified_at, request.verification_note = actor_id(), _now(), note
@@ -500,12 +501,12 @@ def _seat_limit(session: ClassSession) -> int:
 
 
 def add_roster(session_id: int, data: dict) -> SessionRoster:
-    """The Academic Coordinator verifies that the class covers a second batch's approved learning and joins it: one class,
+    """The Branch Manager verifies that the class covers a second batch's approved learning and joins it: one class,
     one attendance entry per person, hours and trainer time counted once."""
     session = _load_for_change(session_id)
     _require_open(session, "shared")
-    if not current_user().has_role("ACADEMIC_COORDINATOR", "SUPER_ADMIN", branch_id=session.batch.branch_id):
-        raise Forbidden("The Academic Coordinator verifies the coverage of a shared class")
+    if not current_user().has_role("BRANCH_MANAGER", "SUPER_ADMIN", branch_id=session.batch.branch_id):
+        raise Forbidden("The Branch Manager verifies the coverage of a shared class")
     batch = batches_repo.get_batch(data["batch_id"])
     if batch is None:
         raise NotFound("Batch not found")

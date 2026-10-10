@@ -312,7 +312,7 @@ def _admission_qualified(event: CrmEvent, data: dict) -> Handled:
     _notify(event, category="Enrolment", event_key=f"admission-qualified:{admission.crm_admission_id}",
             title=f"New admission: {student.full_name} — {course.title}",
             body="; ".join(pending) if pending else "All enrolments are ready for allocation.",
-            link=f"/academic/students/{student.student_id}", role_code="ACADEMIC_COORDINATOR",
+            link="/branch/batches", role_code="BRANCH_MANAGER",
             branch_id=service.branch_id, action_required=bool(pending))
     db.session.flush()
 
@@ -527,7 +527,7 @@ def _admission_updated(event: CrmEvent, data: dict) -> Handled:
 
 
 def _transfer(event: CrmEvent, admission: Admission, student: Student, enrolments: list[Enrolment], new_branch) -> None:
-    """Service branch transfer: seats at the old branch are released, the new branch's coordinator is asked to re-allocate."""
+    """Service branch transfer: seats at the old branch are released, the new branch's Branch Managers are asked to re-allocate."""
     old_branch_id = admission.service_branch_id
     admission.service_branch_id = new_branch.branch_id
     for enrolment in enrolments:
@@ -538,8 +538,8 @@ def _transfer(event: CrmEvent, admission: Admission, student: Student, enrolment
                  old={"service_branch_id": old_branch_id}, new={"service_branch_id": new_branch.branch_id})
     _notify(event, category="Enrolment", event_key=f"admission-transfer:{admission.crm_admission_id}:{admission.source_version}:{new_branch.branch_id}",
             title=f"Transferred in: {student.full_name} ({admission.admission_code})",
-            body="Allocate the student to a batch at this branch.", link=f"/academic/students/{student.student_id}",
-            role_code="ACADEMIC_COORDINATOR", branch_id=new_branch.branch_id, action_required=True)
+            body="Allocate the student to a batch at this branch.", link="/branch/batches",
+            role_code="BRANCH_MANAGER", branch_id=new_branch.branch_id, action_required=True)
 
 
 # ---------------------------------------------------------------- AdmissionCancelled

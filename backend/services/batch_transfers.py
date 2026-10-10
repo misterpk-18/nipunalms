@@ -1,7 +1,7 @@
 """Batch transfer requests (Module 15 §13). Moving an allocated student, or one combo track, to another batch is requested and
 then approved by the Branch Manager of the student's service branch (or a Super Admin), never by the requester. A track can
 be placed in another branch's batch when the destination first confirms it can deliver (the admission, its payments and the
-other tracks stay where they are). A different curriculum version needs the receiving coordinator's academic mapping first
+other tracks stay where they are). A different curriculum version needs the receiving Branch Manager's academic mapping first
 (the review fails until then). Moving the whole admission to another branch comes from the CRM (AdmissionUpdated)."""
 from datetime import datetime, timezone
 
@@ -61,7 +61,7 @@ def request_transfer(enrolment_id: int, data: dict) -> BatchTransferRequest:
                                              "interbranch": interbranch})
     who = f"{enrolment.enrolment_code} → {to_batch.batch_code}"
     if interbranch:
-        _notify_branch(to_batch.branch_id, ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER"), f"Confirm delivery for a placed track: {who}",
+        _notify_branch(to_batch.branch_id, ("BRANCH_MANAGER",), f"Confirm delivery for a placed track: {who}",
                        data["reason"], f"transfer-request-{request.request_id}-destination")
     else:
         _notify_branch(enrolment.service_branch_id, ("BRANCH_MANAGER",), f"Approve batch transfer: {who}", data["reason"],
@@ -71,7 +71,7 @@ def request_transfer(enrolment_id: int, data: dict) -> BatchTransferRequest:
 
 def _notify_branch(branch_id: int, roles: tuple[str, ...], title: str, body: str, key: str) -> None:
     holders = [u for role in roles for u in users_repo.user_ids_with_role(role, branch_id)]
-    delivery_notices.notify_users(holders, title=title, body=body, event_key=key, link="/academic/batches", branch_id=branch_id,
+    delivery_notices.notify_users(holders, title=title, body=body, event_key=key, link="/branch/batches", branch_id=branch_id,
                                   category="Batch", action_required=True)
 
 
@@ -90,7 +90,7 @@ def _load(request_id: int) -> tuple[BatchTransferRequest, object]:
 
 
 def confirm_destination(request_id: int, decision: str, note: str | None) -> BatchTransferRequest:
-    """The destination branch (its coordinator, Branch Manager or a Super Admin) confirms it can deliver a placed track."""
+    """The destination branch (its Branch Manager or a Super Admin) confirms it can deliver a placed track."""
     request, enrolment = _load(request_id)
     if not request.interbranch:
         raise BusinessRule("Only a track placed at another branch needs the destination's confirmation")
@@ -108,12 +108,11 @@ def confirm_destination(request_id: int, decision: str, note: str | None) -> Bat
 
 
 def decide(request_id: int, decision: str, note: str | None) -> BatchTransferRequest:
-    """The Branch Manager of the student's service branch (or a Super Admin), independently of the requester. Approving
-    re-runs the review and moves the seat; the earlier allocation stays as history."""
+    """The Branch Manager of the student's service branch (or a Super Admin) decides alone. Approving re-runs the review and
+    moves the seat; the earlier allocation stays as history."""
     request, enrolment = _load(request_id)
     if not current_user().has_role(*CONFIRM_ROLES, branch_id=enrolment.service_branch_id):
         raise Forbidden("Only the Branch Manager of the student's branch or a Super Admin decides a transfer")
-    approvals.require_independent(request.requested_by, message="The requester cannot approve their own transfer")
     if decision == "Rejected":
         return _reject(request, enrolment, note)
     if request.interbranch and request.destination_confirmed_at is None:
@@ -143,7 +142,7 @@ def decide(request_id: int, decision: str, note: str | None) -> BatchTransferReq
     _notify_seat(enrolment, to_batch, f"You have moved to batch {to_batch.batch_code}", f"{enrolment.course.title}. Reason: {request.reason}",
                  f"allocation-{allocation.allocation_id}")
     delivery_notices.notify_users([request.requested_by], title=f"Transfer approved: {enrolment.enrolment_code} → {to_batch.batch_code}",
-                                  body=note or "", event_key=f"transfer-request-{request.request_id}-decision", link="/academic/batches",
+                                  body=note or "", event_key=f"transfer-request-{request.request_id}-decision", link="/branch/batches",
                                   branch_id=enrolment.service_branch_id, category="Batch")
     return request
 
@@ -155,7 +154,7 @@ def _reject(request: BatchTransferRequest, enrolment, note: str | None) -> Batch
     db.session.flush()
     audit.record("BATCH_TRANSFER_REJECTED", "batch_transfer_request", request.request_id, branch_id=enrolment.service_branch_id, reason=note)
     delivery_notices.notify_users([request.requested_by], title=f"Transfer not approved: {enrolment.enrolment_code}", body=note,
-                                  event_key=f"transfer-request-{request.request_id}-decision", link="/academic/batches",
+                                  event_key=f"transfer-request-{request.request_id}-decision", link="/branch/batches",
                                   branch_id=enrolment.service_branch_id, category="Batch")
     return request
 

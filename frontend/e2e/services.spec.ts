@@ -14,7 +14,7 @@ test("student raises a support request and follows it with the named owner", asy
   await page.goto("/support");
   await expect(page.getByRole("heading", { level: 1, name: "Support" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "SR-1042" }).first()).toBeVisible();
-  await expect(page.getByText("Academic Coordinator — Guntur").first()).toBeVisible();
+  await expect(page.getByText("Branch Manager — Guntur").first()).toBeVisible();
 
   await page.getByLabel("Category", { exact: true }).first().selectOption("LMS");
   await page.getByLabel("Details").fill("The dashboard is slow on my phone");
@@ -32,10 +32,10 @@ test("student raises a support request and follows it with the named owner", asy
   await expect(dialog.getByText("Also happens on Wi-Fi")).toBeVisible();
 });
 
-test("the academic coordinator resolves the recording-access request and the student is told", async ({ page }, info) => {
+test("the branch manager resolves the recording-access request and the student is told", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/support");
+  await page.goto("/branch/support");
   await page.getByRole("button", { name: "Open SR-1042" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("It is under review; we will release it once checked.")).toBeVisible();

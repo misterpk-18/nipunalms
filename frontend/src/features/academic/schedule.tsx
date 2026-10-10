@@ -28,8 +28,8 @@ function NewSessionDialog({ batches }: { batches: Batch[] }) {
   const batch = batches.find((b) => b.batch_id === batchId);
   const batchSessions = useQuery({ queryKey: ["delivery", "sessions", "batch", batchId], queryFn: () => deliveryApi.sessions({ batch_id: batchId }), enabled: batchId > 0 });
   const owners = useQuery({
-    queryKey: ["delivery", "staff", "ACADEMIC_COORDINATOR", batch?.branch.branch_id],
-    queryFn: () => deliveryApi.staff("ACADEMIC_COORDINATOR", batch!.branch.branch_id),
+    queryKey: ["delivery", "staff", "BRANCH_MANAGER", batch?.branch.branch_id],
+    queryFn: () => deliveryApi.staff("BRANCH_MANAGER", batch!.branch.branch_id),
     enabled: !!batch,
   });
   const owed = (batchSessions.data?.data ?? []).filter((x) => x.state === "Cancelled" || x.delivery_outcome === "Partially Held");

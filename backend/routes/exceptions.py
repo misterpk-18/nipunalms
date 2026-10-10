@@ -6,8 +6,8 @@ from routes.decorators import login_required, require_roles
 
 exceptions_bp = Blueprint("exceptions", __name__, url_prefix="/exceptions")
 
-READERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-LOGGERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+READERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+LOGGERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 @exceptions_bp.get("")

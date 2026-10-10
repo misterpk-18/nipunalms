@@ -80,7 +80,7 @@ export function TrainerContent() {
       </QueryView>
       <div className="mt-4">
         <Note>
-          Content is published to students only after Academic Coordinator review. A new version does not replace what students see until it is approved and
+          Content is published to students only after Branch Manager review. A new version does not replace what students see until it is approved and
           released.
         </Note>
       </div>

@@ -155,8 +155,8 @@ def test_enrolment_is_allocatable_when_no_version_is_active(catalog, crm_event):
 
 
 def test_qualification_notifies_the_branch_academic_coordinator_once(catalog, crm_event, make_user):
-    coordinator = make_user(roles=[("ACADEMIC_COORDINATOR", 1)])
-    other_branch = make_user(roles=[("ACADEMIC_COORDINATOR", 2)])
+    coordinator = make_user(roles=[("BRANCH_MANAGER", 1)])
+    other_branch = make_user(roles=[("BRANCH_MANAGER", 2)])
 
     qualify(crm_event, event_id="evt-notify")
     qualify(crm_event, event_id="evt-notify")  # replay
@@ -248,7 +248,7 @@ def test_pause_and_resume(catalog, crm_event):
 
 
 def test_service_branch_transfer_moves_the_enrolments_and_asks_the_new_coordinator(catalog, crm_event, make_user):
-    coordinator = make_user(roles=[("ACADEMIC_COORDINATOR", 2)])
+    coordinator = make_user(roles=[("BRANCH_MANAGER", 2)])
     qualify(crm_event)
 
     response = crm_event("AdmissionUpdated", {"crm_admission_id": "A-100", "service_branch_code": "NIT-VIJ"}, source_version=2)
@@ -279,7 +279,7 @@ def test_a_transfer_moves_certificate_entries_not_yet_issued_to_the_new_branch(c
 @pytest.mark.parametrize("flags", [{"historical": True}, {"occurred_at": "2026-01-05T10:00:00+05:30"}])
 def test_a_historical_import_is_applied_without_current_notices(catalog, crm_event, make_user, flags):
     """Module 27 §6: a backfill or re-import keeps its original dates and does not notify anyone as if it just happened."""
-    make_user(roles=[("ACADEMIC_COORDINATOR", 1)])
+    make_user(roles=[("BRANCH_MANAGER", 1)])
     assert qualify(crm_event, **flags)["status"] == "Applied"
     assert db.session.execute(select(func.count()).select_from(Enrolment)).scalar_one() == 1
     assert db.session.execute(select(func.count()).select_from(Notification)).scalar_one() == 0

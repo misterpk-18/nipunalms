@@ -16,7 +16,7 @@ import { fmtDate, fmtRange } from "@/features/shared/format";
 
 function AttendanceTable({ block }: { block: StudentAttendance }) {
   const invalidate = [attendanceKeys.all, ["progress"]];
-  const recover = useApiMutation(attendanceApi.requestRecovery, { success: "Recovery requested. Your coordinator will decide.", invalidate });
+  const recover = useApiMutation(attendanceApi.requestRecovery, { success: "Recovery requested. Your Branch Manager will decide.", invalidate });
   const correct = useApiMutation(attendanceApi.requestCorrection, { success: "Correction requested. An independent reviewer will decide.", invalidate });
 
   const actions = (row: StudentAttendanceRow) => (

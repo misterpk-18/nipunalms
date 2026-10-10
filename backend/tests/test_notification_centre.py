@@ -119,7 +119,7 @@ def test_a_transfer_or_removed_role_hides_the_old_branch_notices(client, world, 
     """Module 26 §8: counts, lists and deep links follow the user's current role and branch, not who they were when sent."""
     ac = world.people.ac
     run_sql("DELETE FROM notifications")  # the world's own admissions notified the coordinator too
-    notify(category="Enrolment", title="New admission at Guntur", event_key="n1", role_code="ACADEMIC_COORDINATOR", branch_id=1,
+    notify(category="Enrolment", title="New admission at Guntur", event_key="n1", role_code="BRANCH_MANAGER", branch_id=1,
            action_required=True)
     notify(category="Session", title="Class moved at Guntur", event_key="n2", recipient_user_ids=[ac.user_id], branch_id=1)
     notify(category="Security", title="Company-wide notice", event_key="n3", recipient_user_ids=[ac.user_id])
@@ -127,7 +127,7 @@ def test_a_transfer_or_removed_role_hides_the_old_branch_notices(client, world, 
     headers = world.h(ac)
     assert sorted(titles(client.get(API, headers=headers))) == ["Class moved at Guntur", "Company-wide notice", "New admission at Guntur"]
     n1 = db.session.query(Notification).filter_by(event_key="n1", recipient_user_id=ac.user_id).one()
-    assert n1.role_code == "ACADEMIC_COORDINATOR"
+    assert n1.role_code == "BRANCH_MANAGER"
 
     # Moved to Vijayawada as coordinator: Guntur's notices go; the one with no branch stays
     run_sql("UPDATE user_role_scopes SET revoked_at = now() WHERE user_id = :u", u=ac.user_id)

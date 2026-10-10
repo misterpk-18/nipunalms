@@ -64,7 +64,7 @@ export function Resources() {
       <QueryView
         query={query}
         isEmpty={(rows) => rows.length === 0}
-        empty="No released resources match. New material appears here once your Academic Coordinator releases it."
+        empty="No released resources match. New material appears here once your Branch Manager releases it."
       >
         {(rows) => (
           <DataTable

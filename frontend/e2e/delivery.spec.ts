@@ -73,7 +73,7 @@ test("learner schedule lists upcoming classes of the allocated batches", async (
 
 test("coordinator creates a batch and allocates a waiting student after the review", async ({ page }) => {
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/batches");
+  await page.goto("/branch/batches");
   await expect(page.getByRole("heading", { name: "Batch Management" })).toBeVisible();
   await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ })).toContainText("No approved curriculum yet");
   await expect(page.getByRole("row", { name: /Sample Learner K\./ })).toContainText("None"); // no open Power BI batch yet
@@ -96,7 +96,7 @@ test("coordinator creates a batch and allocates a waiting student after the revi
 
 test("coordinator schedules classes; trainer starts and delivers one and asks to move another", async ({ page }) => {
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/schedule");
+  await page.goto("/branch/schedule");
   await page.getByRole("button", { name: "New class session" }).click();
   await choose(dialog(page).getByLabel("Batch"), /NIT-GNT-BAT-2026-000001/);
   await dialog(page).getByLabel("Title").fill("E2E live class");
@@ -149,7 +149,7 @@ test("trainer starts and delivers the class, and requests a reschedule", async (
 
 test("coordinator approves the request; the session is rescheduled with history", async ({ page }) => {
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/schedule");
+  await page.goto("/branch/schedule");
   const request = page.getByRole("row", { name: /PCA lab.*Lab clash with an exam/ });
   await request.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved — the session moved")).toBeVisible();
@@ -158,7 +158,7 @@ test("coordinator approves the request; the session is rescheduled with history"
 
 test("super admin approves and activates the curriculum; the batch and its students pick it up", async ({ page }) => {
   await login(page, USERS.admin);
-  await page.goto("/academic/curriculum");
+  await page.goto("/branch/curriculum");
   await expect(page.getByRole("heading", { name: "Course Curriculum & Versions" })).toBeVisible();
   const row = page.getByRole("row", { name: /NIT-CRS-052/ });
   await expect(row).toContainText("batch(es) have no curriculum yet");

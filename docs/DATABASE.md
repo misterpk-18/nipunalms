@@ -54,6 +54,7 @@ Vijayawada).
 | `103_batches_delivery.sql` | Gap fix plan phase 6: batch lifecycle and requests, class logs, live-class operations (Modules 15, 16) | ✅ |
 | `104_crm_curriculum_removal.sql` | Round 5: the CRM holds no curriculum (mapping event, catalogue mirror and curriculum fields removed) | ✅ |
 | `105_curriculum_mapping_removed.sql` | UX phase U1: the *Curriculum Mapping Pending* enrolment state, its owner column and its exception source are removed | ✅ |
+| `106_coordinator_merged_into_branch_manager.sql` | UX phase U2: the Academic Coordinator role is retired and merged into the Branch Manager | ✅ |
 
 ---
 
@@ -63,7 +64,7 @@ Vijayawada).
 |---|---|
 | `code_counters` | Per-prefix, per-year counters behind the human codes (`NIT-STU-2026-004182`, `NIT-GNT-BAT-2026-000001`, …) |
 | `branches` | NIT-GNT (mailbox trainer@nipunatechnologies.com), NIT-VIJ (contactus@nipunatechnologies.com) |
-| `roles` | STUDENT, TRAINER, ACADEMIC_COORDINATOR, BRANCH_MANAGER (per branch); SUPER_ADMIN, FOUNDER_CEO (company-wide) |
+| `roles` | STUDENT, TRAINER, BRANCH_MANAGER (per branch); ACADEMIC_COORDINATOR is retired (`is_active = FALSE`, db 106); SUPER_ADMIN, FOUNDER_CEO (company-wide) |
 | `users` | Staff and student logins; case-insensitive unique email; `student_id` (unique) links a login to its student |
 | `user_role_scopes` | Role per branch with validity window; one live scope per user / role / branch |
 | `user_sessions`, `active_sessions` (view) | Opaque session tokens (hash only), idle + max lifetime, fresh auth |
@@ -201,7 +202,7 @@ moderated result needs a reason. No backbone table changes.
 | `attendance_recoveries` | `REC-0041` codes; Requested → Approved / Rejected → Completed with evidence; one live recovery per absence |
 | `attendance_corrections` | Post-lock changes and student disputes; the decider cannot be the requester |
 | Views `enrolment_batch_links`, `attendance_grid`, `enrolment_delivery`, `enrolment_attendance`, `enrolment_required_topics`, `enrolment_covered_topics`, `enrolment_required_learning`, `enrolment_engagement`, `enrolment_progress` | The four progress measures per enrolment |
-| `completion_reviews` | Trainer recommendation, Academic Coordinator decision, evidence snapshot; one Open review per enrolment; Complete blocked by open recoveries |
+| `completion_reviews` | Trainer recommendation, Branch Manager decision, evidence snapshot; one Open review per enrolment; Complete blocked by open recoveries |
 | `certificates` | LMS Certificate Register (types Course Completion / Internship; statuses Not Yet Eligible → Eligibility Review → Awaiting Approval → Approved for Issue → Issued → Superseded / Revoked); number allocated at first issue, kept across versions |
 
 Settings added: `attendance_lock_days`, `attendance_alert_threshold`, `engagement_window_days`,
@@ -311,7 +312,7 @@ The CRM's sales playbook needs real timings before promising a batch (round 3, [
 
 | Change | Why |
 |---|---|
-| `batches.schedule_days` (`SMALLINT[]`, ISO weekdays 1–7), `start_time`, `end_time` (`TIME`, IST), `location` | The timetable the coordinator promises, set before any class is scheduled. Checks: 1–7 known days; both times or neither, the end after the start |
+| `batches.schedule_days` (`SMALLINT[]`, ISO weekdays 1–7), `start_time`, `end_time` (`TIME`, IST), `location` | The timetable the Branch Manager promises, set before any class is scheduled. Checks: 1–7 known days; both times or neither, the end after the start |
 | `weekday_labels()` | `{1,3,5}` → `'Mon, Wed, Fri'` |
 | `batch_crm_state()` adds `readiness`, `readiness_reason`, `seats_left`, `schedule_days`, `start_time`, `end_time`, `location`; `trg_batch_allocations_crm_state` | Sales offers only non-Blocked Planned / Open batches with seats left. Every allocation change refreshes the batch's pulled state |
 
@@ -382,7 +383,7 @@ the API adds Module 15's labels (`state_label`).
 | `class_sessions`: `original_starts_at / _ends_at`, `confirmed_at / _by`, `live_at`, `delivery_outcome` (Held / Partially Held; defaulted to Held by `trg_class_sessions_default_outcome`), `actual_start / _end`, `break_minutes`, `delivered_minutes`, `unfulfilled_note`, `log_overdue_at` | Planned / Confirmed / Held / Partially Held, the class log and the same-day log check (G065) |
 | `class_sessions`: `purpose`, `replaces_session_id`, `purpose_reference`, `approval_status`, `proposed_by`, `approved_by / _at`, `owner_user_id`, `due_on`, `replacement_waiver` | Replacement, remedial and extra classes with their links, approval, owner and deadline (G066) |
 | `class_sessions`: `room_override_reason`, `hosting_branch_id`, `meet_space_id`, `calendar_event_id`, `calendar_series_id`, `conference_record_id`; `session_changes.emergency_reason`, `next_action` | Documented overrides (G068); Meet identifiers (G070); emergency notices (G018) |
-| `session_cover_requests`; `class_sessions_before_write` accepts an applied substitute | Cover approved by the Branch Manager and verified by the coordinator (G101) |
+| `session_cover_requests`; `class_sessions_before_write` accepts an applied substitute | Cover approved by the Branch Manager and verified by the Branch Manager (G101) |
 | `session_people`, `meet_incidents`, `meet_participation` | Hosts, backups, approved guests, compromised-link history (G071); join / leave evidence and unmatched identities, never attendance (G104) |
 | `session_disruptions`, `class_sessions.delay_notice_at` | Delayed starts (5 / 15 minutes) and undelivered minutes (G019) |
 | `session_rosters`, view `session_batches`; `attendance_grid`, `enrolment_delivery` and their dependants recreated over it; `check_attendance_record` accepts any batch of the class | Shared classes: one class, one attendance row per person, counted once (G067) |
@@ -413,3 +414,15 @@ A new enrolment is always allocatable. With no Active curriculum version it has 
 | `enrolment_status` is replaced by a type without the value (PostgreSQL cannot drop a value); the two constraints, three triggers on `status` and `crm_enrolment_status()` that use it are recreated | |
 | `enrolments.mapping_owner_user_id` dropped; `exception_queue` loses the `CURRICULUM_MAPPING` branch | The state no longer exists |
 | Batches blocked only by *Curriculum Mapping Pending* become Ready | A batch without a curriculum warns instead of blocking |
+
+## 106 — UX phase U2: the Academic Coordinator is merged into the Branch Manager
+
+Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN.md)). The Branch Manager does everything the coordinator did.
+
+| Change | Why |
+|---|---|
+| `roles.ACADEMIC_COORDINATOR` set inactive (the row stays so history and audit read); every live scope of it is revoked | The role is retired, not deleted |
+| Users whose only live role was the coordinator are deactivated and their sessions ended | As the CRM did |
+| Open `support_requests`, unresolved `recording_exceptions`, open `session_disruptions`, started-but-unfinished reviews and the reviewer on assignments and tests move to the branch's lowest-id Branch Manager (a Super Admin when the branch has none) | Open items keep an owner |
+| `batches_confirmer_independent`, `batch_capacity_requests_independent`, `batch_transfer_requests_independent` dropped | The proposer may confirm a batch, the requester may decide a capacity increase or a transfer (one Branch Manager step). Every other `*_independent` constraint stays; the services add the rule that a Branch Manager's own request is decided by the Founder / CEO or a Super Admin |
+| `exception_queue` owner labels read *Branch Manager* and links point at `/branch/*` | The Branch Manager owns what the coordinator did |

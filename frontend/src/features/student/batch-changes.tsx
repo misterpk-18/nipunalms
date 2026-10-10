@@ -64,7 +64,7 @@ function ChangeCard({ change }: { change: MyMaterialChange }) {
               </Button>
             }
             title="Decline this change"
-            description="Your coordinator will arrange the alternative with you."
+            description="Your Branch Manager will arrange the alternative with you."
             fields={[{ name: "note", label: "Note (optional)", type: "textarea" }]}
             submitLabel="Decline"
             onSubmit={(v) => respond.mutateAsync({ response: "Declined", note: v["note"] || undefined })}
@@ -89,7 +89,7 @@ export function MaterialChangesCard() {
         )}
       </QueryView>
       <div className="mt-3">
-        <Note>Reading a notice is not agreement. A change to your batch only goes ahead for you once you answer Agree here, or your coordinator records your answer.</Note>
+        <Note>Reading a notice is not agreement. A change to your batch only goes ahead for you once you answer Agree here, or your Branch Manager records your answer.</Note>
       </div>
     </Section>
   );
@@ -230,7 +230,7 @@ export function SlotPreferenceCard() {
         </div>
       )}
       <div className="mt-3">
-        <Note>A request does not reserve a seat. A seat comes only from an allocation to a batch, which your coordinator makes after checking the batch has room.</Note>
+        <Note>A request does not reserve a seat. A seat comes only from an allocation to a batch, which your Branch Manager makes after checking the batch has room.</Note>
       </div>
     </Section>
   );

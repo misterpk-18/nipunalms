@@ -92,7 +92,7 @@ def explain_status(enrolment: Enrolment, batch: Batch | None) -> str:
         case "Active":
             return "In progress."
         case "Paused":
-            return f"Paused. Ask your Academic Coordinator — {branch} — to resume."
+            return f"Paused. Ask your Branch Manager — {branch} — to resume."
         case "Completed":
             return "You have completed this course."
         case _:

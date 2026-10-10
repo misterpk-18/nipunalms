@@ -11,10 +11,10 @@ import type { ClassSession, Delivery } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { ApiError } from "@/api/client";
 
-/** Whether the signed-in user may change delivery records (Academic Coordinator, Branch Manager, Super Admin). The API re-checks every change. */
+/** Whether the signed-in user may change delivery records (Branch Manager, Super Admin). The API re-checks every change. */
 export function useCanManage(): boolean {
   const { profile } = useAuth();
-  return !!profile?.scopes.some((s) => s.role_code === "ACADEMIC_COORDINATOR" || s.role_code === "BRANCH_MANAGER" || s.role_code === "SUPER_ADMIN");
+  return !!profile?.scopes.some((s) => s.role_code === "BRANCH_MANAGER" || s.role_code === "SUPER_ADMIN");
 }
 
 // ---------------------------------------------------------------- IST formatting (business time is always Asia/Kolkata)

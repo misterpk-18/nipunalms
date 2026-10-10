@@ -65,7 +65,7 @@ def create(data: dict) -> SlotPreference:
     db.session.flush()
     delivery_notices.notify_branch_managers(enrolment.service_branch_id, title=f"Slot request: {enrolment.enrolment_code}",
                                             body=f"{enrolment.course.course_code}. A request reserves no seat.", category="Enrolment",
-                                            event_key=f"slot-preference-{preference.preference_id}", link="/academic/batches")
+                                            event_key=f"slot-preference-{preference.preference_id}", link="/branch/batches")
     return preference
 
 

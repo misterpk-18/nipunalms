@@ -112,7 +112,7 @@ function Moderation() {
               h: "Action",
               c: (r) => (
                 <div className="flex flex-wrap gap-2">
-                  {r.state === "Configuration Pending" && r.gaps?.length === 1 && r.gaps[0] === "Academic Coordinator approval" && r.can_moderate && (
+                  {r.state === "Configuration Pending" && r.gaps?.length === 1 && r.gaps[0] === "Branch Manager approval" && r.can_moderate && (
                     <Button size="sm" onClick={() => approve.mutate(r)}>
                       Approve test
                     </Button>

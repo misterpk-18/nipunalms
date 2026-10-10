@@ -1,4 +1,4 @@
-"""Question bank (Module 20 §2): trainers draft, the Academic Coordinator approves, approved questions can be put in tests.
+"""Question bank (Module 20 §2): trainers draft, the Branch Manager approves, approved questions can be put in tests.
 
 The answer key never leaves these staff endpoints. An approved question is frozen: a change is a new version (a new Draft that
 retires its parent when approved), so earlier papers and results keep the wording and key they were scored against.
@@ -18,7 +18,7 @@ from services.scoring import validate_question_key
 
 
 def question_branch_ids() -> set[int] | None:
-    """Branches whose bank the user works with: those they run (Academic Coordinator) or teach at (trainer); None = all."""
+    """Branches whose bank the user works with: those they run (Branch Manager) or teach at (trainer); None = all."""
     branch_ids = scope.visible_branch_ids()
     if branch_ids is None:
         return None
@@ -31,7 +31,7 @@ def taught_courses() -> set[tuple[int, int]]:
 
 
 def _visible(question: Question) -> bool:
-    """A branch's whole bank for its coordinators and managers; for a trainer, only the courses they teach there (Module 20 §2:
+    """A branch's whole bank for its Branch Managers and managers; for a trainer, only the courses they teach there (Module 20 §2:
     answer keys stay within the trainer's academic scope) and the questions they wrote."""
     branch_ids = scope.visible_branch_ids()
     return (branch_ids is None or question.branch_id in branch_ids or question.author_user_id == current_user().user_id
@@ -51,7 +51,7 @@ def _resolve_branch(branch_id: int | None) -> int:
 
 
 def _assert_can_author(course_id: int, branch_id: int) -> None:
-    """A trainer drafts only for courses they teach at the branch; coordinators and Super Admin for any course."""
+    """A trainer drafts only for courses they teach at the branch; Branch Managers and Super Admin for any course."""
     if current_user().has_role(*MODERATOR_ROLES, branch_id=branch_id):
         return
     if (branch_id, course_id) not in taught_courses():
@@ -101,7 +101,7 @@ def update_question(question_id: int, data: dict) -> Question:
     if question.status != "Draft":
         raise BusinessRule("Only a draft question can be edited; create a new version of an approved one")
     if question.author_user_id != current_user().user_id and not _can_moderate(question):
-        raise Forbidden("Only the author or the Academic Coordinator can edit this question")
+        raise Forbidden("Only the author or the Branch Manager can edit this question")
     question_type = data.get("question_type", question.question_type)
     options, key = validate_question_key(question_type, data.get("options", question.options),
                                          data.get("answer_key", question.answer_key))
@@ -116,10 +116,10 @@ def update_question(question_id: int, data: dict) -> Question:
 
 
 def approve_question(question_id: int) -> Question:
-    """The Academic Coordinator approves stem, key and explanation for use in tests; never the author's own question."""
+    """The Branch Manager approves stem, key and explanation for use in tests; never the author's own question."""
     question = _load(question_id)
     if not _can_moderate(question):
-        raise Forbidden("Only the Academic Coordinator can approve questions")
+        raise Forbidden("Only the Branch Manager can approve questions")
     if question.status != "Draft":
         raise BusinessRule(f"Only a draft can be approved (this one is {question.status})")
     user = current_user()
@@ -139,7 +139,7 @@ def retire_question(question_id: int) -> Question:
     """Retired questions cannot be added to new tests; tests that already froze them keep them."""
     question = _load(question_id)
     if not _can_moderate(question) and not (question.status == "Draft" and question.author_user_id == current_user().user_id):
-        raise Forbidden("Only the Academic Coordinator can retire this question")
+        raise Forbidden("Only the Branch Manager can retire this question")
     if question.status == "Retired":
         raise BusinessRule("This question is already retired")
     old = question.status

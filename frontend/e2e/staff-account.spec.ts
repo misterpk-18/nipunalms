@@ -4,13 +4,6 @@ import { USERS, login } from "./helpers";
 /** Notifications for the academic, branch and admin workspaces, and the shared staff profile (P3 cross-role finish). */
 
 const STAFF = [
-  {
-    name: "academic coordinator",
-    user: USERS.coordGnt,
-    home: "/academic",
-    path: "/academic/notifications",
-    seeded: "Two completion reviews are waiting for a decision",
-  },
   { name: "branch manager", user: USERS.bmGnt, home: "/branch", path: "/branch/notifications", seeded: "A certificate is waiting for your approval" },
   { name: "super admin", user: USERS.admin, home: "/admin", path: "/admin/notifications", seeded: "Review the security readiness checklist" },
 ];
@@ -43,13 +36,13 @@ test("a staff user opens their profile from the account menu and keeps their own
   await expect(page.getByText("Branch Manager").first()).toBeVisible();
   await expect(page.getByText("Last sign-in")).toBeVisible();
   await expect(page.getByRole("link", { name: "Change password" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Branch Dashboard" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
 });
 
 test("staff notifications and profile fit a phone without sideways scroll @mobile", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
   await login(page, USERS.coordGnt);
-  for (const path of ["/academic/notifications", "/account/profile"]) {
+  for (const path of ["/branch/notifications", "/account/profile"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), path).toBeLessThanOrEqual(1);

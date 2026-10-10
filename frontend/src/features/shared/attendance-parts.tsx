@@ -64,7 +64,7 @@ export function MeasureCards({ measures }: { measures: Measures }) {
             )}
             {attendance.alert && (
               <div className="mt-2">
-                <StatusNote state="Error">Attendance is below {attendance.alert_threshold}%. Ask your coordinator about recovery options.</StatusNote>
+                <StatusNote state="Error">Attendance is below {attendance.alert_threshold}%. Ask your Branch Manager about recovery options.</StatusNote>
               </div>
             )}
           </>

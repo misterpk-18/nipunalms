@@ -52,13 +52,13 @@ test("student sees attendance with approved recovery, four separate progress mea
 test("coordinator sees alerts and partial data, then recommends a certificate; the branch manager approves and issues it", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/progress");
+  await page.goto("/branch/progress");
   const learnerG = page.getByRole("row", { name: /Sample Learner G\./ });
   await expect(learnerG).toContainText("71%");
   await expect(learnerG).toContainText("Alert");
   await expect(page.getByRole("row", { name: /Sample Learner I\./ })).toContainText("Partial Data");
 
-  await page.goto("/academic/certificates");
+  await page.goto("/branch/certificates");
   const learnerC = page.getByRole("row", { name: /Sample Learner C\./ });
   await expect(learnerC).toContainText("Eligibility Review");
   await learnerC.getByRole("button", { name: "Recommend" }).click();
@@ -87,7 +87,7 @@ test("coordinator sees alerts and partial data, then recommends a certificate; t
 test("register shows the reissue history and public verification shows the presented version", async ({ page, request }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/certificates");
+  await page.goto("/branch/certificates");
   await expect(page.getByRole("row", { name: /NIT-CERT-2026-000001.*Superseded/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /NIT-CERT-2026-000001.*Issued/ })).toContainText("v2 (reissue) — Name correction");
   await expect(page.getByRole("row", { name: /Sample Learner F\./ })).toContainText("Revoked");

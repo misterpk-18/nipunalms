@@ -6,7 +6,7 @@ export function AcademicCertificates() {
     <div className="mx-auto max-w-7xl space-y-4">
       <PageHead
         title="Certificate Eligibility"
-        description="LMS Certificate Register. The fee must be cleared; the coordinator recommends, the Branch Manager approves, the number is allocated at first issue. Corrections, revocations and reinstatements are requested here and decided by someone else."
+        description="LMS Certificate Register. The fee must be cleared; the Branch Manager approves (recommending in the same step) and issues; the number is allocated at first issue. Corrections, revocations and reinstatements are requested here and decided by someone else (a Super Admin when a Branch Manager asks)."
       />
       <CertificateRegister />
       <Section title="Requests and exceptions">

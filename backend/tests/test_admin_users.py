@@ -80,7 +80,7 @@ def test_create_validates_email_role_and_branch(client, make_user, login):
     assert post(scopes=[{"role_code": "SUPER_ADMIN", "branch_id": 1}]).status_code == 400
     assert post(email="not-an-email").status_code == 400
     assert post(scopes=[{"role_code": "TRAINER", "branch_id": 1}, {"role_code": "TRAINER", "branch_id": 1}]).status_code == 409
-    both = post(scopes=[{"role_code": "TRAINER", "branch_id": 1}, {"role_code": "ACADEMIC_COORDINATOR", "branch_id": 2}])
+    both = post(scopes=[{"role_code": "TRAINER", "branch_id": 1}, {"role_code": "BRANCH_MANAGER", "branch_id": 2}])
     assert both.status_code == 201 and len(both.get_json()["data"]["scopes"]) == 2
 
 
@@ -89,19 +89,19 @@ def test_grant_and_revoke_a_scope_with_audit(client, make_user, login):
     target = make_user(roles=[("TRAINER", 1)])
     headers = login(admin.email)
 
-    granted = client.post(f"/api/v1/admin/users/{target.user_id}/scopes", headers=headers, json={"role_code": "ACADEMIC_COORDINATOR", "branch_id": 1})
+    granted = client.post(f"/api/v1/admin/users/{target.user_id}/scopes", headers=headers, json={"role_code": "BRANCH_MANAGER", "branch_id": 1})
     scopes = granted.get_json()["data"]["scopes"]
-    assert granted.status_code == 201 and {s["role_code"] for s in scopes} == {"TRAINER", "ACADEMIC_COORDINATOR"}
+    assert granted.status_code == 201 and {s["role_code"] for s in scopes} == {"TRAINER", "BRANCH_MANAGER"}
     assert client.post(f"/api/v1/admin/users/{target.user_id}/scopes", headers=headers,
-                       json={"role_code": "ACADEMIC_COORDINATOR", "branch_id": 1}).status_code == 409
+                       json={"role_code": "BRANCH_MANAGER", "branch_id": 1}).status_code == 409
 
-    coordinator = next(s for s in scopes if s["role_code"] == "ACADEMIC_COORDINATOR")
+    coordinator = next(s for s in scopes if s["role_code"] == "BRANCH_MANAGER")
     revoke_url = f"/api/v1/admin/users/{target.user_id}/scopes/{coordinator['scope_id']}/revoke"
     assert client.post(revoke_url, headers=headers, json={}).status_code == 400  # a reason is required
     revoked = client.post(revoke_url, headers=headers, json={"reason": "Moved back to teaching"})
     assert [s["role_code"] for s in revoked.get_json()["data"]["scopes"]] == ["TRAINER"]
     assert client.post(revoke_url, headers=headers, json={"reason": "again"}).status_code == 404
-    assert _audit("SCOPE_GRANTED").new_values["role_code"] == "ACADEMIC_COORDINATOR"
+    assert _audit("SCOPE_GRANTED").new_values["role_code"] == "BRANCH_MANAGER"
     assert _audit("SCOPE_REVOKED").reason == "Moved back to teaching"
     row = db.session.get(UserRoleScope, coordinator["scope_id"])
     assert row.revoked_by == admin.user_id and row.revoked_at is not None
@@ -124,7 +124,7 @@ def test_temporary_access_is_limited_to_seven_days(client, make_user, login):
     target = make_user(roles=[("TRAINER", 1)])
     headers = login(admin.email)
     url = f"/api/v1/admin/users/{target.user_id}/scopes"
-    body = {"role_code": "ACADEMIC_COORDINATOR", "branch_id": 1}
+    body = {"role_code": "BRANCH_MANAGER", "branch_id": 1}
 
     assert client.post(url, headers=headers, json={**body, "expires_at": _iso(timedelta(days=8))}).status_code == 422
     assert client.post(url, headers=headers, json={**body, "expires_at": _iso(timedelta(days=-1))}).status_code == 400

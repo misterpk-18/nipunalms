@@ -61,7 +61,7 @@ export function CourseDetail() {
                       e.joining_date ? (e.access_end ? fmtDay(e.access_end) : "Set from your Joining Date") : "Pending — starts from confirmed Joining Date",
                     ],
                     ["Certificate status", <StatusBadge key="c">{e.certificate_status}</StatusBadge>],
-                    ["Support", `Academic Coordinator — ${e.service_branch.branch_name}`],
+                    ["Support", `Branch Manager — ${e.service_branch.branch_name}`],
                   ]}
                 />
                 <div className="mt-3">

@@ -115,8 +115,9 @@ Created by `seed-dev` in `nipunalms-dev`. **Never use these in production.** Pas
 | Founder / CEO | `founder@nipuna.test` (company-wide) | |
 | Super Admin | `admin@nipuna.test` (company-wide) | |
 | Branch Manager | `bm.gnt@nipuna.test` | `bm.vij@nipuna.test` |
-| Academic Coordinator | `coordinator.gnt@nipuna.test` | `coordinator.vij@nipuna.test` |
 | Trainer | `trainer.g1@nipuna.test` (Trainer R. Sample), `trainer.g2@nipuna.test` (Trainer M. Demo), `trainer.g3@nipuna.test` (Trainer K. Sample) | `trainer.v1@nipuna.test` (Trainer S. Example), `trainer.v2@nipuna.test` (Trainer P. Demo) |
+
+The two former Academic Coordinator accounts (`coordinator.gnt@nipuna.test`, `coordinator.vij@nipuna.test`) exist only as **deactivated** examples: the role was merged into the Branch Manager (UX phase U2, db 106).
 
 Students sign in with their **Student ID** (or email, when they have one) — never a mobile number.
 
@@ -190,8 +191,8 @@ React SPA in `frontend/`, built to mirror **nipuna-crm/frontend**. The product i
 |---|---|---|
 | Stack | Vite 8, React 19, TanStack Router (file routes, auto code splitting), TanStack Query, shadcn `new-york` + Radix, Tailwind 4, react-hook-form + zod, sonner toasts | Identical to the CRM; a change to one repo can be copied to the other |
 | Dev ports | SPA `:5174` (preview `:4174`), API `:5060` via Vite proxy `/api` (`VITE_API_TARGET` overrides) | CRM uses 5173 / 5050; both stacks can run side by side. No CORS |
-| Workspace from URL | `workspaceForPath(path)` — `/trainer*` trainer, `/academic*` academic, `/branch*` branch, `/admin*` admin, `/founder*` founder, everything else student (except `/login`, `/activate`, `/change-password`; `/account/*` has no workspace of its own and is framed by the user's home workspace) | Same rule as the prototype |
-| Who may open a workspace | `profile.workspaces` from `/auth/me` (already expanded per role: Super Admin also holds academic and branch, Founder also admin and branch); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
+| Workspace from URL | `workspaceForPath(path)` — `/trainer*` trainer, `/branch*` branch, `/admin*` admin, `/founder*` founder, everything else student (except `/login`, `/activate`, `/change-password`; `/account/*` has no workspace of its own and is framed by the user's home workspace) | Same rule as the prototype |
+| Who may open a workspace | `profile.workspaces` from `/auth/me` (already expanded per role: Super Admin also holds branch, Founder also admin and branch); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
 | Guard | Root route: public paths (`/login`, `/activate`) → anonymous → `/login?redirect=` → `must_change_password` → `/change-password` → workspace not permitted → **Permission Restricted** view (link home) → `/` redirects to `home_route`. Not a security boundary; every endpoint re-checks scope | Same as the CRM |
 | Workspace switcher | Header `<select>` shown only when the user has more than one workspace; goes to that workspace's home | Replaces the prototype's UAT role simulator; no prototype banner, no "Demo" badges |
 | Session | Bearer token in memory + `sessionStorage` (`nipuna-lms-session`); `["me"]` query holds the profile; `FRESH_AUTH_REQUIRED` opens a password dialog and retries once | Same as the CRM |
@@ -280,7 +281,7 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 
 | Route | Feature | API | Notes |
 |---|---|---|---|
-| `/login` | auth page | `POST /auth/login` | Student ID / student email / staff email + password, show / hide password, forgot-password guidance ("Ask your branch Academic Coordinator to reissue an activation link"), activation-state explanation, EN/తెలుగు |
+| `/login` | auth page | `POST /auth/login` | Student ID / student email / staff email + password, show / hide password, forgot-password guidance ("Ask your branch to reissue an activation link"), activation-state explanation, EN/తెలుగు |
 | `/activate?token=` | auth page | `GET /auth/activation/{token}`, `POST /auth/activate` | Checks the token (valid / expired / used), set + confirm password, success → `/login` |
 | `/change-password` | auth page | `POST /auth/change-password` | Forced when `must_change_password`, also from the account menu |
 | `/account/profile` | `student/profile` | `GET /me/profile` | Staff: role, branch, devices, password, last sign-in; read-only. Framed by the user's home workspace |
@@ -328,25 +329,27 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 | `/trainer/notifications`, `/trainer/ask-nipuna` | `shared/notification-centre`, `shared/assistant` | | |
 | `/trainer/reports` | `reports` | `/trainer/reports` | Delivery and attendance per assigned batch (Meter), review turnaround (Partial Data), engagement (Stale) |
 
-#### Academic Coordinator (`features/academic/`)
+#### Branch Manager screens (`features/academic/`, served under `/branch/*`)
+
+The Academic Coordinator workspace was merged into the Branch Manager's (UX phase U2): its screens now live under `/branch/*`, and `/academic/*` redirects there. The screens are moved, not yet redesigned (UX phases U14 and U15 do that).
 
 | Route | Feature | API | Notes |
 |---|---|---|---|
-| `/academic` | `dashboard` | `/academic/summary` | Ranked tiles (allocation queue, results awaiting review, unfulfilled recording promises), widgets (batches delivery-ready, reviews awaiting, open exceptions), a note for each batch that is not ready, quick links, the "four distinct records" note |
-| `/academic/batches` | `batches` + `batch-panel`, `batch-operations`, `allocation-queue` | `/batches/*`, `/allocation-queue`, `/batch-*-requests`, `/material-changes`, `/batch-successions` | Batch list (state labels, display names) and panel: overview, readiness checks and the 7-point readiness record, trainers, roster with transfer requests, handovers and deallocate, the Requests tab (capacity, transfers, material changes and student answers, merge / split, handovers) and the lifecycle buttons (propose, confirm / return, start, hold / resume, complete, cancel, archive); allocation queue with the per-check review dialog and a combo track choice |
-| `/academic/curriculum` | `curriculum` | `/curriculum/*`, `/curriculum-versions/*` | Overview, version editor (modules / topics), submit / return / approve / activate / retire |
-| `/academic/schedule` | `schedule` | `/class-sessions/*`, `/reschedule-requests` | Session table (state labels, purpose, approval) with create (purpose, replacement link, owner, deadline, Meet ids), confirm, class log, reschedule / cancel (emergency reason and next action inside 24 hours), approve a replacement / remedial / extra class (Branch Manager), replacement waiver, Meet actions and the request queue. A scheduling warning shows the Branch Manager an override reason field |
-| `/academic/meet-operations` | `meet-operations`, `class-operations` | `/meet-operations`, `/class-sessions/{id}/operations` and its actions | One day of classes: link and host readiness, delays and disruptions, attendance awaiting, recordings; open disruptions (resolve), replacements owed, classes awaiting approval, missing logs, evidence to review, Meet integration and the last background checks. Per class: hosts, backups and guests, incidents, disruptions, cover requests, shared batches, participation |
-| `/academic/assessments` | `assessments` | `/assessment-reviews`, `/results` | Moderate, publish, approve tests and questions |
-| `/academic/exceptions` | `exceptions` | `/exceptions` | "Exception / Recovery queue": one table (branch column only when rows span branches), type filter, recovery owner ("Awaiting named owner" + the role that should own it), **Update** logs a recovery step. Read only for the Branch Manager |
-| `/academic/content-review` | `content-review` | `/content-items/*` | Tabs Awaiting review / Ready to release / Released / Changes requested / All; review dialog (approve, approve & release, request changes, reject), retire |
-| `/academic/recording-exceptions` | `recording-exceptions` | `/recording-exceptions`, `/recordings` | Tabs Exceptions (start / resolve, escalation step) and Recordings (register, media reference, release, hold, partial, unavailable) |
-| `/academic/progress` | `progress` | `/progress/students` | Table per student with batch / alert filters, recovery and correction queues |
-| `/academic/completion` | `completion` | `/completion-reviews/*` | Evidence table, open review, recommend, decide |
-| `/academic/certificates` | `shared/certificate-register` | `/certificates/*` | The API's `actions` decide which buttons show (recommend / approve / issue / reissue / revoke) |
-| `/academic/support` | `support` | `/support-requests` | Branch requests with reply, internal remark, status, resolve, escalate, reassign |
-| `/academic/reports` | `reports` | `/academic/reports`, `/progress/summary` | Per-branch block plus the branch summary table |
-| `/academic/notifications` | `shared/notification-centre` | | |
+| `/branch` (below the branch tiles) | `dashboard` | `/academic/summary` | Ranked tiles (allocation queue, results awaiting review, unfulfilled recording promises), widgets (batches delivery-ready, reviews awaiting, open exceptions), a note for each batch that is not ready, quick links |
+| `/branch/batches` | `batches` + `batch-panel`, `batch-operations`, `allocation-queue` | `/batches/*`, `/allocation-queue`, `/batch-*-requests`, `/material-changes`, `/batch-successions` | Batch list (state labels, display names) and panel: overview, readiness checks and the 7-point readiness record, trainers, roster with transfer requests, handovers and deallocate, the Requests tab (capacity, transfers, material changes and student answers, merge / split, handovers) and the lifecycle buttons (propose, confirm / return, start, hold / resume, complete, cancel, archive); allocation queue with the per-check review dialog and a combo track choice |
+| `/branch/curriculum` | `curriculum` | `/curriculum/*`, `/curriculum-versions/*` | Overview, version editor (modules / topics), submit / return / approve / activate / retire |
+| `/branch/schedule` | `schedule` | `/class-sessions/*`, `/reschedule-requests` | Session table (state labels, purpose, approval) with create (purpose, replacement link, owner, deadline, Meet ids), confirm, class log, reschedule / cancel (emergency reason and next action inside 24 hours), approve a replacement / remedial / extra class (Branch Manager), replacement waiver, Meet actions and the request queue. A scheduling warning shows the Branch Manager an override reason field |
+| `/branch/meet-operations` | `meet-operations`, `class-operations` | `/meet-operations`, `/class-sessions/{id}/operations` and its actions | One day of classes: link and host readiness, delays and disruptions, attendance awaiting, recordings; open disruptions (resolve), replacements owed, classes awaiting approval, missing logs, evidence to review, Meet integration and the last background checks. Per class: hosts, backups and guests, incidents, disruptions, cover requests, shared batches, participation |
+| `/branch/assessments` | `assessments` | `/assessment-reviews`, `/results` | Moderate, publish, approve tests and questions |
+| `/branch/exceptions` | `exceptions` | `/exceptions` | "Exception / Recovery queue": one table (branch column only when rows span branches), type filter, recovery owner ("Awaiting named owner" + the role that should own it), **Update** logs a recovery step. The Branch Manager and Super Admin log steps |
+| `/branch/content-review` | `content-review` | `/content-items/*` | Tabs Awaiting review / Ready to release / Released / Changes requested / All; review dialog (approve, approve & release, request changes, reject), retire |
+| `/branch/recording-exceptions` | `recording-exceptions` | `/recording-exceptions`, `/recordings` | Tabs Exceptions (start / resolve, escalation step) and Recordings (register, media reference, release, hold, partial, unavailable) |
+| `/branch/progress` | `progress` | `/progress/students` | Table per student with batch / alert filters, recovery and correction queues |
+| `/branch/completion` | `completion` | `/completion-reviews/*` | Evidence table, open review, recommend, decide |
+| `/branch/certificates` | `shared/certificate-register` | `/certificates/*` | The API's `actions` decide which buttons show (recommend / approve / issue / reissue / revoke) |
+| `/branch/support` | `support` | `/support-requests` | Branch requests with reply, internal remark, status, resolve, escalate, reassign |
+| `/branch/academic-reports` | `reports` | `/academic/reports`, `/progress/summary` | Per-branch block plus the branch summary table |
+| `/branch/notifications` | `shared/notification-centre` | | |
 
 #### Branch Manager, Super Admin, Founder
 
@@ -354,15 +357,15 @@ Empty / Not Yet Calculable / Not Configured / Stale, never 0.
 |---|---|---|---|
 | `/branch` | `branch/dashboard` | `/branch/summary` | Three CRM tiles rendered **Unavailable** with the Not Configured hint (never 0); running batches, schedule and recording exceptions, escalations and extension requests; "Go to" links; locked-branch note |
 | `/branch/operations` | `branch/operations` | `/batches`, `/class-sessions`, `/reschedule-requests` | Branch view of batches, requests and Meet exceptions |
-| `/branch/batches`, `/branch/schedule`, `/branch/meet-operations` | the academic screens above | as above | Where the Branch Manager confirms proposed batches and decides transfers, capacity increases, material changes, merges / splits, replacement classes, cover and guests |
+| `/branch/batches`, `/branch/schedule`, `/branch/meet-operations` | the screens above | as above | Where the Branch Manager prepares and confirms batches (one step) and decides transfers, capacity increases, material changes, merges / splits, replacement classes, cover and guests |
 | `/branch/requests` | `branch/requests` | `/support-requests?escalated=true`, `/access-extension-requests` | Tabs Escalations (`BranchEscalations`) and Access extensions (`AccessExtensions`, with the note that repeated requests do not stack years) |
-| `/branch/reports` | `shared/certificate-register` + summary | `/progress/summary`, `/certificates` | |
+| `/branch/reports` | `shared/certificate-register` + summary | `/progress/summary`, `/certificates` | Certificates & reports |
 | `/branch/notifications` | `shared/notification-centre` | | |
 | `/admin` | `admin/dashboard` | `/admin/summary` | Integration failures, work awaiting a named owner, overdue payment verifications (Unavailable), integrations verified x / total, provisioning, open exceptions; CRM / LMS sync table, provisioning table, AI status, links |
 | `/admin/users` | `admin/users` | `/admin/users/*` | Filters, role chips with revoke, add role (temporary access), reset password, deactivate / reactivate; temporary password shown once (`SecretDialog`) |
 | `/admin/students` | `admin/students` | `/admin/students/*`, `/students/{id}/activation` | Search, "Activation link from" filter, detail dialog, activation link shown once, suspend / reactivate, revoke sessions |
 | `/admin/integrations`, `/admin/security` | `admin/integrations`, `admin/security` | `/integrations`, `/security-controls` | Shared `readiness-table` (requirement, configuration, verification, evidence, owner, last check); Update dialog for Super Admin only; Founder reads |
-| `/admin/calendar` | `admin/calendar` (`shared/academic-calendar`, also on `/branch/operations` and `/academic/schedule`) | `/calendar/closures` | Company holidays (Founder / Super Admin) and branch closures (proposed by the coordinator, decided by the Branch Manager) |
+| `/admin/calendar` | `admin/calendar` (`shared/academic-calendar`, also on `/branch/operations` and `/branch/schedule`) | `/calendar/closures` | Company holidays (Founder / Super Admin) and branch closures (recorded and approved by the Branch Manager) |
 | `/admin/crm-sync` | `admin/crm-sync` | `/admin/crm-sync/*` | Inbox (filters, payload view, retry) and outbox; event types come from the data |
 | `/admin/audit` | `admin/audit` | `/audit-log` | Filters by actor, entity, action, date (IST) |
 | `/admin/exceptions` | `admin/exceptions` | `/exceptions` | "Exception Queues — all branches": a section per queue with a branch column (company-wide rows say "All branches"); Super Admin can Update, the Founder reads |
@@ -496,7 +499,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Google Meet creation | Links are entered by hand; no Calendar / Meet API call until the organizer accounts are verified |
 | Pre-approved cover arrangements | Cover is requested, approved and verified per class (`session_cover_requests`). A standing cover rota with documented limits (Module 15 §11) is not modelled |
 | Trainer availability, leave and travel buffers | Conflicts cover overlapping classes of the trainer, backup or assistant, booked rooms and the students' other classes; leave calendars, working hours and cross-branch travel buffers are not modelled |
-| Material changes and future classes | Applying a material change updates the batch's plan (dates, mode, days / times); classes already scheduled are not re-timed automatically, the coordinator reschedules them |
+| Material changes and future classes | Applying a material change updates the batch's plan (dates, mode, days / times); classes already scheduled are not re-timed automatically, the Branch Manager reschedules them |
 | Shared classes beyond attendance | A joined batch's students see the class, are notified and are on its register; its recordings and content still follow the host batch |
 | Phase 6 screens: API only or thin | No staff screen for slot requests (`GET / PATCH /slot-preferences`); an interbranch track placement has no target picker for another branch's batches; cover pickers list the class's branch only; shared-class topics, participant matching and disruption replacement / owner are typed as ids. Session reminders 24 h / 1 h before a class are not sent |
 | Meet participation import | Join / leave evidence is entered through `POST /class-sessions/{id}/participation` (manual or a future Meet API feed); nothing imports it from Google yet |
@@ -543,7 +546,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Item | Notes |
 |---|---|
 | Minute-based attendance | Module 21 measures attended teaching minutes; the LMS counts sessions (Present + Late / marked). Needs delivered-minute capture and Late / Left Early flags |
-| Completion profile per course | Each curriculum version now stores a completion profile and topic weights (db 102), but Completion Review does not apply them yet: it shows evidence and the coordinator decides. Applying the profile is gap fix phase 8 |
+| Completion profile per course | Each curriculum version now stores a completion profile and topic weights (db 102), but Completion Review does not apply them yet: it shows evidence and the Branch Manager decides. Applying the profile is gap fix phase 8 |
 | Complimentary completion rule | Configuration Pending until `complimentary_completion_rule_configured` is set; needs a business decision |
 | Attendance at-risk support cases | Module 21 triggers (two consecutive absences, late pattern, no activity for 7 days) do not open support requests yet |
 | Combo per-track attendance | Progress is per enrolment; the module also wants each combo track and the booster separately |
@@ -557,7 +560,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Fees & Receipts fields | The screen shows fee, verified paid, balance and receipts per course and one instalment schedule per invoice. `pending_verification`, `waived`, `refunded` and `payment_completion` are stored but not shown |
 | Staff profile details | `/account/profile` is read-only: no phone number (the API does not return one for staff), MFA shown as Not Configured, staff cannot edit their name or email |
 | Founder notifications | No event is addressed to the Founder role, so the founder workspace has no notification route or bell |
-| Placement Team | Module 23 names a Placement Team role; there is none, so Academic Coordinator, Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
+| Placement Team | Module 23 names a Placement Team role; there is none, so Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
 | Support SLA | One `support_sla_hours` for all categories and priorities |
 | External channels | WhatsApp / email delivery, quiet hours and retry (Module 26) need the integrations verified first; preferences are stored only |
 | Ask Nipuna | No spend ceiling / cost tracking (Module 24 §11); Telugu answer quality untested against a live model; the due-work facts cover the student's own batch seats only, with no per-question detail |

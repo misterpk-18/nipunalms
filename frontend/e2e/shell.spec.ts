@@ -5,29 +5,22 @@ import { USERS, login } from "./helpers";
 
 const ROLES = [
   { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Fees & Receipts", "Profile"], other: "/trainer" },
-  { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Batches", "Students", "Reviews", "Ask Nipuna"], other: "/academic" },
-  {
-    name: "academic coordinator",
-    user: USERS.coordGnt,
-    home: "/academic",
-    nav: ["Dashboard", "Batches", "Curriculum", "Recording Exceptions", "Reports"],
-    other: "/trainer",
-  },
+  { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Batches", "Students", "Reviews", "Ask Nipuna"], other: "/branch" },
   {
     name: "branch manager",
     user: USERS.bmGnt,
     home: "/branch",
-    nav: ["Branch Dashboard", "Batches, Schedule & People", "Certificates & Reports"],
+    nav: ["Dashboard", "Batches", "Batches, Schedule & People", "Curriculum", "Recording Exceptions", "Certificates & Reports"],
     other: "/admin",
   },
   {
     name: "super admin",
     user: USERS.admin,
     home: "/admin",
-    nav: ["Super Admin", "Integration Readiness", "Security Readiness", "Academic (all branches)"],
+    nav: ["Super Admin", "Integration Readiness", "Security Readiness", "Branch views"],
     other: "/founder",
   },
-  { name: "founder", user: USERS.founder, home: "/founder", nav: ["Founder Dashboard", "Super Admin view", "Branch views"], other: "/academic" },
+  { name: "founder", user: USERS.founder, home: "/founder", nav: ["Founder Dashboard", "Super Admin view", "Branch views"], other: "/trainer" },
 ];
 
 for (const role of ROLES) {
@@ -110,4 +103,16 @@ test.describe("phone layout @mobile", () => {
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
   });
+});
+
+test("old /academic links land on the matching Branch Manager screen", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop flow");
+  await login(page, USERS.bmGnt);
+  await page.goto("/academic/curriculum");
+  await expect(page).toHaveURL(/\/branch\/curriculum$/);
+  await page.goto("/academic/reports");
+  await expect(page).toHaveURL(/\/branch\/academic-reports$/);
+  await page.goto("/academic");
+  await expect(page).toHaveURL(/\/branch$/);
+  await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
 });

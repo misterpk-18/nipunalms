@@ -1,7 +1,7 @@
 """Completion review: evidence-based decision that an enrolment is complete (never a single percentage).
 
 The evidence shown is the four separate measures, the open recoveries and the trainer's recommendation. The
-Academic Coordinator decides Complete / Not Yet / Needs Recovery; Complete moves the enrolment to Completed and
+Branch Manager decides Complete / Not Yet / Needs Recovery; Complete moves the enrolment to Completed and
 opens certificate eligibility in the Certificate Register. Decisions are audited; a decided review is final.
 """
 import json
@@ -21,7 +21,7 @@ from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-DECIDERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 def evidence_of(enrolment: Enrolment) -> dict:
@@ -93,10 +93,10 @@ def get_review(review_id: int) -> dict:
 
 
 def open_review(enrolment_id: int) -> tuple[CompletionReview, bool]:
-    """Open a review for a running enrolment (trainer of the batch or Academic Coordinator). Returns (review, created)."""
+    """Open a review for a running enrolment (trainer of the batch or Branch Manager). Returns (review, created)."""
     enrolment = progress.get_visible_enrolment(enrolment_id)
     if not (_is_batch_trainer(enrolment) or _can_decide(enrolment)):
-        raise Forbidden("Only the batch's trainer or the Academic Coordinator can open a completion review")
+        raise Forbidden("Only the batch's trainer or the Branch Manager can open a completion review")
     existing = completion_repo.open_review(enrolment_id)
     if existing is not None:
         return existing, False
@@ -113,11 +113,11 @@ def open_review(enrolment_id: int) -> tuple[CompletionReview, bool]:
 
 
 def recommend(review_id: int, recommendation: str, comment: str | None) -> CompletionReview:
-    """The trainer's recommendation (the coordinator may record one too); it informs the decision, it never makes it."""
+    """The trainer's recommendation (the Branch Manager may record one too); it informs the decision, it never makes it."""
     review = _get_review(review_id)
     enrolment = review.enrolment
     if not (_is_batch_trainer(enrolment) or _can_decide(enrolment)):
-        raise Forbidden("Only the batch's trainer or the Academic Coordinator can recommend")
+        raise Forbidden("Only the batch's trainer or the Branch Manager can recommend")
     if review.status != "Open":
         raise BusinessRule("This review is already decided")
     if recommendation != "Complete" and not comment:
@@ -130,19 +130,19 @@ def recommend(review_id: int, recommendation: str, comment: str | None) -> Compl
     audit.record("COMPLETION_RECOMMENDED", "completion_review", review.review_id, old=old, new={"recommendation": recommendation},
                  reason=comment, branch_id=enrolment.service_branch_id)
     notify(category="Completion", title=f"Completion recommendation: {students_repo.get_student(enrolment.student_id).full_name}",
-           body=f"{recommendation}. {comment or ''}".strip(), link="/academic/completion", role_code="ACADEMIC_COORDINATOR",
+           body=f"{recommendation}. {comment or ''}".strip(), link="/branch/completion", role_code="BRANCH_MANAGER",
            branch_id=enrolment.service_branch_id, event_key=f"completion-recommended:{review.review_id}:{review.recommended_at.isoformat()}",
            action_required=True)
     return review
 
 
 def decide(review_id: int, decision: str, reason: str | None) -> CompletionReview:
-    """Academic Coordinator's decision. Complete needs the batch trainer's Complete recommendation (both confirm, Module 22 §2):
+    """Branch Manager's decision. Complete needs the batch trainer's Complete recommendation (both confirm, Module 22 §2):
     the enrolment becomes Completed and certificate eligibility opens."""
     review = _get_review(review_id)
     enrolment = review.enrolment
     if not _can_decide(enrolment):
-        raise Forbidden("Only the Academic Coordinator can decide a completion review")
+        raise Forbidden("Only the Branch Manager can decide a completion review")
     if review.status != "Open":
         raise Conflict("This review is already decided")
     if decision != "Complete" and not reason:
@@ -157,7 +157,7 @@ def decide(review_id: int, decision: str, reason: str | None) -> CompletionRevie
             raise BusinessRule(f"Cannot complete: {open_recoveries} recovery(ies) still open for this enrolment")
         if not _trainer_confirmed(review, enrolment):
             raise BusinessRule("Trainer confirmation needed: a trainer of the batch must recommend Complete before the Academic "
-                               "Coordinator verifies it (Module 22 §2)")
+                               "Branch Manager verifies it (Module 22 §2)")
 
     evidence = json.loads(json.dumps({**evidence_of(enrolment), "trainer_recommendation": review.trainer_recommendation,
                                       "as_of": datetime.now(timezone.utc)}, default=str))  # timestamps become text for JSONB

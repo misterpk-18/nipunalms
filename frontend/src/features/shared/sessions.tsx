@@ -213,7 +213,7 @@ export function SessionActions({ session, manager, trainer: isTrainer }: { sessi
             </Button>
           }
           title={`Request to move "${session.title}"`}
-          description="Your Academic Coordinator or Branch Manager decides."
+          description="Your Branch Manager decides."
           fields={[
             { name: "starts_at", label: "Proposed start (IST)", type: "datetime", required: true, value: toIstInput(session.starts_at) },
             { name: "ends_at", label: "Proposed end (IST)", type: "datetime", required: true, value: toIstInput(session.ends_at) },
@@ -252,7 +252,7 @@ export function SessionActions({ session, manager, trainer: isTrainer }: { sessi
               </Button>
             }
             title="Mark the Meet association as failed"
-            description="The branch's coordinators and manager get a recovery task."
+            description="The branch's Branch Managers and manager get a recovery task."
             fields={[{ name: "detail", label: "What went wrong", type: "textarea", required: true }]}
             submitLabel="Mark failed"
             onSubmit={(v) => failed.mutateAsync({ id: session.session_id, detail: v["detail"]! })}

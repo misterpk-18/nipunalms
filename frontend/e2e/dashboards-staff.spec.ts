@@ -23,11 +23,11 @@ function tile(page: Page, label: string) {
     .first();
 }
 
-test.describe("Academic dashboard and exception queue", () => {
+test.describe("Branch dashboard (academic work) and exception queue", () => {
   test("Guntur coordinator: tiles, batch risk note, quick links", async ({ page }) => {
     await login(page, USERS.coordGnt);
-    await expect(page.getByRole("heading", { name: "Academic dashboard" })).toBeVisible();
-    await expect(page.getByText("Guntur · LMS academic domain")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
+    await expect(page.getByText("Guntur · what needs the Branch Manager")).toBeVisible();
     // Counts depend on what earlier specs resolved, so the tiles are checked for shape, not for the seed's exact numbers
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/\d/);
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
@@ -35,20 +35,19 @@ test.describe("Academic dashboard and exception queue", () => {
     await expect(tile(page, "Batches delivery-ready")).toContainText("/");
     await expect(tile(page, "Open exceptions")).toContainText("awaiting a named owner");
     await expect(page.getByText("NIT-GNT-BAT-2026-000003:")).toHaveCount(0); // a batch with no curriculum yet is not at risk
-    await expect(page.getByText("Four distinct records")).toBeVisible();
-    await expect(page.locator("#main").getByRole("link", { name: "Recording exceptions" })).toBeVisible();
+    await expect(page.locator("#main").getByRole("link", { name: "Recording exceptions" }).first()).toBeVisible();
     // the Vijayawada batch is not part of a Guntur view
     await expect(page.getByText("NIT-VIJ-BAT-2026-000001")).toHaveCount(0);
   });
 
   test("Vijayawada coordinator sees only Vijayawada", async ({ page }) => {
     await login(page, USERS.coordVij);
-    await expect(page.getByText("Vijayawada · LMS academic domain")).toBeVisible();
+    await expect(page.getByText("Vijayawada · what needs the Branch Manager")).toBeVisible();
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText("0");
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
     await expect(page.getByText("NIT-GNT-BAT-2026-000003")).toHaveCount(0);
 
-    await page.goto("/academic/exceptions");
+    await page.goto("/branch/exceptions");
     await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
     await expect(page.getByRole("row", { name: /RX-0014/ })).toBeVisible();
     await expect(page.getByRole("row", { name: /ENR-/ })).toHaveCount(0);
@@ -60,7 +59,7 @@ test.describe("Academic dashboard and exception queue", () => {
     await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
     const row = page.getByRole("row").filter({ hasText: "Awaiting batch allocation" }).filter({ hasText: "Awaiting named owner" }).first();
     await expect(row).toContainText("Awaiting named owner");
-    await expect(row).toContainText("Academic Coordinator — Guntur");
+    await expect(row).toContainText("Branch Manager — Guntur");
     const reference = (await row.getByRole("cell").first().innerText()).trim();
 
     await row.getByRole("button", { name: /^Update ENR-/ }).click();
@@ -72,14 +71,14 @@ test.describe("Academic dashboard and exception queue", () => {
 
     const updated = page.getByRole("row", { name: new RegExp(reference) });
     await expect(updated).toContainText("Recovery In Progress");
-    await expect(updated).toContainText("Coordinator");
+    await expect(updated).toContainText("Branch Manager");
     await expect(updated).not.toContainText("Awaiting named owner");
     await expect(updated).toContainText("recovery step");
   });
 
   test("filter by type", async ({ page }) => {
     await login(page, USERS.coordGnt);
-    await page.goto("/academic/exceptions");
+    await page.goto("/branch/exceptions");
     await page.getByLabel("Exception type").selectOption({ label: "Recording" });
     await expect(page.getByRole("row", { name: /RX-0012/ })).toBeVisible();
     await expect(page.getByRole("row", { name: /ENR-/ })).toHaveCount(0);
@@ -89,8 +88,8 @@ test.describe("Academic dashboard and exception queue", () => {
 test.describe("Branch dashboard", () => {
   test("Branch Manager: CRM figures are Unavailable, never zero; locked to the branch", async ({ page }) => {
     await login(page, USERS.bmGnt);
-    await expect(page.getByRole("heading", { name: "Branch academic dashboard" })).toBeVisible();
-    await expect(page.getByText("Guntur · LMS academic domain")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
+    await expect(page.getByText("Guntur · what needs the Branch Manager")).toBeVisible();
     for (const label of ["Branch verified collections against target", "Branch new paid Admissions", "Overdue branch follow-ups"]) {
       await expect(tile(page, label)).toContainText("Unavailable");
       await expect(tile(page, label)).toContainText("Not Configured");
@@ -177,10 +176,10 @@ test.describe("Founder overview", () => {
 test.describe("@mobile staff dashboards", () => {
   test("@mobile coordinator dashboard and queue fit the screen", async ({ page }) => {
     await login(page, USERS.coordGnt);
-    await expect(page.getByRole("heading", { name: "Academic dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/\d/);
     await noHorizontalScroll(page);
-    await page.goto("/academic/exceptions");
+    await page.goto("/branch/exceptions");
     await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Update / }).first()).toBeVisible();
     await noHorizontalScroll(page);

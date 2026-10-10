@@ -48,8 +48,8 @@ STAFF = {
     "admin": ("Super Admin", "admin", [("SUPER_ADMIN", None)]),
     "bm_gnt": ("Branch Manager (GNT)", "bm.gnt", [("BRANCH_MANAGER", GNT)]),
     "bm_vij": ("Branch Manager (VIJ)", "bm.vij", [("BRANCH_MANAGER", VIJ)]),
-    "coord_gnt": ("Academic Coordinator (GNT)", "coordinator.gnt", [("ACADEMIC_COORDINATOR", GNT)]),
-    "coord_vij": ("Academic Coordinator (VIJ)", "coordinator.vij", [("ACADEMIC_COORDINATOR", VIJ)]),
+    # The Academic Coordinator role was merged into the Branch Manager (db/106): the former accounts exist only as deactivated
+    # examples (see seed_former_coordinators); everything they once did in the seed is attributed to the Branch Managers.
     "trainer_g1": ("Trainer R. Sample", "trainer.g1", [(TRAINER_ROLE, GNT)]),
     "trainer_g2": ("Trainer M. Demo", "trainer.g2", [(TRAINER_ROLE, GNT)]),
     "trainer_g3": ("Trainer K. Sample", "trainer.g3", [(TRAINER_ROLE, GNT)]),
@@ -304,6 +304,10 @@ def seed_staff(ctx: SeedContext) -> None:
     for key, (full_name, login, scopes) in STAFF.items():
         user = users_service.create_staff_user(full_name, f"{login}@nipuna.test", STAGING_PASSWORD, scopes)
         ctx.users[key] = user.user_id
+    # The former Academic Coordinators: deactivated, with no role (their role was retired in db/106), as the CRM did
+    for full_name, login in (("Former Academic Coordinator (GNT)", "coordinator.gnt"), ("Former Academic Coordinator (VIJ)", "coordinator.vij")):
+        former = users_service.create_staff_user(full_name, f"{login}@nipuna.test", STAGING_PASSWORD, [])
+        former.is_active = False
     db.session.commit()
 
 
@@ -327,7 +331,7 @@ def seed_curriculum(ctx: SeedContext) -> None:
                      if track_code else None)
         version = CurriculumVersion(course_id=course.course_id, component_id=component.component_id if component else None,
                                     version_label=label, status="Active", approved_by=ctx.users["admin"], approved_at=approved_at,
-                                    hours_verified_by=ctx.users["coord_gnt"], hours_verified_at=approved_at,
+                                    hours_verified_by=ctx.users["bm_gnt"], hours_verified_at=approved_at,
                                     completion_profile=SAMPLE_COMPLETION_PROFILE)
         db.session.add(version)
         db.session.flush()
@@ -347,7 +351,7 @@ def seed_curriculum(ctx: SeedContext) -> None:
     # The combo's included booster reuses the Power BI course curriculum after an equivalence review (Module 14 §3)
     booster = db.session.execute(select(CourseComponent).where(CourseComponent.track_code == "NIT-CRS-019")).scalar_one()
     booster.equivalence_note = "Sample review: the booster covers the Power BI course's outcomes, scope, depth and assessment"
-    booster.equivalence_reviewed_by, booster.equivalence_reviewed_at = ctx.users["coord_gnt"], approved_at
+    booster.equivalence_reviewed_by, booster.equivalence_reviewed_at = ctx.users["bm_gnt"], approved_at
     db.session.commit()
 
 
@@ -490,11 +494,11 @@ def seed_delivery(ctx: SeedContext) -> None:
     """S1 Delivery states: batch history, a curriculum draft in review, a rescheduled and a cancelled class, a failed Meet
     association, a trainer's open reschedule request, and the Meet association log of every online class."""
     for key, batch in ctx.batches.items():
-        db.session.add(BatchEvent(batch_id=batch.batch_id, event_type="Created", to_value="Forming", actor_user_id=ctx.users["coord_gnt" if batch.branch_id == GNT else "coord_vij"],
+        db.session.add(BatchEvent(batch_id=batch.batch_id, event_type="Created", to_value="Forming", actor_user_id=ctx.users["bm_gnt" if batch.branch_id == GNT else "bm_vij"],
                                   created_at=datetime.combine(BATCHES[key]["start"] - timedelta(days=30), time(10, 0), tzinfo=IST)))
         if batch.state != "Forming":
             db.session.add(BatchEvent(batch_id=batch.batch_id, event_type="State changed", from_value="Forming", to_value=batch.state,
-                                      actor_user_id=ctx.users["coord_gnt" if batch.branch_id == GNT else "coord_vij"],
+                                      actor_user_id=ctx.users["bm_gnt" if batch.branch_id == GNT else "bm_vij"],
                                       created_at=datetime.combine(BATCHES[key]["start"], time(9, 0), tzinfo=IST)))
 
     # NIT-CRS-052: a draft submitted for review (still no Active version: its enrolments and its batch have no curriculum yet)
@@ -509,9 +513,9 @@ def seed_delivery(ctx: SeedContext) -> None:
         db.session.flush()
         for topic_order, title in enumerate(topics, 1):
             db.session.add(CurriculumTopic(module_id=module.module_id, title=title, sort_order=topic_order))
-    db.session.add(CurriculumEvent(curriculum_version_id=draft.curriculum_version_id, action="Created", to_status="Draft", actor_user_id=ctx.users["coord_gnt"]))
+    db.session.add(CurriculumEvent(curriculum_version_id=draft.curriculum_version_id, action="Created", to_status="Draft", actor_user_id=ctx.users["bm_gnt"]))
     db.session.add(CurriculumEvent(curriculum_version_id=draft.curriculum_version_id, action="Submitted", from_status="Draft", to_status="Under Review",
-                                   actor_user_id=ctx.users["coord_gnt"]))
+                                   actor_user_id=ctx.users["bm_gnt"]))
 
     def session_by_title(title: str) -> ClassSession:
         return db.session.execute(select(ClassSession).where(ClassSession.title == title)).scalar_one()
@@ -521,11 +525,11 @@ def seed_delivery(ctx: SeedContext) -> None:
     new_start = moved.starts_at + timedelta(days=1)
     db.session.add(SessionChange(session_id=moved.session_id, change_type="Rescheduled", reason="Trainer at a workshop on 8 Oct", old_starts_at=moved.starts_at,
                                  old_ends_at=moved.ends_at, new_starts_at=new_start, new_ends_at=new_start + (moved.ends_at - moved.starts_at),
-                                 notice_hours=50, short_notice=False, changed_by=ctx.users["coord_gnt"], created_at=at("2026-09-28", "16:00")))
+                                 notice_hours=50, short_notice=False, changed_by=ctx.users["bm_gnt"], created_at=at("2026-09-28", "16:00")))
     moved.starts_at, moved.ends_at, moved.state = new_start, new_start + (moved.ends_at - moved.starts_at), "Rescheduled"
     cancelled = session_by_title("Capstone check-in")
     db.session.add(SessionChange(session_id=cancelled.session_id, change_type="Cancelled", reason="Institute closed for a local holiday", old_starts_at=cancelled.starts_at,
-                                 old_ends_at=cancelled.ends_at, notice_hours=72, short_notice=False, changed_by=ctx.users["coord_vij"], created_at=at("2026-09-29", "12:00")))
+                                 old_ends_at=cancelled.ends_at, notice_hours=72, short_notice=False, changed_by=ctx.users["bm_vij"], created_at=at("2026-09-29", "12:00")))
     cancelled.state = "Cancelled"
 
     # An open request from Trainer R. Sample
@@ -541,13 +545,13 @@ def seed_delivery(ctx: SeedContext) -> None:
     for session in db.session.execute(select(ClassSession).where(ClassSession.meet_status != "Not Required").order_by(ClassSession.session_id)).scalars():
         mailbox = session.batch.branch.mailbox
         db.session.add(MeetEvent(session_id=session.session_id, event_type="Requested", meet_status="Pending Verification", organizer_email=mailbox,
-                                 detail="Awaiting the organizer link", actor_user_id=ctx.users["coord_gnt" if session.batch.branch_id == GNT else "coord_vij"]))
+                                 detail="Awaiting the organizer link", actor_user_id=ctx.users["bm_gnt" if session.batch.branch_id == GNT else "bm_vij"]))
         if session.meet_status == "Linked":
             db.session.add(MeetEvent(session_id=session.session_id, event_type="Link associated", meet_status="Linked", organizer_email=mailbox,
-                                     meet_link=session.meet_link, detail="Entered manually", actor_user_id=ctx.users["coord_gnt"]))
+                                     meet_link=session.meet_link, detail="Entered manually", actor_user_id=ctx.users["bm_gnt"]))
         elif session.meet_status == "Unavailable":
             db.session.add(MeetEvent(session_id=session.session_id, event_type="Association failed", meet_status="Unavailable", organizer_email=mailbox,
-                                     detail="Organizer account licence Pending Verification", actor_user_id=ctx.users["coord_vij"]))
+                                     detail="Organizer account licence Pending Verification", actor_user_id=ctx.users["bm_vij"]))
 
 
 def seed_finance(ctx: SeedContext) -> None:
@@ -617,18 +621,18 @@ EARLIER_G1_SESSIONS = [
 ]
 # Absent class numbers (1 = oldest of the batch's 14 delivered classes) per learner of G1
 G1_ABSENCES = {"anvitha": {6, 13}, "G": {2, 5, 7, 10}, "H": {8}, "I": set()}
-STAFF_LOGINS = {"coord_gnt": "coordinator.gnt", "coord_vij": "coordinator.vij", "bm_gnt": "bm.gnt", "bm_vij": "bm.vij", "admin": "admin",
+STAFF_LOGINS = {"bm_gnt": "bm.gnt", "bm_vij": "bm.vij", "admin": "admin",
                 "founder": "founder"}
 # The branch trainer who confirmed each finished learner's completion (they finished before the seeded batches)
 CONFIRMING_TRAINER = {GNT: "trainer_g3", VIJ: "trainer_v2"}
-# learner, certificate type, how far it goes in the register, the branch coordinator and manager who work it
+# learner, certificate type, how far it goes in the register, the Branch Manager who works it (twice: the coordinator slot is merged)
 CERTIFICATE_PLAN = [
-    ("A", "Course Completion Certificate", "issued", "coord_gnt", "bm_gnt"),
-    ("B", "Internship Certificate", "issued", "coord_vij", "bm_vij"),
-    ("F", "Course Completion Certificate", "revoked", "coord_gnt", "bm_gnt"),
-    ("C", "Course Completion Certificate", "eligibility", "coord_gnt", "bm_gnt"),
-    ("D", "Internship Certificate", "awaiting", "coord_vij", "bm_vij"),
-    ("E", "Course Completion Certificate", "approved", "coord_vij", "bm_vij"),
+    ("A", "Course Completion Certificate", "issued", "bm_gnt", "bm_gnt"),
+    ("B", "Internship Certificate", "issued", "bm_vij", "bm_vij"),
+    ("F", "Course Completion Certificate", "revoked", "bm_gnt", "bm_gnt"),
+    ("C", "Course Completion Certificate", "eligibility", "bm_gnt", "bm_gnt"),
+    ("D", "Internship Certificate", "awaiting", "bm_vij", "bm_vij"),
+    ("E", "Course Completion Certificate", "approved", "bm_vij", "bm_vij"),
 ]
 
 
@@ -678,7 +682,7 @@ def seed_attendance(ctx: SeedContext) -> None:
     db.session.add(AttendanceRecovery(
         attendance_id=absence_of_rec.attendance_id, method="Recording watched", status="Approved",
         reason="Was unwell on the day; will watch the recording and submit the regression exercise",
-        requested_by=student_user.user_id, decided_by=ctx.users["coord_gnt"], decided_at=at("2026-09-22", "12:00"),
+        requested_by=student_user.user_id, decided_by=ctx.users["bm_gnt"], decided_at=at("2026-09-22", "12:00"),
         decision_note="Approved: recording plus the regression exercise", target_date=date(2026, 10, 5)))
     db.session.commit()
 
@@ -717,9 +721,9 @@ def seed_attendance(ctx: SeedContext) -> None:
                                   {"kind": "Revocation", "reason": "Record error: issued against the wrong enrolment",
                                    "evidence": "The CRM admission belongs to another course"})
             _staff_call(ctx, "founder", f"/certificate-requests/{request['request_id']}/decision", {"decision": "Approved"})
-        if key == "A":  # asked by the coordinator, approved by the Branch Manager
-            request = _staff_call(ctx, coordinator, f"/certificates/{cid}/change-requests", {"kind": "Correction", "reason": "Name correction"})
-            _staff_call(ctx, manager, f"/certificate-requests/{request['request_id']}/decision", {"decision": "Approved"})
+        if key == "A":  # asked by the Branch Manager, so decided by the Super Admin
+            request = _staff_call(ctx, manager, f"/certificates/{cid}/change-requests", {"kind": "Correction", "reason": "Name correction"})
+            _staff_call(ctx, "admin", f"/certificate-requests/{request['request_id']}/decision", {"decision": "Approved"})
     # Anvitha is still studying: her register entry waits as Not Yet Eligible
     certificates_service.ensure_register_entry(_enrolment_of(ctx, "anvitha", "Combo"))
     db.session.execute(text("UPDATE enrolments SET certificate_status = 'Configuration Pending — completion rule not configured "
@@ -793,7 +797,7 @@ def _gnt_enrolment(ctx: SeedContext, key: str) -> Enrolment:
 def seed_assessments(ctx: SeedContext) -> None:
     """Assignments asg-06..12, the question bank, tests tst-1..8, interview slots and results, as in the prototype's sample data."""
     batch = ctx.batches["G1"]
-    coord = ctx.users["coord_gnt"]
+    coord = ctx.users["bm_gnt"]
     people = {k: _gnt_enrolment(ctx, k) for k in ("anvitha", "G", "H")}
 
     # ---- question bank
@@ -1061,7 +1065,7 @@ def seed_content_library(ctx: SeedContext) -> None:
 
     heads = {key: _bearer(ctx, f"{login}@nipuna.test") for key, login in
              (("trainer_g1", "trainer.g1"), ("trainer_g2", "trainer.g2"), ("trainer_v1", "trainer.v1"))}
-    coordinators = {GNT: _bearer(ctx, "coordinator.gnt@nipuna.test"), VIJ: _bearer(ctx, "coordinator.vij@nipuna.test")}
+    coordinators = {GNT: _bearer(ctx, "bm.gnt@nipuna.test"), VIJ: _bearer(ctx, "bm.vij@nipuna.test")}
     for title, content_type, filename, content, topic, batch_key, trainer, state in CONTENT_ITEMS:
         batch = ctx.batches[batch_key]
         form = {"title": title, "content_type": content_type, "topic_id": str(ctx.topics[topic]), "batch_id": str(batch.batch_id)}
@@ -1100,7 +1104,7 @@ def seed_recordings(ctx: SeedContext) -> None:
                             "ON CONFLICT (counter_key) DO UPDATE SET last_value = 11"))
     db.session.commit()
     sessions = {s.session_code: s.session_id for s in db.session.execute(select(ClassSession)).scalars()}
-    gnt, vij = _bearer(ctx, "coordinator.gnt@nipuna.test"), _bearer(ctx, "coordinator.vij@nipuna.test")
+    gnt, vij = _bearer(ctx, "bm.gnt@nipuna.test"), _bearer(ctx, "bm.vij@nipuna.test")
     trainer_v = _bearer(ctx, "trainer.v1@nipuna.test")
 
     def register(code: str, headers: dict, **body) -> int:
@@ -1140,7 +1144,7 @@ def seed_access_extensions(ctx: SeedContext) -> None:
 
     ask("anvitha", "I would like to keep the recordings and notes for revision before interviews")  # EXT-031
     second = ask("A", "Preparing for a certification exam; the first year has ended")  # EXT-032
-    _call(ctx, "post", f"/access-extension-requests/{second['request_id']}/decision", _bearer(ctx, "coordinator.gnt@nipuna.test"),
+    _call(ctx, "post", f"/access-extension-requests/{second['request_id']}/decision", _bearer(ctx, "bm.gnt@nipuna.test"),
           json={"decision": "approve", "note": "Joining Date and history verified"})
     ask("F", "Returning to revise after the second anniversary")  # EXT-033
 
@@ -1183,7 +1187,7 @@ def seed_batch_operations(ctx: SeedContext) -> None:
             batch.schedule_days, batch.location = days, room
             batch.start_time, batch.end_time = time.fromisoformat(start), time.fromisoformat(end)
         if batch.state in ("Starting", "Running", "Full"):
-            coordinator, manager = ("coord_gnt", "bm_gnt") if batch.branch_id == GNT else ("coord_vij", "bm_vij")
+            coordinator, manager = ("bm_gnt", "bm_gnt") if batch.branch_id == GNT else ("bm_vij", "bm_vij")
             batch.proposed_by, batch.proposed_at = ctx.users[coordinator], datetime.combine(BATCHES[key]["start"] - timedelta(days=10), time(11, 0), tzinfo=IST)
             batch.confirmed_by, batch.confirmed_at = ctx.users[manager], datetime.combine(BATCHES[key]["start"] - timedelta(days=7), time(12, 0), tzinfo=IST)
     db.session.commit()
@@ -1199,45 +1203,45 @@ def seed_batch_operations(ctx: SeedContext) -> None:
     db.session.add(BatchTrainer(batch_id=weekend.batch_id, trainer_user_id=ctx.users["trainer_g3"], role="Lead", from_date=date(2026, 11, 7)))
     db.session.commit()
     ctx.batches["G4"] = weekend
-    _staff_call(ctx, "coord_gnt", f"/batches/{weekend.batch_id}/proposal", {"note": "Lab 3 checked; trainer free at weekends"})
+    _staff_call(ctx, "bm_gnt", f"/batches/{weekend.batch_id}/proposal", {"note": "Lab 3 checked; trainer free at weekends"})
 
     # G1's students are asked to agree to an afternoon timetable from November (Module 15 §14)
     g1 = ctx.batches["G1"]
-    change = _staff_call(ctx, "coord_gnt", f"/batches/{g1.batch_id}/material-changes", {
+    change = _staff_call(ctx, "bm_gnt", f"/batches/{g1.batch_id}/material-changes", {
         "kind": "Teaching days / times", "proposed_plan": "Mon, Wed 14:00–16:00 from November",
         "reason": "Lab 1 is needed for the new Java weekday batch in the mornings", "changes": {"start_time": "14:00", "end_time": "16:00"},
         "alternative": "Join the online cohort of the same track at 10:00"})
-    _staff_call(ctx, "bm_gnt", f"/material-changes/{change['change_id']}/decision", {"decision": "Approved", "note": "Agreed with the lab plan"})
-    filler = next(r["enrolment_id"] for r in _staff_call_get(ctx, "coord_gnt", f"/material-changes/{change['change_id']}")["responses"]
+    _staff_call(ctx, "admin", f"/material-changes/{change['change_id']}/decision", {"decision": "Approved", "note": "Agreed with the lab plan"})  # a Branch Manager's own request
+    filler = next(r["enrolment_id"] for r in _staff_call_get(ctx, "bm_gnt", f"/material-changes/{change['change_id']}")["responses"]
                   if r["enrolment_id"] != _enrolment_of(ctx, "anvitha", "Combo").enrolment_id)
-    _staff_call(ctx, "coord_gnt", f"/material-changes/{change['change_id']}/responses",
+    _staff_call(ctx, "bm_gnt", f"/material-changes/{change['change_id']}/responses",
                 {"enrolment_id": filler, "response": "Agreed", "note": "Confirmed by phone on 2 Oct"})
 
     # Capacity and transfer requests waiting for the Guntur Branch Manager
     g2 = ctx.batches["G2"]
-    _staff_call(ctx, "coord_gnt", f"/batches/{g2.batch_id}/capacity-requests", {
+    _staff_call(ctx, "bm_gnt", f"/batches/{g2.batch_id}/capacity-requests", {
         "to_capacity": 32, "classroom_capacity": 32, "lab_capacity": 32,
         "resource_validation": "Two more lab benches installed and tested", "academic_review": "Trainer K. Sample can support 32 for the project phase"})
     mover = db.session.execute(select(BatchAllocation.enrolment_id).where(BatchAllocation.batch_id == g2.batch_id, BatchAllocation.status == "Active")
                                .order_by(BatchAllocation.allocation_id.desc()).limit(1)).scalar_one()
-    _staff_call(ctx, "coord_gnt", f"/enrolments/{mover}/transfer-requests",
+    _staff_call(ctx, "bm_gnt", f"/enrolments/{mover}/transfer-requests",
                 {"to_batch_id": weekend.batch_id, "reason": "Started a weekday job; asked for the weekend batch", "acknowledge_warnings": True})
 
     # A replacement for the cancelled Vijayawada class, waiting for approval
     cancelled = db.session.execute(select(ClassSession).where(ClassSession.title == "Capstone check-in")).scalar_one()
     start = datetime.combine(today_ist() + timedelta(days=10), time(7, 0), tzinfo=IST)
-    _staff_call(ctx, "coord_vij", "/class-sessions", {
+    _staff_call(ctx, "bm_vij", "/class-sessions", {
         "batch_id": cancelled.batch_id, "title": "Capstone check-in (replacement)", "purpose": "Replacement", "replaces_session_id": cancelled.session_id,
-        "starts_at": start.isoformat(), "ends_at": (start + timedelta(hours=1)).isoformat(), "owner_user_id": ctx.users["coord_vij"],
+        "starts_at": start.isoformat(), "ends_at": (start + timedelta(hours=1)).isoformat(), "owner_user_id": ctx.users["bm_vij"],
         "due_on": (today_ist() + timedelta(days=14)).isoformat()})
 
     # Online class operations at Guntur: a substitute requested, a backup host named, a connection failure to recover
     tuning = db.session.execute(select(ClassSession).where(ClassSession.title == "Hyperparameter tuning")).scalar_one()
-    _staff_call(ctx, "coord_gnt", f"/class-sessions/{tuning.session_id}/cover-requests", {
+    _staff_call(ctx, "bm_gnt", f"/class-sessions/{tuning.session_id}/cover-requests", {
         "cover_role": "Substitute", "cover_user_id": ctx.users["trainer_g3"], "reason": "Trainer M. Demo at a conference",
         "scope": "Teach the planned topic; no assessment changes", "handover": "Notebook and slides shared; attendance on the register"})
     forests = db.session.execute(select(ClassSession).where(ClassSession.title == "Random forests & boosting")).scalar_one()
-    _staff_call(ctx, "coord_gnt", f"/class-sessions/{forests.session_id}/people", {"role": "Backup", "user_id": ctx.users["trainer_g1"]})
+    _staff_call(ctx, "bm_gnt", f"/class-sessions/{forests.session_id}/people", {"role": "Backup", "user_id": ctx.users["trainer_g1"]})
     dropped = db.session.execute(select(ClassSession).where(ClassSession.title == "Naive Bayes and k-NN")).scalar_one()
     _call(ctx, "post", f"/class-sessions/{dropped.session_id}/disruptions", _bearer(ctx, "trainer.g2@nipuna.test"), json={
         "kind": "Connection failure", "cause": "Provider", "delay_minutes": 20, "detail": "Meet dropped for 20 minutes mid-class"})
@@ -1247,7 +1251,7 @@ def seed_batch_operations(ctx: SeedContext) -> None:
     preference = _call(ctx, "post", "/me/slot-preferences", anvitha, json={
         "enrolment_id": _enrolment_of(ctx, "anvitha", "Combo").enrolment_id, "preferred_days": ["Sat"], "preferred_start": "10:00",
         "preferred_end": "13:00", "note": "Weekday mornings clash with my internship from December"})
-    _call(ctx, "patch", f"/slot-preferences/{preference['preference_id']}", _bearer(ctx, f"{STAFF_LOGINS['coord_gnt']}@nipuna.test"),
+    _call(ctx, "patch", f"/slot-preferences/{preference['preference_id']}", _bearer(ctx, f"{STAFF_LOGINS['bm_gnt']}@nipuna.test"),
           json={"status": "Waitlisted", "status_note": "No Saturday Data Science batch yet; we'll tell you when one is proposed"})
     db.session.commit()
 

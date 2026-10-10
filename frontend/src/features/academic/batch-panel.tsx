@@ -1,4 +1,4 @@
-/** Everything an Academic Coordinator or Branch Manager does to one batch: edit, state, readiness, trainers, students, history. */
+/** Everything a Branch Manager does to one batch: edit, state, readiness, trainers, students, history. */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type BatchDetail, type Check } from "@/api/delivery";

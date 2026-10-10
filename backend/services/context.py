@@ -9,15 +9,15 @@ from flask import g, has_request_context, request
 STUDENT_ROLES = ("STUDENT",)
 TRAINER_ROLES = ("TRAINER",)
 ADMIN_ROLES = ("FOUNDER_CEO", "SUPER_ADMIN")
-# Branch-level owners: everything academic (and operational) at their branch
-BRANCH_ROLES = ("BRANCH_MANAGER", "ACADEMIC_COORDINATOR")
+# Branch-level owner: everything academic (and operational) at their branch (the Academic Coordinator role was merged into it)
+BRANCH_ROLES = ("BRANCH_MANAGER",)
 ACADEMIC_ROLES = ADMIN_ROLES + BRANCH_ROLES
 # Anyone on staff (everyone except students)
 STAFF_ROLES = ACADEMIC_ROLES + TRAINER_ROLES
 # Assessments: who authors and reviews work for a batch (a trainer only for batches they teach), and who moderates and
-# publishes results (the branch Academic Coordinator; Super Admin across branches)
-ASSESSMENT_AUTHOR_ROLES = ("TRAINER", "ACADEMIC_COORDINATOR", "SUPER_ADMIN")
-MODERATOR_ROLES = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+# publishes results (the branch's Branch Manager; Super Admin across branches)
+ASSESSMENT_AUTHOR_ROLES = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
+MODERATOR_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 @dataclass(frozen=True)

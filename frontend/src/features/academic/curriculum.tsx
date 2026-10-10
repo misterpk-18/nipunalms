@@ -158,10 +158,10 @@ function ModuleEditor({ module, editable, author, versionTopics }: { module: Mod
   );
 }
 
-/** Coordinators draft, submit and review; the Founder / CEO or Super Admin approve, activate and retire (Module 14 §5). */
+/** Branch Managers draft, submit and review; the Founder / CEO or Super Admin approve, activate and retire (Module 14 §5). */
 export function VersionEditor({ versionId }: { versionId: number }) {
   const { hasRole } = useAuth();
-  const author = hasRole("ACADEMIC_COORDINATOR", "SUPER_ADMIN");
+  const author = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const approver = hasRole("FOUNDER_CEO", "SUPER_ADMIN");
   const query = useQuery({ queryKey: ["delivery", "version", versionId], queryFn: () => deliveryApi.curriculumVersion(versionId) });
   const act = useDelivery(
@@ -447,7 +447,7 @@ export function AcademicCurriculum() {
       <div className="mt-4 space-y-2">
         <CurriculumModelNote />
         <Note>
-          Course Master names and codes are read-only here. Coordinators draft and submit; the Founder / CEO or Super Admin approve (never the person who
+          Course Master names and codes are read-only here. Branch Managers draft and submit; the Founder / CEO or Super Admin approve (never the person who
           submitted it). Activating a version retires the previous Active version and maps every enrolment and batch that was waiting for a curriculum.
         </Note>
       </div>

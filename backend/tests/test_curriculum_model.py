@@ -16,8 +16,8 @@ API = "/api/v1"
 @pytest.fixture
 def people(make_user):
     return {
-        "ac": make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="AC Guntur"),
-        "ac2": make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="AC Guntur 2"),
+        "ac": make_user(roles=[("BRANCH_MANAGER", 1)], full_name="AC Guntur"),
+        "ac2": make_user(roles=[("BRANCH_MANAGER", 1)], full_name="AC Guntur 2"),
         "bm": make_user(roles=[("BRANCH_MANAGER", 1)]),
         "t1": make_user(roles=[("TRAINER", 1)]),
         "admin": make_user(roles=[("SUPER_ADMIN", None)]),
@@ -199,7 +199,7 @@ def test_a_student_moves_versions_only_through_an_approved_mapping_with_credit(c
     assert db.session.get(Enrolment, enrolment_id).curriculum_version_id == new_vid
 
 
-def test_the_preparer_never_approves_their_own_mapping(client, login, catalog, make_student, people):
+def test_a_branch_managers_own_mapping_is_approved_by_a_super_admin(client, login, catalog, make_student, people):
     student = make_student(course="NIT-CRS-047")
     enrolment_id = student.enrolments[0]["enrolment_id"]
     new_vid, _ = draft(client, login, people["ac"], code="NIT-CRS-047", label="CV 6.0")
@@ -210,6 +210,8 @@ def test_the_preparer_never_approves_their_own_mapping(client, login, catalog, m
                json={"decision": "Approved", "student_acceptance": "In writing"})
     assert own.status_code == 422 and "independent" in own.get_json()["error"]["message"]
     assert call(client, login, people["ac2"], "post", f"/academic-mappings/{mapping['mapping_id']}/decision",
+                json={"decision": "Approved", "student_acceptance": "In writing"}).status_code == 422   # a colleague cannot either
+    assert call(client, login, people["admin"], "post", f"/academic-mappings/{mapping['mapping_id']}/decision",
                 json={"decision": "Approved", "student_acceptance": "In writing"}).status_code == 200
 
 
@@ -243,7 +245,7 @@ def test_library_modules_are_versioned_and_curricula_keep_the_version_they_copie
     assert library["module_code"].startswith("LIB-") and first["status"] == "Pending"
     assert call(client, login, people["ac"], "post", f"/curriculum-library-versions/{first['library_version_id']}/decision",
                 json={"decision": "Approved"}).status_code == 422                               # not the proposer
-    data(call(client, login, people["ac2"], "post", f"/curriculum-library-versions/{first['library_version_id']}/decision",
+    data(call(client, login, people["admin"], "post", f"/curriculum-library-versions/{first['library_version_id']}/decision",
               json={"decision": "Approved"}), 200)
 
     other, _ = draft(client, login, people["ac"], code="NIT-CRS-047", label="CV 7.0", topics=())
@@ -255,7 +257,7 @@ def test_library_modules_are_versioned_and_curricula_keep_the_version_they_copie
     second = data(call(client, login, people["ac"], "post", f"/curriculum-library/{library['library_module_id']}/versions",
                        json={"module_id": module_id, "change_note": "Adds loops"}), 201)
     assert second["version_no"] == 2 and second["status"] == "Pending"
-    data(call(client, login, people["ac2"], "post", f"/curriculum-library-versions/{second['library_version_id']}/decision",
+    data(call(client, login, people["admin"], "post", f"/curriculum-library-versions/{second['library_version_id']}/decision",
               json={"decision": "Approved"}), 200)
     unchanged = data(call(client, login, people["ac"], "get", f"/curriculum-versions/{other}"), 200)["modules"][0]
     assert unchanged["library_version_id"] == first["library_version_id"] and len(unchanged["topics"]) == 1

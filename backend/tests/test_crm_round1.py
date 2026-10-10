@@ -172,7 +172,7 @@ def test_a_coordinator_reissues_the_link_of_a_crm_provisioned_student(client, ca
     row = db.session.execute(text("SELECT channel, issued_by FROM student_activations WHERE student_id = :s"), {"s": student_id}).one()
     assert tuple(row) == ("CRM provisioning", None)  # the CRM drops this token: the student cannot use it
 
-    coordinator = login(make_user(roles=[("ACADEMIC_COORDINATOR", 1)]).email)
+    coordinator = login(make_user(roles=[("BRANCH_MANAGER", 1)]).email)
     issued = client.post(f"/api/v1/students/{student_id}/activation", headers=coordinator)
 
     assert issued.status_code == 201

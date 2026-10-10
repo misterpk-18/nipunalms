@@ -130,12 +130,12 @@ def test_permissions_on_the_register(client, w):
     body = {"default_status": "Present"}
     assert mark(client, w, "t2", w.recent, body).status_code == 404          # trainer of another batch: outside scope
     assert mark(client, w, "ac_v", w.recent, body).status_code == 404        # another branch
-    assert mark(client, w, "bm", w.recent, body).status_code == 403          # branch manager is read-only
+    assert mark(client, w, "founder", w.recent, body).status_code == 403     # the Founder / CEO is read-only
     assert mark(client, w, "s1", w.recent, body).status_code == 403          # students never mark
     assert register(client, w, "s1", w.recent).status_code == 403
     assert register(client, w, "t2", w.recent).status_code == 404
-    assert register(client, w, "bm", w.recent).status_code == 200
-    assert mark(client, w, "ac", w.recent, body).status_code == 200          # coordinator oversight
+    assert register(client, w, "founder", w.recent).status_code == 200
+    assert mark(client, w, "ac", w.recent, body).status_code == 200          # Branch Manager oversight
     assert client.get(f"{API}/attendance/sessions/{w.recent.session_id}").status_code == 401
 
 
@@ -206,11 +206,13 @@ def test_correction_after_the_lock_needs_independent_approval(client, w):
     assert {"ATTENDANCE_CORRECTION_REQUESTED", "ATTENDANCE_CORRECTION_DECIDED"} <= set(actions)
 
 
-def test_a_coordinator_cannot_approve_their_own_correction_but_the_manager_can(client, w):
+def test_a_branch_managers_own_correction_is_decided_by_a_super_admin(client, w):
     cid = correction(client, w, "ac", w.older, w.e1, "Absent", "Wrong entry").get_json()["data"]["correction_id"]
     own = decide(client, w, "ac", cid)
     assert own.status_code == 422 and "independent" in own.get_json()["error"]["message"]
-    assert decide(client, w, "ac2", cid).status_code == 200
+    other = decide(client, w, "ac2", cid)                       # a colleague Branch Manager may not decide it either
+    assert other.status_code == 422 and "Super Admin" in other.get_json()["error"]["message"]
+    assert decide(client, w, "admin", cid).status_code == 200
 
 
 def test_the_person_who_marked_an_entry_cannot_approve_its_correction(client, w):
@@ -297,7 +299,7 @@ def test_recovery_only_for_absences_and_only_by_people_in_scope(client, w):
     absent_id = db.session.execute(select(AttendanceRecord.attendance_id).where(AttendanceRecord.enrolment_id == w.e2)).scalar_one()
     assert request_recovery(client, w, "s1", absent_id).status_code == 404          # another student's absence
     assert request_recovery(client, w, "t2", absent_id).status_code == 404          # trainer of another batch
-    assert request_recovery(client, w, "bm", absent_id).status_code == 403
+    assert request_recovery(client, w, "founder", absent_id).status_code == 403
     assert request_recovery(client, w, "t1", absent_id).status_code == 201
 
 

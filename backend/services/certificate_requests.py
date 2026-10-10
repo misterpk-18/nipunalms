@@ -1,10 +1,10 @@
 """Certificate decisions that need an independent approver (Module 22 §5, §7, §8).
 
-Change requests: a correction / reissue (Academic Coordinator, Branch Manager or Super Admin asks; Branch Manager or
+Change requests: a correction / reissue (Branch Manager or Super Admin asks; Branch Manager or
 Super Admin decides), a revocation or a reinstatement (asked with evidence; Founder / CEO or Super Admin decides). The
 certificate stays as it is until the request is approved; approving applies it (services/certificates.py).
 
-Financial-release exceptions: the Academic Coordinator, Branch Manager or Super Admin asks for certificates to go ahead
+Financial-release exceptions: the Branch Manager or Super Admin asks for certificates to go ahead
 while the paying admission's fee is not cleared; the Founder / CEO or Super Admin decides. The debt is not waived.
 """
 from datetime import datetime, timezone
@@ -26,9 +26,9 @@ DECIDERS = {"Correction": certificates.CORRECTION_APPROVERS, "Revocation": certi
             "Reinstatement": certificates.REVOCATION_APPROVERS}
 NEEDED_STATUS = {"Correction": "Issued", "Revocation": "Issued", "Reinstatement": "Revoked"}
 # Where each deciding role works on requests
-DECIDER_LINKS = {"BRANCH_MANAGER": "/branch/reports", "SUPER_ADMIN": "/academic/certificates", "FOUNDER_CEO": "/founder/certificates"}
+DECIDER_LINKS = {"BRANCH_MANAGER": "/branch/reports", "SUPER_ADMIN": "/branch/certificates", "FOUNDER_CEO": "/founder/certificates"}
 
-EXCEPTION_REQUESTERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+EXCEPTION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 EXCEPTION_DECIDERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
@@ -74,7 +74,7 @@ def request_change(certificate_id: int, kind: str, reason: str, evidence: str | 
 
 def actions_for_request(request: CertificateChangeRequest) -> list[str]:
     user = current_user()
-    if request.status != "Pending" or user.user_id == request.requested_by:
+    if request.status != "Pending" or not approvals.can_decide(request.requested_by):
         return []
     return ["decide"] if user.has_role(*DECIDERS[request.kind], branch_id=request.certificate.branch_id) else []
 
@@ -94,7 +94,8 @@ def decide_request(request_id: int, decision: str, note: str | None) -> Certific
         raise Forbidden("You don't have access to this decision")
     if request.status != "Pending":
         raise BusinessRule(f"This request is already {request.status}")
-    approvals.require_independent(request.requested_by, message="An independent approver must decide: not the person who asked")
+    approvals.require_independent(request.requested_by, message="An independent approver must decide: not the person who asked",
+                                  requester=request.requested_by)
     if decision == "Rejected" and not note:
         raise ValidationError("Invalid request data", {"note": ["Give the reason for rejecting the request"]})
 
@@ -111,7 +112,7 @@ def decide_request(request_id: int, decision: str, note: str | None) -> Certific
     audit.record(f"CERTIFICATE_{request.kind.upper()}_{decision.upper()}", "certificate", certificate.certificate_id,
                  new={"request_id": request.request_id, "decision": decision}, reason=note, branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate {request.kind.lower()} {decision.lower()}: {certificate.certificate_number}",
-           body=note or request.reason, link="/academic/certificates", recipient_user_ids=[request.requested_by],
+           body=note or request.reason, link="/branch/certificates", recipient_user_ids=[request.requested_by],
            branch_id=certificate.branch_id, event_key=f"certificate-request-decided:{request.request_id}")
     db.session.flush()
     return request
@@ -179,6 +180,6 @@ def decide_exception(exception_id: int, decision: str, note: str | None) -> Cert
                  new={"exception_id": exception.exception_id, "outstanding_amount": f"{exception.outstanding_amount:.2f}"},
                  reason=note, branch_id=branch_id)
     notify(category="Certificate", title=f"Certificate release exception {decision.lower()}: {exception.admission.admission_code}",
-           body=note, link="/academic/certificates", recipient_user_ids=[exception.requested_by], branch_id=branch_id,
+           body=note, link="/branch/certificates", recipient_user_ids=[exception.requested_by], branch_id=branch_id,
            event_key=f"financial-exception-decided:{exception.exception_id}")
     return exception

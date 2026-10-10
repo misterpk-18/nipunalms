@@ -11,12 +11,12 @@ test.describe.configure({ mode: "serial" });
 test("a coordinator sees state labels and the 7-point readiness record on a batch", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/batches");
+  await page.goto("/branch/batches");
 
   // The list names states the way the people who run batches do
   const running = page.getByRole("row", { name: /NIT-GNT-BAT-2026-000001/ });
   await expect(running).toContainText("In Progress");
-  await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ })).toContainText("Draft");
+  await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ }).first()).toContainText("Draft");
   await expect(page.getByLabel("Filter by state")).toContainText("Confirmed");
   await expect(page.getByLabel("Filter by state")).toContainText("On Hold");
   await expect(page.getByLabel("Filter by state")).toContainText("Archived");
@@ -40,7 +40,7 @@ test("the Meet Operations page loads with its sections", async ({ page }, info) 
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
   await page.getByRole("link", { name: "Meet Operations" }).first().click();
-  await expect(page).toHaveURL(/\/academic\/meet-operations/);
+  await expect(page).toHaveURL(/\/branch\/meet-operations/);
   await expect(page.getByRole("heading", { name: "Meet Operations", level: 1 })).toBeVisible();
   await expect(page.getByLabel("Date")).toBeVisible();
   for (const section of [

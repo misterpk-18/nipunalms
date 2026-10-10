@@ -26,7 +26,7 @@ def get_student(student_id: int) -> StudentDetail:
         try:
             scope.assert_can_view_enrolment(enrolment)
         except NotFound:
-            continue  # e.g. a Guntur coordinator does not see this student's Vijayawada-serviced course
+            continue  # e.g. a Guntur Branch Manager does not see this student's Vijayawada-serviced course
         enrolments.append(enrolment)
 
     allocations = batches_repo.active_allocations([e.enrolment_id for e in enrolments])

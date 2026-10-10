@@ -14,8 +14,8 @@ def world(catalog, make_user, make_student, make_batch, make_session, run_sql):
     """Guntur: two Allocation Pending enrolments (one for a course with no curriculum yet) and an unresolved recording exception.
     Vijayawada: an Allocation Pending enrolment. Company-wide: a failed CRM event and a failed integration."""
     people = SimpleNamespace(
-        ac_g=make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="AC Guntur"),
-        ac_v=make_user(roles=[("ACADEMIC_COORDINATOR", 2)], full_name="AC Vijayawada"),
+        ac_g=make_user(roles=[("BRANCH_MANAGER", 1)], full_name="AC Guntur"),
+        ac_v=make_user(roles=[("BRANCH_MANAGER", 2)], full_name="AC Vijayawada"),
         bm_g=make_user(roles=[("BRANCH_MANAGER", 1)], full_name="BM Guntur"),
         sa=make_user(roles=[("SUPER_ADMIN", None)], full_name="Super Admin"),
         founder=make_user(roles=[("FOUNDER_CEO", None)], full_name="Founder"),
@@ -123,7 +123,7 @@ def test_steps_are_permission_checked_and_branch_scoped(client, login, world):
     path = f"{API}/exceptions/ALLOCATION/{item['source_id']}/steps"
     body = {"json": {"reason": "Trying to log a step"}}
     # read-only roles
-    assert client.post(path, headers=auth(login, world.people.bm_g), **body).status_code == 403
+    assert client.post(path, headers=auth(login, world.people.bm_g), **body).status_code == 201   # every Branch Manager of the branch may
     assert client.post(path, headers=auth(login, world.people.founder), **body).status_code == 403
     assert client.post(path, headers=auth(login, world.people.trainer), **body).status_code == 403
     # another branch's coordinator cannot see the item, so it is a 404 (reading its steps too)

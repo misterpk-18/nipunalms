@@ -1,7 +1,8 @@
 """LMS Certificate Register: eligibility, recommendation, approval, issue, reissue, revoke, and public verification.
 
-Flow: Not Yet Eligible -> (Complete completion decision) Eligibility Review -> (Academic Coordinator recommends)
-Awaiting Approval -> (Branch Manager approves) Approved for Issue -> (issue) Issued. The number NIT-CERT-YYYY-NNNNNN is
+Flow: Not Yet Eligible -> (Complete completion decision) Eligibility Review -> (Branch Manager approves, optionally
+recommending first) Approved for Issue -> (issue) Issued. The Branch Manager decides alone: recommending and approving are one
+step (the recommendation is recorded in the same call), and "Awaiting Approval" remains only for entries recommended earlier. The number NIT-CERT-YYYY-NNNNNN is
 allocated by the database at first issue and kept across reissues; a reissue is a new version and supersedes the earlier one.
 A paid admission's fee must be cleared (or released by a financial exception) before recommendation and again at issue.
 Corrections, revocations and reinstatements are requested and decided by an independent approver
@@ -14,7 +15,7 @@ from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import approvals, audit, scope
+from services import audit, scope
 from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound
 from services.notifications import notify
@@ -22,13 +23,13 @@ from services.notifications import notify
 COMPLETION_CERTIFICATE = "Course Completion Certificate"
 COMPLIMENTARY_PENDING = "Configuration Pending: completion rule not configured for complimentary offer"
 
-REVIEWERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+REVIEWERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
-ISSUERS = ("BRANCH_MANAGER", "ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+ISSUERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 # Change requests (Module 22 §7, §8): who may ask, and who decides (never the person who asked)
-CORRECTION_REQUESTERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
-CORRECTION_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
-REVOCATION_REQUESTERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+CORRECTION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+CORRECTION_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # a Branch Manager's own request goes to the last two
+REVOCATION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 REVOCATION_APPROVERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
@@ -70,7 +71,7 @@ def actions_for(certificate: Certificate) -> list[str]:
         return []  # one request at a time; it is decided from the requests list
     match certificate.status:
         case "Eligibility Review" if can(*REVIEWERS):
-            return ["recommend"]
+            return ["recommend", "approve"]  # the Branch Manager may approve straight away; the recommendation is recorded with it
         case "Awaiting Approval" if can(*APPROVERS):
             return ["approve", "return"]
         case "Approved for Issue" if can(*ISSUERS):
@@ -160,14 +161,14 @@ def open_eligibility(enrolment: Enrolment, review: CompletionReview) -> list[Cer
                      branch_id=certificate.branch_id)
         notify(category="Certificate", title=f"Certificate eligibility to review: {enrolment.course.course_code}",
                body=f"{certificate.holder_name}'s completion was confirmed. Review the {certificate.certificate_type} entry and recommend it for approval.",
-               link="/academic/certificates", role_code="ACADEMIC_COORDINATOR", branch_id=certificate.branch_id,
+               link="/branch/certificates", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
                event_key=f"certificate-eligibility:{certificate.certificate_id}", action_required=True)
         opened.append(certificate)
     return opened
 
 
 def follow_transfer(enrolment: Enrolment) -> None:
-    """After a service-branch transfer, entries not yet issued move to the receiving branch, whose Academic Coordinator and
+    """After a service-branch transfer, entries not yet issued move to the receiving branch, whose Branch Manager and
     Branch Manager review and issue them (Module 22 §6). Issued, superseded and revoked versions keep their branch."""
     for certificate in certificates_repo.live_entries(enrolment.enrolment_id):
         if certificate.status in ("Issued", "Revoked") or certificate.branch_id == enrolment.service_branch_id:
@@ -178,7 +179,7 @@ def follow_transfer(enrolment: Enrolment) -> None:
 
 
 def create_entry(enrolment_id: int, certificate_type: str) -> Certificate:
-    """Academic Coordinator adds a register entry (for example an Internship Certificate) for an enrolment."""
+    """Branch Manager adds a register entry (for example an Internship Certificate) for an enrolment."""
     enrolment = students_repo.get_enrolment(enrolment_id)
     if enrolment is None:
         raise NotFound("Enrolment not found")
@@ -221,7 +222,7 @@ def recommend(certificate_id: int, note: str | None) -> Certificate:
     audit.record("CERTIFICATE_RECOMMENDED", "certificate", certificate.certificate_id, old=old, new=_snapshot(certificate),
                  reason=note, branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate awaiting your approval: {certificate.holder_name}",
-           body=f"{certificate.certificate_type} for {certificate.course.course_code} was recommended by the Academic Coordinator.",
+           body=f"{certificate.certificate_type} for {certificate.course.course_code} was recommended by the Branch Manager.",
            link="/branch/reports", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-recommended:{certificate.certificate_id}", action_required=True)
     return certificate
@@ -240,18 +241,25 @@ def return_to_review(certificate_id: int, reason: str) -> Certificate:
     audit.record("CERTIFICATE_RETURNED", "certificate", certificate.certificate_id, old=old, new=_snapshot(certificate),
                  reason=reason, branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate returned for review: {certificate.holder_name}", body=reason,
-           link="/academic/certificates", role_code="ACADEMIC_COORDINATOR", branch_id=certificate.branch_id,
+           link="/branch/certificates", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-returned:{certificate.certificate_id}:{certificate.updated_at.isoformat()}", action_required=True)
     return certificate
 
 
 def approve(certificate_id: int) -> Certificate:
+    """The Branch Manager approves an entry in Eligibility Review (recommending it in the same step) or one recommended earlier."""
     certificate = _get(certificate_id)
     _require_role(certificate, *APPROVERS)
-    _expect_status(certificate, "Awaiting Approval")
+    if certificate.status not in ("Eligibility Review", "Awaiting Approval"):
+        raise BusinessRule(f"The certificate is '{certificate.status}'; approval needs it in Eligibility Review or Awaiting Approval")
     user = current_user()
-    approvals.require_independent(certificate.recommended_by, message="Approval needs a different person than the one who recommended the certificate")
     old = _snapshot(certificate)
+    if certificate.status == "Eligibility Review":
+        _require_fee_cleared(certificate)
+        certificate.recommended_by = user.user_id
+        certificate.recommended_at = db.func.now()
+        certificate.status = "Awaiting Approval"  # the register moves one step at a time (database rule); both steps are this call
+        db.session.flush()
     certificate.status = "Approved for Issue"
     certificate.approved_by = user.user_id
     certificate.approved_at = db.func.now()
@@ -260,8 +268,8 @@ def approve(certificate_id: int) -> Certificate:
     audit.record("CERTIFICATE_APPROVED", "certificate", certificate.certificate_id, old=old, new=_snapshot(certificate),
                  branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate approved for issue: {certificate.holder_name}",
-           body="The number is allocated when the certificate is issued.", link="/academic/certificates",
-           role_code="ACADEMIC_COORDINATOR", branch_id=certificate.branch_id,
+           body="The number is allocated when the certificate is issued.", link="/branch/certificates",
+           role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-approved:{certificate.certificate_id}", action_required=True)
     return certificate
 

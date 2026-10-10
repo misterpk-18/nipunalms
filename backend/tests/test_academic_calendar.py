@@ -50,7 +50,7 @@ def test_every_day_counts_until_the_calendar_or_the_setting_says_otherwise(world
 
 # ---------------------------------------------------------------- closures
 
-def test_a_branch_closure_is_proposed_by_the_coordinator_and_approved_by_the_branch_manager(client, world):
+def test_a_branch_manager_records_a_branch_closure_and_it_is_approved_as_recorded(client, world):
     people = world.people
     upcoming = world.sessions.upcoming.starts_at.astimezone(IST).date()
     body = {"kind": "Branch Closure", "branch_id": 1, "starts_on": upcoming.isoformat(), "ends_on": upcoming.isoformat(),
@@ -58,21 +58,17 @@ def test_a_branch_closure_is_proposed_by_the_coordinator_and_approved_by_the_bra
     assert client.post(API, json=body, headers=world.h(people.t1)).status_code == 403
     assert client.post(API, json={**body, "branch_id": 2}, headers=world.h(people.ac)).status_code == 404
     assert client.post(API, json={**body, "kind": "Company Holiday", "branch_id": None}, headers=world.h(people.ac)).status_code == 403
-    proposed = client.post(API, json=body, headers=world.h(people.ac))
-    assert proposed.status_code == 201 and proposed.get_json()["data"]["status"] == "Pending"
-    closure_id = proposed.get_json()["data"]["closure_id"]
-    assert any(t.startswith("Branch closure to approve") for t in titles_for(people.bm.user_id))
-    assert working_days.is_working_day(upcoming, 1)                                            # pending: nothing closed yet
+    assert working_days.is_working_day(upcoming, 1)
+    recorded = client.post(API, json=body, headers=world.h(people.ac))
+    assert recorded.status_code == 201 and recorded.get_json()["data"]["status"] == "Approved"   # the Branch Manager's own entry
+    closure_id = recorded.get_json()["data"]["closure_id"]
+    assert not working_days.is_working_day(upcoming, 1)
 
     detail = client.get(f"{API}/{closure_id}", headers=world.h(people.ac)).get_json()["data"]
     assert [s["session_code"] for s in detail["affected_sessions"]] == [world.sessions.upcoming.session_code]
     assert client.get(f"{API}/{closure_id}", headers=world.h(people.ac_vij)).status_code == 404
-    assert client.post(f"{API}/{closure_id}/decision", json={"decision": "Approved"}, headers=world.h(people.ac)).status_code == 403
-    assert client.post(f"{API}/{closure_id}/decision", json={"decision": "Rejected"}, headers=world.h(people.bm)).status_code == 400
-    approved = client.post(f"{API}/{closure_id}/decision", json={"decision": "Approved"}, headers=world.h(people.bm))
-    assert approved.status_code == 200 and approved.get_json()["data"]["status"] == "Approved"
-    assert not working_days.is_working_day(upcoming, 1)
-    assert any("1 class(es) need a replacement" in t for t in titles_for(people.ac.user_id))   # classes are not moved automatically
+    assert client.post(f"{API}/{closure_id}/decision", json={"decision": "Approved"}, headers=world.h(people.bm)).status_code == 422  # nothing is pending
+    assert any("1 class(es) need a replacement" in t for t in titles_for(people.bm.user_id))   # classes are not moved automatically
     listed = client.get(API, headers=world.h(people.t1)).get_json()["data"]
     assert [c["title"] for c in listed] == ["Flooding"]
     assert client.get(API, headers=world.h(people.ac_vij)).get_json()["data"] == []
@@ -120,14 +116,14 @@ def test_an_unresolved_allocation_is_escalated_to_the_founder_and_super_admin(ca
     assert batch_allocations.escalate_unallocated() == 1
     for person in (founder, admin, manager):
         assert any(t.startswith("Allocate a batch now") for t in titles_for(person.user_id))
-    coordinator = make_user(roles=[("ACADEMIC_COORDINATOR", 1)])
+    coordinator = make_user(roles=[("BRANCH_MANAGER", 1)])
     queue = client.get("/api/v1/allocation-queue", headers=login(coordinator.email)).get_json()["data"]
     assert queue[0]["allocation_due_on"] == today_ist().isoformat()
 
 
 # ---------------------------------------------------------------- attendance confirmation
 
-def test_unconfirmed_attendance_alerts_the_coordinator_from_the_next_working_day(world, run_sql):
+def test_unconfirmed_attendance_alerts_the_branch_manager_from_the_next_working_day(world, run_sql):
     delivered = world.sessions.delivered                                                       # three days ago, nobody marked
     assert JOBS["attendance-unconfirmed"]() == {"alerted": 1}
     assert JOBS["attendance-unconfirmed"]() == {"alerted": 0}                                  # once per class

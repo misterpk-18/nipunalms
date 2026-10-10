@@ -95,5 +95,5 @@ def test_review_queue_summarises_per_assessment_and_lists_tests_not_ready(client
 
     assert [r for r in client.get(f"{API}/assessment-reviews", headers=world.h["ac_vij"]).get_json()["data"]] == []
     bm = client.get(f"{API}/assessment-reviews", headers=world.h["bm"]).get_json()["data"]
-    assert bm and all(r["can_moderate"] is False for r in bm)
+    assert bm and all(r["can_moderate"] is True for r in bm)
     assert client.get(f"{API}/assessment-reviews", headers=world.h["s1"]).status_code == 403

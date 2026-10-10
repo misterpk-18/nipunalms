@@ -3,13 +3,12 @@
 A recording is a controlled reference to the one media asset of a Class Session; the LMS never copies the video and
 never calls Google. Whether Drive capture and playback are verified is read from the integrations register.
 
-  Academic Coordinator (branch) / Super Admin   register, release, hold, mark partial or unavailable, resolve exceptions
-  Branch Manager                                 sees the branch, can resolve exceptions as cover
+  Branch Manager (branch) / Super Admin   register, release, hold, mark partial or unavailable, resolve exceptions
   Trainer                                        sees recordings and exceptions of the batches they teach
   Student                                        sees recordings of batches their enrolments are (or were) allocated to,
                                                  while the enrolment's access window is open
 
-Escalation clock from the class end: 4 h Academic Coordinator review, 24 h Branch Manager and Super Admin, 48 h Founder / CEO.
+Escalation clock from the class end: 4 h Branch Manager review, 24 h Super Admin, 48 h Founder / CEO.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -27,15 +26,15 @@ from services.context import actor_id, current_user
 from services.errors import BusinessRule, Forbidden, NotFound
 from services.notifications import notify
 
-ESCALATION_STEPS = ((48, "Founder / CEO"), (24, "Branch Manager and Super Admin"), (4, "Academic Coordinator review"))
+ESCALATION_STEPS = ((48, "Founder / CEO"), (24, "Super Admin"), (4, "Branch Manager review"))
 WATCHABLE = ("Released", "Partial")
 STATUS_NOTES = {
     "Processing": "The recording is being prepared.",
-    "Held": "Held for review by the Academic Coordinator. You will be told when it is available.",
+    "Held": "Held for review by the Branch Manager. You will be told when it is available.",
     "Unavailable": "No recording is available for this class yet.",
     "Expired": "Access to this recording has ended.",
 }
-ROLE_LABELS = {"ACADEMIC_COORDINATOR": "Academic Coordinator", "SUPER_ADMIN": "Super Admin", "BRANCH_MANAGER": "Branch Manager"}
+ROLE_LABELS = {"BRANCH_MANAGER": "Branch Manager", "SUPER_ADMIN": "Super Admin"}
 
 
 def _now() -> datetime:
@@ -57,12 +56,12 @@ def _visible_session(session_id: int) -> ClassSession:
 
 def _is_manager(session: ClassSession) -> bool:
     user = current_user()
-    return user.has_role("SUPER_ADMIN") or user.has_role("ACADEMIC_COORDINATOR", branch_id=session.batch.branch_id)
+    return user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=session.batch.branch_id)
 
 
 def _require_manager(session: ClassSession) -> None:
     if not _is_manager(session):
-        raise Forbidden("Only the Academic Coordinator of this branch or a Super Admin manages recordings")
+        raise Forbidden("Only the Branch Manager of this branch or a Super Admin manages recordings")
 
 
 def _get_recording(recording_id: int) -> Recording:
@@ -125,7 +124,7 @@ def _raise(session: ClassSession, issue_type: str, issue: str, *, recording: Rec
     existing = recordings_repo.open_exception(session.session_id, issue_type)
     if existing is not None:
         return existing
-    owner_role = "SUPER_ADMIN" if issue_type == "Integration Unavailable" else "ACADEMIC_COORDINATOR"
+    owner_role = "SUPER_ADMIN" if issue_type == "Integration Unavailable" else "BRANCH_MANAGER"
     exception = RecordingException(session_id=session.session_id, recording_id=recording.recording_id if recording else None,
                                    branch_id=session.batch.branch_id, issue_type=issue_type, issue=issue, owner_role=owner_role,
                                    auto_raised=auto, raised_by=actor_id())
@@ -136,7 +135,7 @@ def _raise(session: ClassSession, issue_type: str, issue: str, *, recording: Rec
                  new={"session": session.session_code, "issue_type": issue_type, "issue": issue, "owner_role": owner_role},
                  branch_id=exception.branch_id)
     notify(category="Recording", title=f"{exception.exception_code}: {issue_type} recording — {session.title}", body=issue,
-           link="/academic/recording-exceptions", role_code=owner_role, branch_id=exception.branch_id,
+           link="/branch/recording-exceptions", role_code=owner_role, branch_id=exception.branch_id,
            event_key=f"rx-raised-{exception.exception_code}", action_required=True)
     return exception
 
@@ -156,7 +155,7 @@ def _can_act_on(exception: RecordingException) -> bool:
     user = current_user()
     if user.has_role("SUPER_ADMIN"):
         return True
-    return exception.owner_role != "SUPER_ADMIN" and user.has_role("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", branch_id=exception.branch_id)
+    return exception.owner_role != "SUPER_ADMIN" and user.has_role("BRANCH_MANAGER", branch_id=exception.branch_id)
 
 
 def _get_exception(exception_id: int) -> RecordingException:
@@ -373,10 +372,10 @@ def check_missing_recordings(now: datetime | None = None) -> dict:
         title = f"{exception.exception_code} unresolved for {age} hours"
         body = f"{exception.issue_type} recording — {exception.session.title}. Owner: {owner_label(exception)}."
         for role_code in ("BRANCH_MANAGER", "SUPER_ADMIN"):
-            notify(category="Recording", title=title, body=body, link="/academic/recording-exceptions", role_code=role_code,
+            notify(category="Recording", title=title, body=body, link="/branch/recording-exceptions", role_code=role_code,
                    branch_id=exception.branch_id, event_key=f"rx-escalated-24-{exception.exception_code}", action_required=True)
         if age >= 48:
-            notify(category="Recording", title=title, body=body + " A remedy plan is needed.", link="/academic/recording-exceptions",
+            notify(category="Recording", title=title, body=body + " A remedy plan is needed.", link="/branch/recording-exceptions",
                    role_code="FOUNDER_CEO", branch_id=exception.branch_id, event_key=f"rx-escalated-48-{exception.exception_code}")
     return {"missing_recordings": raised, "escalated": escalated}
 

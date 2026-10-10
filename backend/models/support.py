@@ -14,7 +14,7 @@ SUPPORT_PRIORITIES = ("Normal", "High", "Urgent")
 SUPPORT_STATUSES = ("Open", "In Progress", "Waiting on Student", "Resolved", "Closed")
 # A request in one of these is still being worked on (it can breach its SLA and be escalated)
 SUPPORT_OPEN_STATUSES = ("Open", "In Progress", "Waiting on Student")
-OWNER_ROLES = ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+OWNER_ROLES = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 class SupportRequest(db.Model):
@@ -54,10 +54,10 @@ class SupportRequest(db.Model):
     )
 
     def owner_label(self) -> str:
-        """'Academic Coordinator — Guntur'; the Super Admin who handles LMS / account issues shows as LMS Support."""
+        """'Branch Manager — Guntur'; the Super Admin who handles LMS / account issues shows as LMS Support."""
         if self.owner_role == "SUPER_ADMIN":
             return f"LMS Support — {self.branch.branch_name}"
-        role = {"TRAINER": "Trainer", "ACADEMIC_COORDINATOR": "Academic Coordinator", "BRANCH_MANAGER": "Branch Manager"}[self.owner_role]
+        role = {"TRAINER": "Trainer", "BRANCH_MANAGER": "Branch Manager", "ACADEMIC_COORDINATOR": "Branch Manager"}[self.owner_role]
         return f"{role} — {self.branch.branch_name}"
 
     def to_summary(self, now: datetime) -> dict:

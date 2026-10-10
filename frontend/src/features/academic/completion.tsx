@@ -42,7 +42,7 @@ function Actions({ row }: { row: CompletionRow }) {
           </Button>
         }
         title={`Recommendation: ${row.student.full_name}`}
-        description="The recommendation informs the Academic Coordinator's decision; it does not make it."
+        description="The recommendation informs the Branch Manager's decision; it does not make it."
         submitLabel="Record recommendation"
         fields={[
           { name: "recommendation", label: "Recommendation", kind: "select", options: COMPLETION_DECISIONS },

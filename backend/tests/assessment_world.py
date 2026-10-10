@@ -32,11 +32,12 @@ def world(make_user, make_student, make_batch, allocate, login, catalog):
         "g1": make_user(roles=[("TRAINER", 1)], full_name="Trainer G1"),
         "g2": make_user(roles=[("TRAINER", 1)], full_name="Trainer G2"),
         "v1": make_user(roles=[("TRAINER", 2)], full_name="Trainer V1"),
-        "ac": make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="AC Guntur"),
-        "ac2": make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="AC Guntur Two"),
-        "ac_vij": make_user(roles=[("ACADEMIC_COORDINATOR", 2)]),
+        "ac": make_user(roles=[("BRANCH_MANAGER", 1)], full_name="AC Guntur"),
+        "ac2": make_user(roles=[("BRANCH_MANAGER", 1)], full_name="AC Guntur Two"),
+        "ac_vij": make_user(roles=[("BRANCH_MANAGER", 2)]),
         "bm": make_user(roles=[("BRANCH_MANAGER", 1)]),
         "admin": make_user(roles=[("SUPER_ADMIN", None)]),
+        "founder": make_user(roles=[("FOUNDER_CEO", None)]),
     }
     version_id = catalog.versions["CV 5.1"]
     batches = {

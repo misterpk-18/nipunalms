@@ -14,7 +14,6 @@ import { istDateTime, useCanAdminister } from "./format";
 
 const STAFF_ROLES: { value: RoleCode; label: string; companyWide: boolean }[] = [
   { value: "TRAINER", label: "Trainer", companyWide: false },
-  { value: "ACADEMIC_COORDINATOR", label: "Academic Coordinator", companyWide: false },
   { value: "BRANCH_MANAGER", label: "Branch Manager", companyWide: false },
   { value: "SUPER_ADMIN", label: "Super Admin", companyWide: true },
   { value: "FOUNDER_CEO", label: "Founder / CEO", companyWide: true },
@@ -288,7 +287,7 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
 type RoleForm = { role_code: RoleCode; branch_id: string; expires_at: string };
 
 function AddRoleDialog({ user, onClose }: { user: StaffUser; onClose: () => void }) {
-  const form = useForm<RoleForm>({ defaultValues: { role_code: "ACADEMIC_COORDINATOR", branch_id: "", expires_at: "" } });
+  const form = useForm<RoleForm>({ defaultValues: { role_code: "BRANCH_MANAGER", branch_id: "", expires_at: "" } });
   const roleCode = form.watch("role_code");
   const grant = useApiMutation(
     (v: RoleForm) =>

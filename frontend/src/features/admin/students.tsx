@@ -14,7 +14,7 @@ import { istDateTime, useCanAdminister } from "./format";
 
 const ACTIVATION_STATUSES = ["Account Created", "Activation Pending", "Activated", "Suspended"] as const;
 // Where the student's outstanding activation link came from. The CRM does not deliver its link yet, so a student whose
-// link is from CRM provisioning can only activate once a coordinator or Super Admin issues a new one.
+// link is from CRM provisioning can only activate once a Branch Manager or Super Admin issues a new one.
 const ACTIVATION_CHANNELS = [
   { value: "CRM provisioning", label: "CRM provisioning (not delivered)" },
   { value: "Staff issued", label: "Staff issued" },
@@ -117,7 +117,7 @@ export function AdminStudents() {
           </QueryView>
         </Section>
         <Note>
-          Branch Managers and Academic Coordinators can also issue activation links for their own branch. Suspension, session revocation and reactivation are
+          Branch Managers can also issue activation links for their own branch. Suspension, session revocation and reactivation are
           Super Admin actions and are audited.
         </Note>
       </div>

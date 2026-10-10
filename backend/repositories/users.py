@@ -61,6 +61,17 @@ def list_roles() -> list[Role]:
     return list(db.session.execute(select(Role).where(Role.is_active).order_by(Role.role_id)).scalars())
 
 
+def holds_role(user_id: int, role_code: str) -> bool:
+    """Whether the user currently holds the role at any branch (or company-wide)."""
+    stmt = (
+        select(UserRoleScope.scope_id)
+        .join(Role, Role.role_id == UserRoleScope.role_id)
+        .where(UserRoleScope.user_id == user_id, Role.role_code == role_code, Role.is_active, active_scope_condition())
+        .limit(1)
+    )
+    return db.session.execute(stmt).first() is not None
+
+
 def user_ids_with_role(role_code: str, branch_id: int | None) -> list[int]:
     """Active users holding the role at this branch, or company-wide. branch_id=None: any branch."""
     stmt = (

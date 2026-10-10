@@ -97,11 +97,11 @@ test.describe("Super Admin", () => {
     // Add a second role, then deactivate: sign-in stops working
     await page.getByRole("button", { name: `Add role to Trainer E2E ${RUN}` }).click();
     const addRole = page.getByRole("dialog", { name: /Add role for/ });
-    await addRole.getByLabel("Role", { exact: true }).selectOption("ACADEMIC_COORDINATOR");
+    await addRole.getByLabel("Role", { exact: true }).selectOption("BRANCH_MANAGER");
     await addRole.getByLabel("Branch", { exact: true }).selectOption({ label: "Guntur (NIT-GNT)" });
     await addRole.getByRole("button", { name: "Add role" }).click();
     await expect(page.getByText(`Role added for Trainer E2E ${RUN}`)).toBeVisible();
-    await expect(row).toContainText("Academic Coordinator · NIT-GNT");
+    await expect(row).toContainText("Branch Manager · NIT-GNT");
 
     await page.getByRole("button", { name: `Deactivate Trainer E2E ${RUN}` }).click();
     const deactivate = page.getByRole("dialog", { name: "Deactivate account" });

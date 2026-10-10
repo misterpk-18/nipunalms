@@ -3,42 +3,47 @@ import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 
 const LINKS = [
-  ["/academic/curriculum", "Curriculum versions"],
-  ["/academic/batches", "Batch management"],
-  ["/academic/schedule", "Schedule"],
-  ["/academic/recording-exceptions", "Recording exceptions"],
-  ["/academic/completion", "Completion review"],
-  ["/academic/certificates", "Certificate eligibility"],
+  ["/branch/curriculum", "Curriculum versions"],
+  ["/branch/batches", "Batch management"],
+  ["/branch/schedule", "Schedule"],
+  ["/branch/recording-exceptions", "Recording exceptions"],
+  ["/branch/completion", "Completion review"],
+  ["/branch/certificates", "Certificate eligibility"],
 ] as const;
 
-export function AcademicDashboard() {
+/** The branch's academic work. `embedded` puts it under the Branch Manager dashboard instead of on a page of its own. */
+export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) {
   const query = useAcademicSummary();
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className={embedded ? "space-y-5" : "mx-auto max-w-6xl space-y-5"}>
       <QueryView query={query}>
         {(d) => (
           <>
-            <PageHead title="Academic dashboard" description={`${d.scope.label} · LMS academic domain`} />
+            {embedded ? (
+              <h2 className="text-lg font-semibold">Academic work</h2>
+            ) : (
+              <PageHead title="Academic dashboard" description={`${d.scope.label} · LMS academic domain`} />
+            )}
             <TileRow label="Priority tiles">
               <Tile
                 rank={1}
                 label="Enrolments awaiting batch allocation"
                 value={d.allocation_queue.count}
-                to="/academic/batches"
+                to="/branch/batches"
               />
               <Tile
                 rank={2}
                 label="Academic results awaiting publication review"
                 value={d.results_awaiting_publication.count}
                 hint="Provisional or moderated, not published"
-                to="/academic/assessments"
+                to="/branch/assessments"
               />
               <Tile
                 rank={3}
                 label="Unfulfilled recording promises"
                 value={d.recording_exceptions.count}
                 hint="From the Recording Exception Queue"
-                to="/academic/recording-exceptions"
+                to="/branch/recording-exceptions"
               />
             </TileRow>
             <TileRow label="Additional academic widgets">
@@ -52,7 +57,7 @@ export function AcademicDashboard() {
                 label="Open exceptions"
                 value={d.open_exceptions.count}
                 hint={`${d.open_exceptions.awaiting_owner} awaiting a named owner`}
-                to="/academic/exceptions"
+                to="/branch/exceptions"
               />
             </TileRow>
             {d.batch_risks.map((risk) => (
@@ -62,7 +67,6 @@ export function AcademicDashboard() {
               </StatusNote>
             ))}
             <QuickLinks title="Quick links" links={LINKS} />
-            <Note>Four distinct records: Accepted Delivery Plan · Batch · Course Enrolment / component allocation · Actual Class Session.</Note>
           </>
         )}
       </QueryView>

@@ -1,6 +1,6 @@
 """The Nipuna Academic Calendar (Module 15 §9). The Founder / CEO or Super Admin set company holidays; branch closures are
-proposed by the Academic Coordinator and approved by the Branch Manager (a Branch Manager's own entry is approved as it is
-recorded). An approved closure that falls on scheduled classes lists them and asks the branch's coordinators to prepare
+proposed by the Branch Manager and approved by the Branch Manager (a Branch Manager's own entry is approved as it is
+recorded). An approved closure that falls on scheduled classes lists them and asks the branch's Branch Managers to prepare
 replacements for the Branch Manager's schedule approval; nothing is cancelled or moved automatically."""
 from datetime import date, datetime, time, timedelta, timezone
 
@@ -16,7 +16,7 @@ from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
 CENTRAL = ("FOUNDER_CEO", "SUPER_ADMIN")
-BRANCH_PROPOSERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+BRANCH_PROPOSERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 BRANCH_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
@@ -90,7 +90,7 @@ def create_closure(data: dict) -> CalendarClosure:
             raise ValidationError("Invalid request data", {"branch_id": ["Say which branch is closed"]})
         scope.require_branch(branch_id)
         if not user.has_role(*BRANCH_PROPOSERS, branch_id=branch_id):
-            raise Forbidden("Branch closures are proposed by the branch's Academic Coordinator or Branch Manager")
+            raise Forbidden("Branch closures are proposed by the branch's Branch Manager")
         approved_now = user.has_role(*BRANCH_APPROVERS, branch_id=branch_id)
     closure = CalendarClosure(kind=kind, branch_id=branch_id, starts_on=data["starts_on"], ends_on=data["ends_on"], title=data["title"],
                               reason=data.get("reason"), requested_by=user.user_id)
@@ -128,7 +128,7 @@ def decide_closure(closure_id: int, decision: str, note: str | None) -> Calendar
 
 
 def _announce(closure: CalendarClosure) -> None:
-    """Ask the coordinators of each branch with classes inside the closure to prepare replacements."""
+    """Ask the Branch Managers of each branch with classes inside the closure to prepare replacements."""
     by_branch: dict[int, list[ClassSession]] = {}
     for session in affected_sessions(closure):
         by_branch.setdefault(session.batch.branch_id, []).append(session)
@@ -136,5 +136,5 @@ def _announce(closure: CalendarClosure) -> None:
         notify(category="Calendar", title=f"{closure.title}: {len(sessions)} class(es) need a replacement",
                body="Prepare replacements for the Branch Manager's schedule approval: "
                     + ", ".join(f"{s.session_code} ({s.starts_at.astimezone(IST):%d %b %H:%M})" for s in sessions[:10]),
-               link="/academic/schedule", role_code="ACADEMIC_COORDINATOR", branch_id=branch_id,
+               link="/branch/schedule", role_code="BRANCH_MANAGER", branch_id=branch_id,
                event_key=f"closure-affects:{closure.closure_id}:{branch_id}", action_required=True)

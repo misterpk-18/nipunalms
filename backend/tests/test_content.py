@@ -55,9 +55,9 @@ def test_a_trainer_only_adds_content_for_batches_they_teach(client, login, world
     assert create_item(client, other, world, fields={"batch_id": ""}, expect=403)["error"]["code"] == "FORBIDDEN"
 
 
-def test_students_and_branch_managers_cannot_author(client, login, world):
+def test_students_and_the_founder_cannot_author(client, login, world):
     assert create_item(client, auth(login, world.students.s1), world, expect=403)["error"]["code"] == "FORBIDDEN"
-    assert create_item(client, auth(login, world.people.bm), world, expect=403)["error"]["code"] == "FORBIDDEN"
+    assert create_item(client, auth(login, world.people.founder), world, expect=403)["error"]["code"] == "FORBIDDEN"
 
 
 def test_super_admin_names_the_branch_when_there_is_no_batch(client, login, world):
@@ -171,7 +171,7 @@ def test_review_flow_from_submission_to_release(client, login, world):
     # the coordinator was told and the notice needs action
     notice = db.session.execute(select(Notification).where(Notification.recipient_user_id == world.people.ac.user_id,
                                                            Notification.category == "Content")).scalar_one()
-    assert notice.category == "Content" and notice.action_status == "Open" and notice.link == "/academic/content-review"
+    assert notice.category == "Content" and notice.action_status == "Open" and notice.link == "/branch/content-review"
 
     assert post(client, f"/content-items/{item_id}/review", coordinator, json={"decision": "start"})["status"] == "Under Review"
     approved = post(client, f"/content-items/{item_id}/review", coordinator, json={"decision": "approve", "comment": "Good"})
@@ -220,7 +220,7 @@ def test_reviewers_cannot_review_their_own_upload_or_other_branches(client, logi
                        json={"decision": "approve"}).status_code == 404
     assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.t1),
                        json={"decision": "approve"}).status_code == 403
-    assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.bm),
+    assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.founder),
                        json={"decision": "approve"}).status_code == 403
     assert post(client, f"/content-items/{theirs['content_item_id']}/review", auth(login, world.people.admin), json={"decision": "approve"})["status"] == "Approved"
 

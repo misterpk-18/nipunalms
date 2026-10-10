@@ -6,7 +6,7 @@ from routes.decorators import fresh_auth, login_required, require_roles
 
 certificates_bp = Blueprint("certificates", __name__)
 
-REGISTER_READERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+REGISTER_READERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 @certificates_bp.get("/certificates/verify/<number>")
@@ -37,14 +37,14 @@ def get_certificate(certificate_id: int):
 
 @certificates_bp.post("/certificates")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 def create_entry():
     return certificates_controller.create_entry()
 
 
 @certificates_bp.post("/certificates/<int:certificate_id>/recommendation")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 def recommend(certificate_id: int):
     return certificates_controller.recommend(certificate_id)
 
@@ -66,7 +66,7 @@ def approve(certificate_id: int):
 
 @certificates_bp.post("/certificates/<int:certificate_id>/issue")
 @login_required
-@require_roles("BRANCH_MANAGER", "ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 @fresh_auth
 def issue(certificate_id: int):
     return certificates_controller.issue(certificate_id)
@@ -74,7 +74,7 @@ def issue(certificate_id: int):
 
 @certificates_bp.post("/certificates/<int:certificate_id>/change-requests")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 def request_change(certificate_id: int):
     return certificates_controller.request_change(certificate_id)
 
@@ -96,7 +96,7 @@ def decide_request(request_id: int):
 
 @certificates_bp.post("/certificates/<int:certificate_id>/financial-exception")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 def request_exception(certificate_id: int):
     return certificates_controller.request_exception(certificate_id)
 

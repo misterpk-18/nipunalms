@@ -5,7 +5,7 @@ from routes.decorators import login_required, require_roles
 
 access_extensions_bp = Blueprint("access_extensions", __name__, url_prefix="/access-extension-requests")
 
-DECIDERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 @access_extensions_bp.post("")

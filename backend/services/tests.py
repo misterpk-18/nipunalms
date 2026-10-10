@@ -1,6 +1,6 @@
 """Tests (Module 20): definition, question selection, approval, release and the student's list.
 
-A test moves Configuration Pending -> Not Released (everything set; formal tests also need the Academic Coordinator's approval)
+A test moves Configuration Pending -> Not Released (everything set; formal tests also need the Branch Manager's approval)
 -> Released (students see it as Scheduled / Available / Closed by its window) -> Closed. Selecting questions freezes their wording,
 key and marks into the test, so an attempt is always scored against what the student was shown.
 """
@@ -168,7 +168,7 @@ def create_test(data: dict) -> Test:
     _check_settings(settings["duration_minutes"], data.get("opens_at"), data.get("closes_at"), data.get("pass_marks"), None)
     reviewer_id = data.get("reviewer_user_id") or _default_grader(batch)
     if reviewer_id not in access.eligible_reviewers(batch):
-        raise _invalid("reviewer_user_id", "Must be a trainer of this batch or the branch Academic Coordinator")
+        raise _invalid("reviewer_user_id", "Must be a trainer of this batch or the branch's Branch Manager")
 
     fields = {k: data[k] for k in ("module_id", "topic_id", "title", "instructions", "is_required", "ai_use_rule", "opens_at", "closes_at",
                                    "pass_marks") if k in data}
@@ -200,7 +200,7 @@ def _editable(test_id: int) -> Test:
 
 def update_test(test_id: int, data: dict) -> Test:
     """Change settings while the test is not released. A released test only takes new instructions and a later closing time
-    (by the Academic Coordinator); any change to a formal test asks for approval again."""
+    (by the Branch Manager); any change to a formal test asks for approval again."""
     test = _editable(test_id)
     if test.release_status == "Closed":
         raise BusinessRule("A closed test cannot be changed")
@@ -210,7 +210,7 @@ def update_test(test_id: int, data: dict) -> Test:
             raise BusinessRule(f"A released test can only change its instructions and closing time (not {', '.join(locked)})")
         if "closes_at" in data:
             if not access.can_moderate_batch(test.batch):
-                raise _invalid("closes_at", "Only the Academic Coordinator can change the window of a released test")
+                raise _invalid("closes_at", "Only the Branch Manager can change the window of a released test")
             if test.closes_at is not None and data["closes_at"] < test.closes_at:
                 raise BusinessRule("The closing time can only be extended after release")
 
@@ -218,7 +218,7 @@ def update_test(test_id: int, data: dict) -> Test:
     _check_settings(data.get("duration_minutes", test.duration_minutes), data.get("opens_at", test.opens_at),
                     data.get("closes_at", test.closes_at), data.get("pass_marks", test.pass_marks), float(tests_repo.total_marks(test_id)) or None)
     if "reviewer_user_id" in data and data["reviewer_user_id"] not in access.eligible_reviewers(test.batch):
-        raise _invalid("reviewer_user_id", "Must be a trainer of this batch or the branch Academic Coordinator")
+        raise _invalid("reviewer_user_id", "Must be a trainer of this batch or the branch's Branch Manager")
 
     old = {k: getattr(test, k) for k in data}
     for key, value in data.items():
@@ -268,7 +268,7 @@ def set_questions(test_id: int, items: list[dict]) -> Test:
 
 
 def approve_test(test_id: int) -> Test:
-    """The Academic Coordinator signs off the questions and settings of a formal test."""
+    """The Branch Manager signs off the questions and settings of a formal test."""
     test = tests_repo.get_test(test_id)
     if test is None:
         raise NotFound("Test not found")
@@ -279,7 +279,7 @@ def approve_test(test_id: int) -> Test:
     if test.approved_at is not None:
         raise BusinessRule("This test is already approved")
     gaps = [g for g in configuration_gaps(test, tests_repo.question_count(test_id), tests_repo.slot_count(test_id))
-            if g != "Academic Coordinator approval"]
+            if g != "Branch Manager approval"]
     if gaps:
         raise BusinessRule(f"Finish the configuration first: {'; '.join(gaps)}")
     test.approved_by, test.approved_at = current_user().user_id, now_utc()

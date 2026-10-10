@@ -8,7 +8,6 @@ const LINKS = [
   ["/admin/integrations", "Integration readiness"],
   ["/admin/exceptions", "Exception queues"],
   ["/admin/security", "Security readiness"],
-  ["/academic", "Academic (all branches)"],
   ["/branch", "Branch views"],
 ] as const;
 

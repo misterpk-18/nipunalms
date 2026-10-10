@@ -53,7 +53,6 @@ const isUnder = (path: string, root: string) => path === root || path.startsWith
 export function workspaceForPath(path: string): Workspace | null {
   if (path === "/" || UNSCOPED_PATHS.some((p) => isUnder(path, p)) || isUnder(path, "/account")) return null;
   if (isUnder(path, "/trainer")) return "trainer";
-  if (isUnder(path, "/academic")) return "academic";
   if (isUnder(path, "/branch")) return "branch";
   if (isUnder(path, "/admin")) return "admin";
   if (isUnder(path, "/founder")) return "founder";
@@ -72,7 +71,6 @@ export function canOpen(workspaces: Workspace[], workspace: Workspace | null): b
 export const WORKSPACE_LABELS: Record<Workspace, string> = {
   student: "Student",
   trainer: "Trainer",
-  academic: "Academic Coordinator",
   branch: "Branch Manager",
   admin: "Super Admin",
   founder: "Founder / CEO",
@@ -81,13 +79,12 @@ export const WORKSPACE_LABELS: Record<Workspace, string> = {
 export const WORKSPACE_HOME: Record<Workspace, string> = {
   student: "/dashboard",
   trainer: "/trainer",
-  academic: "/academic",
   branch: "/branch",
   admin: "/admin",
   founder: "/founder",
 };
 
-export type NavItem = { to: string; label: string; icon: LucideIcon; tkey?: TranslationKey };
+export type NavItem = { to: string; label: string; icon: LucideIcon; tkey?: TranslationKey; group?: string };
 
 const STUDENT_NAV: NavItem[] = [
   { to: "/dashboard", label: "Home", tkey: "home", icon: House },
@@ -125,33 +122,25 @@ const TRAINER_NAV: NavItem[] = [
   { to: "/trainer/ask-nipuna", label: "Ask Nipuna", icon: Sparkles },
 ];
 
-const ACADEMIC_NAV: NavItem[] = [
-  { to: "/academic", label: "Dashboard", icon: House },
-  { to: "/academic/batches", label: "Batches", icon: Users },
-  { to: "/academic/assessments", label: "Reviews", icon: ClipboardCheck },
-  { to: "/academic/exceptions", label: "Exceptions", icon: TriangleAlert },
-  { to: "/academic/curriculum", label: "Curriculum", icon: Library },
-  { to: "/academic/schedule", label: "Schedule", icon: CalendarDays },
-  { to: "/academic/meet-operations", label: "Meet Operations", icon: Video },
-  { to: "/academic/content-review", label: "Content Review", icon: FolderOpen },
-  { to: "/academic/recording-exceptions", label: "Recording Exceptions", icon: Video },
-  { to: "/academic/progress", label: "Attendance & Progress", icon: TrendingUp },
-  { to: "/academic/completion", label: "Completion Review", icon: CircleCheck },
-  { to: "/academic/certificates", label: "Certificate Eligibility", icon: Award },
-  { to: "/academic/support", label: "Academic Support", icon: LifeBuoy },
-  { to: "/academic/notifications", label: "Notifications", icon: Bell },
-  { to: "/academic/reports", label: "Reports", icon: ChartColumn },
-];
-
 const BRANCH_NAV: NavItem[] = [
-  { to: "/branch", label: "Branch Dashboard", icon: Building2 },
-  { to: "/branch/operations", label: "Batches, Schedule & People", icon: Users },
-  { to: "/branch/batches", label: "Batch Decisions", icon: ClipboardCheck },
-  { to: "/branch/schedule", label: "Class Schedule", icon: CalendarDays },
-  { to: "/branch/meet-operations", label: "Meet Operations", icon: Video },
-  { to: "/branch/requests", label: "Escalations & Extensions", icon: LifeBuoy },
-  { to: "/branch/reports", label: "Certificates & Reports", icon: Award },
-  { to: "/branch/notifications", label: "Notifications", icon: Bell },
+  { to: "/branch", label: "Dashboard", icon: House, group: "Today" },
+  { to: "/branch/meet-operations", label: "Meet Operations", icon: Video, group: "Today" },
+  { to: "/branch/batches", label: "Batches", icon: Users, group: "Batches & students" },
+  { to: "/branch/operations", label: "Batches, Schedule & People", icon: Building2, group: "Batches & students" },
+  { to: "/branch/schedule", label: "Schedule", icon: CalendarDays, group: "Batches & students" },
+  { to: "/branch/progress", label: "Attendance & Progress", icon: TrendingUp, group: "Batches & students" },
+  { to: "/branch/curriculum", label: "Curriculum", icon: Library, group: "Teaching" },
+  { to: "/branch/content-review", label: "Content Review", icon: FolderOpen, group: "Teaching" },
+  { to: "/branch/assessments", label: "Reviews", icon: ClipboardCheck, group: "Teaching" },
+  { to: "/branch/completion", label: "Completion Review", icon: CircleCheck, group: "Completion" },
+  { to: "/branch/certificates", label: "Certificate Eligibility", icon: Award, group: "Completion" },
+  { to: "/branch/support", label: "Student Support", icon: LifeBuoy, group: "Help" },
+  { to: "/branch/exceptions", label: "Exceptions", icon: TriangleAlert, group: "Help" },
+  { to: "/branch/recording-exceptions", label: "Recording Exceptions", icon: Video, group: "Help" },
+  { to: "/branch/requests", label: "Escalations & Extensions", icon: Briefcase, group: "Help" },
+  { to: "/branch/academic-reports", label: "Academic Reports", icon: ChartColumn, group: "Reports" },
+  { to: "/branch/reports", label: "Certificates & Reports", icon: ScrollText, group: "Reports" },
+  { to: "/branch/notifications", label: "Notifications", icon: Bell, group: "Reports" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -165,7 +154,6 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/admin/crm-sync", label: "CRM Sync", icon: RefreshCw },
   { to: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { to: "/admin/notifications", label: "Notifications", icon: Bell },
-  { to: "/academic", label: "Academic (all branches)", icon: CircleCheck },
   { to: "/branch", label: "Branch views", icon: Building2 },
 ];
 
@@ -180,7 +168,6 @@ const FOUNDER_NAV: NavItem[] = [
 export const NAV: Record<Workspace, NavItem[]> = {
   student: STUDENT_NAV,
   trainer: TRAINER_NAV,
-  academic: ACADEMIC_NAV,
   branch: BRANCH_NAV,
   admin: ADMIN_NAV,
   founder: FOUNDER_NAV,
@@ -190,7 +177,7 @@ export const NAV: Record<Workspace, NavItem[]> = {
 const MOBILE_BAR: Partial<Record<Workspace, string[]>> = {
   student: ["/dashboard", "/my-courses", "/schedule", "/assignments"],
   trainer: ["/trainer", "/trainer/batches", "/trainer/students", "/trainer/reviews"],
-  academic: ["/academic", "/academic/batches", "/academic/assessments", "/academic/exceptions"],
+  branch: ["/branch", "/branch/batches", "/branch/assessments", "/branch/exceptions"],
 };
 
 export function mobileBarItems(workspace: Workspace): NavItem[] {
@@ -199,7 +186,7 @@ export function mobileBarItems(workspace: Workspace): NavItem[] {
   return pinned ? pinned.map((to) => items.find((i) => i.to === to)!) : items.slice(0, 4);
 }
 
-const WORKSPACE_ROOTS = ["/trainer", "/academic", "/branch", "/admin"];
+const WORKSPACE_ROOTS = ["/trainer", "/branch", "/admin"];
 
 /** Workspace index links match exactly; every other item is active for its own sub-paths too. */
 export function isNavActive(path: string, to: string): boolean {

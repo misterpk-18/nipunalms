@@ -120,6 +120,6 @@ class TestFinance:
         assert client.get(f"{API}/finance-summaries/{admission_id}", headers=world.h(world.people.bm_vij)).status_code == 404
 
     def test_other_roles_have_no_finance_access(self, client, world):
-        for person in (world.people.ac, world.people.t1, world.students.s1):
+        for person in (world.people.t1, world.students.s1):
             assert client.get(f"{API}/finance-summaries", headers=world.h(person)).status_code == 403
         assert client.get(f"{API}/me/finance", headers=world.h(world.people.bm)).status_code == 403

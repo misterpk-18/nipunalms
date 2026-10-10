@@ -6,9 +6,9 @@ from routes.decorators import login_required, require_roles
 recordings_bp = Blueprint("recordings", __name__, url_prefix="/recordings")
 recording_exceptions_bp = Blueprint("recording_exceptions", __name__, url_prefix="/recording-exceptions")
 
-STAFF = ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-MANAGERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
-EXCEPTION_HANDLERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+MANAGERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+EXCEPTION_HANDLERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 @recordings_bp.get("")

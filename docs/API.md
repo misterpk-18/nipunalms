@@ -74,10 +74,18 @@ Identical to the CRM:
 |---|---|
 | `STUDENT` | Only their own student record, enrolments, sessions of batches they are allocated to, released content / recordings of those enrolments, own submissions / attempts / results / certificates / support / notifications |
 | `TRAINER` | Batches they are assigned to (`batch_trainers`), the students allocated to those batches, sessions they teach |
-| `ACADEMIC_COORDINATOR` | Everything academic at their branch (`branch_id` of the scope) |
-| `BRANCH_MANAGER` | Everything at their branch (academic + operational + read-only finance summary) |
-| `SUPER_ADMIN` | All branches; admin / integrations / security; can open academic and branch workspaces |
+| `BRANCH_MANAGER` | Everything at their branch (academic + operational + read-only finance summary). Since UX phase U2 (db 106) this is also everything the retired `ACADEMIC_COORDINATOR` role did |
+| `SUPER_ADMIN` | All branches; admin / integrations / security; can open the branch workspace |
 | `FOUNDER_CEO` | All branches, management overview; can open admin and branch workspaces (read-mostly) |
+
+**Who decides** (UX phase U2: the Branch Manager does what the Academic Coordinator did). The Branch Manager decides alone for
+the steps that used to take a coordinator and then a Branch Manager: confirming a batch (a warning needs `override_reason`,
+audited), replacement and extra classes, approving a certificate (the recommendation is recorded in the same step), cover,
+capacity increases and transfers. Requests that need an independent reviewer (`services/approvals.require_independent`:
+corrections and requests of trainers or other staff, attendance corrections, academic mappings, variations, library
+versions, material changes, merges and splits, guests, certificate change requests) are reviewed by a Branch Manager who
+is not the requester; **when the requester is a Branch Manager, only the Founder / CEO or a Super Admin may decide it**
+(422 *A Branch Manager's own request is decided by the Founder / CEO or a Super Admin*).
 
 Branch comes from `batches.branch_id` / `enrolments.service_branch_id`, never from a submitted value. A record outside
 scope is a 404, not a 403. Scope helpers every module uses live in `services/scope.py` (branch visibility, trainer
@@ -149,7 +157,7 @@ Codes follow the prototype: `NIT-STU-2026-004182`, `ADM-GNT-2026-000214`, `NIT-G
 | GET / DELETE | `/auth/sessions`, `/auth/sessions/{id}` | Signed in | Own sessions; sign out another device |
 | POST | `/auth/activate` | Public | `{token, password}` — single-use student activation |
 | GET | `/auth/activation/{token}` | Public | Token status (valid / expired / used) and masked Student ID |
-| POST | `/students/{id}/activation` | Super Admin / BM / AC (branch) | Issue or reissue an activation token (fresh auth); shown once |
+| POST | `/students/{id}/activation` | Super Admin / BM (branch) | Issue or reissue an activation token (fresh auth); shown once |
 
 ### 4.2 CRM integration
 
@@ -171,7 +179,7 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 - `AdmissionQualified` upserts the Student by `crm_person_id` (one Student / one LMS login per Person, reused for later
   admissions), the Admission projection and its Enrolment. A new enrolment is *Allocation Pending* (or *Provisioning
   Pending* while a complimentary gate is unmet); it follows the Active curriculum version when its course has one, else it has none yet. A new login gets an activation token; the branch
-  Academic Coordinator is notified. The response includes `lms_user_id` and `lms_status`. A repeat with a higher
+  Branch Manager is notified. The response includes `lms_user_id` and `lms_status`. A repeat with a higher
   version is a full refresh: it never creates a second login or resets an enrolment being served.
 - `AdmissionCancelled` withdraws only that admission's enrolments. `FinanceSummaryUpdated` replaces the read-only
   finance snapshot.
@@ -194,35 +202,35 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | GET | `/curriculum/overview` | Staff | One row per course: Active version, versions in review, `waiting_batches` (open batches with no approved curriculum yet) |
-| GET / POST | `/curriculum-versions` | Staff / AC, Super Admin | List (filters `course_id`, `status`); create a Draft (optionally copied from an earlier version) |
-| GET / PATCH / DELETE | `/curriculum-versions/{id}` | Staff / AC, Super Admin | Detail with modules, topics, review trail and publish blockers; rename; delete only a never-published Draft |
-| POST | `/curriculum-versions/{id}/submit`, `/return` | AC, Super Admin (`return` also Founder / CEO) | Draft → Under Review; `return` (back to Draft) needs a reason. Submitting notifies the Founder / CEO (link `/founder/curriculum`) and Super Admin |
+| GET / POST | `/curriculum-versions` | Staff / BM, Super Admin | List (filters `course_id`, `status`); create a Draft (optionally copied from an earlier version) |
+| GET / PATCH / DELETE | `/curriculum-versions/{id}` | Staff / BM, Super Admin | Detail with modules, topics, review trail and publish blockers; rename; delete only a never-published Draft |
+| POST | `/curriculum-versions/{id}/submit`, `/return` | BM, Super Admin (`return` also Founder / CEO) | Draft → Under Review; `return` (back to Draft) needs a reason. Submitting notifies the Founder / CEO (link `/founder/curriculum`) and Super Admin |
 | POST | `/curriculum-versions/{id}/approve`, `/activate`, `/retire` | Founder / CEO, Super Admin (fresh auth; never the submitter, Module 14 §5) | Under Review → Approved → Active → Retired. Activating gives the version to the course's batches and enrolments that had none and returns the counts (`enrolments_released`, `batches_mapped`) |
-| POST | `/curriculum-versions/{id}/modules`, `/curriculum-modules/{id}/topics` | AC, Super Admin | Add to a Draft (optional `position`) |
-| PATCH / DELETE | `/curriculum-modules/{id}`, `/curriculum-topics/{id}` | AC, Super Admin | Draft only; sort order re-sequenced. A topic has `topic_class` (Required / Recommended / Optional; `is_required` follows it), `outcome`, `instructional_minutes`, `independent_minutes`, `weight`, `evidence`, `activities` and `depends_on` (topic ids of the same version, no loops) |
-| POST / PUT | `/curriculum-versions/{id}/hours-verification`, `/completion-profile` | AC, Super Admin | Draft only. Verifying needs every topic estimated; changing minutes clears it. Profile: `attendance_minimum_pct`, `pass_mark_pct`, `recovery_rule`, `reassessment_rule` |
-| POST / DELETE | `/curriculum-versions/{id}/assessment-requirements`, `/assessment-requirements/{id}` | AC, Super Admin | The assessments the version requires: kind, title, outcome, weight, pass rule; Draft only |
-| PUT | `/curriculum-versions/{id}/components` | AC, Super Admin | A combo parent version pins `{component_id, component_version_id}`; a booster may pin its own course's version only after `POST /course-components/{id}/equivalence` `{note}` (Module 14 §3) |
-| GET / POST | `/academic-mappings`, `/enrolments/{id}/academic-mappings` | Staff / trainer, AC, SA (a trainer of a batch on the target version may prepare it) | `{to_version_id, enrolment_track_id?, comparison, migration_plan, trainer_evidence?, rule_id?, credits?: [{topic_id, original_evidence}]}`; credits need an approved equivalence rule between the two versions |
-| POST | `/academic-mappings/{id}/decision` | AC (receiving branch), SA; fresh auth; never the preparer | `{decision, note?, student_acceptance}` (acceptance required to approve). Approving moves the enrolment or track and records `learning_credits`, which count as covered required learning, never attendance |
-| GET / POST | `/equivalence-rules`, `/{id}/decision` | Staff / AC, SA propose; Founder, SA decide (fresh auth; never the proposer) | `{from_version_id, to_version_id, description}` |
-| GET / POST | `/curriculum-variations`, `/{id}/decision` | Staff / AC, BM, SA; decisions by AC (local) or Founder, SA (required topic constraint) | Kinds Local example, Equivalent exercise, Teaching language, Sequencing (a coordinator's own entry is approved), Required topic constraint (needs `topic_id` and `remedial_plan`) |
-| GET / POST | `/curriculum-library`, `/curriculum-modules/{id}/library`, `/curriculum-library/{id}/versions`, `/curriculum-library-versions/{id}/decision`, `/curriculum-versions/{id}/library-modules` | Staff / AC, SA | Reusable modules with explicit versions; another reviewer approves each version; inserting copies an approved version into a Draft and keeps `library_version_id` |
-| GET | `/enrolments`, `/allocation-queue` | Staff / AC, BM, Super Admin | Branch-scoped enrolment list; the queue of payment-cleared enrolments waiting for a seat, each with `allocation_due_on` (Module 15 §6: one working day after Admission for a confirmed seat, 48 hours before the first class for a future plan, never after the first class) |
-| GET / POST | `/calendar/closures`, `/calendar/closures/{id}` | Staff / Founder, SA (company holiday); AC, BM, SA (branch closure) | The Academic Calendar. A company holiday and a Branch Manager's own closure are Approved at once; a coordinator's closure is Pending. The detail lists `affected_sessions` (Scheduled / Live classes inside it) |
-| POST | `/calendar/closures/{id}/decision` | BM, SA | `{decision, note}` (note to reject). Approving asks the affected branches' coordinators to prepare replacements; no class is moved automatically |
-| GET / POST | `/batches/{id}/allocations` | Staff / AC, BM, Super Admin | Roster (filter `status`); allocate an enrolment, or one combo track with `enrolment_track_id` (a track batch takes only its track) |
-| GET | `/batches/{id}/allocation-review?enrolment_id=&enrolment_track_id=&transfer=` | AC, BM, Super Admin | The checks (branch, course / track, curriculum, capacity, mode, student timetable, batch state, enrolment state) as pass / warn / fail |
-| POST | `/enrolments/{id}/deallocate` | AC, BM, Super Admin | `{reason, enrolment_track_id?}`. Moving a seat is a transfer request (§4.4.1) |
-| POST / PATCH | `/batches`, `/batches/{id}`, `/trainers`, `/readiness` | AC, BM, Super Admin | Batch with `batch_events` history. The timetable: `schedule_days` (`["Mon", "Wed", "Fri"]`), `start_time` / `end_time` (`"HH:MM"` IST, both or neither), `location` (dropped for Live Online); each nullable. Module 15 fields: `display_name`, `batch_type` (Group / Individual / Corporate), `schedule_pattern` (Regular / Weekend / Fast-track), `component_id` (a track batch, Draft only), `classroom_capacity` / `lab_capacity` / `online_capacity`, `recording_provision` (Included / Not Included / Limited + `recording_terms`), `meet_series_link`, `meet_space_id`, `calendar_series_id`. Responses add `state_label`, `creating_branch`, `component`, `proposed_by` / `confirmed_by`; the detail adds `successions` and `handovers`. `GET /readiness` adds the 7-point `checklist` |
-| POST | `/batches/{id}/proposal`, `/batches/{id}/confirmation`, `/batches/{id}/state` | proposal: AC, BM, SA; confirmation: BM, SA; state: see rules | `proposal {note?}`: Draft → Proposed once points 1–6 pass. `confirmation {decision: Confirmed / Returned, note?, override_reason?}`: never the proposer; warnings need `override_reason`. `state {state: Running / On Hold / Resume / Completed / Cancelled / Archived, reason?}`: On Hold, Resume and Archived by BM / SA; reason for On Hold and Cancelled |
-| POST | `/batches/{id}/handovers` | AC, BM, SA | `{enrolment_id, owner_user_id, plan, destination, destination_batch_id?}`: a student the batch still owes teaching (paused, not started), needed before Completed |
-| GET / POST / PATCH | `/class-sessions`, `/class-sessions/{id}` | Staff; create / edit AC, BM, Super Admin | Filters include `batch_id`, `trainer_id`, `state`, `purpose`, `approval_status`, `from`, `to`; create accepts a weekly `recurrence` (weekdays, `until` / `count`), `purpose` (Regular / Replacement / Remedial / Extra) with `replaces_session_id`, `purpose_reference`, `owner_user_id`, `due_on`, the Meet ids, and `override_reason` for an advisory clash. Changing the trainer by PATCH is the Branch Manager's (others request cover). Responses add `state_label`, `original_starts_at` / `original_ends_at`, `confirmed_at`, `approval_status`, the delivery log and the Meet ids (staff) |
-| POST | `/class-sessions/{id}/start`, `/deliver`, `/cancel`, `/reschedule` | Trainer of the class (start, deliver); AC, BM, Super Admin (cancel, reschedule) | Reason required for cancel / reschedule; `session_changes` row with notice hours and `short_notice`; inside 24 hours also `emergency_reason` and `next_action`. Deliver is the class log: `{outcome: Held / Partially Held, actual_start?, actual_end?, break_minutes?, unfulfilled_note?, notes?}` (missing times default to the start and scheduled end) |
-| POST | `/class-sessions/{id}/confirm`, `/approval`, `/replacement-waiver` | confirm, waiver: AC, BM, SA; approval: BM, SA (never the proposer) | `confirm`: Planned → Confirmed (room; online also a Meet link and a named backup host). `approval {decision, note?}`: a replacement, remedial or extra class; until approved students don't see it and it cannot start. `replacement-waiver {reason}`: a cancelled class that owes no replacement |
-| PUT | `/class-sessions/{id}/notes` | Teaching trainer, AC, BM, Super Admin | `{notes}`; only while the class is Live or Delivered; audited (`SESSION_NOTES_SAVED`). The Trainer Today close-out |
-| POST | `/class-sessions/{id}/reschedule-requests`; GET `/reschedule-requests`; POST `/reschedule-requests/{id}/approve`, `/reject` | Trainer (ask); AC, BM (decide) | One open request per session; approve applies the proposed time |
-| PUT / POST | `/class-sessions/{id}/meet`, `/meet/fail`, `/meet/reset` | AC, BM, Super Admin | Records the Meet association in `meet_events`; the LMS never calls Google. `meet` also takes `meet_space_id`, `calendar_event_id`, `calendar_series_id`, `conference_record_id`; a link used by another batch's open class is refused |
+| POST | `/curriculum-versions/{id}/modules`, `/curriculum-modules/{id}/topics` | BM, Super Admin | Add to a Draft (optional `position`) |
+| PATCH / DELETE | `/curriculum-modules/{id}`, `/curriculum-topics/{id}` | BM, Super Admin | Draft only; sort order re-sequenced. A topic has `topic_class` (Required / Recommended / Optional; `is_required` follows it), `outcome`, `instructional_minutes`, `independent_minutes`, `weight`, `evidence`, `activities` and `depends_on` (topic ids of the same version, no loops) |
+| POST / PUT | `/curriculum-versions/{id}/hours-verification`, `/completion-profile` | BM, Super Admin | Draft only. Verifying needs every topic estimated; changing minutes clears it. Profile: `attendance_minimum_pct`, `pass_mark_pct`, `recovery_rule`, `reassessment_rule` |
+| POST / DELETE | `/curriculum-versions/{id}/assessment-requirements`, `/assessment-requirements/{id}` | BM, Super Admin | The assessments the version requires: kind, title, outcome, weight, pass rule; Draft only |
+| PUT | `/curriculum-versions/{id}/components` | BM, Super Admin | A combo parent version pins `{component_id, component_version_id}`; a booster may pin its own course's version only after `POST /course-components/{id}/equivalence` `{note}` (Module 14 §3) |
+| GET / POST | `/academic-mappings`, `/enrolments/{id}/academic-mappings` | Staff / trainer, BM, SA (a trainer of a batch on the target version may prepare it) | `{to_version_id, enrolment_track_id?, comparison, migration_plan, trainer_evidence?, rule_id?, credits?: [{topic_id, original_evidence}]}`; credits need an approved equivalence rule between the two versions |
+| POST | `/academic-mappings/{id}/decision` | BM (receiving branch), SA; fresh auth; never the preparer | `{decision, note?, student_acceptance}` (acceptance required to approve). Approving moves the enrolment or track and records `learning_credits`, which count as covered required learning, never attendance |
+| GET / POST | `/equivalence-rules`, `/{id}/decision` | Staff / BM, SA propose; Founder, SA decide (fresh auth; never the proposer) | `{from_version_id, to_version_id, description}` |
+| GET / POST | `/curriculum-variations`, `/{id}/decision` | Staff / BM, SA; decisions by BM (local) or Founder, SA (required topic constraint) | Kinds Local example, Equivalent exercise, Teaching language, Sequencing (a Branch Manager's own entry is approved), Required topic constraint (needs `topic_id` and `remedial_plan`) |
+| GET / POST | `/curriculum-library`, `/curriculum-modules/{id}/library`, `/curriculum-library/{id}/versions`, `/curriculum-library-versions/{id}/decision`, `/curriculum-versions/{id}/library-modules` | Staff / BM, SA | Reusable modules with explicit versions; another reviewer approves each version; inserting copies an approved version into a Draft and keeps `library_version_id` |
+| GET | `/enrolments`, `/allocation-queue` | Staff / BM, Super Admin | Branch-scoped enrolment list; the queue of payment-cleared enrolments waiting for a seat, each with `allocation_due_on` (Module 15 §6: one working day after Admission for a confirmed seat, 48 hours before the first class for a future plan, never after the first class) |
+| GET / POST | `/calendar/closures`, `/calendar/closures/{id}` | Staff / Founder, SA (company holiday); BM, SA (branch closure) | The Academic Calendar. A company holiday and a Branch Manager's own closure are Approved at once (the Branch Manager decides alone). The detail lists `affected_sessions` (Scheduled / Live classes inside it) |
+| POST | `/calendar/closures/{id}/decision` | BM, SA | `{decision, note}` (note to reject). Approving asks the affected branches' Branch Managers to prepare replacements; no class is moved automatically |
+| GET / POST | `/batches/{id}/allocations` | Staff / BM, Super Admin | Roster (filter `status`); allocate an enrolment, or one combo track with `enrolment_track_id` (a track batch takes only its track) |
+| GET | `/batches/{id}/allocation-review?enrolment_id=&enrolment_track_id=&transfer=` | BM, Super Admin | The checks (branch, course / track, curriculum, capacity, mode, student timetable, batch state, enrolment state) as pass / warn / fail |
+| POST | `/enrolments/{id}/deallocate` | BM, Super Admin | `{reason, enrolment_track_id?}`. Moving a seat is a transfer request (§4.4.1) |
+| POST / PATCH | `/batches`, `/batches/{id}`, `/trainers`, `/readiness` | BM, Super Admin | Batch with `batch_events` history. The timetable: `schedule_days` (`["Mon", "Wed", "Fri"]`), `start_time` / `end_time` (`"HH:MM"` IST, both or neither), `location` (dropped for Live Online); each nullable. Module 15 fields: `display_name`, `batch_type` (Group / Individual / Corporate), `schedule_pattern` (Regular / Weekend / Fast-track), `component_id` (a track batch, Draft only), `classroom_capacity` / `lab_capacity` / `online_capacity`, `recording_provision` (Included / Not Included / Limited + `recording_terms`), `meet_series_link`, `meet_space_id`, `calendar_series_id`. Responses add `state_label`, `creating_branch`, `component`, `proposed_by` / `confirmed_by`; the detail adds `successions` and `handovers`. `GET /readiness` adds the 7-point `checklist` |
+| POST | `/batches/{id}/proposal`, `/batches/{id}/confirmation`, `/batches/{id}/state` | proposal: BM, SA; confirmation: BM, SA; state: see rules | `proposal {note?}`: Draft → Proposed once points 1–6 pass. `confirmation {decision: Confirmed / Returned, note?, override_reason?}`: never the proposer; warnings need `override_reason`. `state {state: Running / On Hold / Resume / Completed / Cancelled / Archived, reason?}`: On Hold, Resume and Archived by BM / SA; reason for On Hold and Cancelled |
+| POST | `/batches/{id}/handovers` | BM, SA | `{enrolment_id, owner_user_id, plan, destination, destination_batch_id?}`: a student the batch still owes teaching (paused, not started), needed before Completed |
+| GET / POST / PATCH | `/class-sessions`, `/class-sessions/{id}` | Staff; create / edit BM, Super Admin | Filters include `batch_id`, `trainer_id`, `state`, `purpose`, `approval_status`, `from`, `to`; create accepts a weekly `recurrence` (weekdays, `until` / `count`), `purpose` (Regular / Replacement / Remedial / Extra) with `replaces_session_id`, `purpose_reference`, `owner_user_id`, `due_on`, the Meet ids, and `override_reason` for an advisory clash. Changing the trainer by PATCH is the Branch Manager's (others request cover). Responses add `state_label`, `original_starts_at` / `original_ends_at`, `confirmed_at`, `approval_status`, the delivery log and the Meet ids (staff) |
+| POST | `/class-sessions/{id}/start`, `/deliver`, `/cancel`, `/reschedule` | Trainer of the class (start, deliver); BM, Super Admin (cancel, reschedule) | Reason required for cancel / reschedule; `session_changes` row with notice hours and `short_notice`; inside 24 hours also `emergency_reason` and `next_action`. Deliver is the class log: `{outcome: Held / Partially Held, actual_start?, actual_end?, break_minutes?, unfulfilled_note?, notes?}` (missing times default to the start and scheduled end) |
+| POST | `/class-sessions/{id}/confirm`, `/approval`, `/replacement-waiver` | confirm, waiver: BM, SA; approval: BM, SA (never the proposer) | `confirm`: Planned → Confirmed (room; online also a Meet link and a named backup host). `approval {decision, note?}`: a replacement, remedial or extra class; until approved students don't see it and it cannot start. `replacement-waiver {reason}`: a cancelled class that owes no replacement |
+| PUT | `/class-sessions/{id}/notes` | Teaching trainer, BM, Super Admin | `{notes}`; only while the class is Live or Delivered; audited (`SESSION_NOTES_SAVED`). The Trainer Today close-out |
+| POST | `/class-sessions/{id}/reschedule-requests`; GET `/reschedule-requests`; POST `/reschedule-requests/{id}/approve`, `/reject` | Trainer (ask); BM (decide) | One open request per session; approve applies the proposed time |
+| PUT / POST | `/class-sessions/{id}/meet`, `/meet/fail`, `/meet/reset` | BM, Super Admin | Records the Meet association in `meet_events`; the LMS never calls Google. `meet` also takes `meet_space_id`, `calendar_event_id`, `calendar_series_id`, `conference_record_id`; a link used by another batch's open class is refused |
 | GET | `/me/enrolments`, `/me/enrolments/{id}`, `/me/enrolments/{id}/tracks/{track_id}`, `/me/schedule` | Student | Own courses with delivery progress, combo tracks and upcoming / past classes |
 | GET | `/modules/{id}`, `/topics/{id}` | Student (own enrolments) / staff | Module and topic pages with their classes, resources and recordings |
 
@@ -271,34 +279,34 @@ default; Module 15 §9 assumes no weekend is closed) and no approved company hol
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/batches/{id}/capacity-requests` | AC, BM, SA | `{to_capacity, classroom_capacity?, lab_capacity?, online_capacity?, resource_validation, academic_review}`; one open per batch |
-| GET / POST | `/batch-capacity-requests`, `/{id}/decision` | AC, BM, SA, Founder (list) / BM, SA (decide, never the requester) | `{decision, note?}` (note to reject); approving sets the capacity |
-| POST | `/enrolments/{id}/transfer-requests` | AC, BM, SA (student's service branch) | `{to_batch_id, enrolment_track_id?, reason, acknowledge_warnings?}`, after the allocation review. A batch at another branch is allowed only for one track (`interbranch`) |
-| GET | `/batch-transfer-requests?status=&batch_id=` | AC, BM, SA, Founder | Requests touching the user's branches (the student's or the destination's) |
-| POST | `/batch-transfer-requests/{id}/destination` | AC, BM, SA of the destination branch | `{decision: Confirmed / Rejected, note?}`: the destination can deliver the placed track |
+| POST | `/batches/{id}/capacity-requests` | BM, SA | `{to_capacity, classroom_capacity?, lab_capacity?, online_capacity?, resource_validation, academic_review}`; one open per batch |
+| GET / POST | `/batch-capacity-requests`, `/{id}/decision` | BM, SA, Founder (list) / BM, SA (decide, never the requester) | `{decision, note?}` (note to reject); approving sets the capacity |
+| POST | `/enrolments/{id}/transfer-requests` | BM, SA (student's service branch) | `{to_batch_id, enrolment_track_id?, reason, acknowledge_warnings?}`, after the allocation review. A batch at another branch is allowed only for one track (`interbranch`) |
+| GET | `/batch-transfer-requests?status=&batch_id=` | BM, SA, Founder | Requests touching the user's branches (the student's or the destination's) |
+| POST | `/batch-transfer-requests/{id}/destination` | BM, SA of the destination branch | `{decision: Confirmed / Rejected, note?}`: the destination can deliver the placed track |
 | POST | `/batch-transfer-requests/{id}/decision` | BM, SA of the student's branch, never the requester | `{decision, note?}`; approving re-runs the review and moves the seat (interbranch only after the destination confirmed) |
-| POST | `/batches/{id}/material-changes` | AC, BM, SA | `{kind, proposed_plan, reason, changes?, alternative?}`. Kinds and what they set: Start date (`planned_start`), Delivery mode (`mode`), Teaching days / times (`schedule_days`, `start_time`, `end_time`), End date extension (`planned_end`), Instructional hours (nothing), Batch move (`target_batch_id`, for a merge / split onto another timetable). Every seated student gets a Pending response |
+| POST | `/batches/{id}/material-changes` | BM, SA | `{kind, proposed_plan, reason, changes?, alternative?}`. Kinds and what they set: Start date (`planned_start`), Delivery mode (`mode`), Teaching days / times (`schedule_days`, `start_time`, `end_time`), End date extension (`planned_end`), Instructional hours (nothing), Batch move (`target_batch_id`, for a merge / split onto another timetable). Every seated student gets a Pending response |
 | GET | `/material-changes`, `/material-changes/{id}` | Staff | Filters `status` (Pending Approval / Awaiting Agreement / Applied / Rejected / Withdrawn), `batch_id`; detail has the responses |
 | POST | `/material-changes/{id}/decision` | BM, SA, never the requester | Approving asks each student to agree (action-required notice) |
-| POST | `/material-changes/{id}/responses` | AC, BM, SA | `{enrolment_id, response: Agreed / Declined, note, alternative_arranged?}`: an answer given outside the LMS, with its evidence; a decline needs the agreed alternative |
-| POST | `/material-changes/{id}/apply`, `/withdraw` | AC, BM, SA | Apply once every student agreed or declined with an alternative; `withdraw {note}` |
+| POST | `/material-changes/{id}/responses` | BM, SA | `{enrolment_id, response: Agreed / Declined, note, alternative_arranged?}`: an answer given outside the LMS, with its evidence; a decline needs the agreed alternative |
+| POST | `/material-changes/{id}/apply`, `/withdraw` | BM, SA | Apply once every student agreed or declined with an alternative; `withdraw {note}` |
 | GET / POST | `/me/material-changes`, `/me/material-changes/{id}/response` | Student | Own requests for agreement; `{response, note?}` |
-| GET / POST | `/batch-successions`, `/batch-successions/{id}/decision` | AC, BM, SA (request) / BM, SA (decide, never the requester) | `{kind: Merge / Split, from_batch_id, to_batch_id, enrolment_ids (split), effective_from, reason, academic_review}`; same branch, course / track and curriculum version; a different mode or timetable needs an applied Batch move material change |
+| GET / POST | `/batch-successions`, `/batch-successions/{id}/decision` | BM, SA (request) / BM, SA (decide, never the requester) | `{kind: Merge / Split, from_batch_id, to_batch_id, enrolment_ids (split), effective_from, reason, academic_review}`; same branch, course / track and curriculum version; a different mode or timetable needs an applied Batch move material change |
 | GET / POST | `/me/slot-options?enrolment_id=`, `/me/slot-preferences`, `/me/slot-preferences/{id}/withdraw` | Student | Open batches of the course at the service branch (labelled honestly); `{enrolment_id, batch_id?, preferred_days?, preferred_start?, preferred_end?, preferred_mode?, note?}`; one open request; `reserves_seat` is always false |
-| GET / PATCH | `/slot-preferences`, `/slot-preferences/{id}` | AC, BM, SA (Founder reads) | `{status: Waitlisted / Confirmed / Not Possible, status_note?, batch_id?}`; Confirmed only once the student holds a seat there (an allocation to the requested batch confirms it) |
+| GET / PATCH | `/slot-preferences`, `/slot-preferences/{id}` | BM, SA (Founder reads) | `{status: Waitlisted / Confirmed / Not Possible, status_note?, batch_id?}`; Confirmed only once the student holds a seat there (an allocation to the requested batch confirms it) |
 | GET | `/meet-operations?date=&branch_id=&batch_id=&trainer_user_id=` | Staff (trainers: their batches) | One IST day: per class link and host readiness, delay / disruption, attendance awaiting the trainer, recording state; open disruptions, replacements owed, classes awaiting approval, missing logs, open recording issues, unmatched participants, Meet integration status and `last_runs` of the background checks |
 | GET | `/class-sessions/{id}/operations` | Staff | People, incidents, disruptions, cover requests, joined batches, participation and replacements of one class |
-| POST / DELETE | `/class-sessions/{id}/people`, `/session-people/{id}`; POST `/session-people/{id}/decision` | AC, BM, SA (guest decision: never the proposer) | `{role: Host / Backup / Guest, user_id? , guest_name?, guest_email?, purpose?, student_agreement?}`. Host and backup are staff not busy then; a guest starts Pending and gets no LMS rights |
-| POST | `/class-sessions/{id}/meet-incidents` | Trainer of the class, AC, BM, SA | `{kind, description, actions_taken, replace_link?}`: alerts the coordinators and Branch Managers; replacing the link clears it (Link removed) and tells the participants |
-| POST | `/class-sessions/{id}/participation`; GET `/meet-participation/unmatched`; POST `/meet-participation/{id}/review` | AC, BM, SA | `{source, entries: [{participant_name?, participant_email?, joined_at, left_at?}]}`; matched by email to staff or a seated student, else Unmatched; review `{match_status: Matched / Dismissed, user_id?, note?}`. Never attendance |
-| GET / POST | `/session-disruptions`, `/class-sessions/{id}/disruptions`, `/session-disruptions/{id}/resolve` | Staff / trainer of the class, AC, BM, SA / AC, BM, SA | `{kind, cause?, delay_minutes?, detail?}`; resolve `{recovery_plan, undelivered_minutes, cause?, replacement_session_id?, owner_user_id?}` tells the students the plan |
-| POST / GET | `/class-sessions/{id}/cover-requests`, `/session-cover-requests` | AC, BM, SA / staff (a cover sees their own) | `{cover_role: Substitute / Assistant, cover_user_id, reason, scope, handover}`; the cover holds the Trainer role (any branch) and is free then |
-| POST | `/session-cover-requests/{id}/decision`, `/verification` | BM, SA (never the requester) / AC, SA | Approved and verified (either order) applies it: a substitute becomes the class trainer (a `Trainer changed` change; access to that class only), an assistant joins the class; students are told |
-| POST / DELETE | `/class-sessions/{id}/rosters`, `/class-sessions/{id}/rosters/{batch_id}` | AC, SA | `{batch_id, topic_id?, coverage_note}`: a shared class. Distinct people may not exceed the class's verified seats; removing is refused once attendance is marked |
+| POST / DELETE | `/class-sessions/{id}/people`, `/session-people/{id}`; POST `/session-people/{id}/decision` | BM, SA (guest decision: never the proposer) | `{role: Host / Backup / Guest, user_id? , guest_name?, guest_email?, purpose?, student_agreement?}`. Host and backup are staff not busy then; a guest starts Pending and gets no LMS rights |
+| POST | `/class-sessions/{id}/meet-incidents` | Trainer of the class, BM, SA | `{kind, description, actions_taken, replace_link?}`: alerts the Branch Managers; replacing the link clears it (Link removed) and tells the participants |
+| POST | `/class-sessions/{id}/participation`; GET `/meet-participation/unmatched`; POST `/meet-participation/{id}/review` | BM, SA | `{source, entries: [{participant_name?, participant_email?, joined_at, left_at?}]}`; matched by email to staff or a seated student, else Unmatched; review `{match_status: Matched / Dismissed, user_id?, note?}`. Never attendance |
+| GET / POST | `/session-disruptions`, `/class-sessions/{id}/disruptions`, `/session-disruptions/{id}/resolve` | Staff / trainer of the class, BM, SA / BM, SA | `{kind, cause?, delay_minutes?, detail?}`; resolve `{recovery_plan, undelivered_minutes, cause?, replacement_session_id?, owner_user_id?}` tells the students the plan |
+| POST / GET | `/class-sessions/{id}/cover-requests`, `/session-cover-requests` | BM, SA / staff (a cover sees their own) | `{cover_role: Substitute / Assistant, cover_user_id, reason, scope, handover}`; the cover holds the Trainer role (any branch) and is free then |
+| POST | `/session-cover-requests/{id}/decision`, `/verification` | BM, SA (never the requester) / BM, SA | Approved and verified (either order) applies it: a substitute becomes the class trainer (a `Trainer changed` change; access to that class only), an assistant joins the class; students are told |
+| POST / DELETE | `/class-sessions/{id}/rosters`, `/class-sessions/{id}/rosters/{batch_id}` | BM, SA | `{batch_id, topic_id?, coverage_note}`: a shared class. Distinct people may not exceed the class's verified seats; removing is refused once attendance is marked |
 
 Jobs: `session-delay-check` (online and hybrid classes; students told at `session_delay_notice_minutes`, a disruption recorded and the
-coordinators and Branch Managers alerted at `session_disruption_minutes`, once per class) and `class-log-check` (a class not
-Delivered or Cancelled after its working day raises a coordinator task once, looking back `class_log_lookback_days`). Every
+Branch Managers alerted at `session_disruption_minutes`, once per class) and `class-log-check` (a class not
+Delivered or Cancelled after its working day raises a Branch Manager task once, looking back `class_log_lookback_days`). Every
 job run is recorded in `job_runs`.
 
 **Rules:**
@@ -315,25 +323,25 @@ job run is recorded in `job_runs`.
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/content-items` | Staff | Filters `course_id`, `batch_id`, `branch_id`, `module_id`, `topic_id`, `content_type`, `q`, `status` (comma list). Trainer: own items + items of batches they teach; AC / BM: their branches; Super Admin / Founder: all |
-| POST | `/content-items` | Trainer, AC, Super Admin | JSON (links) or multipart with `file`. Placement from `topic_id` / `module_id` / `curriculum_version_id` / `course_id`; branch from the batch or the author's batches (`branch_id` needed for Super Admin). Creates v1 Draft |
+| GET | `/content-items` | Staff | Filters `course_id`, `batch_id`, `branch_id`, `module_id`, `topic_id`, `content_type`, `q`, `status` (comma list). Trainer: own items + items of batches they teach; BM: their branches; Super Admin / Founder: all |
+| POST | `/content-items` | Trainer, BM, Super Admin | JSON (links) or multipart with `file`. Placement from `topic_id` / `module_id` / `curriculum_version_id` / `course_id`; branch from the batch or the author's batches (`branch_id` needed for Super Admin). Creates v1 Draft |
 | GET | `/content-items/options` | Staff | Batches the caller may author for, with curriculum versions, modules and topics |
-| GET / PATCH | `/content-items/{id}` | Staff / author, AC, Super Admin | Detail with versions and review history; edit metadata, placement, download policy (author only while Draft / Changes Requested; reviewer audited) |
-| POST | `/content-items/{id}/versions` | Author, AC, Super Admin | New file (multipart) or `url`; v2, v3 … earlier versions kept |
-| POST | `/content-items/{id}/submit` | Author, AC, Super Admin | Draft / Changes Requested → Submitted; coordinators notified |
-| POST | `/content-items/{id}/review` | AC (branch), Super Admin | `decision` start / approve / request_changes / reject (+ `comment`, `release`); never the uploader |
-| POST | `/content-items/{id}/release`, `/retire` | AC (branch), Super Admin | Approved → Released (previous released version retired, students notified); retire needs a reason |
+| GET / PATCH | `/content-items/{id}` | Staff / author, BM, Super Admin | Detail with versions and review history; edit metadata, placement, download policy (author only while Draft / Changes Requested; reviewer audited) |
+| POST | `/content-items/{id}/versions` | Author, BM, Super Admin | New file (multipart) or `url`; v2, v3 … earlier versions kept |
+| POST | `/content-items/{id}/submit` | Author, BM, Super Admin | Draft / Changes Requested → Submitted; Branch Managers notified |
+| POST | `/content-items/{id}/review` | BM (branch), Super Admin | `decision` start / approve / request_changes / reject (+ `comment`, `release`); never the uploader |
+| POST | `/content-items/{id}/release`, `/retire` | BM (branch), Super Admin | Approved → Released (previous released version retired, students notified); retire needs a reason |
 | POST | `/content-items/{id}/open` | Student, staff | Students: entitlement + expiry checked, `resource_view` activity recorded; returns link URL / file info |
 | GET | `/content-items/{id}/file?download=` | Student, staff | Serves the file; entitlement, expiry and `download_allowed` enforced here; only safe types shown inline. A `staff_only` item (answer key, marking guide, trainer notes; set on create / edit) is never part of a student's audience: not listed, opened, served or notified |
 | GET | `/me/resources`, `/me/recordings`, `/me/access` | Student | Released items / recordings of the student's own enrolments with access state; Joining Date, expiries and what can still be requested. `?topic_id=` / `?session_id=` narrow them for topic and session pages |
-| GET / POST | `/recordings` | Staff / AC, Super Admin | List scoped by branch or taught batches; register a part against an actual class session |
-| GET / PATCH | `/recordings/{id}` | Staff / AC, Super Admin | Detail (+ open exceptions); media reference, duration, source, download policy |
-| POST | `/recordings/{id}/release`, `/hold`, `/partial`, `/unavailable` | AC (branch), Super Admin | Release needs the media reference and a Delivered class and closes open hold / partial exceptions; hold / partial / unavailable raise an exception |
+| GET / POST | `/recordings` | Staff / BM, Super Admin | List scoped by branch or taught batches; register a part against an actual class session |
+| GET / PATCH | `/recordings/{id}` | Staff / BM, Super Admin | Detail (+ open exceptions); media reference, duration, source, download policy |
+| POST | `/recordings/{id}/release`, `/hold`, `/partial`, `/unavailable` | BM (branch), Super Admin | Release needs the media reference and a Delivered class and closes open hold / partial exceptions; hold / partial / unavailable raise an exception |
 | POST | `/recordings/{id}/watch` | Student | Entitlement and expiry checked, `recording_view` recorded; playback state read from the integrations register |
-| GET / POST | `/recording-exceptions` | Staff / Trainer, AC, Super Admin | RX codes; filters `status`, `issue_type`, `branch_id`, `batch_id`, `session_id` |
-| POST | `/recording-exceptions/{id}/start`, `/resolve` | AC, BM (cover), Super Admin | Integration exceptions are Super Admin only; resolve needs a note |
-| POST / GET | `/access-extension-requests` | Student (create) / student, AC, BM, Super Admin, Founder | EXT codes; own requests or the branch's |
-| POST | `/access-extension-requests/{id}/decision` | AC / BM of the service branch, Super Admin; exceptions: Super Admin, Founder | `approve` / `reject` (+ `note`, `new_expiry` for an exception) |
+| GET / POST | `/recording-exceptions` | Staff / Trainer, BM, Super Admin | RX codes; filters `status`, `issue_type`, `branch_id`, `batch_id`, `session_id` |
+| POST | `/recording-exceptions/{id}/start`, `/resolve` | BM, Super Admin | Integration exceptions are Super Admin only; resolve needs a note |
+| POST / GET | `/access-extension-requests` | Student (create) / student, BM, Super Admin, Founder | EXT codes; own requests or the branch's |
+| POST | `/access-extension-requests/{id}/decision` | BM of the service branch, Super Admin; exceptions: Super Admin, Founder | `approve` / `reject` (+ `note`, `new_expiry` for an exception) |
 
 Job: `flask --app app jobs run recording-check`.
 
@@ -352,8 +360,8 @@ Job: `flask --app app jobs run recording-check`.
 - Uploads: allow-list, 50 MB / 250 MB (datasets, archives) from `app_settings`, magic-number check, notebook JSON check,
   safe ZIP inspection (paths, nested archives, executables, expansion ratio). Local disk under `UPLOAD_DIR`; no malware
   scan yet (backlog).
-- Recordings are references only; Google is never called. Escalation clock from class end: 4 h Academic Coordinator,
-  24 h Branch Manager + Super Admin, 48 h Founder (`escalation` on each exception; the job sends the notices once).
+- Recordings are references only; Google is never called. Escalation clock from class end: 4 h Branch Manager,
+  24 h Super Admin, 48 h Founder (`escalation` on each exception; the job sends the notices once).
 
 ### 4.6 Assessments (`030`)
 
@@ -361,19 +369,19 @@ Job: `flask --app app jobs run recording-check`.
 |---|---|---|---|
 | GET | `/assignments?batch_id=&state=&status=&is_required=` | Scoped | Student: released tasks of their batches with `my.state` (Upcoming, Due, Overdue, Submitted, Under Review, Reviewed, Resubmission Requested), versions, submission window. Staff: assignments with counts |
 | GET | `/assignments/{id}` | Scoped | Student sees released work of their batch only (else 404) |
-| POST | `/assignments` | Trainer of the batch, AC, Super Admin | Draft; `release_now` releases at once. Reviewer defaults to the creating / lead trainer |
-| PATCH | `/assignments/{id}` | Same | Draft: any field. Released: brief, attachments, due time (later only), late policy, reviewer; `closes_at` (reopen window) is AC-only with a reason. Audited; students notified |
+| POST | `/assignments` | Trainer of the batch, BM, Super Admin | Draft; `release_now` releases at once. Reviewer defaults to the creating / lead trainer |
+| PATCH | `/assignments/{id}` | Same | Draft: any field. Released: brief, attachments, due time (later only), late policy, reviewer; `closes_at` (reopen window) is BM-only with a reason. Audited; students notified |
 | POST | `/assignments/{id}/release`, `/withdraw` | Same | Withdraw needs a reason; versions and results are kept |
 | POST | `/assignments/{id}/submissions` | Student | JSON or multipart (`file`, up to 10 MB). New version; replacement before the deadline, late first submission inside the 7-day window, instructed resubmission (up to 2) |
 | GET | `/submissions?assignment_id=&status=Awaiting Review&reviewer_me=true` | Staff | Newest version per student |
 | GET | `/submissions/{id}`, `/submissions/{id}/file` | Owner, batch staff | Other students and other batches: 404 |
 | POST | `/submissions/{id}/start-review`, `/review` | Staff of the batch | `outcome` Reviewed (marks up to the maximum) or Resubmission Requested (own deadline). Marks create a Provisional result |
 | GET | `/assessments/curriculum?batch_id=` | Staff | Modules and topics of the course's Active curriculum versions (for linking) |
-| GET / POST / PATCH | `/questions`, `/questions/{id}` | Trainer, AC, Super Admin | AC / BM see their branch bank; a trainer sees only the courses of the batches they teach there, plus questions they wrote. Type-specific answer key validation; keys never reach students |
-| POST | `/questions/{id}/approve`, `/retire`, `/new-version` | AC / Super Admin (the author cannot approve) | Approved questions are frozen; a change is a new version |
+| GET / POST / PATCH | `/questions`, `/questions/{id}` | Trainer, BM, Super Admin | BM sees their branch bank; a trainer sees only the courses of the batches they teach there, plus questions they wrote. Type-specific answer key validation; keys never reach students |
+| POST | `/questions/{id}/approve`, `/retire`, `/new-version` | BM / Super Admin (the author cannot approve) | Approved questions are frozen; a change is a new version |
 | GET / POST / PATCH | `/tests`, `/tests/{id}` | Scoped | The student list shows every status of their batches' tests with their own state |
 | PUT | `/tests/{id}/questions` | Batch staff | Approved questions of the batch's course and branch, frozen into the test |
-| POST | `/tests/{id}/approve` | AC / Super Admin | Formal tests need it before release |
+| POST | `/tests/{id}/approve` | BM / Super Admin | Formal tests need it before release |
 | POST | `/tests/{id}/release`, `/close` | Batch staff | Not Released to Released (Scheduled / Available / Closed by window) |
 | POST | `/tests/{id}/attempts` | Student | 201 starts (deadline = min(start + duration, window end)); 200 resumes the open attempt |
 | GET | `/attempts/{id}` | Owner, batch staff | Reading past the deadline submits the saved answers once |
@@ -385,7 +393,7 @@ Job: `flask --app app jobs run recording-check`.
 | GET | `/me/results` | Student | Only Published results carry a score |
 | GET | `/results?batch_id=&assignment_id=&test_id=&status=` | Staff | Provisional, moderated and final marks |
 | GET | `/assessment-reviews` | Staff | Moderation queue per assessment and batch, plus tests not ready |
-| POST | `/results/{id}/moderate`, `/results/publish` | AC / Super Admin | Moderate needs a reason (audited); publish by ids or `assignment_id` / `test_id`; students notified |
+| POST | `/results/{id}/moderate`, `/results/publish` | BM / Super Admin | Moderate needs a reason (audited); publish by ids or `assignment_id` / `test_id`; students notified |
 
 Job: `flask --app app jobs run attempts-expire`: submits attempts still open past their deadline, as of the deadline.
 Review queues: `/submissions` rows waiting for review carry `review_due` (3 working days for routine assignments and labs, 5
@@ -394,7 +402,7 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 **Rules:**
 - Student-visible marks and feedback exist only after publication; the one exception is the feedback attached to a
   resubmission request. Practice quizzes and mock tests are non-credit: scored at once, no result row. Formal kinds
-  (Module test, Coding exercise, Final test, or `is_required`) need pass marks, a closing time and AC approval.
+  (Module test, Coding exercise, Final test, or `is_required`) need pass marks, a closing time and Branch Manager approval.
 - The attempt clock is the server's: `started_at`, `deadline_at`, `submitted_at` (the deadline on timeout) and the
   receipt are set by the API and the database (a trigger rejects answers after the deadline or once submitted). Expiry
   is applied lazily on the next read or save.
@@ -407,35 +415,35 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/attendance/sessions` | Trainer, AC, BM, SA, Founder (scoped) | Live / Delivered sessions with `seats`, `marked`, `attendance_state`, `locked`, `can_mark`; filters `batch_id`, `from`, `to`, `attendance=pending\|marked\|locked` |
+| GET | `/attendance/sessions` | Trainer, BM, SA, Founder (scoped) | Live / Delivered sessions with `seats`, `marked`, `attendance_state`, `locked`, `can_mark`; filters `batch_id`, `from`, `to`, `attendance=pending\|marked\|locked` |
 | GET | `/attendance/sessions/{id}` | same | The register: one row per allocated enrolment, `label` ("Absent — recovery approved (REC-0041)"), summary, `locked`, `can_mark` |
-| PUT | `/attendance/sessions/{id}` | Trainer of the batch, AC, SA | `{default_status?, entries: [{enrolment_id, status, remarks?}]}`; `default_status` fills only seats without an entry ("all Present, then exceptions"). Sets the joining date (first Present / Late) |
+| PUT | `/attendance/sessions/{id}` | Trainer of the batch, BM, SA | `{default_status?, entries: [{enrolment_id, status, remarks?}]}`; `default_status` fills only seats without an entry ("all Present, then exceptions"). Sets the joining date (first Present / Late) |
 | GET | `/me/attendance` | Student | Per own enrolment: attendance measure + a row per Live / Delivered class since joining |
 | GET | `/attendance/enrolments/{id}` | Scoped | Same block for one enrolment |
-| GET / POST | `/attendance/recoveries` | Scoped / Student, Trainer, AC, SA | Raise `{attendance_id, method, reason}` for an Absent entry; one live recovery per absence |
-| POST | `/attendance/recoveries/{id}/decision` | AC, SA | `{decision: Approved\|Rejected, decision_note?, target_date?}` |
-| POST | `/attendance/recoveries/{id}/completion` | Trainer of the batch, AC, SA | `{evidence_note}` verifies an approved recovery (Completed) |
-| GET / POST | `/attendance/corrections` | Scoped / Student, Trainer, AC, SA | `{session_id, enrolment_id, requested_status, reason}`: a dispute, or a change after the lock |
-| POST | `/attendance/corrections/{id}/decision` | AC, BM, SA (fresh auth) | Approve applies the change; the decider must not be the requester or the marker |
+| GET / POST | `/attendance/recoveries` | Scoped / Student, Trainer, BM, SA | Raise `{attendance_id, method, reason}` for an Absent entry; one live recovery per absence |
+| POST | `/attendance/recoveries/{id}/decision` | BM, SA | `{decision: Approved\|Rejected, decision_note?, target_date?}` |
+| POST | `/attendance/recoveries/{id}/completion` | Trainer of the batch, BM, SA | `{evidence_note}` verifies an approved recovery (Completed) |
+| GET / POST | `/attendance/corrections` | Scoped / Student, Trainer, BM, SA | `{session_id, enrolment_id, requested_status, reason}`: a dispute, or a change after the lock |
+| POST | `/attendance/corrections/{id}/decision` | BM, SA (fresh auth) | Approve applies the change; the decider must not be the requester or the marker |
 | GET | `/me/progress`, `/progress/enrolments/{id}` | Student / Scoped | The four measures (`delivery`, `attendance`, `required_learning`, `engagement`), never combined |
 | GET | `/progress/students` | Staff (scoped) | Table with filters `branch_id`, `course_id`, `batch_id`, `status`, `alert`, `q` |
-| GET | `/progress/summary` | AC, BM, SA, Founder | Per-batch averages of each measure, enrolments and certificates by status |
+| GET | `/progress/summary` | BM, SA, Founder | Per-batch averages of each measure, enrolments and certificates by status |
 | GET | `/completion-reviews` | Staff (scoped) | Running / completed enrolments with evidence, latest review, certificate status |
-| POST | `/completion-reviews` | Trainer, AC, SA | `{enrolment_id}` opens a review (201, or 200 with the open one) |
-| POST | `/completion-reviews/{id}/recommendation` | Trainer of the batch, AC, SA | `{recommendation, comment?}` |
-| POST | `/completion-reviews/{id}/decision` | AC, SA (fresh auth) | `{decision: Complete\|Not Yet\|Needs Recovery, reason?}`; Complete needs a Complete recommendation by a trainer of a batch the enrolment was allocated to (Module 22 §2) and → enrolment Completed + Course Completion Certificate eligibility. An Internship Certificate entry stays Not Yet Eligible: it needs internship evidence |
-| GET | `/certificates`, `/certificates/{id}`, `/me/certificates` | AC, BM, SA, Founder (branch scope) / Student (own) | Register entries (every version) with `actions` the caller may take; detail has `history` |
-| POST | `/certificates` | AC, SA | `{enrolment_id, certificate_type}` adds an entry (e.g. Internship Certificate) |
-| POST | `/certificates/{id}/recommendation`, `/return`, `/approval`, `/issue` | AC / BM / BM, AC, SA | Approval and issue need fresh auth; approval needs someone other than the recommender. Recommendation and issue need the fee cleared (`fee_clearance` on every register row: Cleared, Outstanding, Not Received, Released by exception) |
-| POST | `/certificates/{id}/change-requests` | Correction: AC, BM, SA. Revocation / Reinstatement: AC, BM, SA, Founder | `{kind: Correction\|Revocation\|Reinstatement, reason, evidence?, holder_name?}`; evidence required for revocation and reinstatement. One pending request per certificate (409). The certificate is unchanged until approved |
-| GET | `/certificate-requests?status=&kind=` | AC, BM, SA, Founder (branch scope) | Each row has `actions: ["decide"]` when the caller may decide it |
+| POST | `/completion-reviews` | Trainer, BM, SA | `{enrolment_id}` opens a review (201, or 200 with the open one) |
+| POST | `/completion-reviews/{id}/recommendation` | Trainer of the batch, BM, SA | `{recommendation, comment?}` |
+| POST | `/completion-reviews/{id}/decision` | BM, SA (fresh auth) | `{decision: Complete\|Not Yet\|Needs Recovery, reason?}`; Complete needs a Complete recommendation by a trainer of a batch the enrolment was allocated to (Module 22 §2) and → enrolment Completed + Course Completion Certificate eligibility. An Internship Certificate entry stays Not Yet Eligible: it needs internship evidence |
+| GET | `/certificates`, `/certificates/{id}`, `/me/certificates` | BM, SA, Founder (branch scope) / Student (own) | Register entries (every version) with `actions` the caller may take; detail has `history` |
+| POST | `/certificates` | BM, SA | `{enrolment_id, certificate_type}` adds an entry (e.g. Internship Certificate) |
+| POST | `/certificates/{id}/recommendation`, `/return`, `/approval`, `/issue` | BM, SA | Approval and issue need fresh auth. The Branch Manager decides alone: approval may be given straight from Eligibility Review (the recommendation is recorded with it). Recommendation and issue need the fee cleared (`fee_clearance` on every register row: Cleared, Outstanding, Not Received, Released by exception) |
+| POST | `/certificates/{id}/change-requests` | Correction: BM, SA. Revocation / Reinstatement: BM, SA, Founder | `{kind: Correction\|Revocation\|Reinstatement, reason, evidence?, holder_name?}`; evidence required for revocation and reinstatement. One pending request per certificate (409). The certificate is unchanged until approved |
+| GET | `/certificate-requests?status=&kind=` | BM, SA, Founder (branch scope) | Each row has `actions: ["decide"]` when the caller may decide it |
 | POST | `/certificate-requests/{id}/decision` | Correction: BM, SA. Revocation / Reinstatement: Founder, SA (fresh auth; never the requester) | `{decision: Approved\|Rejected, note}` (note required to reject). Approving applies it: a correction issues v+1 under the same number (`resulting_certificate_id`); a revocation revokes; a reinstatement returns Revoked → Issued with the same number and issue date, the revoked interval kept in `status_history` |
-| POST | `/certificates/{id}/financial-exception` | AC, BM, SA | `{reason}`: asks for the paying admission to be released for certificates while its fee is Outstanding |
-| GET / POST | `/certificate-financial-exceptions`, `/{id}/decision` | AC, BM, SA, Founder / Founder, SA (fresh auth; never the requester) | `{decision, note}` (note required). Approved exceptions satisfy the fee gate for that certificate type; the debt is not waived |
+| POST | `/certificates/{id}/financial-exception` | BM, SA | `{reason}`: asks for the paying admission to be released for certificates while its fee is Outstanding |
+| GET / POST | `/certificate-financial-exceptions`, `/{id}/decision` | BM, SA, Founder / Founder, SA (fresh auth; never the requester) | `{decision, note}` (note required). Approved exceptions satisfy the fee gate for that certificate type; the debt is not waived |
 | GET | `/certificates/verify/{number}?version=` | Public | The presented version (latest by default): `state` Valid — Current Version, Superseded (with `current_version`) or Revoked; holder, course, type, branch, issue date, original issue date |
 
 **Rules:**
-- Attendance confirmation: job `attendance-unconfirmed` alerts the branch's Academic Coordinator, once per class, when a
+- Attendance confirmation: job `attendance-unconfirmed` alerts the branch's Branch Managers, once per class, when a
   delivered class still has unmarked seats on the next working day (Module 21 §3); `marked_at` stays separate from the
   class date.
 - Attendance: no row = "Not yet marked" (never a guessed absence). A session locks `attendance_lock_days` (7) after it
@@ -456,14 +464,14 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/support-requests` | Scoped | Filters `status`, `category`, `open`, `mine`, `escalated=true` (escalated to the Branch Manager), `branch_id`, `student_id`, `q`. Student: own; trainer: requests they own or raised; AC / BM: their branch; admin: all |
+| GET | `/support-requests` | Scoped | Filters `status`, `category`, `open`, `mine`, `escalated=true` (escalated to the Branch Manager), `branch_id`, `student_id`, `q`. Student: own; trainer: requests they own or raised; BM: their branch; admin: all |
 | POST | `/support-requests` | Student; staff for a student (`student_id`) | `{category, details, subject?, priority?, enrolment_id?}`. Routed to a named owner; staff raising for a student = "Staff flag" |
 | GET | `/support-requests/{id}` | Scoped | With the thread; internal remarks are left out for a student |
 | POST | `/support-requests/{id}/messages` | Scoped | `{body, internal?}`; a staff reply moves Open to In Progress, a student reply moves Waiting on Student to In Progress |
-| POST | `/support-requests/{id}/status` | Owner / branch AC, BM / admin | `In Progress`, `Waiting on Student`, `Resolved` (note required), `Closed` |
+| POST | `/support-requests/{id}/status` | Owner / branch BM / admin | `In Progress`, `Waiting on Student`, `Resolved` (note required), `Closed` |
 | POST | `/support-requests/{id}/close`, `/reopen` | Student closes a Resolved request; student or manager reopens with a reason | Reopen gives a fresh SLA clock |
-| POST | `/support-requests/{id}/escalate` | Staff | Trainer-owned goes to the Academic Coordinator (owner changes); anything else goes to the Branch Manager |
-| POST | `/support-requests/{id}/assign` | AC / BM / admin | `{owner_user_id}`, must work at the request's branch |
+| POST | `/support-requests/{id}/escalate` | Staff | A trainer-owned request goes to the Branch Manager (the owner changes); any other request is marked escalated to the Branch Manager |
+| POST | `/support-requests/{id}/assign` | BM / admin | `{owner_user_id}`, must work at the request's branch |
 | GET | `/trainer/students` | Trainer | Students with active seats in their batches + open-request flag |
 | GET | `/notifications` | Signed in | Own only. `view` = my, action, unread, completed or system; `category`, `q`; each item has `delivery_label`. Staff see a branch notice only while they still hold its role (any role, for notices to named people) at that branch or company-wide; the same rule applies to counts, read and actions. Students keep their own |
 | GET | `/notifications/overview` | Signed in | `{unread, action_required, categories}` for the header bell |
@@ -474,16 +482,16 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 | POST | `/me/career/cvs` (multipart `file`, `label`) | Student | New version, older ones marked Superseded |
 | POST | `/me/career/opportunities/{id}/apply`, `/me/career/applications/{id}/withdraw` | Student | Needs opt-in, consent, a Reviewed CV; one application per opportunity and cycle |
 | GET | `/cv-documents/{id}/download` | Student / branch staff | |
-| GET / POST / PATCH | `/opportunities`, `/opportunities/{id}` | AC, BM, Super Admin | Branch-scoped; editing a verified one sends it back to Verification Pending |
-| POST | `/opportunities/{id}/status` | AC, BM, Super Admin | Draft, Verification Pending, Active (verifier is not the creator, needs `verification_source`), On Hold, Closed |
-| GET | `/career-profiles`, `/career-profiles/{student_id}` | AC, BM, Super Admin | |
-| POST | `/career-profiles/{student_id}/review`, `/cv-documents/{id}/review` | AC, BM, Super Admin | Readiness + skill verification; CV Reviewed / Changes Requested |
+| GET / POST / PATCH | `/opportunities`, `/opportunities/{id}` | BM, Super Admin | Branch-scoped; editing a verified one sends it back to Verification Pending |
+| POST | `/opportunities/{id}/status` | BM, Super Admin | Draft, Verification Pending, Active (verifier is not the creator, needs `verification_source`), On Hold, Closed |
+| GET | `/career-profiles`, `/career-profiles/{student_id}` | BM, Super Admin | |
+| POST | `/career-profiles/{student_id}/review`, `/cv-documents/{id}/review` | BM, Super Admin | Readiness + skill verification; CV Reviewed / Changes Requested |
 | POST | `/career-profiles/{student_id}/extend-support` | Super Admin, Founder (fresh auth) | `{support_end, reason}`, audited |
-| GET | `/applications`, `/applications/{id}` | AC, BM, Super Admin | With status history |
-| POST | `/applications/{id}/status` | AC, BM, Super Admin | Any stage may be recorded (stages can be skipped); closed applications are final |
-| GET / POST | `/placement-outcomes` | AC, BM, Super Admin | Recorded as Pending Verification |
-| POST | `/placement-outcomes/{id}/verify` | AC, BM, Super Admin | `{decision: Verified or Rejected, evidence_note}`; not by the recorder |
-| GET | `/placement-outcomes/summary` | AC, BM, Super Admin | Verified outcomes and distinct students per type (reports read this) |
+| GET | `/applications`, `/applications/{id}` | BM, Super Admin | With status history |
+| POST | `/applications/{id}/status` | BM, Super Admin | Any stage may be recorded (stages can be skipped); closed applications are final |
+| GET / POST | `/placement-outcomes` | BM, Super Admin | Recorded as Pending Verification |
+| POST | `/placement-outcomes/{id}/verify` | BM, Super Admin | `{decision: Verified or Rejected, evidence_note}`; not by the recorder |
+| GET | `/placement-outcomes/summary` | BM, Super Admin | Verified outcomes and distinct students per type (reports read this) |
 | GET / PATCH | `/me/profile` | Signed in (PATCH: student) | Identity with masked mobile, devices, language. Staff get role, branch, devices, last sign-in |
 | POST | `/me/devices/sign-out-others` | Signed in | Revokes every other session |
 | GET | `/me/finance` | Student | Read-only CRM data: `admissions[]` (one per course: its own fee, verified paid, balance, receipts) and `schedules[]` (each instalment schedule **once**: per invoice when `installments_scope = invoice`, listing the courses it covers, with `next_due_*` and `overdue_amount`) |
@@ -492,13 +500,13 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 | GET | `/ask-nipuna/status` | Signed in | `AI Available` / `Configuration Pending` / `Quota Limited` / `Disabled`, usage today, actions, scope. Disabled while `ai_enabled` is false or an AI control covers the caller's audience and branch |
 | GET / POST | `/ai-controls`, `/ai-controls/{id}/restore` | Super Admin, Founder (fresh auth to change) | Switch AI off: `{audience: Student\|Staff\|All, branch_id?, reason, remediation?}` (`All` is Founder only and company-wide). Restore with `{restoration_note}` (the checks that passed) |
 | POST / GET | `/ask-nipuna/queries` | Signed in | Ask (refusals are answered with `status: Refused` and do not use the allowance); own history |
-| POST | `/ask-nipuna/queries/{id}/feedback` | Asker | `Helpful` / `Not helpful` (+ comment); a report notifies the branch Academic Coordinator |
+| POST | `/ask-nipuna/queries/{id}/feedback` | Asker | `Helpful` / `Not helpful` (+ comment); a report notifies the branch's Branch Managers |
 
 Job: `flask --app app jobs run support-escalate-overdue`.
 
 **Rules:**
 - Every support request has a named owner (routing table in `services/support.py`); the owner label reads like the
-  prototype ("Academic Coordinator — Guntur", "LMS Support — Vijayawada"). Status moves follow a database trigger
+  prototype ("Branch Manager — Guntur", "LMS Support — Vijayawada"). Status moves follow a database trigger
   (`Open → In Progress / Waiting on Student / Resolved`, `Resolved → Closed / Open`, `Closed → Open`). The
   `support-escalate-overdue` job escalates requests past `app_settings.support_sla_hours` (48) to the Branch Manager;
   run it from a scheduler.
@@ -572,7 +580,7 @@ Nothing here calls an external system.
 | GET | `/me/home` | Student | One response for Student Home: `student`, `primary_enrolment` and the cards `next_class` (with Join state), `due_work`, `course_progress`, `continue_learning`, `latest_recording`, `upcoming_work`, `attendance_alert`, `certificate`, `career`, `support`, `ask_nipuna`, `engagement`. Own data only |
 | GET | `/trainer/today` | Trainer | `tiles` (`sessions` next 7 days, `reviews` awaiting with the oldest's age, `support_flags`) and `today` (the trainer's sessions for today's IST date with Meet, attendance and recording-mapping state); assigned batches only |
 | GET | `/trainer/reports` | Trainer | `batches` (delivery and attendance averages per assigned batch), `review_turnaround`, `engagement` |
-| GET | `/academic/reports` | AC, BM, Super Admin, Founder | One block per visible branch (`?branch_id=` narrows; another branch is 404): `curriculum_delivered`, `attendance` (with approved-recovery counts), `completion_reviews`, `certificate_lead_time` |
+| GET | `/academic/reports` | BM, Super Admin, Founder | One block per visible branch (`?branch_id=` narrows; another branch is 404): `curriculum_delivered`, `attendance` (with approved-recovery counts), `completion_reviews`, `certificate_lead_time` |
 
 **Rules:**
 - Every card is `{state: "Ready" | "Empty" | "Unavailable", message?, ...}`. `services/cards.safe_card` runs each
@@ -610,10 +618,10 @@ Nothing here calls an external system.
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/exceptions` | AC (own branch), BM (own branch, read), Super Admin / Founder (all, incl. company-wide rows) | Open exceptions from every module, oldest first. Filters `source`, `state`, `queue`, `branch_id`, `awaiting_owner`; `?page=&per_page=`. A `branch_id` outside the user's scope returns an empty list |
+| GET | `/exceptions` | BM (own branch), Super Admin / Founder (all, incl. company-wide rows) | Open exceptions from every module, oldest first. Filters `source`, `state`, `queue`, `branch_id`, `awaiting_owner`; `?page=&per_page=`. A `branch_id` outside the user's scope returns an empty list |
 | GET | `/exceptions/{source}/{source_id}/steps` | Same as above | Recovery steps, newest first; 404 outside scope |
-| POST | `/exceptions/{source}/{source_id}/steps` | AC (of the item's branch), Super Admin | `{reason}` (3–1000 chars). Audited (`EXCEPTION_STEP_LOGGED`, with the item, reason and branch); returns `{step, exception}`. The logger becomes the named owner of an item that had none. BM and Founder get 403; an item outside scope is 404 |
-| GET | `/academic/summary` | AC, BM, Super Admin, Founder | `?branch_id=` narrows (404 outside scope). Allocation queue, results awaiting publication, recording exceptions, batches ready, reviews awaiting (content / completion / certificates), open exceptions, batches not ready |
+| POST | `/exceptions/{source}/{source_id}/steps` | BM (of the item's branch), Super Admin | `{reason}` (3–1000 chars). Audited (`EXCEPTION_STEP_LOGGED`, with the item, reason and branch); returns `{step, exception}`. The logger becomes the named owner of an item that had none. The Founder gets 403; an item outside scope is 404 |
+| GET | `/academic/summary` | BM, Super Admin, Founder | `?branch_id=` narrows (404 outside scope). Allocation queue, results awaiting publication, recording exceptions, batches ready, reviews awaiting (content / completion / certificates), open exceptions, batches not ready |
 | GET | `/branch/summary` | BM, Super Admin, Founder | `?branch_id=`. CRM figures (from `BranchFinanceSnapshot`, else Not Configured), running batches, schedule and recording exceptions, escalations and extension requests |
 | GET | `/admin/summary` | Super Admin, Founder | Integration failures, work awaiting a named owner, integrations verified, provisioning, open exceptions per source, CRM / LMS sync flows, AI status |
 | GET | `/founder/summary` | Founder, Super Admin | CRM figures (from `BranchFinanceSnapshot`, else Not Configured), active enrolments per branch, batches at risk, certificates awaiting approval, decisions (AI ceiling, post-2nd-anniversary access requests) |
@@ -628,15 +636,14 @@ Nothing here calls an external system.
   `ACCESS_EXCEPTION` (pending access requests that `needs_exception`), `INTEGRATION` (verification Failed or
   configuration Misconfigured; company-wide). Rows with no branch are visible to Super Admin and Founder only.
 - Owner: the record's own named owner, else the last person who logged a recovery step; `owner = null` /
-  `awaiting_owner = true` means "awaiting named owner", and `owner_label` names the role that should take it ("Academic
-  Coordinator — Guntur"). State is the record's own state, shown as `Recovery In Progress` once a step is logged on an
+  `awaiting_owner = true` means "awaiting named owner", and `owner_label` names the role that should take it ("Branch
+  Manager — Guntur"). State is the record's own state, shown as `Recovery In Progress` once a step is logged on an
   otherwise `Open` item.
 - `exception_recovery_steps` is append-only (trigger). Logging a step does not change the source record; resolving
   happens on the screen in `link`.
 - Dashboard summaries only aggregate: counts come from `repositories/dashboards.py` (branch filter over each module's
   own statuses), `exception_queue`, the integrations register, `services/crm_sync.summary()` and
-  `ask_nipuna.status()`. They carry `as_of` and a `scope` block (branches, label); Branch Manager and Academic
-  Coordinator are locked to their branches by `services/scope`.
+  `ask_nipuna.status()`. They carry `as_of` and a `scope` block (branches, label); Branch Manager is locked to their branches by `services/scope`.
 - **CRM-authoritative figures** (verified collections vs target, new paid Admissions, overdue amount, overdue payment
   verifications, overdue follow-ups) are summed over the branches in view from each branch's latest
   `BranchFinanceSnapshot`: `{state: "Configured" | "Partial Data", unit ("INR" money as a string, or "count"), value,

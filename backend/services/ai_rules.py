@@ -84,7 +84,7 @@ def student_answer(question: str, action: str | None, facts: Facts) -> tuple[str
         lines = [f"- {d['batch']}: {d['delivered']} of {d['planned']} planned sessions delivered so far." for d in facts.data["delivery"]]
         body = "\n".join(lines) or "You are not allocated to a batch yet, so no sessions have been delivered to you."
         return (
-            "Here is what your records show.\n" + body + "\nYour attendance, marks and completion are recorded by your trainer and coordinator, "
+            "Here is what your records show.\n" + body + "\nYour attendance, marks and completion are recorded by your trainer and Branch Manager, "
             "so I don't estimate them. Open Progress to see the four measures.",
             _pick(facts, "batch", "enrolment"),
         )

@@ -61,7 +61,7 @@ def _next_support_code(number: int) -> None:
 
 def _support(ctx: "SeedContext") -> None:
     anvitha = Actor(ctx, ctx.students["anvitha"]["student_code"])
-    coordinator = Actor(ctx, "coordinator.gnt@nipuna.test")
+    coordinator = Actor(ctx, "bm.gnt@nipuna.test")
     admin = Actor(ctx, "admin@nipuna.test")
     manager = Actor(ctx, "bm.gnt@nipuna.test")
 
@@ -81,9 +81,8 @@ def _support(ctx: "SeedContext") -> None:
     flag = trainer.call("post", "/support-requests", json={
         "category": "Academic", "details": "Attendance is 71%, below the 75% alert threshold. Recovery needed.",
         "student_id": ctx.students["G"]["student_id"]})
-    trainer.call("post", f"/support-requests/{flag['support_request_id']}/escalate", json={"reason": "Needs a recovery plan from the coordinator"})
-    coordinator.call("post", f"/support-requests/{flag['support_request_id']}/escalate", json={"reason": "Recovery approval is beyond routine follow-up"})
-    manager.call("post", f"/support-requests/{flag['support_request_id']}/messages", json={"body": "Reviewing the recovery options with the coordinator.", "internal": True})
+    trainer.call("post", f"/support-requests/{flag['support_request_id']}/escalate", json={"reason": "Needs a recovery plan from the Branch Manager"})
+    manager.call("post", f"/support-requests/{flag['support_request_id']}/messages", json={"body": "Reviewing the recovery options.", "internal": True})
 
     _next_support_code(1060)
     Actor(ctx, "trainer.v1@nipuna.test").call("post", "/support-requests", json={
@@ -117,8 +116,8 @@ def _notifications(ctx: "SeedContext") -> None:
 
     # Staff workspaces: a couple each, one needing action
     staff = (
-        ("coord_gnt", "Review", "Two completion reviews are waiting for a decision", "/academic/completion", True),
-        ("coord_gnt", "Support", "A student support request was escalated to Academic", "/academic/support", False),
+        ("bm_gnt", "Review", "Two completion reviews are waiting for a decision", "/branch/completion", True),
+        ("bm_gnt", "Support", "A student support request was escalated to Academic", "/branch/support", False),
         ("bm_gnt", "Certificate", "A certificate is waiting for your approval", "/branch/reports", True),
         ("bm_gnt", "Session", "Batch schedule for next week is published", "/branch/operations", False),
         ("admin", "Integration", "CRM sync finished with no failures", "/admin/crm-sync", False),
@@ -131,8 +130,8 @@ def _notifications(ctx: "SeedContext") -> None:
 
 def _career(ctx: "SeedContext") -> None:
     anvitha = Actor(ctx, ctx.students["anvitha"]["student_code"])
-    coordinator = Actor(ctx, "coordinator.gnt@nipuna.test")
-    manager = Actor(ctx, "bm.gnt@nipuna.test")
+    coordinator = Actor(ctx, "bm.gnt@nipuna.test")
+    manager = Actor(ctx, "admin@nipuna.test")  # the verifier is never the creator, so the Super Admin verifies the Branch Manager's opportunities
 
     anvitha.call("put", "/me/career/profile", json={
         "opted_in": True, "preferred_roles": ["Data Analyst", "ML Engineer"], "preferred_locations": ["Hyderabad", "Vijayawada", "Remote"],

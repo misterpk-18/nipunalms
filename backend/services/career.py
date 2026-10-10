@@ -1,7 +1,7 @@
 """Placement & career support (Module 23): assistance only, never a placement guarantee.
 
 Students opt in, keep a career profile and CV versions, browse approved opportunities and apply; staff (Academic
-Coordinator, Branch Manager, Super Admin) run the opportunity register, review CVs and readiness, move applications
+Branch Manager, Super Admin) run the opportunity register, review CVs and readiness, move applications
 through the hiring stages and record outcomes. An outcome (offer, acceptance, joining) counts in reports only once a
 second person has Verified it with evidence.
 """
@@ -197,7 +197,7 @@ def upload_cv(upload: FileStorage | None, label: str | None) -> CvDocument:
     audit.record("CV_UPLOADED", "cv_document", cv.cv_id, new={"version_no": cv.version_no, "student": student.student_code},
                  branch_id=student.service_branch_id)
     notify(category="Career", title=f"CV v{cv.version_no} uploaded for review", body=f"{student.full_name}: {cv.label}",
-           link="/academic/support", event_key=f"cv:{cv.cv_id}:uploaded", role_code="ACADEMIC_COORDINATOR",
+           link="/branch/support", event_key=f"cv:{cv.cv_id}:uploaded", role_code="BRANCH_MANAGER",
            branch_id=student.service_branch_id)
     return cv
 
@@ -236,8 +236,8 @@ def apply(opportunity_id: int) -> Application:
                  new={"student": student.student_code, "opportunity": opportunity.opportunity_code, "cv_version": cv.version_no},
                  branch_id=student.service_branch_id)
     notify(category="Career", title=f"{student.full_name} applied for {opportunity.title}", body=opportunity.employer_name,
-           link="/academic/support", event_key=f"application:{application.application_id}:applied",
-           role_code="ACADEMIC_COORDINATOR", branch_id=student.service_branch_id)
+           link="/branch/support", event_key=f"application:{application.application_id}:applied",
+           role_code="BRANCH_MANAGER", branch_id=student.service_branch_id)
     return application
 
 

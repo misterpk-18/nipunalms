@@ -55,7 +55,7 @@ const DICTIONARY = {
   showPassword: ["Show password", "పాస్‌వర్డ్ చూపించు"],
   hidePassword: ["Hide password", "పాస్‌వర్డ్ దాచు"],
   forgotHelp: [
-    "Ask your branch Academic Coordinator to reissue an activation link.",
+    "Ask your branch Branch Manager to reissue an activation link.",
     "కొత్త యాక్టివేషన్ లింక్ కోసం మీ బ్రాంచ్ అకడమిక్ కోఆర్డినేటర్‌ను అడగండి.",
   ],
   passwordPrivate: [

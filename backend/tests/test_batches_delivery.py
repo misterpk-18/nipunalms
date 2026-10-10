@@ -42,7 +42,7 @@ def seat(client, login, people, batch, student):
 
 # ---------------------------------------------------------------- lifecycle (G015, G062)
 
-def test_proposal_and_independent_branch_manager_confirmation(world, client, login, make_batch, make_user):
+def test_proposal_and_confirmation_by_a_branch_manager(world, client, login, make_batch, make_user):
     people, _, _ = world
     batch = make_batch(1, trainers=[people["g1"]], curriculum_version_id=_java_version())
     bid = batch.batch_id
@@ -56,11 +56,9 @@ def test_proposal_and_independent_branch_manager_confirmation(world, client, log
     readiness = data(call(client, login, people["ac"], "get", f"/batches/{bid}/readiness"), 200)
     assert [c["status"] for c in readiness["checklist"]] == ["pass"] * 6 + ["pending"] and len(readiness["checklist"]) == 7
 
-    # a Branch Manager who proposes cannot confirm their own proposal
+    # the Branch Manager decides alone: the one who proposes may also return or confirm the batch
     data(call(client, login, people["bm"], "post", f"/batches/{bid}/proposal", json={"note": "Reviewed"}), 200)
-    r = call(client, login, people["bm"], "post", f"/batches/{bid}/confirmation", json={"decision": "Confirmed"})
-    assert r.status_code == 422 and "proposed" in r.get_json()["error"]["message"]
-    # returned to Draft with a reason, proposed again by the coordinator, confirmed by the Branch Manager
+    # returned to Draft with a reason, proposed again, confirmed by a Branch Manager
     assert call(client, login, people["admin"], "post", f"/batches/{bid}/confirmation", json={"decision": "Returned"}).status_code == 400
     assert data(call(client, login, people["admin"], "post", f"/batches/{bid}/confirmation", json={"decision": "Returned", "note": "Recheck lab"}), 200)["state"] == "Forming"
     data(call(client, login, people["ac"], "post", f"/batches/{bid}/proposal", json={}), 200)
@@ -92,7 +90,6 @@ def test_hold_resume_complete_and_archive(world, client, login, make_batch, make
     batch = confirmed_batch(client, login, people, make_batch)
     bid = batch.batch_id
     data(call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "Running"}), 200)
-    assert call(client, login, people["ac"], "post", f"/batches/{bid}/state", json={"state": "On Hold", "reason": "Trainer ill"}).status_code == 403
     assert call(client, login, people["bm"], "post", f"/batches/{bid}/state", json={"state": "On Hold"}).status_code == 400
     held = data(call(client, login, people["bm"], "post", f"/batches/{bid}/state", json={"state": "On Hold", "reason": "Trainer ill"}), 200)
     assert held["state"] == "On Hold" and held["held_from_state"] == "Running"
@@ -135,7 +132,6 @@ def test_capacity_sides_and_reviewed_increases(world, client, login, make_batch)
     body = {"to_capacity": 28, "classroom_capacity": 28, "resource_validation": "Two more benches installed", "academic_review": "Trainer can handle 28"}
     req = data(call(client, login, people["ac"], "post", f"/batches/{bid}/capacity-requests", json=body), 201)
     assert call(client, login, people["ac"], "post", f"/batches/{bid}/capacity-requests", json=body).status_code == 409
-    assert call(client, login, people["ac"], "post", f"/batch-capacity-requests/{req['request_id']}/decision", json={"decision": "Approved"}).status_code == 403
     done = data(call(client, login, people["bm"], "post", f"/batch-capacity-requests/{req['request_id']}/decision", json={"decision": "Approved"}), 200)
     assert done["status"] == "Approved"
     after = data(call(client, login, people["ac"], "get", f"/batches/{bid}"), 200)
@@ -157,8 +153,9 @@ def test_material_change_needs_each_students_agreement(world, client, login, mak
         "kind": "Teaching days / times", "proposed_plan": "Tue, Thu 16:00–18:00", "reason": "Lab is booked at 15:00",
         "changes": {"start_time": "16:00", "end_time": "18:00"}, "alternative": "Move to the morning batch"}), 201)
     assert change["status"] == "Pending Approval" and change["response_counts"]["Pending"] == 2
-    assert call(client, login, people["ac"], "post", f"/material-changes/{change['change_id']}/decision", json={"decision": "Approved"}).status_code == 403
-    data(call(client, login, people["bm"], "post", f"/material-changes/{change['change_id']}/decision", json={"decision": "Approved"}), 200)
+    assert call(client, login, people["ac"], "post", f"/material-changes/{change['change_id']}/decision", json={"decision": "Approved"}).status_code == 422
+    assert call(client, login, people["bm"], "post", f"/material-changes/{change['change_id']}/decision", json={"decision": "Approved"}).status_code == 422  # a Branch Manager's own request
+    data(call(client, login, people["admin"], "post", f"/material-changes/{change['change_id']}/decision", json={"decision": "Approved"}), 200)
     assert any("agreement is needed" in t for t in titles_for(_user_of(student)))
 
     mine = data(call(client, login, student.student_code, "get", "/me/material-changes"), 200)
@@ -224,14 +221,12 @@ def test_track_batches_and_component_placement_at_another_branch(world, client, 
     assert db.session.execute(text("SELECT service_branch_id FROM enrolments WHERE enrolment_id = :e"), {"e": eid}).scalar_one() == 1
 
 
-def test_requester_cannot_approve_their_own_transfer(world, client, login, make_batch):
+def test_a_transfer_is_decided_by_a_branch_manager_alone_and_rejection_needs_a_reason(world, client, login, make_batch):
     people, _, student = world
     a = make_batch(1, trainers=[people["g1"]], state="Running", curriculum_version_id=_java_version())
     b = make_batch(1, trainers=[people["g2"]], state="Running", curriculum_version_id=_java_version())
     eid = seat(client, login, people, a, student)
     req = data(call(client, login, people["bm"], "post", f"/enrolments/{eid}/transfer-requests", json={"to_batch_id": b.batch_id, "reason": "x"}), 201)
-    r = call(client, login, people["bm"], "post", f"/batch-transfer-requests/{req['request_id']}/decision", json={"decision": "Approved"})
-    assert r.status_code == 422
     assert call(client, login, people["admin"], "post", f"/batch-transfer-requests/{req['request_id']}/decision", json={"decision": "Rejected"}).status_code == 400
     assert data(call(client, login, people["admin"], "post", f"/batch-transfer-requests/{req['request_id']}/decision",
                      json={"decision": "Rejected", "note": "Batch B is full next month"}), 200)["status"] == "Rejected"
@@ -239,7 +234,7 @@ def test_requester_cannot_approve_their_own_transfer(world, client, login, make_
 
 # ---------------------------------------------------------------- merge / split (G069)
 
-def test_split_and_merge_need_independent_approval_and_matching_plan(world, client, login, make_batch, make_student):
+def test_split_and_merge_of_a_branch_managers_request_go_to_an_admin_and_need_a_matching_plan(world, client, login, make_batch, make_student):
     people, _, student = world
     other = make_student()
     source = make_batch(1, trainers=[people["g1"]], state="Running", curriculum_version_id=_java_version(), schedule_days=[2, 4],
@@ -252,13 +247,14 @@ def test_split_and_merge_need_independent_approval_and_matching_plan(world, clie
     body = {"kind": "Split", "from_batch_id": source.batch_id, "to_batch_id": same.batch_id, "enrolment_ids": [second],
             "effective_from": today_ist().isoformat(), "reason": "Too many in one lab", "academic_review": "Same version and progress"}
     split = data(call(client, login, people["ac"], "post", "/batch-successions", json=body), 201)
-    assert call(client, login, people["ac"], "post", f"/batch-successions/{split['succession_id']}/decision", json={"decision": "Approved"}).status_code == 403
-    done = data(call(client, login, people["bm"], "post", f"/batch-successions/{split['succession_id']}/decision", json={"decision": "Approved"}), 200)
+    assert call(client, login, people["ac"], "post", f"/batch-successions/{split['succession_id']}/decision", json={"decision": "Approved"}).status_code == 422
+    assert call(client, login, people["bm"], "post", f"/batch-successions/{split['succession_id']}/decision", json={"decision": "Approved"}).status_code == 422  # a Branch Manager's own request
+    done = data(call(client, login, people["admin"], "post", f"/batch-successions/{split['succession_id']}/decision", json={"decision": "Approved"}), 200)
     assert done["moved_count"] == 1
     assert db.session.execute(text("SELECT batch_id FROM batch_allocations WHERE enrolment_id = :e AND status = 'Active'"), {"e": second}).scalar_one() == same.batch_id
 
     merge = data(call(client, login, people["ac"], "post", "/batch-successions", json={**body, "kind": "Merge", "to_batch_id": morning.batch_id, "enrolment_ids": []}), 201)
-    r = call(client, login, people["bm"], "post", f"/batch-successions/{merge['succession_id']}/decision", json={"decision": "Approved"})
+    r = call(client, login, people["admin"], "post", f"/batch-successions/{merge['succession_id']}/decision", json={"decision": "Approved"})
     assert r.status_code == 422 and "material change" in r.get_json()["error"]["message"]
     history = data(call(client, login, people["ac"], "get", f"/batches/{source.batch_id}"), 200)
     assert {s["kind"] for s in history["successions"]} == {"Split", "Merge"}
@@ -289,7 +285,6 @@ def test_class_log_partially_held_and_original_slot(world, client, login):
                                                                                 "due_on": future(5).date().isoformat()}), 201)[0]
     assert rep["approval_status"] == "Pending" and rep["replaces_session_id"] == sid
     assert call(client, login, people["g1"], "post", f"/class-sessions/{rep['session_id']}/start").status_code == 422
-    assert call(client, login, people["ac"], "post", f"/class-sessions/{rep['session_id']}/approval", json={"decision": "Approved"}).status_code == 403
     assert data(call(client, login, people["bm"], "post", f"/class-sessions/{rep['session_id']}/approval", json={"decision": "Approved"}), 200)["approval_status"] == "Approved"
 
     # a reschedule keeps the original slot; inside 24 hours it needs the emergency reason and next action
@@ -315,7 +310,6 @@ def test_room_and_student_clashes_need_the_branch_managers_reason(world, client,
     body = {"batch_id": other.batch_id, "title": "B", "room": "Lab 1", "starts_at": iso(when), "ends_at": iso(when + timedelta(hours=1))}
     r = call(client, login, people["ac"], "post", "/class-sessions", json=body)
     assert r.status_code == 422 and "Lab 1" in r.get_json()["error"]["message"]
-    assert call(client, login, people["ac"], "post", "/class-sessions", json={**body, "override_reason": "Shared lab"}).status_code == 403
     made = data(call(client, login, people["bm"], "post", "/class-sessions", json={**body, "override_reason": "Lab 1 seats both groups"}), 201)[0]
     assert made["room_override_reason"] == "Lab 1 seats both groups"
 
@@ -396,8 +390,9 @@ def test_substitute_cover_is_approved_verified_then_applied(world, client, login
         "handover": "Slides shared; attendance on the register"}), 201)
     assert call(client, login, outsider.email, "get", f"/class-sessions/{sid}").status_code == 404
     data(call(client, login, people["ac"], "post", f"/session-cover-requests/{req['request_id']}/verification", json={"note": "Taught Java before"}), 200)
-    assert call(client, login, people["ac"], "post", f"/session-cover-requests/{req['request_id']}/decision", json={"decision": "Approved"}).status_code == 403
-    applied = data(call(client, login, people["bm"], "post", f"/session-cover-requests/{req['request_id']}/decision", json={"decision": "Approved"}), 200)
+    assert call(client, login, people["ac"], "post", f"/session-cover-requests/{req['request_id']}/decision", json={"decision": "Approved"}).status_code == 422
+    assert call(client, login, people["bm"], "post", f"/session-cover-requests/{req['request_id']}/decision", json={"decision": "Approved"}).status_code == 422  # a Branch Manager's own request
+    applied = data(call(client, login, people["admin"], "post", f"/session-cover-requests/{req['request_id']}/decision", json={"decision": "Approved"}), 200)
     assert applied["status"] == "Applied"
     session = data(call(client, login, outsider.email, "get", f"/class-sessions/{sid}"), 200)
     assert session["trainer"]["full_name"] == "Trainer Cover" and session["changes"][-1]["change_type"] == "Trainer changed"
@@ -429,7 +424,7 @@ def test_online_class_confirmation_hosts_incidents_and_participation(world, clie
         "role": "Guest", "guest_name": "Industry mentor", "purpose": "Talk on careers", "student_agreement": "Asked in class"}), 201)
     assert guest["status"] == "Pending"
     assert call(client, login, people["ac"], "post", f"/session-people/{guest['session_person_id']}/decision", json={"decision": "Approved"}).status_code == 422
-    data(call(client, login, people["bm"], "post", f"/session-people/{guest['session_person_id']}/decision", json={"decision": "Approved"}), 200)
+    data(call(client, login, people["admin"], "post", f"/session-people/{guest['session_person_id']}/decision", json={"decision": "Approved"}), 200)
 
     incident = data(call(client, login, people["g1"], "post", f"/class-sessions/{sid}/meet-incidents", json={
         "kind": "Compromised link", "description": "Link posted publicly", "actions_taken": "Ended the meeting", "replace_link": True}), 201)
@@ -463,7 +458,7 @@ def test_shared_class_counts_once_and_reaches_both_batches(world, client, login,
     sid = data(call(client, login, people["ac"], "post", "/class-sessions", json={"batch_id": batch.batch_id, "title": "Shared intro",
                                                                                 "starts_at": iso(soon), "ends_at": iso(soon + timedelta(hours=1))}), 201)[0]["session_id"]
     assert call(client, login, other_student.student_code, "get", f"/class-sessions/{sid}").status_code == 404
-    assert call(client, login, people["bm"], "post", f"/class-sessions/{sid}/rosters", json={"batch_id": joined.batch_id, "coverage_note": "x"}).status_code == 403
+    assert call(client, login, people["g1"], "post", f"/class-sessions/{sid}/rosters", json={"batch_id": joined.batch_id, "coverage_note": "x"}).status_code == 403
     data(call(client, login, people["ac"], "post", f"/class-sessions/{sid}/rosters", json={
         "batch_id": joined.batch_id, "coverage_note": "Same introduction topic in both curricula"}), 201)
     assert call(client, login, other_student.student_code, "get", f"/class-sessions/{sid}").status_code == 200

@@ -24,7 +24,7 @@ def test_issue_reissue_and_revoke_are_sent_to_the_crm(client, w):
     assert issue["crm_admission_id"] and issue["crm_person_id"] and issue["course_code"] and issue["issued_by_email"]
 
     request_id = change(client, w, "ac", cid, "Correction", reason="Name correction", holder_name="Anvitha Kolli").get_json()["data"]["request_id"]
-    v2 = decide(client, w, "bm", request_id)
+    v2 = decide(client, w, "admin", request_id)
     assert v2.status_code == 200, v2.get_json()
     events = _outbox("CertificateChanged")
     assert sorted((e["version"], e["status"]) for e in events[1:]) == [(1, "Superseded"), (2, "Issued")]

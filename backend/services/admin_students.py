@@ -1,7 +1,7 @@
 """Super Admin: student account administration (search, status, suspend / reactivate, end sessions).
 
 Activation links are issued through `POST /students/{id}/activation` (services/activation.py), which a Super Admin,
-Branch Manager or Academic Coordinator may use. Students themselves are created only by the CRM.
+Branch Manager may use. Students themselves are created only by the CRM.
 """
 from dataclasses import dataclass
 from datetime import datetime, timezone

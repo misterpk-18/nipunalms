@@ -1,4 +1,4 @@
-/** The Certificate Register table used by students (read only), coordinators, branch managers and the Super Admin, and the
+/** The Certificate Register table used by students (read only), Branch Managers, branch managers and the Super Admin, and the
  * decisions that need an independent approver: change requests (correction, revocation, reinstatement) and fee exceptions. */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";

@@ -38,7 +38,7 @@ def _view(view: profile_service.ProfileView) -> dict:
             "mfa_status": student.mfa_status,
             "recovery": {
                 "email_on_file": student.email is not None,
-                "method": "Your branch Academic Coordinator can issue a new activation link; only you set the password.",
+                "method": "Your branch Branch Manager can issue a new activation link; only you set the password.",
             },
         }
     return data

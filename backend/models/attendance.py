@@ -60,7 +60,7 @@ class AttendanceRecord(db.Model):
 
 
 class AttendanceRecovery(db.Model):
-    """Recovery for an absence (REC-0041): requested, approved by the Academic Coordinator, completed with evidence."""
+    """Recovery for an absence (REC-0041): requested, approved by the Branch Manager, completed with evidence."""
 
     __tablename__ = "attendance_recoveries"
 

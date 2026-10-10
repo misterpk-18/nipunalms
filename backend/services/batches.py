@@ -2,9 +2,8 @@
 
 Lifecycle (Module 15 §5, stored names kept for the CRM): Forming (Draft) -> Proposed -> Starting (Confirmed) -> Running
 (In Progress) -> Completed; On Hold from Proposed / Starting / Running / Full and back to where it was; Cancelled while
-nobody holds a seat; Archived after Completed or Cancelled once no live activity is left. An Academic Coordinator proposes
-a batch once the first six points of the readiness record pass; the Branch Manager (or Super Admin), never the proposer,
-confirms it. 'Full' is not chosen by anyone: a Running batch flips to Full when its last seat is taken and back when a seat
+nobody holds a seat; Archived after Completed or Cancelled once no live activity is left. The Branch Manager proposes
+a batch once the first six points of the readiness record pass and confirms it (warnings need a recorded reason). 'Full' is not chosen by anyone: a Running batch flips to Full when its last seat is taken and back when a seat
 frees up (`sync_full`). The database enforces the same transitions; the checks here give readable messages first.
 """
 from dataclasses import dataclass
@@ -26,7 +25,7 @@ from repositories import class_sessions as sessions_repo
 from repositories import settings as settings_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import approvals, audit, delivery_access, delivery_notices, meet, scope
+from services import audit, delivery_access, delivery_notices, meet, scope
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
@@ -182,7 +181,7 @@ def suggested_readiness(batch: Batch, checks: list[dict]) -> dict:
     failing = [c["detail"] for c in checks if c["status"] == "fail"]
     if failing:
         return {"readiness": "Blocked", "readiness_reason": "; ".join(failing),
-                "recovery_owner": f"Academic Coordinator {batch.branch.branch_name}"}
+                "recovery_owner": f"Branch Manager {batch.branch.branch_name}"}
     if any(c["key"] == "meet" and c["status"] == "pending" for c in checks):
         return {"readiness": "Pending Verification", "readiness_reason": "Meet organizer Pending Verification", "recovery_owner": "Super Admin"}
     return {"readiness": "Ready", "readiness_reason": None, "recovery_owner": None}
@@ -222,12 +221,10 @@ def _course_item(batch: Batch) -> dict:
 
 
 def _people_item(batch: Batch) -> dict:
-    label = "2. Branch Manager, academic contact, trainer and cover"
+    label = "2. Branch Manager, trainer and cover"
     missing = []
     if not users_repo.user_ids_with_role("BRANCH_MANAGER", batch.branch_id):
         missing.append("no Branch Manager at the branch")
-    if not users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", batch.branch_id):
-        missing.append("no Academic Coordinator (academic contact)")
     live = [t for t in batch.trainers if t.to_date is None]
     lead = next((t for t in live if t.role == "Lead"), None)
     if lead is None:
@@ -314,7 +311,7 @@ def _recording_item(batch: Batch) -> dict:
 
 
 def _approval_item(batch: Batch) -> dict:
-    label = "7. Branch Manager approval after Academic Coordinator review"
+    label = "7. Branch Manager confirmation"
     if batch.confirmed_at is not None:
         who = batch.confirmer.full_name if batch.confirmer else "earlier rules"
         return _item("approval", label, "pass", f"Confirmed by {who}")
@@ -439,7 +436,7 @@ def _material_edits(batch: Batch, data: dict) -> list[str]:
 
 
 def _withdraw_proposal(batch: Batch, why: str) -> None:
-    """A proposed batch that is edited goes back to Draft: the coordinator reviews and proposes it again."""
+    """A proposed batch that is edited goes back to Draft: the Branch Manager reviews and proposes it again."""
     if batch.state != "Proposed":
         return
     batch.state, batch.proposed_by, batch.proposed_at = "Forming", None, None
@@ -522,7 +519,7 @@ def _require_confirmer(batch: Batch) -> None:
 
 
 def propose(batch_id: int, note: str | None) -> Batch:
-    """The coordinator's review is done: points 1-6 of the readiness record pass, so the batch goes to the Branch Manager."""
+    """The review is done: points 1-6 of the readiness record pass, so the batch is proposed for confirmation."""
     batch = load_managed_batch(batch_id)
     if batch.state != "Forming":
         raise BusinessRule(f"Batch {batch.batch_code} is {batch.state}; only a Draft batch can be proposed")
@@ -535,18 +532,17 @@ def propose(batch_id: int, note: str | None) -> Batch:
     delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", batch.branch_id), category="Batch", action_required=True,
                                   title=f"Confirm batch {batch.batch_code}", body=f"{batch.course.title}. Proposed by {current_user().full_name}.",
                                   event_key=f"batch-proposed-{batch.batch_id}-{int(batch.proposed_at.timestamp())}",
-                                  link="/academic/batches", branch_id=batch.branch_id)
+                                  link="/branch/batches", branch_id=batch.branch_id)
     return batch
 
 
 def decide_confirmation(batch_id: int, decision: str, note: str | None, override_reason: str | None) -> Batch:
-    """The Branch Manager (or Super Admin), never the proposer, confirms the delivery commitment (Proposed -> Confirmed) or
+    """The Branch Manager (or Super Admin) confirms the delivery commitment (Proposed -> Confirmed) or
     returns it to Draft. Advisory warnings need a recorded reason; failing or missing points cannot be overridden."""
     batch = load_managed_batch(batch_id)
     _require_confirmer(batch)
     if batch.state != "Proposed":
         raise BusinessRule(f"Batch {batch.batch_code} is {batch.state}, not Proposed")
-    approvals.require_independent(batch.proposed_by, message="The person who proposed the batch cannot confirm it")
     if decision == "Returned":
         if not note:
             raise ValidationError("A reason is required", {"note": ["Say what has to change"]})
@@ -676,7 +672,7 @@ def record_handover(batch_id: int, data: dict) -> BatchHandover:
         if destination is None or destination.batch_id == batch.batch_id:
             raise ValidationError("Invalid destination", {"destination_batch_id": ["Another batch"]})
     if data["owner_user_id"] not in _branch_managers(batch.branch_id):
-        raise ValidationError("Invalid owner", {"owner_user_id": ["The owner must be a coordinator or manager of this branch"]})
+        raise ValidationError("Invalid owner", {"owner_user_id": ["The owner must be a Branch Manager of this branch"]})
     handover = db.session.execute(select(BatchHandover).where(BatchHandover.batch_id == batch_id,
                                                               BatchHandover.enrolment_id == data["enrolment_id"])).scalar_one_or_none()
     if handover is None:
@@ -692,7 +688,7 @@ def record_handover(batch_id: int, data: dict) -> BatchHandover:
 
 
 def _branch_managers(branch_id: int) -> set[int]:
-    """Users who manage delivery at the branch: its Academic Coordinators and Branch Managers, and Super Admins."""
+    """Users who manage delivery at the branch: its Branch Managers, and Super Admins."""
     return {u for role in delivery_access.MANAGE_ROLES for u in users_repo.user_ids_with_role(role, branch_id)}
 
 

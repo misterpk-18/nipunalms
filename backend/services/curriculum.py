@@ -1,7 +1,7 @@
 """Curriculum management: versions per course (or per combo track), their modules and topics, and the review path.
 
 Draft -> Under Review -> Approved -> Active -> Retired. Content is editable only in a Draft; once submitted a version is a snapshot
-that enrolments and batches point at (the database refuses edits to published content). Academic Coordinators draft, submit and
+that enrolments and batches point at (the database refuses edits to published content). Branch Managers draft, submit and
 review; the Founder / CEO or Super Admin approve, activate and retire (Module 14 §5), and whoever submitted a version cannot
 approve it (independent review). Activating a version retires the previous Active one for that course / track, then gives it
 to every batch of the course that had none and to the enrolments still without one. Nothing waits for a curriculum: a student
@@ -434,7 +434,7 @@ def _has_cycle(graph: dict[int, set[int]]) -> bool:
 # ---------------------------------------------------------------- hours, completion profile, required assessments, pins
 
 def verify_hours(curriculum_version_id: int) -> CurriculumVersion:
-    """The Academic Coordinator verifies standard instructional hours from the detailed teaching plan (Module 14 §5)."""
+    """The Branch Manager verifies standard instructional hours from the detailed teaching plan (Module 14 §5)."""
     version = _version(curriculum_version_id, lock=True)
     _editable(version)
     current = totals(version)
@@ -512,7 +512,7 @@ def pin_component(curriculum_version_id: int, component_id: int, component_versi
 
 
 def review_equivalence(component_id: int, note: str) -> CourseComponent:
-    """The Academic Coordinator records that the component's outcomes, scope, depth and assessment match its course's
+    """The Branch Manager records that the component's outcomes, scope, depth and assessment match its course's
     standalone curriculum (similar names are not enough, Module 14 §3)."""
     component = catalog_repo.get_component(component_id)
     if component is None:
@@ -573,7 +573,7 @@ def submit(curriculum_version_id: int) -> CurriculumVersion:
 
 # Global curriculum is approved by the Founder / CEO or Super Admin after academic review (Module 14 §5); each opens it
 # from their own workspace
-APPROVER_LINKS = (("FOUNDER_CEO", "/founder/curriculum"), ("SUPER_ADMIN", "/academic/curriculum"))
+APPROVER_LINKS = (("FOUNDER_CEO", "/founder/curriculum"), ("SUPER_ADMIN", "/branch/curriculum"))
 
 
 def return_to_draft(curriculum_version_id: int, reason: str) -> CurriculumVersion:
@@ -585,7 +585,7 @@ def return_to_draft(curriculum_version_id: int, reason: str) -> CurriculumVersio
     if submitted is not None and submitted.actor_user_id:
         delivery_notices.notify_users([submitted.actor_user_id], title=f"Curriculum returned: {version.version_label}", category="Curriculum", body=reason,
                                       event_key=f"curriculum-returned-{event.event_id}",
-                                      link="/academic/curriculum", branch_id=None)
+                                      link="/branch/curriculum", branch_id=None)
     return version
 
 
@@ -673,7 +673,7 @@ def _release_mapping(version: CurriculumVersion) -> dict:
         delivery_notices.notify_branch_managers(branch_id, title=f"{len(group)} batch(es) now have a curriculum", category="Enrolment",
                                                 body=f"{version.version_label} was activated for {group[0].course.course_code}; "
                                                      "its batches and their students follow it.",
-                                                event_key=f"curriculum-released-branch-{branch_id}-{version_id}", link="/academic/batches")
+                                                event_key=f"curriculum-released-branch-{branch_id}-{version_id}", link="/branch/batches")
     return {"enrolments_released": len(given), "batches_mapped": len(mapped_batches)}
 
 

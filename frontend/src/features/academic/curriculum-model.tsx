@@ -307,7 +307,7 @@ export function CurriculumDecisions() {
   const { hasRole, profile } = useAuth();
   const me = profile?.user.user_id;
   const central = hasRole("FOUNDER_CEO", "SUPER_ADMIN");
-  const coordinator = hasRole("ACADEMIC_COORDINATOR", "SUPER_ADMIN");
+  const reviewer = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const mappings = useQuery({ queryKey: ["delivery", "mappings"], queryFn: () => deliveryApi.mappings({ status: "Pending" }) });
   const rules = useQuery({ queryKey: ["delivery", "rules"], queryFn: () => deliveryApi.rules({ status: "Pending" }) });
   const variations = useQuery({ queryKey: ["delivery", "variations"], queryFn: () => deliveryApi.variations({ status: "Pending" }) });
@@ -333,7 +333,7 @@ export function CurriculumDecisions() {
       <QueryView query={mappings} isEmpty={(p) => p.data.length === 0} empty="No academic mapping is waiting.">
         {(page) => (
           <DataTable
-            caption="Academic mappings waiting for the receiving coordinator"
+            caption="Academic mappings waiting for a decision"
             rows={page.data}
             getKey={(m) => m.mapping_id}
             cols={[
@@ -344,7 +344,7 @@ export function CurriculumDecisions() {
               {
                 h: "",
                 c: (m) =>
-                  coordinator && m.requested_by.user_id !== me ? (
+                  reviewer && m.requested_by.user_id !== me ? (
                     <ActionDialog
                       trigger={<Button size="sm">Decide</Button>}
                       title="Academic mapping"
@@ -400,7 +400,7 @@ export function CurriculumDecisions() {
               {
                 h: "",
                 c: (x) =>
-                  (x.kind === "Required topic constraint" ? central : coordinator) && x.requested_by.user_id !== me ? (
+                  (x.kind === "Required topic constraint" ? central : reviewer) && x.requested_by.user_id !== me ? (
                     <ActionDialog
                       trigger={<Button size="sm">Decide</Button>}
                       title={x.kind}
@@ -413,7 +413,7 @@ export function CurriculumDecisions() {
           />
         )}
       </QueryView>
-      {coordinator && pendingLibrary.length > 0 && (
+      {reviewer && pendingLibrary.length > 0 && (
         <DataTable
           caption="Library versions waiting for review"
           rows={pendingLibrary}
@@ -496,13 +496,13 @@ export function CurriculumModelNote() {
 }
 
 
-/** Prepare an individual academic mapping to another version of the course (Module 14 §8); the receiving coordinator decides. */
+/** Prepare an individual academic mapping to another version of the course (Module 14 §8); the Branch Manager of the receiving branch decides. */
 export function PrepareMapping({ enrolmentId, courseId }: { enrolmentId: number; courseId: number }) {
   const versions = useQuery({
     queryKey: ["delivery", "versions", "mappable", courseId],
     queryFn: async () => (await deliveryApi.versions({ course_id: courseId, whole_course: true })).filter((v) => v.status === "Approved" || v.status === "Active"),
   });
-  const request = useDelivery((body: Record<string, unknown>) => deliveryApi.requestMapping(enrolmentId, body), "Mapping sent for the coordinator's decision");
+  const request = useDelivery((body: Record<string, unknown>) => deliveryApi.requestMapping(enrolmentId, body), "Mapping sent for the Branch Manager's decision");
   return (
     <ActionDialog
       trigger={

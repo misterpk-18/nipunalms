@@ -5,7 +5,7 @@ from models import Test, TestAttempt
 
 FORMAL_KINDS = ("Module test", "Coding exercise", "Final test")
 
-# Approved starting settings per kind (Module 20 §4); the Academic Coordinator confirms course-specific values before release.
+# Approved starting settings per kind (Module 20 §4); the Branch Manager confirms course-specific values before release.
 # duration in minutes (None = untimed) and attempts allowed (None = repeat within the availability window)
 KIND_DEFAULTS = {
     "Practice quiz": {"duration_minutes": None, "attempts_allowed": None},
@@ -18,7 +18,7 @@ KIND_DEFAULTS = {
 
 
 def is_formal(test: Test) -> bool:
-    """Formal tests need pass marks, Academic Coordinator approval and published results; practice and mocks stay optional."""
+    """Formal tests need pass marks, Branch Manager approval and published results; practice and mocks stay optional."""
     return test.kind in FORMAL_KINDS or test.is_required
 
 
@@ -47,7 +47,7 @@ def configuration_gaps(test: Test, question_count: int, slot_count: int) -> list
         if test.closes_at is None:
             gaps.append("Set the closing time")
         if test.approved_at is None:
-            gaps.append("Academic Coordinator approval")
+            gaps.append("Branch Manager approval")
     return gaps
 
 

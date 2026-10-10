@@ -5,7 +5,7 @@ Rules kept here:
     the initial window (7 calendar days) closes.
   * Before the deadline, and before review starts, a student may replace their submission (a new version, same attempt). After the
     deadline or once reviewed, only an instructed resubmission (its own deadline, up to `max_resubmissions`) is accepted.
-  * Marks are provisional until the Academic Coordinator publishes the result: students see marks (and review feedback) only then,
+  * Marks are provisional until the Branch Manager publishes the result: students see marks (and review feedback) only then,
     except the feedback that comes with a resubmission request.
 """
 from datetime import datetime, timedelta, timezone
@@ -61,7 +61,7 @@ def submission_window(assignment: Assignment, versions: list[AssignmentSubmissio
         return closed("This assignment is not open for submission")
     if not versions:
         if now > assignment.closes_at:
-            return closed("The submission window has closed. Ask your Academic Coordinator to reopen it")
+            return closed("The submission window has closed. Ask your Branch Manager to reopen it")
         return {"allowed": True, "mode": "initial", "reason": None, "deadline": assignment.due_at}
 
     latest = versions[-1]
@@ -75,7 +75,7 @@ def submission_window(assignment: Assignment, versions: list[AssignmentSubmissio
     if latest.attempt_no - 1 >= assignment.max_resubmissions:
         return closed("You have used every resubmission allowed for this assignment")
     if now > review.resubmission_due_at:
-        return closed("The resubmission deadline has passed. Ask your trainer or Academic Coordinator")
+        return closed("The resubmission deadline has passed. Ask your trainer or Branch Manager")
     return {"allowed": True, "mode": "resubmission", "reason": None, "deadline": review.resubmission_due_at}
 
 
@@ -178,7 +178,7 @@ def _default_reviewer(batch: Batch) -> int:
 
 def _check_reviewer(batch: Batch, reviewer_user_id: int) -> None:
     if reviewer_user_id not in access.eligible_reviewers(batch):
-        raise ValidationError("Invalid request data", {"reviewer_user_id": ["Must be a trainer of this batch or the branch Academic Coordinator"]})
+        raise ValidationError("Invalid request data", {"reviewer_user_id": ["Must be a trainer of this batch or the branch's Branch Manager"]})
 
 
 def create_assignment(data: dict) -> Assignment:
@@ -222,7 +222,7 @@ def update_assignment(assignment_id: int, data: dict) -> Assignment:
             raise BusinessRule(f"After release only the brief, attachments, due time, late policy and reviewer can change (not {', '.join(locked)})")
     reason = data.pop("reason", None)
     if "closes_at" in data and not access.can_moderate_batch(assignment.batch):
-        raise ValidationError("Invalid request data", {"closes_at": ["Only the Academic Coordinator can reopen the submission window"]})
+        raise ValidationError("Invalid request data", {"closes_at": ["Only the Branch Manager can reopen the submission window"]})
     if "closes_at" in data and not reason:
         raise ValidationError("Invalid request data", {"reason": ["Give the reason for changing the submission window"]})
     if "reviewer_user_id" in data:

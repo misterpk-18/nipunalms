@@ -22,7 +22,7 @@ def _resolve(user: CurrentUser | None) -> CurrentUser:
 
 def visible_branch_ids(user: CurrentUser | None = None) -> set[int] | None:
     """Branches whose records the user sees in full: None = all branches, else the branches where they are
-    Branch Manager / Academic Coordinator (empty for a trainer or student, who see specific records instead)."""
+    Branch Manager (empty for a trainer or student, who see specific records instead)."""
     user = _resolve(user)
     if user.has_role(*ADMIN_ROLES):
         return None

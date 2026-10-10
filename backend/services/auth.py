@@ -25,17 +25,15 @@ SESSION_EXPIRED = "Your session has expired. Please log in again."
 WORKSPACE_ROLES = (
     ("founder", ("FOUNDER_CEO",)),
     ("admin", ("SUPER_ADMIN", "FOUNDER_CEO")),
-    ("academic", ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")),
     ("branch", ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")),
     ("trainer", ("TRAINER",)),
     ("student", ("STUDENT",)),
 )
-# Where each workspace lands; the first workspace the user has (founder > admin > branch > academic > trainer > student) wins
+# Where each workspace lands; the first workspace the user has (founder > admin > branch > trainer > student) wins
 HOME_ROUTES = (
     ("founder", "/founder"),
     ("admin", "/admin"),
     ("branch", "/branch"),
-    ("academic", "/academic"),
     ("trainer", "/trainer"),
     ("student", "/dashboard"),
 )
@@ -117,7 +115,7 @@ def login(login: str, password: str) -> LoginResult:
 
     scopes = users_repo.active_scopes(user.user_id)
     if not scopes:
-        raise Forbidden("Your account has no active access. Contact your coordinator or a Super Admin.")
+        raise Forbidden("Your account has no active access. Contact your branch or a Super Admin.")
 
     user.failed_login_attempts = 0
     user.locked_until = None

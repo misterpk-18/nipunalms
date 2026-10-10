@@ -51,7 +51,7 @@ test("trainer reviews it, the coordinator publishes, the student sees the publis
   await page.evaluate(() => window.sessionStorage.clear());
   await page.goto("/login");
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/assessments");
+  await page.goto("/branch/assessments");
   const row = page.getByRole("row", { name: /Regression on housing dataset/ });
   await expect(row).toContainText("Awaiting moderation");
   await row.getByRole("button", { name: "Publish" }).click();

@@ -176,7 +176,7 @@ def test_only_trainers_of_the_branch_can_be_assigned(make_user, make_batch, run_
     batch = make_batch(1)
     guntur = make_user(roles=[("TRAINER", 1)])
     vijayawada = make_user(roles=[("TRAINER", 2)])
-    coordinator = make_user(roles=[("ACADEMIC_COORDINATOR", 1)])
+    coordinator = make_user(roles=[("BRANCH_MANAGER", 1)])
 
     run_sql("INSERT INTO batch_trainers (batch_id, trainer_user_id, role) VALUES (:b, :u, 'Lead')", b=batch.batch_id, u=guntur.user_id)
     for user in (vijayawada, coordinator):
@@ -245,12 +245,12 @@ def test_role_scopes_follow_the_company_wide_rule(make_user, run_sql):
 
 def test_seeded_reference_data(app, run_sql):
     branches = db.session.execute(db.text("SELECT branch_code, mailbox FROM branches ORDER BY branch_id")).all()
-    roles = db.session.execute(db.text("SELECT role_code FROM roles ORDER BY role_id")).scalars().all()
+    roles = db.session.execute(db.text("SELECT role_code FROM roles WHERE is_active ORDER BY role_id")).scalars().all()
     integrations = db.session.execute(db.text("SELECT integration_code FROM integrations")).scalars().all()
     settings = db.session.execute(db.text("SELECT setting_key FROM app_settings")).scalars().all()
 
     assert branches == [("NIT-GNT", "trainer@nipunatechnologies.com"), ("NIT-VIJ", "contactus@nipunatechnologies.com")]
-    assert roles == ["STUDENT", "TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"]
+    assert roles == ["STUDENT", "TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"]  # the Academic Coordinator role is retired (db 106)
     assert {"GOOGLE_WORKSPACE", "GOOGLE_MEET", "GOOGLE_DRIVE_RECORDINGS", "CRM", "WHATSAPP", "EMAIL", "TELEPHONY",
             "AI_PROVIDER"} <= set(integrations)  # later migrations add more rows (per-branch Meet organizers, ...)
     assert {"session_idle_minutes", "session_max_minutes", "activation_token_hours", "recording_access_days",

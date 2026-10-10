@@ -172,9 +172,9 @@ figure out what to do next."
 | Phase | Status | Commit | Size |
 |---|---|---|---|
 | U0. Close CRM round 5 | **Done** | `1193fb3`, `31ceee5` | S |
-| U1. Remove Curriculum Mapping Pending | **Done** (db 105) | `PENDING` | M |
-| U2. Merge Academic Coordinator into Branch Manager | **Next** | | L |
-| U3. Design system foundation | To do | | M |
+| U1. Remove Curriculum Mapping Pending | **Done** (db 105) | `51824f0` | M |
+| U2. Merge Academic Coordinator into Branch Manager | **Done** (db 106) | `2ca15ba` | L |
+| U3. Design system foundation | **Next** | | M |
 | U4. Shell, navigation, search, counts | To do | | M |
 | U5. Notifications inbox (all roles) | To do | | S |
 | U6. WhatsApp through the CRM (CRM round 6) | To do | | M |
@@ -298,6 +298,11 @@ figure out what to do next."
   - Update `e2e/helpers.ts` USERS and `DEVELOPMENT.md` staging accounts.
 - **CRM.** Contract unchanged. Note it in the U6 round document: the LMS also merged; completion emails will now match.
 - **Tests.** Rewrite role-matrix tests: coordinator cases become Branch Manager cases, plus the new "Branch Manager's own request goes to Founder" rule.
+- **As built (10 Oct 2026).**
+  - **One Branch Manager step** (no independence check, and the matching database constraints dropped): confirming a batch (warnings still need `override_reason`), replacement / remedial / extra classes, approving a certificate (it may be approved straight from Eligibility Review; the recommendation is recorded with it), capacity increases and transfers.
+  - **Independent review kept** (`approvals.require_independent(..., requester=...)`): attendance corrections, academic mappings, curriculum variations, library versions, material changes, merges and splits, class guests, cover requests, certificate change requests. When the requester is a Branch Manager, only the Founder / CEO or a Super Admin may decide (`approvals.can_decide` hides the button; 422 otherwise). Opportunity and placement-outcome verification (database independence) is unchanged: the seed has the Super Admin verify the Branch Manager's opportunities.
+  - **Frontend.** The `academic` workspace is gone. Its screens moved to `/branch/*` (`/branch/academic-reports` for the old Academic reports, `/branch` shows the Academic dashboard under the branch tiles); `/academic/*` redirects to the matching `/branch/*`. The Branch nav is grouped (Today · Batches & students · Teaching · Completion · Help · Reports); `NavItem.group` is new, U4 builds on it.
+  - **Not done here (later phases).** The decide buttons of the independent-review screens do not yet hide for a Branch Manager's own requests (the API refuses with the reason); U15 redesigns them.
 
 ## U3. Design system foundation (frontend; no migration)
 - **`lib/status.ts`.** The status dictionary, `{domain: {code: {label, tkey?, tone, help}}}`, covering every status the API returns: enrolment, batch, session, attendance, assignment, test, result, certificate, support, content, recording, notification, career, CV, slot, integration, CRM event. `StatusBadge` takes `domain` and `code`. Remove `toneFor`.

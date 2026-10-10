@@ -1,4 +1,4 @@
-"""Results: the student's published results, and the moderation and publication work of the Academic Coordinator."""
+"""Results: the student's published results, and the moderation and publication work of the Branch Manager."""
 from flask import request
 
 from controllers.common import Validator, get_page_params, json_body, ok, paginated

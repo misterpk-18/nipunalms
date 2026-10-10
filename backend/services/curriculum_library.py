@@ -1,5 +1,5 @@
 """Reusable academic material (Module 14 §9). A library module has a stable code and explicit versions. Saving a curriculum
-module to the library, or changing a library module, proposes a version that another Academic Coordinator or the Super Admin
+module to the library, or changing a library module, proposes a version that another Branch Manager or the Super Admin
 approves. A draft curriculum copies an approved library version and keeps the reference, so curricula already using an
 earlier version stay on it. Reuse copies content only: it reveals no learners, submissions, results or recordings."""
 from datetime import datetime, timezone
@@ -15,7 +15,7 @@ from services.context import current_user
 from services.curriculum import TOPIC_FIELDS, _editable, _version
 from services.errors import BusinessRule, NotFound, ValidationError
 
-EDITORS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+EDITORS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 def _snapshot(module: CurriculumModule) -> dict:
@@ -68,7 +68,8 @@ def decide_version(library_version_id: int, decision: str) -> LibraryModuleVersi
         raise NotFound("Library version not found")
     if version.status != "Pending":
         raise BusinessRule(f"This version is already {version.status}")
-    approvals.require_independent(version.proposed_by, message="An independent reviewer must decide: not the person who proposed it")
+    approvals.require_independent(version.proposed_by, message="An independent reviewer must decide: not the person who proposed it",
+                                  requester=version.proposed_by)
     version.status, version.decided_by, version.decided_at = decision, current_user().user_id, datetime.now(timezone.utc)
     db.session.flush()
     audit.record(f"LIBRARY_VERSION_{decision.upper()}", "library_module", version.library_module_id, new={"version_no": version.version_no})

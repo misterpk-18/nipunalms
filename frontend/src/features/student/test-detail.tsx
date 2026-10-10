@@ -338,7 +338,7 @@ export function TestDetail() {
                       </p>
                     )}
                     {receipt.test.is_formal && (
-                      <p className="mt-1 text-sm text-muted-foreground">Your score is withheld until your Academic Coordinator publishes the result.</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Your score is withheld until your Branch Manager publishes the result.</p>
                     )}
                   </Section>
                 )}

@@ -1,5 +1,5 @@
 /** The Nipuna Academic Calendar (Module 15 §9): company holidays set centrally, branch closures approved by the Branch
- * Manager. Approved closures that fall on scheduled classes ask the coordinators for replacements; nothing moves by itself. */
+ * Manager. Approved closures that fall on scheduled classes ask the Branch Managers for replacements; nothing moves by itself. */
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/api/admin";
 import { list, post } from "@/api/client";
@@ -37,7 +37,7 @@ const KEY = ["calendar", "closures"];
 export function AcademicCalendar() {
   const { hasRole, profile } = useAuth();
   const central = hasRole("FOUNDER_CEO", "SUPER_ADMIN");
-  const proposer = hasRole("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN");
+  const proposer = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const approver = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const closures = useQuery({ queryKey: KEY, queryFn: calendarApi.list });
   const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches, enabled: central });
@@ -104,7 +104,7 @@ export function AcademicCalendar() {
                     <FormDialog
                       trigger={<Button size="sm">Decide</Button>}
                       title={`Branch closure: ${c.title}`}
-                      description="Approving closes the branch on these dates; coordinators are asked to replace affected classes."
+                      description="Approving closes the branch on these dates; Branch Managers are asked to replace affected classes."
                       submitLabel="Record decision"
                       fields={[
                         { name: "decision", label: "Decision", kind: "select", options: ["Approved", "Rejected"], required: true, initial: "Approved" },

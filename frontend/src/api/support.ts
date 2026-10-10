@@ -29,7 +29,7 @@ export type SupportSummary = {
   raised_via: "Student" | "Staff flag";
   raised_by: UserRef;
   owner: UserRef & { role_code: string; label: string };
-  escalation_level: "Academic Coordinator" | "Branch Manager" | null;
+  escalation_level: "Branch Manager" | null;
   escalated_at: DateTime | null;
   sla_due_at: DateTime;
   sla_breached: boolean;

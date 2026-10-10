@@ -1,4 +1,4 @@
-"""Results: provisional marks (trainer review, test grading), moderation and publication by the Academic Coordinator.
+"""Results: provisional marks (trainer review, test grading), moderation and publication by the Branch Manager.
 
 A result moves Provisional -> Moderated (marks adjusted, reason kept) -> Published. Students only ever see Published results;
 a provisional score is never shown as a score, and a published result cannot be changed (the database refuses it).
@@ -233,7 +233,7 @@ def _awaiting_grading_by_test() -> dict[int, int]:
 
 
 def _tests_not_ready(filters: dict, clause) -> list[dict]:
-    """Tests that cannot be released yet (with what is missing), so the coordinator sees them next to the results work."""
+    """Tests that cannot be released yet (with what is missing), so the Branch Manager sees them next to the results work."""
     stmt = tests_repo.list_stmt({"release_status": "Configuration Pending", **({"batch_id": filters["batch_id"]} if filters.get("batch_id") else {})}, clause)
     rows = []
     for test in db.session.execute(stmt).scalars().unique():

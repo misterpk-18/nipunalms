@@ -29,7 +29,7 @@ def _scalar(sql: str, **params):
 def test_a_new_admission_is_mapped_by_the_lms_and_allocated_with_no_crm_mapping(client, catalog, crm_event, make_user, login):
     from repositories import catalog as catalog_repo
 
-    coordinator = login(make_user(roles=[("ACADEMIC_COORDINATOR", 1)]).email)
+    coordinator = login(make_user(roles=[("BRANCH_MANAGER", 1)]).email)
     batch = client.post(f"{API}/batches", headers=coordinator, json={
         "course_id": catalog_repo.get_course_by_code("NIT-CRS-047").course_id, "branch_id": 1, "capacity": 2,
         "mode": "Classroom", "planned_start": "2026-10-12"}).get_json()["data"]  # the LMS gives it the Active version

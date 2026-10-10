@@ -50,7 +50,7 @@ def issue(student: Student, *, channel: str, issued_by: int | None) -> IssuedAct
 
 
 def issue_as_staff(student_id: int) -> IssuedActivation:
-    """POST /students/{id}/activation: Super Admin, or Branch Manager / Academic Coordinator at the student's service branch."""
+    """POST /students/{id}/activation: Super Admin, or Branch Manager at the student's service branch."""
     actor = current_user()
     student = students_repo.get_student(student_id)
     if student is None:
@@ -84,13 +84,13 @@ def mask_student_code(student_code: str) -> str:
 def activate(token: str, password: str) -> Student:
     activation, status = describe(token)
     if status != "valid":
-        raise BusinessRule(f"This activation link is {status}. Ask your coordinator for a new one.", {"status": status})
+        raise BusinessRule(f"This activation link is {status}. Ask your branch for a new one.", {"status": status})
     check_password_policy(password, field="password")
 
     student = activation.student
     user = users_repo.get_by_student_id(student.student_id)
     if user is None:
-        raise BusinessRule("This student has no LMS login yet. Contact your coordinator.")
+        raise BusinessRule("This student has no LMS login yet. Contact your branch.")
 
     now = datetime.now(timezone.utc)
     user.password_hash = hash_password(password)

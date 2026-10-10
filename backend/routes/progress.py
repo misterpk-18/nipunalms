@@ -6,7 +6,7 @@ from routes.decorators import login_required, require_roles
 
 progress_bp = Blueprint("progress", __name__)
 
-STAFF = ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 @progress_bp.get("/me/progress")
@@ -32,6 +32,6 @@ def list_progress():
 
 @progress_bp.get("/progress/summary")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 def branch_summary():
     return progress_controller.branch_summary()

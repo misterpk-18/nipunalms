@@ -124,7 +124,7 @@ def decide_cover(request_id: int):
 
 @session_operations_bp.post("/session-cover-requests/<int:request_id>/verification")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 def verify_cover(request_id: int):
     return controller.verify_cover(request_id)
 
@@ -133,13 +133,13 @@ def verify_cover(request_id: int):
 
 @session_operations_bp.post("/class-sessions/<int:session_id>/rosters")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 def add_roster(session_id: int):
     return controller.add_roster(session_id)
 
 
 @session_operations_bp.delete("/class-sessions/<int:session_id>/rosters/<int:batch_id>")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 def remove_roster(session_id: int, batch_id: int):
     return controller.remove_roster(session_id, batch_id)

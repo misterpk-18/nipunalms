@@ -3,7 +3,7 @@ from flask import request
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated, require_changes
 from services import admin_users as users_service
 
-STAFF_ROLE_CODES = ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+STAFF_ROLE_CODES = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 def _scope_rules(v: Validator) -> None:

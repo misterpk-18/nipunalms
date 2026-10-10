@@ -286,14 +286,14 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
                   {request.escalation_level !== "Branch Manager" && (
                     <ReasonDialog
                       title="Escalate this request"
-                      description={request.owner.role_code === "TRAINER" ? "It moves to the Academic Coordinator." : "It goes to the Branch Manager."}
+                      description={"It goes to the Branch Manager."}
                       confirmLabel="Escalate"
                       busy={escalate.isPending}
                       onSubmit={(reason) => escalate.mutateAsync(reason)}
                       trigger={<Button variant="outline">Escalate</Button>}
                     />
                   )}
-                  {profile?.scopes.some((s) => ["ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"].includes(s.role_code)) && (
+                  {profile?.scopes.some((s) => ["BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"].includes(s.role_code)) && (
                     <>
                       <div className="w-52">
                         <Label htmlFor="support-assign">Reassign to</Label>

@@ -33,18 +33,18 @@ def attempts_expire() -> dict:
 
 
 def attendance_unconfirmed() -> dict:
-    """Alert the Academic Coordinator on the next working day about delivered classes with attendance not yet confirmed."""
+    """Alert the Branch Manager on the next working day about delivered classes with attendance not yet confirmed."""
     return {"alerted": attendance_service.alert_unconfirmed()}
 
 
 def session_delay_check() -> dict:
-    """Tell students when a class is 5 minutes late; record a disruption and alert the coordinator and Branch Manager at 15
+    """Tell students when a class is 5 minutes late; record a disruption and alert the Branch Manager at 15
     (Module 16 §7). Run every few minutes."""
     return session_ops.check_delays()
 
 
 def class_log_check() -> dict:
-    """Raise a coordinator review task for classes still without a delivery log after their working day (Module 15 §15)."""
+    """Raise a Branch Manager review task for classes still without a delivery log after their working day (Module 15 §15)."""
     return session_ops.check_class_logs()
 
 

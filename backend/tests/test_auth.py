@@ -43,11 +43,10 @@ def test_staff_login_returns_token_and_the_exact_profile_shape(client, make_user
     "roles, workspaces, home_route, branch_count",
     [
         ([("TRAINER", 1)], ["trainer"], "/trainer", 1),
-        ([("ACADEMIC_COORDINATOR", 2)], ["academic"], "/academic", 1),
         ([("BRANCH_MANAGER", 2)], ["branch"], "/branch", 1),
-        ([("SUPER_ADMIN", None)], ["admin", "academic", "branch"], "/admin", 2),
+        ([("SUPER_ADMIN", None)], ["admin", "branch"], "/admin", 2),
         ([("FOUNDER_CEO", None)], ["founder", "admin", "branch"], "/founder", 2),
-        ([("TRAINER", 1), ("ACADEMIC_COORDINATOR", 1)], ["academic", "trainer"], "/academic", 1),
+        ([("TRAINER", 1), ("BRANCH_MANAGER", 1)], ["branch", "trainer"], "/branch", 1),
     ],
 )
 def test_workspaces_home_route_and_branches_follow_the_roles(client, make_user, roles, workspaces, home_route, branch_count):

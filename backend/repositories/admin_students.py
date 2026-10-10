@@ -22,7 +22,7 @@ def search_stmt(filters: dict) -> Select:
     if filters.get("branch_id"):
         stmt = stmt.where(Student.service_branch_id == filters["branch_id"])
     if filters.get("activation_channel"):
-        # whose outstanding link came from this channel: 'CRM provisioning' = never delivered, a coordinator must reissue
+        # whose outstanding link came from this channel: 'CRM provisioning' = never delivered, a Branch Manager must reissue
         stmt = stmt.where(select(StudentActivation.activation_id).where(
             StudentActivation.student_id == Student.student_id, StudentActivation.used_at.is_(None),
             StudentActivation.revoked_at.is_(None), StudentActivation.channel == filters["activation_channel"]).exists())

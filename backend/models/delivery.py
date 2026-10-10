@@ -114,7 +114,7 @@ class SessionChange(db.Model):
 
 
 class SessionChangeRequest(db.Model):
-    """A trainer's request to move a session; an Academic Coordinator or Branch Manager approves or rejects it."""
+    """A trainer's request to move a session; a Branch Manager approves or rejects it."""
 
     __tablename__ = "session_change_requests"
 

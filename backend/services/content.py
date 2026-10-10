@@ -6,7 +6,7 @@ latest version, but students keep the last Released version until a newer one is
 
 Who may do what:
   Trainer               add content for batches they teach, edit their drafts, submit
-  Academic Coordinator  review, release and retire content at their branch (never their own upload)
+  Branch Manager  review, release and retire content at their branch (never their own upload)
   Branch Manager        sees the branch's content
   Super Admin           all branches
   Student               sees Released items of their own enrolments, until the access window closes
@@ -40,9 +40,9 @@ def _now() -> datetime:
 # ---------------------------------------------------------------- who may see / manage
 
 def _is_reviewer(item: ContentItem) -> bool:
-    """Academic Coordinator of the item's branch, or Super Admin."""
+    """Branch Manager of the item's branch, or Super Admin."""
     user = current_user()
-    return user.has_role("SUPER_ADMIN") or user.has_role("ACADEMIC_COORDINATOR", branch_id=item.branch_id)
+    return user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=item.branch_id)
 
 
 def _staff_can_view(item: ContentItem) -> bool:
@@ -305,7 +305,7 @@ def add_version(content_item_id: int, upload: FileStorage | None, url: str | Non
 
 
 def submit(content_item_id: int) -> ContentItem:
-    """Send the latest version to the Academic Coordinator for review."""
+    """Send the latest version to the Branch Manager for review."""
     item = _get_staff_item(content_item_id)
     _assert_can_manage(item)
     _assert_open(item)
@@ -319,7 +319,7 @@ def submit(content_item_id: int) -> ContentItem:
     audit.record("CONTENT_SUBMITTED", "content_item", item.item_code, new={"version": version.version_no}, branch_id=item.branch_id)
     notify(category="Content", title=f"Content submitted for review: {item.title}",
            body=f"{current_user().full_name} submitted version {version.version_no} of {item.item_code}.",
-           link="/academic/content-review", role_code="ACADEMIC_COORDINATOR", branch_id=item.branch_id,
+           link="/branch/content-review", role_code="BRANCH_MANAGER", branch_id=item.branch_id,
            event_key=f"content-submitted-{version.content_version_id}", action_required=True)
     return item
 
@@ -336,7 +336,7 @@ def review(content_item_id: int, decision: str, comment: str | None, release_now
     """start / approve / request_changes / reject the version under review; a reviewer never reviews their own upload."""
     item = _get_staff_item(content_item_id)
     if not _is_reviewer(item):
-        raise Forbidden("Only the Academic Coordinator of this branch reviews content")
+        raise Forbidden("Only the Branch Manager of this branch reviews content")
     _assert_open(item)
     version = item.latest_version
     if version.status not in REVIEWABLE:
@@ -371,7 +371,7 @@ def release(content_item_id: int) -> ContentItem:
     """Release the approved version to its audience. The previously released version is retired (and kept)."""
     item = _get_staff_item(content_item_id)
     if not _is_reviewer(item):
-        raise Forbidden("Only the Academic Coordinator of this branch releases content")
+        raise Forbidden("Only the Branch Manager of this branch releases content")
     _assert_open(item)
     version = item.latest_version
     if version.status != "Approved":
@@ -399,7 +399,7 @@ def retire(content_item_id: int, reason: str) -> ContentItem:
     """Withdraw the item from students. Files and versions are kept (no deletion)."""
     item = _get_staff_item(content_item_id)
     if not _is_reviewer(item):
-        raise Forbidden("Only the Academic Coordinator of this branch retires content")
+        raise Forbidden("Only the Branch Manager of this branch retires content")
     _assert_open(item)
     was_released = item.released_version is not None
     old_status = item.status
@@ -434,7 +434,7 @@ def placement_options() -> list[dict]:
     user = current_user()
     branch_ids = scope.visible_branch_ids(user)
     batches = content_repo.batches_for_authoring(branch_ids, scope.trainer_batch_ids(user))
-    if not user.has_role("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"):
+    if not user.has_role("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"):
         return []
     options = []
     for batch in batches:

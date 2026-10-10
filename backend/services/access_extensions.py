@@ -1,6 +1,6 @@
 """Access extension requests: one extra year for recordings and / or materials (Modules 17 §8 and 18 §5).
 
-A student asks with a reason. The Academic Coordinator or Branch Manager of the enrolment's service branch (Super Admin
+A student asks with a reason. The Branch Manager of the enrolment's service branch (Super Admin
 as cover) approves the routine extension, which always ends on the second anniversary of the Joining Date; repeated
 requests do not stack years. A request made after the second anniversary is a further exception only a Founder / CEO or
 Super Admin may grant, with the new expiry stated. The student is told; every decision is audited.
@@ -19,7 +19,7 @@ from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-DECIDERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 EXCEPTION_DECIDERS = ("SUPER_ADMIN", "FOUNDER_CEO")
 
 
@@ -57,7 +57,7 @@ def create_request(enrolment_id: int, scope_value: str, reason: str) -> AccessEx
         recipients = dict(role_code="SUPER_ADMIN", branch_id=request.branch_id)
         headline = "needs a Founder / CEO or Super Admin exception"
     else:
-        recipients = dict(role_code="ACADEMIC_COORDINATOR", branch_id=request.branch_id)
+        recipients = dict(role_code="BRANCH_MANAGER", branch_id=request.branch_id)
         headline = "is waiting for approval"
     notify(category="Access", title=f"{request.request_code}: access extension request {headline}",
            body=f"{request.student.full_name} · {enrolment.course.title} · {scope_value}", link="/branch/requests",
@@ -102,8 +102,8 @@ def decide(request_id: int, decision: str, note: str | None, new_expiry=None) ->
     if request.needs_exception:
         if not user.has_role(*EXCEPTION_DECIDERS):
             raise Forbidden("Requests after the second anniversary need a Founder / CEO or Super Admin exception")
-    elif not (user.has_role("SUPER_ADMIN") or user.has_role("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", branch_id=request.branch_id)):
-        raise Forbidden("Only the Academic Coordinator or Branch Manager of the service branch decides this")
+    elif not (user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=request.branch_id)):
+        raise Forbidden("Only the Branch Manager of the service branch decides this")
 
     old = {"status": "Pending", "expiry": {k: str(v) for k, v in _current_expiry(request).items()}}
     if decision == "reject":

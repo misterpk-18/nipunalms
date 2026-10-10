@@ -74,7 +74,7 @@ def test_scope_and_permissions(client, world):
     assert client.get(f"{API}/questions/{qid}", headers=world.h["v1"]).status_code == 404  # another branch
     assert client.get(f"{API}/questions/{qid}", headers=world.h["ac_vij"]).status_code == 404
     assert client.get(f"{API}/questions/{qid}", headers=world.h["admin"]).status_code == 200
-    for who in ("s1", "bm"):
+    for who in ("s1", "founder"):
         assert client.get(f"{API}/questions", headers=world.h[who]).status_code == 403
         assert create(client, world, who=who).status_code == 403
     assert [q["question_id"] for q in client.get(f"{API}/questions", headers=world.h["v1"]).get_json()["data"]] == []

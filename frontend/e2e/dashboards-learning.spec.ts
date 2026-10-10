@@ -157,7 +157,7 @@ test("trainer reports: delivery and attendance per assigned batch, review turnar
 test("academic reports: the coordinator sees only their own branch", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/academic/reports");
+  await page.goto("/branch/academic-reports");
   await expect(page.getByRole("heading", { level: 1, name: "Academic Reports" })).toBeVisible();
   for (const title of ["Curriculum delivered (branch)", "Attendance / approved recovery", "Completion reviews closed", "Certificate issue lead time"]) {
     await expect(page.getByRole("heading", { level: 2, name: title, exact: true })).toBeVisible();
@@ -171,7 +171,7 @@ test("academic reports: the coordinator sees only their own branch", async ({ pa
 test("academic reports: Vijayawada's coordinator gets Vijayawada figures, never Guntur's", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordVij);
-  await page.goto("/academic/reports");
+  await page.goto("/branch/academic-reports");
   await expect(page.getByRole("heading", { level: 2, name: "Curriculum delivered (branch)" })).toBeVisible();
   await expect(page.getByText(/NIT-GNT-BAT/)).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 2, name: "Certificate issue lead time" })).toBeVisible();

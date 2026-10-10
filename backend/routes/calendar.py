@@ -23,7 +23,7 @@ def get_closure(closure_id: int):
 
 @calendar_bp.post("/closures")
 @login_required
-@require_roles("FOUNDER_CEO", "SUPER_ADMIN", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER")
+@require_roles("FOUNDER_CEO", "SUPER_ADMIN", "BRANCH_MANAGER")
 def create_closure():
     return calendar_controller.create_closure()
 

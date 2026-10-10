@@ -3,7 +3,7 @@
 Starting records `started_at` and `deadline_at = min(start + duration, window end)`. A reconnect resumes the same attempt with the
 time left. Answers are saved only before the deadline; once it passes, the next read (or save) submits the saved answers once,
 with the deadline as the effective submission time, and issues the receipt. Objective questions are scored on submission; written
-and coding answers wait for the trainer. Formal results stay provisional until the Academic Coordinator publishes them.
+and coding answers wait for the trainer. Formal results stay provisional until the Branch Manager publishes them.
 """
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal

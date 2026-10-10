@@ -14,7 +14,7 @@ def get_student(student_id: int):
 
 @students_bp.post("/<int:student_id>/activation")
 @login_required
-@require_roles("SUPER_ADMIN", "BRANCH_MANAGER", "ACADEMIC_COORDINATOR")
+@require_roles("SUPER_ADMIN", "BRANCH_MANAGER")
 @fresh_auth
 def issue_activation(student_id: int):
     return students_controller.issue_activation(student_id)

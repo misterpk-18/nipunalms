@@ -173,7 +173,7 @@ export function AssignmentDetail() {
                 <Section title="Your submission">
                   <SubmissionForm assignment={a} />
                 </Section>
-                <Note>Marks stay provisional until your Academic Coordinator publishes the result.</Note>
+                <Note>Marks stay provisional until your Branch Manager publishes the result.</Note>
               </div>
             </>
           );

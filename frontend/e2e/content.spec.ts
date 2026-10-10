@@ -37,7 +37,7 @@ test("trainer uploads and submits content, coordinator approves and releases it,
   await expect(row).toContainText("Submitted");
 
   await signInAs(page, USERS.coordGnt);
-  await page.goto("/academic/content-review");
+  await page.goto("/branch/content-review");
   const queued = page.getByRole("row", { name: new RegExp(TITLE) });
   await expect(queued).toContainText("Trainer R. Sample");
   await queued.getByRole("button", { name: "Review", exact: true }).click();
@@ -85,9 +85,9 @@ test("student recordings show status, expiry and policy; the coordinator works t
   await page.keyboard.press("Escape");
 
   await signInAs(page, USERS.coordGnt);
-  await page.goto("/academic/recording-exceptions");
+  await page.goto("/branch/recording-exceptions");
   await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("Second hour missing".toLowerCase());
-  await expect(page.getByRole("row", { name: /RX-0013/ })).toContainText("Academic Coordinator GNT");
+  await expect(page.getByRole("row", { name: /RX-0013/ })).toContainText("Branch Manager GNT");
   await expect(page.getByText("RX-0014")).toHaveCount(0); // Vijayawada exception: outside this coordinator's scope
   await page
     .getByRole("row", { name: /RX-0012/ })

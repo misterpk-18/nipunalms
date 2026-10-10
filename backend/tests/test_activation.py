@@ -116,7 +116,7 @@ def test_branch_manager_reissues_a_token_and_the_old_one_stops_working(client, m
 def test_super_admin_and_coordinator_at_the_branch_can_issue(client, make_student, make_user, login):
     student = make_student(activate=False)
 
-    for role in (("SUPER_ADMIN", None), ("ACADEMIC_COORDINATOR", 1)):
+    for role in (("SUPER_ADMIN", None), ("BRANCH_MANAGER", 1)):
         headers = login(make_user(roles=[role]).email)
         assert issue(client, headers, student.student_id).status_code == 201
 

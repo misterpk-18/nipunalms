@@ -57,11 +57,11 @@ REFUSALS = (
     (re.compile(r"ignore (all |any |the )?(previous|above|prior) (instructions|rules)|reveal .*(system prompt|instructions)", re.I),
      "I can't change my rules or show my instructions."),
     (re.compile(r"\b(password|otp|api key|secret key)\b", re.I),
-     "I never handle passwords, OTPs or keys. Use Profile or ask your coordinator for account recovery."),
+     "I never handle passwords, OTPs or keys. Use Profile or ask your branch for account recovery."),
     (re.compile(r"\b(change|edit|waive|reduce|refund|discount|extend|delay|mark)\b.*\b(fee|fees|payment|due|dues|balance|receipt|instalment|installment)\b", re.I),
      "I can't change or act on fees and payments. The CRM is the authority for money; open Fees & Receipts or ask your branch."),
     (re.compile(r"\b(give|award|change|increase|edit|mark)\b.*\b(marks?|score|grade|result|attendance|present|certificate|completion)\b", re.I),
-     "I can't award or change marks, attendance, results, completion or certificates. Those are decided by your trainer and coordinator."),
+     "I can't award or change marks, attendance, results, completion or certificates. Those are decided by your trainer and Branch Manager."),
     (re.compile(r"\b(another|other|different) (student|learner|classmate|person)s?\b|\b(someone|somebody) else\b|\bmy (friend|classmate|brother|sister)\b", re.I),
      "I can only answer about your own records, not another student's."),
     (re.compile(r"\b(his|her|their|classmate'?s|friend'?s) (marks|attendance|results?|fees?|mobile|phone|details|submissions?|scores?|password)\b", re.I),
@@ -228,7 +228,7 @@ def list_queries(page: int, per_page: int) -> tuple[list[AiQuery], dict]:
 
 
 def give_feedback(ai_query_id: int, rating: str, comment: str | None) -> AiQuery:
-    """Thumbs up / down on one's own answer. A reported answer goes to the branch Academic Coordinator to review."""
+    """Thumbs up / down on one's own answer. A reported answer goes to the branch's Branch Manager to review."""
     user = current_user()
     query = ask_repo.get_query(ai_query_id)
     if query is None or query.user_id != user.user_id:
@@ -236,6 +236,6 @@ def give_feedback(ai_query_id: int, rating: str, comment: str | None) -> AiQuery
     query.feedback, query.feedback_comment = rating, comment
     if rating == "Not helpful" and query.branch_id is not None:
         notify(category="Ask Nipuna", title="An Ask Nipuna answer was reported", body=comment or query.question[:160],
-               link="/academic/support", event_key=f"ai:{query.ai_query_id}:reported", role_code="ACADEMIC_COORDINATOR",
+               link="/branch/support", event_key=f"ai:{query.ai_query_id}:reported", role_code="BRANCH_MANAGER",
                branch_id=query.branch_id)
     return query

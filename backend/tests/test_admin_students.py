@@ -17,7 +17,7 @@ def _student_login(client, student, password=PASSWORD):
 def test_only_super_admin_administers_and_the_founder_reads(client, make_user, login, make_student):
     student = make_student()
     founder = make_user(roles=[("FOUNDER_CEO", None)])
-    coordinator = make_user(roles=[("ACADEMIC_COORDINATOR", 1)])
+    coordinator = make_user(roles=[("BRANCH_MANAGER", 1)])
     url = f"/api/v1/admin/students/{student.student_id}"
 
     assert client.get("/api/v1/admin/students", headers=login(founder.email)).status_code == 200

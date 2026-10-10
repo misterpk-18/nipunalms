@@ -24,7 +24,7 @@ export function FounderCurriculum() {
     <div className="mx-auto max-w-6xl space-y-5">
       <PageHead
         title="Curriculum approvals"
-        description="Versions the Academic Coordinators have submitted. Approve after reviewing them (never your own submission), then activate."
+        description="Versions the Branch Managers have submitted. Approve after reviewing them (never your own submission), then activate."
       />
       <Section>
         <QueryView query={query} isEmpty={(rows) => rows.length === 0} empty="No curriculum version is waiting for approval or activation.">

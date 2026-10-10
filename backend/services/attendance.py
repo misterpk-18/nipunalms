@@ -1,10 +1,10 @@
 """Attendance per actual Class Session x allocated enrolment, recovery for absences, and corrections.
 
-The assigned trainer (or an Academic Coordinator) marks Present / Absent / Late / Excused for a Live or Delivered session.
+The assigned trainer (or a Branch Manager) marks Present / Absent / Late / Excused for a Live or Delivered session.
 No entry means "Not yet marked", never a guessed absence. Entries lock `attendance_lock_days` after the session ends;
 after that (or for a student's dispute) a correction needs an independent reviewer's approval. The first Present / Late
 entry of an enrolment sets its joining date and moves it from "Allocated — awaiting first regular class" to Active.
-A recovery (REC-0041) for an absence is raised by the student or trainer, approved by the Academic Coordinator and
+A recovery (REC-0041) for an absence is raised by the student or trainer, approved by the Branch Manager and
 verified on completion; the original Absent entry is never rewritten.
 """
 from dataclasses import dataclass
@@ -27,9 +27,9 @@ from services.errors import BusinessRule, Conflict, Forbidden, NotFound, Validat
 from services.notifications import notify
 
 ATTENDED = ("Present", "Late")
-MARKERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")       # besides the batch's trainers
-DECIDERS = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")  # correction reviewers (independent of the requester)
-RECOVERY_APPROVERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+MARKERS = ("BRANCH_MANAGER", "SUPER_ADMIN")       # besides the batch's trainers
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")  # correction reviewers (independent of the requester)
+RECOVERY_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 def lock_days() -> int:
@@ -151,7 +151,7 @@ def get_register(session_id: int) -> Register:
 
 
 def list_register_sessions(filters: dict, page: int, per_page: int) -> tuple[list[dict], dict]:
-    """Live / Delivered sessions with how many seats are marked: the trainer's pending list and the coordinator's oversight."""
+    """Live / Delivered sessions with how many seats are marked: the trainer's pending list and the Branch Manager's oversight."""
     if filters.get("batch_id"):
         batch = batches_repo.get_batch(filters["batch_id"])
         if batch is None:
@@ -178,7 +178,7 @@ def mark_attendance(session_id: int, entries: list[dict], default_status: str | 
     """
     session = _visible_session(session_id)
     if not _can_mark(session):
-        raise Forbidden("Only the batch's trainers or the Academic Coordinator can mark attendance")
+        raise Forbidden("Only the batch's trainers or the Branch Manager can mark attendance")
     if session.state not in ("Live", "Delivered"):
         raise BusinessRule(f"Attendance can only be marked for a Live or Delivered session (this one is {session.state})")
     if is_locked(session):
@@ -313,7 +313,7 @@ def request_recovery(attendance_id: int, method: str, reason: str) -> Attendance
                  reason=reason, branch_id=enrolment.service_branch_id)
     notify(category="Attendance", title=f"Recovery requested ({recovery.recovery_code})",
            body=f"{students_repo.get_student(enrolment.student_id).full_name} — {record.session.title}: {method}",
-           link="/academic/progress", role_code="ACADEMIC_COORDINATOR", branch_id=enrolment.service_branch_id,
+           link="/branch/progress", role_code="BRANCH_MANAGER", branch_id=enrolment.service_branch_id,
            event_key=f"recovery-requested:{recovery.recovery_id}", action_required=True)
     return recovery
 
@@ -322,7 +322,7 @@ def decide_recovery(recovery_id: int, decision: str, note: str | None, target_da
     recovery = _get_recovery(recovery_id)
     enrolment = recovery.attendance.enrolment
     if not current_user().has_role(*RECOVERY_APPROVERS, branch_id=enrolment.service_branch_id):
-        raise Forbidden("Only the Academic Coordinator can decide a recovery")
+        raise Forbidden("Only the Branch Manager can decide a recovery")
     if recovery.status != "Requested":
         raise BusinessRule(f"{recovery.recovery_code} is already {recovery.status}")
     if decision == "Rejected" and not note:
@@ -350,7 +350,7 @@ def complete_recovery(recovery_id: int, evidence_note: str) -> AttendanceRecover
     batch_id = recovery.attendance.session.batch_id
     is_trainer = user.has_role("TRAINER") and batch_id in scope.trainer_batch_ids()
     if not (is_trainer or user.has_role(*RECOVERY_APPROVERS, branch_id=enrolment.service_branch_id)):
-        raise Forbidden("Only the batch's trainer or the Academic Coordinator can verify a recovery")
+        raise Forbidden("Only the batch's trainer or the Branch Manager can verify a recovery")
     if recovery.status != "Approved":
         raise BusinessRule(f"{recovery.recovery_code} is {recovery.status}; only an approved recovery can be completed")
     recovery.status = "Completed"
@@ -381,7 +381,7 @@ def list_corrections(filters: dict, page: int, per_page: int) -> tuple[list[Atte
 
 
 def request_correction(session_id: int, enrolment_id: int, requested_status: str, reason: str) -> AttendanceCorrection:
-    """A student's dispute, or a trainer / coordinator's change to an entry that is locked (or was never marked)."""
+    """A student's dispute, or a trainer's or Branch Manager's change to an entry that is locked (or was never marked)."""
     enrolment = progress.get_visible_enrolment(enrolment_id)
     session = attendance_repo.get_session(session_id)
     if session is None or not attendance_repo.has_seat_history(enrolment_id, sessions_repo.session_batch_ids(session.session_id)):
@@ -402,7 +402,7 @@ def request_correction(session_id: int, enrolment_id: int, requested_status: str
                  old={"status": previous}, new={"status": requested_status}, reason=reason, branch_id=enrolment.service_branch_id)
     notify(category="Attendance", title=f"Attendance correction requested: {session.title}",
            body=f"{students_repo.get_student(enrolment.student_id).full_name}: {previous or 'Not yet marked'} to {requested_status}. {reason}",
-           link="/academic/progress", role_code="ACADEMIC_COORDINATOR", branch_id=enrolment.service_branch_id,
+           link="/branch/progress", role_code="BRANCH_MANAGER", branch_id=enrolment.service_branch_id,
            event_key=f"correction-requested:{correction.correction_id}", action_required=True)
     return correction
 
@@ -413,12 +413,13 @@ def decide_correction(correction_id: int, decision: str, note: str | None) -> At
     enrolment = correction.enrolment
     user = current_user()
     if not user.has_role(*DECIDERS, branch_id=enrolment.service_branch_id):
-        raise Forbidden("Only the Academic Coordinator or Branch Manager can decide an attendance correction")
+        raise Forbidden("Only the Branch Manager can decide an attendance correction")
     if correction.status != "Pending":
         raise BusinessRule(f"This correction is already {correction.status}")
     record = attendance_repo.find_record(correction.session_id, correction.enrolment_id)
     approvals.require_independent(correction.requested_by, record.marked_by if record is not None else None,
-                                  message="An independent reviewer must decide: not the requester and not the person who marked the entry")
+                                  message="An independent reviewer must decide: not the requester and not the person who marked the entry",
+                                  requester=correction.requested_by)
     if decision == "Rejected" and not note:
         raise ValidationError("Invalid request data", {"decision_note": ["Give the reason for rejecting the correction"]})
 
@@ -462,7 +463,7 @@ def _apply_correction(correction: AttendanceCorrection, record: AttendanceRecord
 
 def alert_unconfirmed() -> int:
     """Job `attendance-unconfirmed`: the trainer confirms attendance by the end of the class's working day; from the next
-    academic working day, a delivered class with seats still unmarked alerts the branch's Academic Coordinator (once per
+    academic working day, a delivered class with seats still unmarked alerts the branch's Branch Manager (once per
     class). The class date and the later confirmation (`marked_at`) stay separate. Returns how many classes were raised."""
     today = today_ist()
     lookback = settings_repo.get_int("attendance_unconfirmed_lookback_days", 14)
@@ -474,7 +475,7 @@ def alert_unconfirmed() -> int:
         sent = notify(category="Attendance", title=f"Attendance not confirmed: {session.session_code} ({class_day:%d %b})",
                       body=f"{session.title} · {session.batch.batch_code} · {missing} student(s) not yet marked by "
                            f"{session.trainer.full_name}.",
-                      link="/academic/progress", role_code="ACADEMIC_COORDINATOR", branch_id=session.batch.branch_id,
+                      link="/branch/progress", role_code="BRANCH_MANAGER", branch_id=session.batch.branch_id,
                       event_key=f"attendance-unconfirmed:{session.session_id}", action_required=True)
         raised += 1 if sent else 0
     return raised

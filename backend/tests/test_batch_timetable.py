@@ -14,7 +14,7 @@ TIMETABLE = {"schedule_days": ["wed", "Mon", "Fri"], "start_time": "18:30", "end
 
 @pytest.fixture
 def coordinator(login, make_user):
-    return login(make_user(roles=[("ACADEMIC_COORDINATOR", 1)]).email)
+    return login(make_user(roles=[("BRANCH_MANAGER", 1)]).email)
 
 
 def _create(client, coordinator, catalog, **extra) -> dict:

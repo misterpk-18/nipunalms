@@ -63,15 +63,13 @@ def test_register_entry_appears_when_the_enrolment_starts(client, w):
 
 def test_full_workflow_allocates_the_number_only_at_issue(client, w):
     cid = complete(client, w)
-    assert get(client, w, "ac", cid).get_json()["data"]["actions"] == ["recommend"]
-    assert get(client, w, "bm", cid).get_json()["data"]["actions"] == []
+    assert get(client, w, "ac", cid).get_json()["data"]["actions"] == ["recommend", "approve"]
+    assert get(client, w, "founder", cid).get_json()["data"]["actions"] == []
 
-    assert post(client, w, "bm", f"/certificates/{cid}/approval").status_code == 422        # not recommended yet
     assert post(client, w, "ac", f"/certificates/{cid}/recommendation").status_code == 200
     assert get(client, w, "bm", cid).get_json()["data"]["actions"] == ["approve", "return"]
-    assert post(client, w, "ac", f"/certificates/{cid}/approval").status_code == 403         # the coordinator recommends, cannot approve
     assert post(client, w, "ac", f"/certificates/{cid}/issue").status_code == 422
-    approved = post(client, w, "bm", f"/certificates/{cid}/approval").get_json()["data"]
+    approved = post(client, w, "ac", f"/certificates/{cid}/approval").get_json()["data"]        # the recommender may approve too
     assert approved["status"] == "Approved for Issue" and approved["certificate_number"] is None
     assert get(client, w, "ac", cid).get_json()["data"]["actions"] == ["issue"]
 
@@ -100,12 +98,14 @@ def test_numbers_are_sequential_across_students(client, w):
     assert int(second["certificate_number"][-6:]) == int(first["certificate_number"][-6:]) + 1
 
 
-def test_approval_needs_someone_other_than_the_recommender(client, w):
+def test_a_branch_manager_approves_straight_from_eligibility_review(client, w):
+    """Recommending and approving are one Branch Manager step: the recommendation is recorded with the approval."""
     cid = complete(client, w)
-    post(client, w, "admin", f"/certificates/{cid}/recommendation")
-    own = post(client, w, "admin", f"/certificates/{cid}/approval")
-    assert own.status_code == 422 and "different person" in own.get_json()["error"]["message"]
-    assert post(client, w, "bm", f"/certificates/{cid}/approval").status_code == 200
+    approved = post(client, w, "bm", f"/certificates/{cid}/approval")
+    assert approved.status_code == 200 and approved.get_json()["data"]["status"] == "Approved for Issue"
+    db.session.expire_all()
+    certificate = db.session.get(Certificate, cid)
+    assert certificate.recommended_by == certificate.approved_by and certificate.recommended_at is not None
 
 
 def test_manager_can_return_a_recommendation_for_review(client, w):
@@ -125,7 +125,7 @@ def decide(client, w, who, request_id, decision="Approved", note=None):
 
 
 def test_a_correction_is_requested_and_an_independent_approver_reissues_it(client, w):
-    """Module 22 §7: the coordinator asks, the Branch Manager approves; the current copy stays valid until then."""
+    """Module 22 §7: a Branch Manager asks, so a Super Admin approves; the current copy stays valid until then."""
     cid, done = issued(client, w)
     assert change(client, w, "t1", cid, "Correction", reason="Name correction").status_code == 403
     assert change(client, w, "ac", cid, "Correction").status_code == 400
@@ -137,11 +137,13 @@ def test_a_correction_is_requested_and_an_independent_approver_reissues_it(clien
     assert get(client, w, "ac", cid).get_json()["data"]["pending_request"]["kind"] == "Correction"
     assert change(client, w, "bm", cid, "Revocation", reason="x", evidence="y").status_code == 409  # one request at a time
 
-    listed = client.get(f"{API}/certificate-requests?status=Pending", headers=w.h["bm"]).get_json()["data"]
+    listed = client.get(f"{API}/certificate-requests?status=Pending", headers=w.h["admin"]).get_json()["data"]
     assert [r["actions"] for r in listed] == [["decide"]]
-    assert decide(client, w, "ac", request["request_id"]).status_code == 403                  # coordinators ask, managers decide
-    assert decide(client, w, "bm", request["request_id"], "Rejected").status_code == 400      # a rejection needs a note
-    approved = decide(client, w, "bm", request["request_id"])
+    assert [r["actions"] for r in client.get(f"{API}/certificate-requests?status=Pending", headers=w.h["bm"]).get_json()["data"]] == [[]]
+    assert decide(client, w, "ac", request["request_id"]).status_code == 422                  # never the person who asked
+    assert decide(client, w, "bm", request["request_id"]).status_code == 422                  # a Branch Manager's own request goes up
+    assert decide(client, w, "admin", request["request_id"], "Rejected").status_code == 400   # a rejection needs a note
+    approved = decide(client, w, "admin", request["request_id"])
     assert approved.status_code == 200, approved.get_json()
     v2_id = approved.get_json()["data"]["resulting_certificate_id"]
     v2 = get(client, w, "bm", v2_id).get_json()["data"]
@@ -195,7 +197,7 @@ def test_public_verification_shows_the_presented_version_state(client, w):
                          "issue_date", "original_issue_date", "current_version"}
     assert data["state"] == "Valid — Current Version" and data["current_version"] is None and data["branch"]["branch_code"] == "NIT-GNT"
     request_id = change(client, w, "ac", cid, "Correction", reason="Name correction", holder_name="Anvitha Kolli").get_json()["data"]["request_id"]
-    decide(client, w, "bm", request_id)
+    decide(client, w, "admin", request_id)
     old = client.get(f"{API}/certificates/verify/{number}?version=1").get_json()["data"]
     assert old["state"] == "Superseded" and old["holder_name"] == "Anvitha K." and old["current_version"] == {"version": 2, "state": "Valid — Current Version"}
     assert client.get(f"{API}/certificates/verify/{number}").get_json()["data"]["version"] == 2
@@ -259,12 +261,12 @@ def test_register_filters(client, w):
     assert client.get(f"{base}?status=Nope", headers=w.h["ac"]).status_code == 400
 
 
-def test_coordinator_can_add_an_internship_entry(client, w):
+def test_branch_manager_can_add_an_internship_entry(client, w):
     complete(client, w)
     made = post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"})
     assert made.status_code == 201 and made.get_json()["data"]["status"] == "Not Yet Eligible"  # course completion is not an internship
     assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 409
-    assert post(client, w, "bm", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 403
+    assert post(client, w, "founder", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 403
     assert post(client, w, "ac_v", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 404
     assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e3, "certificate_type": "Internship Certificate"}).status_code == 422
 

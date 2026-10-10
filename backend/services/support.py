@@ -1,10 +1,10 @@
 """Support requests: raising, routing to a named owner, the message thread, status, escalation and reopening.
 
 Routing (by category, in the student's service branch): Academic goes to the trainer of the student's batch and then the
-Academic Coordinator; Recording access and Other go to the Academic Coordinator; LMS, Account and Device access go to
+Branch Manager; Recording access and Other go to the Branch Manager; LMS, Account and Device access go to
 Super Admin (shown as "LMS Support"). A missing owner falls back to the next role, so a request always has a named owner.
-Escalation: a trainer-owned request moves up to the Academic Coordinator; anything else, and any request past its SLA
-(app_settings.support_sla_hours), goes to the Branch Manager.
+Escalation: a trainer-owned request moves up to the Branch Manager; anything else, and any request past its SLA
+(app_settings.support_sla_hours), is marked escalated to the Branch Manager.
 """
 import logging
 from datetime import datetime, timezone
@@ -27,22 +27,21 @@ logger = logging.getLogger(__name__)
 
 # Roles that may own a request, in the order tried for a category
 ROUTING = {
-    "Academic": ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN"),
-    "Recording access": ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN"),
-    "Other": ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN"),
-    "LMS": ("SUPER_ADMIN", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER"),
-    "Account": ("SUPER_ADMIN", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER"),
-    "Device access": ("SUPER_ADMIN", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER"),
+    "Academic": ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN"),
+    "Recording access": ("BRANCH_MANAGER", "SUPER_ADMIN"),
+    "Other": ("BRANCH_MANAGER", "SUPER_ADMIN"),
+    "LMS": ("SUPER_ADMIN", "BRANCH_MANAGER"),
+    "Account": ("SUPER_ADMIN", "BRANCH_MANAGER"),
+    "Device access": ("SUPER_ADMIN", "BRANCH_MANAGER"),
 }
 # Where each owner role works on requests
 OWNER_LINKS = {
     "TRAINER": "/trainer/support",
-    "ACADEMIC_COORDINATOR": "/academic/support",
-    "BRANCH_MANAGER": "/branch/requests",
-    "SUPER_ADMIN": "/academic/support",
+    "BRANCH_MANAGER": "/branch/support",
+    "SUPER_ADMIN": "/branch/support",
 }
 # Roles tried, in this order, when assigning a request to a chosen colleague
-ASSIGNABLE_ROLES = ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+ASSIGNABLE_ROLES = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
 STAFF_STATUS_TARGETS = ("In Progress", "Waiting on Student", "Resolved", "Closed")
 
 
@@ -57,7 +56,7 @@ def _is_student(user: CurrentUser) -> bool:
 # ---------------------------------------------------------------- scope
 
 def _can_manage(request: SupportRequest, user: CurrentUser) -> bool:
-    """Owner, a Branch Manager / Academic Coordinator of the request's branch, or an admin: may change status and assign."""
+    """Owner, a Branch Manager of the request's branch, or an admin: may change status and assign."""
     return user.has_role(*ADMIN_ROLES) or request.owner_user_id == user.user_id or user.has_role(*BRANCH_ROLES, branch_id=request.branch_id)
 
 
@@ -82,7 +81,7 @@ def _get_managed(support_request_id: int) -> SupportRequest:
     if _is_student(current_user()):
         raise Forbidden("Only staff can do this")
     if not _can_manage(request, current_user()):
-        raise Forbidden("Only the owner, the branch coordinators or an admin can change this request")
+        raise Forbidden("Only the owner, the branch's Branch Managers or an admin can change this request")
     return request
 
 
@@ -167,7 +166,7 @@ def _route(category: str, student: Student, enrolment: Enrolment | None, branch_
         user_id = _lead_trainer(student, enrolment, branch_id) if role == "TRAINER" else _owner_holding(role, branch_id)
         if user_id is not None:
             return user_id, role
-    raise BusinessRule("No owner is configured for this kind of request at the branch. Ask a Super Admin to add a coordinator.")
+    raise BusinessRule("No owner is configured for this kind of request at the branch. Ask a Super Admin to add a Branch Manager.")
 
 
 def _student_for(user: CurrentUser, student_id: int | None) -> tuple[Student, str]:
@@ -284,7 +283,7 @@ def reopen(support_request_id: int, reason: str) -> SupportRequest:
     if request.status not in ("Resolved", "Closed"):
         raise BusinessRule("Only a resolved or closed request can be reopened")
     if not _is_student(user) and not _can_manage(request, user):
-        raise Forbidden("Only the owner, the branch coordinators or an admin can reopen this request")
+        raise Forbidden("Only the owner, the branch's Branch Managers or an admin can reopen this request")
     old_status = request.status
     request.status = "Open"
     _flush_and_reload(request)
@@ -298,7 +297,7 @@ def reopen(support_request_id: int, reason: str) -> SupportRequest:
 # ---------------------------------------------------------------- escalation and assignment
 
 def escalate(support_request_id: int, reason: str) -> SupportRequest:
-    """A trainer-owned request goes up to the Academic Coordinator; anything else to the Branch Manager."""
+    """A trainer-owned request goes up to the Branch Manager; any other request is marked escalated to the Branch Manager."""
     request = get_request(support_request_id)
     if _is_student(current_user()):
         raise Forbidden("Only staff can escalate a request")
@@ -313,10 +312,10 @@ def _escalate(request: SupportRequest, reason: str, *, actor_user_id: int | None
 
     old = {"owner_user_id": request.owner_user_id, "escalation_level": request.escalation_level}
     if request.owner_role == "TRAINER" and actor_user_id is not None:
-        coordinator = _owner_holding("ACADEMIC_COORDINATOR", request.branch_id)
-        if coordinator is None:
-            raise BusinessRule("There is no Academic Coordinator at this branch to escalate to")
-        request.owner_user_id, request.owner_role, request.escalation_level = coordinator, "ACADEMIC_COORDINATOR", "Academic Coordinator"
+        manager = _owner_holding("BRANCH_MANAGER", request.branch_id)
+        if manager is None:
+            raise BusinessRule("There is no Branch Manager at this branch to escalate to")
+        request.owner_user_id, request.owner_role, request.escalation_level = manager, "BRANCH_MANAGER", "Branch Manager"
     else:
         request.escalation_level = "Branch Manager"
     request.escalated_at, request.escalation_reason = _now(), reason
@@ -352,7 +351,7 @@ def assign(support_request_id: int, owner_user_id: int) -> SupportRequest:
         raise BusinessRule("Only an open request can be reassigned")
     role = next((r for r in ASSIGNABLE_ROLES if owner_user_id in users_repo.user_ids_with_role(r, request.branch_id)), None)
     if role is None:
-        raise ValidationError("That person does not work at this branch", {"owner_user_id": ["Choose a trainer, coordinator or manager of the branch"]})
+        raise ValidationError("That person does not work at this branch", {"owner_user_id": ["Choose a trainer or Branch Manager of the branch"]})
 
     old = {"owner_user_id": request.owner_user_id, "owner_role": request.owner_role}
     request.owner_user_id, request.owner_role = owner_user_id, role

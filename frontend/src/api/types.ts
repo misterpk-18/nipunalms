@@ -8,8 +8,8 @@ export type DateOnly = string;
 export type BranchRef = { branch_id: number; branch_code: string; branch_name: string };
 export type UserRef = { user_id: number; full_name: string };
 
-export type RoleCode = "STUDENT" | "TRAINER" | "ACADEMIC_COORDINATOR" | "BRANCH_MANAGER" | "SUPER_ADMIN" | "FOUNDER_CEO";
+export type RoleCode = "STUDENT" | "TRAINER" | "BRANCH_MANAGER" | "SUPER_ADMIN" | "FOUNDER_CEO";
 
-export type Workspace = "student" | "trainer" | "academic" | "branch" | "admin" | "founder";
+export type Workspace = "student" | "trainer" | "branch" | "admin" | "founder";
 
 export type Language = "en" | "te";

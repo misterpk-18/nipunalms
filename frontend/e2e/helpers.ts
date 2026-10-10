@@ -9,8 +9,9 @@ export const USERS = {
   admin: "admin@nipuna.test",
   bmGnt: "bm.gnt@nipuna.test",
   bmVij: "bm.vij@nipuna.test",
-  coordGnt: "coordinator.gnt@nipuna.test",
-  coordVij: "coordinator.vij@nipuna.test",
+  // The Academic Coordinator role was merged into the Branch Manager (db 106): these keep the specs that used to sign in as one
+  coordGnt: "bm.gnt@nipuna.test",
+  coordVij: "bm.vij@nipuna.test",
   trainerG1: "trainer.g1@nipuna.test",
   trainerV1: "trainer.v1@nipuna.test",
 } as const;

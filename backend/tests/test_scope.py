@@ -21,8 +21,8 @@ def world(make_user, make_student, make_batch, make_session, allocate):
         "g1": make_user(roles=[("TRAINER", 1)], full_name="Trainer G1"),
         "g2": make_user(roles=[("TRAINER", 1)], full_name="Trainer G2"),
         "v1": make_user(roles=[("TRAINER", 2)], full_name="Trainer V1"),
-        "ac_gnt": make_user(roles=[("ACADEMIC_COORDINATOR", 1)]),
-        "ac_vij": make_user(roles=[("ACADEMIC_COORDINATOR", 2)]),
+        "ac_gnt": make_user(roles=[("BRANCH_MANAGER", 1)]),
+        "ac_vij": make_user(roles=[("BRANCH_MANAGER", 2)]),
         "bm_gnt": make_user(roles=[("BRANCH_MANAGER", 1)]),
         "admin": make_user(roles=[("SUPER_ADMIN", None)]),
         "founder": make_user(roles=[("FOUNDER_CEO", None)]),
@@ -62,17 +62,17 @@ def codes(response):
 def test_visible_branch_ids_per_role():
     assert scope.visible_branch_ids(as_user(1, [("SUPER_ADMIN", None)])) is None
     assert scope.visible_branch_ids(as_user(1, [("FOUNDER_CEO", None)])) is None
-    assert scope.visible_branch_ids(as_user(1, [("ACADEMIC_COORDINATOR", 1)])) == {1}
-    assert scope.visible_branch_ids(as_user(1, [("BRANCH_MANAGER", 1), ("ACADEMIC_COORDINATOR", 2)])) == {1, 2}
+    assert scope.visible_branch_ids(as_user(1, [("BRANCH_MANAGER", 1)])) == {1}
+    assert scope.visible_branch_ids(as_user(1, [("BRANCH_MANAGER", 1), ("BRANCH_MANAGER", 2)])) == {1, 2}
     assert scope.visible_branch_ids(as_user(1, [("TRAINER", 1)])) == set()
     assert scope.visible_branch_ids(as_user(1, [("STUDENT", 1)], student_id=5)) == set()
 
 
 def test_require_branch_is_a_404_outside_the_users_branches():
-    scope.require_branch(1, as_user(1, [("ACADEMIC_COORDINATOR", 1)]))
+    scope.require_branch(1, as_user(1, [("BRANCH_MANAGER", 1)]))
     scope.require_branch(2, as_user(1, [("SUPER_ADMIN", None)]))
     with pytest.raises(NotFound):
-        scope.require_branch(2, as_user(1, [("ACADEMIC_COORDINATOR", 1)]))
+        scope.require_branch(2, as_user(1, [("BRANCH_MANAGER", 1)]))
     with pytest.raises(NotFound):
         scope.require_branch(1, as_user(1, [("TRAINER", 1)]))
 
@@ -83,7 +83,7 @@ def test_trainer_batch_ids_only_lists_assigned_batches(world):
     g1 = as_user(people["g1"].user_id, [("TRAINER", 1)])
 
     assert scope.trainer_batch_ids(g1) == {batches["G1"].batch_id}
-    assert scope.trainer_batch_ids(as_user(people["ac_gnt"].user_id, [("ACADEMIC_COORDINATOR", 1)])) == set()
+    assert scope.trainer_batch_ids(as_user(people["ac_gnt"].user_id, [("BRANCH_MANAGER", 1)])) == set()
 
 
 def test_ended_trainer_assignment_no_longer_counts(world, run_sql):
@@ -107,7 +107,7 @@ def test_student_enrolment_ids_are_only_the_students_own(world):
 
 def test_assert_can_view_batch_and_enrolment(world):
     people, batches, students = world
-    ac_gnt = as_user(1, [("ACADEMIC_COORDINATOR", 1)])
+    ac_gnt = as_user(1, [("BRANCH_MANAGER", 1)])
     trainer = as_user(people["g1"].user_id, [("TRAINER", 1)])
     student = as_user(2, [("STUDENT", 1)], student_id=students["s1"].student_id)
     enrolment = {name: students_repo.get_enrolment(s.enrolments[0]["enrolment_id"]) for name, s in students.items()}
@@ -273,5 +273,5 @@ def test_reference_lists_are_staff_only_and_branch_limited(world, client, login)
     trainers = client.get("/api/v1/reference/staff?role=TRAINER&branch_id=2", headers=admin).get_json()["data"]
     assert [t["full_name"] for t in trainers] == ["Trainer V1"]
     roles = client.get("/api/v1/reference/roles", headers=admin).get_json()["data"]
-    assert [r["role_code"] for r in roles] == ["STUDENT", "TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"]
+    assert [r["role_code"] for r in roles] == ["STUDENT", "TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"]
     assert client.get("/api/v1/reference/staff?branch_id=2", headers=login(people["ac_gnt"].email)).status_code == 404

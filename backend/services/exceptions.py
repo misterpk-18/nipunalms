@@ -4,9 +4,9 @@ The `exception_queue` view (db/080) unions the slices' own records, so an except
 resolves it; nothing is copied or closed here. A recovery step is a written, audited note of what is being done; the
 person who logs one becomes the named owner of an item that had none.
 
-Who: an Academic Coordinator logs steps and sees the exceptions of their branch; a Branch Manager reads their branch;
-the Super Admin sees and logs across all branches, including company-wide items (CRM sync, integrations); the
-Founder / CEO reads everything. An item outside the user's scope is a 404.
+Who: a Branch Manager logs steps and sees the exceptions of their branch; the Super Admin sees and logs across all
+branches, including company-wide items (CRM sync, integrations); the Founder / CEO reads everything. An item outside the
+user's scope is a 404.
 """
 from datetime import datetime, timezone
 
@@ -19,7 +19,7 @@ from services import audit, scope
 from services.context import current_user
 from services.errors import Forbidden, NotFound
 
-STEP_ROLES = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+STEP_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 def _now() -> datetime:
@@ -49,7 +49,7 @@ def _can_log(item: ExceptionItem) -> bool:
     user = current_user()
     if user.has_role("SUPER_ADMIN"):
         return True
-    return item.branch_id is not None and user.has_role("ACADEMIC_COORDINATOR", branch_id=item.branch_id)
+    return item.branch_id is not None and user.has_role("BRANCH_MANAGER", branch_id=item.branch_id)
 
 
 def list_steps(source: str, source_id: int) -> list[ExceptionRecoveryStep]:
@@ -61,7 +61,7 @@ def log_step(source: str, source_id: int, reason: str) -> tuple[ExceptionRecover
     """Record a recovery step (audited). Returns the step and the exception as it now reads."""
     item = _visible_item(source, source_id)
     if not _can_log(item):
-        raise Forbidden("Only the Academic Coordinator of this branch or a Super Admin logs recovery steps")
+        raise Forbidden("Only the Branch Manager of this branch or a Super Admin logs recovery steps")
     user = current_user()
     step = exceptions_repo.add_step(item.source, item.source_id, item.branch_id, reason, user.user_id)
     audit.record("EXCEPTION_STEP_LOGGED", "exception", f"{item.source}:{item.source_id}",

@@ -56,7 +56,7 @@ def test_registration_rules(client, login, world, register, make_session, run_sq
     assert placeholder["status"] == "Unavailable"
     cancelled = make_session(world.g1, world.people.t1, datetime.now(timezone.utc), state="Cancelled", title="Cancelled")
     assert register(cancelled, expect=422)["error"]["message"] == "A cancelled class session has no recording"
-    for who, expected in ((world.people.t1, 403), (world.people.bm, 403), (world.students.s1, 403)):
+    for who, expected in ((world.people.t1, 403), (world.people.founder, 403), (world.students.s1, 403)):
         response = client.post(f"{API}/recordings", json={"session_id": world.delivered.session_id}, headers=auth(login, who))
         assert response.status_code == expected
     assert client.post(f"{API}/recordings", json={"session_id": world.delivered.session_id}, headers=auth(login, world.people.ac_vij)).status_code == 404
@@ -123,7 +123,7 @@ def test_holding_withdraws_the_recording_and_raises_an_exception(client, login, 
     held = post(client, f"/recordings/{recording['recording_id']}/hold", coordinator, json={"reason": "Whiteboard shows sample PII"})
     assert held["status"] == "Held" and held["hold_reason"] == "Whiteboard shows sample PII"
     rows = get(client, "/recording-exceptions", coordinator)
-    assert len(rows) == 1 and rows[0]["issue_type"] == "Held" and rows[0]["status"] == "Open" and rows[0]["owner"] == "Academic Coordinator GNT"
+    assert len(rows) == 1 and rows[0]["issue_type"] == "Held" and rows[0]["status"] == "Open" and rows[0]["owner"] == "Branch Manager GNT"
     assert rows[0]["exception_code"].startswith("RX-") and rows[0]["auto_raised"] is True
     # the student sees it is held, without the reason, and cannot watch it
     entry = get(client, "/me/recordings", student)[0]
@@ -161,10 +161,10 @@ def test_mark_unavailable_needs_a_reason_and_raises_an_exception(client, login, 
     assert get(client, "/recording-exceptions?issue_type=Unavailable", coordinator)[0]["issue"] == "File deleted"
 
 
-def test_only_the_branch_coordinator_or_super_admin_manages_recordings(client, login, world, register):
+def test_only_the_branch_manager_or_super_admin_manages_recordings(client, login, world, register):
     recording = register()
     rid = recording["recording_id"]
-    for who, expected in ((world.people.t1, 403), (world.people.bm, 403), (world.people.founder, 403), (world.people.ac_vij, 404),
+    for who, expected in ((world.people.t1, 403), (world.people.founder, 403), (world.people.ac_vij, 404),
                           (world.students.s1, 403)):
         assert client.post(f"{API}/recordings/{rid}/release", headers=auth(login, who)).status_code == expected
     assert post(client, f"/recordings/{rid}/release", auth(login, world.people.admin))["status"] == "Released"
@@ -270,7 +270,7 @@ def test_raising_an_exception_manually_and_filters(client, login, world, registe
     trainer = auth(login, world.people.t1)
     body = {"session_id": world.delivered.session_id, "issue_type": "Unavailable", "issue": "Class was not captured"}
     raised = post(client, "/recording-exceptions", trainer, 201, json=body)
-    assert raised["auto_raised"] is False and raised["owner"] == "Academic Coordinator GNT"
+    assert raised["auto_raised"] is False and raised["owner"] == "Branch Manager GNT"
     assert post(client, "/recording-exceptions", auth(login, world.people.ac), 201, json=body)["exception_id"] == raised["exception_id"]  # not duplicated
     assert client.post(f"{API}/recording-exceptions", json={**body, "session_id": world.upcoming.session_id}, headers=auth(login, world.people.t2)).status_code == 404
     assert client.post(f"{API}/recording-exceptions", json={**body, "issue_type": "Lost"}, headers=trainer).status_code == 400
@@ -315,7 +315,7 @@ def test_the_job_flags_delivered_sessions_without_a_recording(app, world, make_s
     result = recordings_service.check_missing_recordings()
     assert result["missing_recordings"] == 2
     exceptions = {e.session_id: e for e in db.session.execute(select(RecordingException)).scalars()}
-    assert exceptions[old.session_id].issue_type == "Unavailable" and exceptions[old.session_id].owner_role == "ACADEMIC_COORDINATOR"
+    assert exceptions[old.session_id].issue_type == "Unavailable" and exceptions[old.session_id].owner_role == "BRANCH_MANAGER"
     assert exceptions[old.session_id].issue == "No recording mapped to actual Class Session"
     assert exceptions[online.session_id].issue_type == "Integration Unavailable" and exceptions[online.session_id].owner_role == "SUPER_ADMIN"
     assert all(e.auto_raised for e in exceptions.values())
@@ -332,7 +332,7 @@ def test_the_job_escalates_old_exceptions_once(app, world, make_session):
     db.session.commit()
     recordings_service.check_missing_recordings()
     exception = db.session.execute(select(RecordingException)).scalar_one()
-    assert recordings_service.escalation_for(exception, datetime.now(timezone.utc)) == "Branch Manager and Super Admin"
+    assert recordings_service.escalation_for(exception, datetime.now(timezone.utc)) == "Super Admin"
     bm_notices = lambda: list(db.session.execute(select(Notification).where(Notification.event_key.like("rx-escalated-24-%"))).scalars())
     assert len(bm_notices()) >= 1  # the Branch Manager and the Super Admin are told
     before = len(bm_notices())

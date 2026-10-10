@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 const NOTIFICATIONS: Partial<Record<Workspace, string>> = {
   student: "/notifications",
   trainer: "/trainer/notifications",
-  academic: "/academic/notifications",
   branch: "/branch/notifications",
   admin: "/admin/notifications",
 };
@@ -147,8 +146,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex">
         <nav aria-label="Main" className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r bg-card p-3 md:block">
           <ul className="space-y-0.5">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <li key={item.to}>
+                {item.group && item.group !== items[index - 1]?.group && (
+                  <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{item.group}</p>
+                )}
                 <Link
                   to={item.to}
                   aria-current={isNavActive(path, item.to) ? "page" : undefined}

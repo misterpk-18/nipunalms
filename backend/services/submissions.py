@@ -1,7 +1,7 @@
 """Submissions and trainer reviews (Module 19 §6-§8).
 
 A submission is a new version (v1, v2 ...) that is never edited. The student gets a submission code as receipt. A trainer reviews
-the newest version: feedback + marks (provisional until the Academic Coordinator publishes), or a resubmission request with its
+the newest version: feedback + marks (provisional until the Branch Manager publishes), or a resubmission request with its
 own deadline. Files are stored on disk under UPLOAD_DIR and are only ever served back to their owner and the batch's staff.
 """
 import secrets
@@ -175,7 +175,7 @@ def review(submission_id: int, data: dict) -> SubmissionReview:
         if due is None or due <= now:
             raise ValidationError("Invalid request data", {"resubmission_due_at": ["Give a future deadline for the corrected work"]})
         if submission.attempt_no - 1 >= assignment.max_resubmissions:
-            raise BusinessRule("The student has used every resubmission allowed; the Academic Coordinator can approve an extra attempt")
+            raise BusinessRule("The student has used every resubmission allowed; the Branch Manager can approve an extra attempt")
 
     review_row = SubmissionReview(submission_id=submission_id, reviewer_user_id=current_user().user_id, outcome=outcome,
                                   feedback=data["feedback"], marks=marks, resubmission_due_at=due)

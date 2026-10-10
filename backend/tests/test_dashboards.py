@@ -63,8 +63,7 @@ def test_branch_dashboard_is_locked_to_the_managers_branch(client, login, world)
     assert data["schedule_and_recording_exceptions"]["recording_exceptions"] == 1
     assert data["requests_open"] == {"count": 0, "escalations": 0, "extension_requests": 0}
     assert client.get(f"{API}/branch/summary?branch_id=2", headers=auth(login, world.people.bm_g)).status_code == 404
-    # a coordinator has the academic dashboard, not the manager's
-    summary(client, login, world.people.ac_g, "/branch/summary", expect=403)
+    summary(client, login, world.people.trainer, "/branch/summary", expect=403)
     assert summary(client, login, world.people.founder, "/branch/summary?branch_id=2")["schedule_and_recording_exceptions"]["count"] == 0
 
 

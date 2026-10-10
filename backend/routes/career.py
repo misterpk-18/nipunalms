@@ -60,7 +60,7 @@ def download_cv(cv_id: int):
     return career_controller.download_cv(cv_id)
 
 
-# ---------------------------------------------------------------- staff (Academic Coordinator, Branch Manager, Super Admin)
+# ---------------------------------------------------------------- staff (Branch Manager, Super Admin)
 
 @career_bp.get("/opportunities")
 @login_required

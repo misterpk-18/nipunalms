@@ -1,8 +1,8 @@
 """Who may see and change assessment records of a batch. Shared by the assignment, test, question and result services.
 
 Reading a batch's assessments follows services/scope.py (branch roles, assigned trainer, allocated student). Changing them
-is narrower: the trainers assigned to the batch, the branch Academic Coordinator and Super Admin. The Branch Manager and the
-Founder read; moderation and publication belong to the Academic Coordinator and Super Admin.
+is narrower: the trainers assigned to the batch, the branch's Branch Manager and Super Admin. The Branch Manager and the
+Founder read; moderation and publication belong to the Branch Manager and Super Admin.
 """
 from sqlalchemy import select
 
@@ -21,9 +21,9 @@ def is_student(user: CurrentUser | None = None) -> bool:
 
 
 def can_manage_batch(batch: Batch, user: CurrentUser | None = None) -> bool:
-    """Author, release and review work for this batch: an assigned trainer, the branch Academic Coordinator, Super Admin."""
+    """Author, release and review work for this batch: an assigned trainer, the branch's Branch Manager, Super Admin."""
     user = user or current_user()
-    if user.has_role("SUPER_ADMIN") or user.has_role("ACADEMIC_COORDINATOR", branch_id=batch.branch_id):
+    if user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=batch.branch_id):
         return True
     return user.has_role("TRAINER") and batch.batch_id in scope.trainer_batch_ids(user)
 
@@ -56,7 +56,7 @@ def manageable_batch(batch_id: int) -> Batch:
 
 def assert_can_moderate(batch: Batch) -> None:
     if not can_moderate_batch(batch):
-        raise Forbidden("Only the Academic Coordinator can moderate and publish results")
+        raise Forbidden("Only the Branch Manager can moderate and publish results")
 
 
 def visible_batch_clause(batch_id_column):
@@ -102,5 +102,5 @@ def batch_trainer_ids(batch: Batch) -> list[int]:
 
 
 def eligible_reviewers(batch: Batch) -> set[int]:
-    """Users who can be named as reviewer or grader: the batch's trainers and the branch Academic Coordinators."""
-    return set(batch_trainer_ids(batch)) | set(users_repo.user_ids_with_role("ACADEMIC_COORDINATOR", batch.branch_id))
+    """Users who can be named as reviewer or grader: the batch's trainers and the branch's Branch Managers."""
+    return set(batch_trainer_ids(batch)) | set(users_repo.user_ids_with_role("BRANCH_MANAGER", batch.branch_id))

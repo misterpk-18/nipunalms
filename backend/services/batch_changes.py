@@ -1,6 +1,6 @@
 """Changes to a running commitment (Module 15 §7, §14, §17).
 
-Capacity increase: the coordinator records the resource validation and academic review; the Branch Manager (or Super
+Capacity increase: the Branch Manager records the resource validation and academic review; the Branch Manager (or Super
 Admin), never the requester, approves the new capacity.
 
 Material change: a change to the start, delivery mode, teaching days / times, instructional hours or a significant end-date
@@ -9,7 +9,7 @@ student agrees (in the LMS, or recorded by staff with evidence) or declines and 
 the change applied. A notice being delivered or read is not agreement.
 
 Merge / split: students move to a successor batch of the same branch, course and curriculum version, with an effective
-date, reason and the coordinator's review, after the Branch Manager's independent approval. A move to a batch with a
+date, reason and the Branch Manager's review, after the Branch Manager's independent approval. A move to a batch with a
 different mode or timetable needs an applied 'Batch move' material change first. Past classes, attendance and payments stay
 on the original batch.
 """
@@ -80,7 +80,7 @@ def request_capacity(batch_id: int, data: dict) -> BatchCapacityRequest:
     delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", batch.branch_id), category="Batch", action_required=True,
                                   title=f"Approve capacity {batch.capacity} → {data['to_capacity']}: {batch.batch_code}",
                                   body=data["resource_validation"], event_key=f"capacity-request-{request.request_id}",
-                                  link="/academic/batches", branch_id=batch.branch_id)
+                                  link="/branch/batches", branch_id=batch.branch_id)
     return request
 
 
@@ -92,7 +92,6 @@ def decide_capacity(request_id: int, decision: str, note: str | None) -> BatchCa
     _require_confirmer(batch.branch_id)
     if request.status != "Pending":
         raise BusinessRule(f"The request is already {request.status}")
-    approvals.require_independent(request.requested_by, message="The requester cannot approve their own capacity increase")
     if decision == "Rejected" and not note:
         raise ValidationError("A reason is required", {"note": ["Say why the increase is not approved"]})
     _decision_fields(request, decision, note)
@@ -175,7 +174,7 @@ def propose_change(batch_id: int, data: dict) -> MaterialChange:
                  new={"kind": change.kind, "changes": change.changes, "affected": len(change.responses)})
     delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", batch.branch_id), category="Batch", action_required=True,
                                   title=f"Approve a material change: {batch.batch_code} ({change.kind})", body=data["proposed_plan"],
-                                  event_key=f"material-change-{change.change_id}", link="/academic/batches", branch_id=batch.branch_id)
+                                  event_key=f"material-change-{change.change_id}", link="/branch/batches", branch_id=batch.branch_id)
     return change
 
 
@@ -210,7 +209,8 @@ def decide_change(change_id: int, decision: str, note: str | None) -> MaterialCh
     _require_confirmer(change.batch.branch_id)
     if change.status != "Pending Approval":
         raise BusinessRule(f"The change is {change.status}")
-    approvals.require_independent(change.requested_by, message="The person who proposed the change cannot approve it")
+    approvals.require_independent(change.requested_by, message="The person who proposed the change cannot approve it",
+                                  requester=change.requested_by)
     if decision == "Rejected" and not note:
         raise ValidationError("A reason is required", {"note": ["Say why the change is not approved"]})
     _decision_fields(change, "Awaiting Agreement" if decision == "Approved" else "Rejected", note)
@@ -352,7 +352,7 @@ def request_succession(data: dict) -> BatchSuccession:
     db.session.flush()
     delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", source.branch_id), category="Batch", action_required=True,
                                   title=f"Approve {data['kind'].lower()}: {source.batch_code} → {target.batch_code}", body=data["reason"],
-                                  event_key=f"succession-{succession.succession_id}", link="/academic/batches", branch_id=source.branch_id)
+                                  event_key=f"succession-{succession.succession_id}", link="/branch/batches", branch_id=source.branch_id)
     return succession
 
 
@@ -369,7 +369,8 @@ def decide_succession(succession_id: int, decision: str, note: str | None) -> Ba
     _require_confirmer(source.branch_id)
     if succession.status != "Pending":
         raise BusinessRule(f"The request is already {succession.status}")
-    approvals.require_independent(succession.requested_by, message="The requester cannot approve their own merge or split")
+    approvals.require_independent(succession.requested_by, message="The requester cannot approve their own merge or split",
+                                  requester=succession.requested_by)
     if decision == "Rejected":
         if not note:
             raise ValidationError("A reason is required", {"note": ["Say why"]})

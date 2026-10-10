@@ -19,7 +19,7 @@ def _failed_event(crm_event):
 def test_audit_log_is_for_super_admin_and_founder(client, make_user, login):
     assert client.get("/api/v1/audit-log", headers=login(make_user().email)).status_code == 200
     assert client.get("/api/v1/audit-log", headers=login(make_user(roles=[("FOUNDER_CEO", None)]).email)).status_code == 200
-    for role in (("BRANCH_MANAGER", 1), ("ACADEMIC_COORDINATOR", 1), ("TRAINER", 1)):
+    for role in (("BRANCH_MANAGER", 1), ("BRANCH_MANAGER", 1), ("TRAINER", 1)):
         assert client.get("/api/v1/audit-log", headers=login(make_user(roles=[role]).email)).status_code == 403
     assert client.get("/api/v1/audit-log").status_code == 401
 

@@ -9,7 +9,7 @@ dashboards_bp = Blueprint("dashboards", __name__)
 
 @dashboards_bp.get("/academic/summary")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 def academic_summary():
     return dashboards_controller.academic_summary()
 

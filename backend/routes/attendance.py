@@ -6,9 +6,9 @@ from routes.decorators import fresh_auth, login_required, require_roles
 
 attendance_bp = Blueprint("attendance", __name__)
 
-STAFF = ("TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 EVERYONE = ("STUDENT",) + STAFF
-MARKERS = ("TRAINER", "ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+MARKERS = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
 
 
 @attendance_bp.get("/attendance/sessions")
@@ -62,7 +62,7 @@ def request_recovery():
 
 @attendance_bp.post("/attendance/recoveries/<int:recovery_id>/decision")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 def decide_recovery(recovery_id: int):
     return attendance_controller.decide_recovery(recovery_id)
 
@@ -90,7 +90,7 @@ def request_correction():
 
 @attendance_bp.post("/attendance/corrections/<int:correction_id>/decision")
 @login_required
-@require_roles("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
 @fresh_auth
 def decide_correction(correction_id: int):
     return attendance_controller.decide_correction(correction_id)

@@ -6,13 +6,13 @@ import { DataTable, Note, PageHead, QueryView, StatusBadge } from "@/components/
 import { ageText } from "@/features/shared/format";
 import { ItemCell, OwnerCell, RecoveryStepButton } from "@/features/shared/recovery-step";
 
-/** One queue across slices for the coordinator's branch: curriculum mapping, allocation, recordings, support, results, provisioning. */
+/** One queue across slices for the Branch Manager's branch: curriculum mapping, allocation, recordings, support, results, provisioning. */
 export function AcademicExceptions() {
   const [source, setSource] = useState("");
   const { hasRole } = useAuth();
-  const canLog = hasRole("ACADEMIC_COORDINATOR", "SUPER_ADMIN");
+  const canLog = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const query = useExceptions({ per_page: 100, source });
-  const sourceOptions = ["CURRICULUM_MAPPING", "ALLOCATION", "PROVISIONING", "RECORDING", "SUPPORT", "RESULTS", "ACCESS_EXCEPTION"];
+  const sourceOptions = ["ALLOCATION", "PROVISIONING", "RECORDING", "SUPPORT", "RESULTS", "ACCESS_EXCEPTION"];
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">

@@ -36,11 +36,12 @@ def build(make_user, make_student, make_batch, make_session, allocate, login) ->
     w = SimpleNamespace()
     w.t1 = make_user(roles=[("TRAINER", 1)], full_name="Trainer One")
     w.t2 = make_user(roles=[("TRAINER", 1)], full_name="Trainer Two")
-    w.ac = make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="Coordinator Guntur")
-    w.ac2 = make_user(roles=[("ACADEMIC_COORDINATOR", 1)], full_name="Second Coordinator")
+    w.ac = make_user(roles=[("BRANCH_MANAGER", 1)], full_name="Coordinator Guntur")
+    w.ac2 = make_user(roles=[("BRANCH_MANAGER", 1)], full_name="Second Coordinator")
     w.bm = make_user(roles=[("BRANCH_MANAGER", 1)], full_name="Manager Guntur")
     w.admin = make_user(roles=[("SUPER_ADMIN", None)], full_name="Admin")
-    w.ac_v = make_user(roles=[("ACADEMIC_COORDINATOR", 2)], full_name="Coordinator Vijayawada")
+    w.founder = make_user(roles=[("FOUNDER_CEO", None)], full_name="Founder")
+    w.ac_v = make_user(roles=[("BRANCH_MANAGER", 2)], full_name="Coordinator Vijayawada")
     w.bm_v = make_user(roles=[("BRANCH_MANAGER", 2)], full_name="Manager Vijayawada")
 
     w.topics = add_topics()
@@ -70,7 +71,7 @@ def build(make_user, make_student, make_batch, make_session, allocate, login) ->
     w.future = make_session(w.b1, w.t1, now + timedelta(days=3), title="Future class")
     w.delivered = delivered
 
-    w.h = {name: login(getattr(w, name).email) for name in ("t1", "t2", "ac", "ac2", "bm", "admin", "ac_v", "bm_v", "s1", "s2", "s3")}
+    w.h = {name: login(getattr(w, name).email) for name in ("t1", "t2", "ac", "ac2", "bm", "admin", "founder", "ac_v", "bm_v", "s1", "s2", "s3")}
     return w
 
 

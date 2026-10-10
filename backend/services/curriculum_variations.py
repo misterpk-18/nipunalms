@@ -1,5 +1,5 @@
 """Branch and batch academic variations (Module 14 §7). Local examples, equivalent exercises, teaching language and
-sequencing within the approved outcomes are recorded and approved by the Academic Coordinator (a coordinator's own entry is
+sequencing within the approved outcomes are recorded and approved by the Branch Manager (a Branch Manager's own entry is
 approved as it is recorded). Removing or constraining a required topic because a trainer, tool or facility is unavailable
 needs a recorded constraint and a remedial plan approved by the Founder / CEO or Super Admin."""
 from datetime import datetime, timezone
@@ -17,7 +17,7 @@ from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
 CONSTRAINT = "Required topic constraint"
-LOCAL_APPROVERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+LOCAL_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 CONSTRAINT_APPROVERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
@@ -25,8 +25,8 @@ def create(data: dict) -> CurriculumVariation:
     user = current_user()
     branch_id = data["branch_id"]
     scope.require_branch(branch_id)
-    if not user.has_role("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN", branch_id=branch_id):
-        raise Forbidden("Variations are recorded by the branch's Academic Coordinator")
+    if not user.has_role("BRANCH_MANAGER", "SUPER_ADMIN", branch_id=branch_id):
+        raise Forbidden("Variations are recorded by the branch's Branch Manager")
     version = catalog_repo.get_curriculum_version(data["curriculum_version_id"])
     if version is None or version.status not in ("Approved", "Active"):
         raise ValidationError("Invalid request data", {"curriculum_version_id": ["An Approved or Active curriculum version"]})
@@ -51,10 +51,10 @@ def create(data: dict) -> CurriculumVariation:
     audit.record("CURRICULUM_VARIATION_" + ("APPROVED" if approved_now else "PROPOSED"), "curriculum_variation", variation.variation_id,
                  new={"kind": variation.kind, "version_id": version.curriculum_version_id}, reason=variation.description, branch_id=branch_id)
     if not approved_now:
-        roles = CONSTRAINT_APPROVERS if variation.kind == CONSTRAINT else ("ACADEMIC_COORDINATOR",)
+        roles = CONSTRAINT_APPROVERS if variation.kind == CONSTRAINT else ("BRANCH_MANAGER",)
         for role_code in roles:
             notify(category="Curriculum", title=f"Curriculum variation to decide: {variation.kind}", body=variation.description[:300],
-                   link="/academic/curriculum", role_code=role_code, branch_id=branch_id,
+                   link="/branch/curriculum", role_code=role_code, branch_id=branch_id,
                    event_key=f"curriculum-variation:{variation.variation_id}:{role_code}", action_required=True)
     return variation
 
@@ -66,10 +66,11 @@ def decide(variation_id: int, decision: str, note: str | None) -> CurriculumVari
     scope.require_branch(variation.branch_id)
     approvers = CONSTRAINT_APPROVERS if variation.kind == CONSTRAINT else LOCAL_APPROVERS
     if not current_user().has_role(*approvers, branch_id=variation.branch_id):
-        raise Forbidden("A required-topic constraint is decided by the Founder / CEO or Super Admin; other variations by the Academic Coordinator")
+        raise Forbidden("A required-topic constraint is decided by the Founder / CEO or Super Admin; other variations by the Branch Manager")
     if variation.status != "Pending":
         raise BusinessRule(f"This variation is already {variation.status}")
-    approvals.require_independent(variation.requested_by, message="An independent approver must decide: not the person who recorded it")
+    approvals.require_independent(variation.requested_by, message="An independent approver must decide: not the person who recorded it",
+                                  requester=variation.requested_by)
     if decision == "Rejected" and not note:
         raise ValidationError("Invalid request data", {"note": ["Give the reason for rejecting the variation"]})
     variation.status, variation.decided_by, variation.decided_at = decision, current_user().user_id, datetime.now(timezone.utc)

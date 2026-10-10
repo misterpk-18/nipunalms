@@ -89,7 +89,7 @@ function ReviewCard({ submission }: { submission: Submission }) {
           Request resubmission
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">Result remains provisional until the Academic Coordinator publishes it.</p>
+      <p className="text-xs text-muted-foreground">Result remains provisional until the Branch Manager publishes it.</p>
     </Section>
   );
 }

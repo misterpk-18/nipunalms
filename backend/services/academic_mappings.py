@@ -1,7 +1,7 @@
 """Moving a student between curriculum versions (Module 14 §8, §11).
 
 An academic mapping records the side-by-side comparison (outcomes met, previous work, remaining obligations), a migration
-plan, trainer evidence and how the student accepted the change. The receiving branch's Academic Coordinator (or Super Admin)
+plan, trainer evidence and how the student accepted the change. The receiving branch's Branch Manager (or Super Admin)
 approves it, never the person who asked; approving moves the enrolment (or one combo track) to the new version and records
 any credited topics with their original evidence — credits count towards required learning, never as attendance or work.
 Credit needs an existing approved equivalence rule between the two versions; a new rule needs the Founder / CEO or Super
@@ -22,8 +22,8 @@ from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-REQUESTERS = ("TRAINER", "ACADEMIC_COORDINATOR", "SUPER_ADMIN")
-DECIDERS = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+REQUESTERS = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 RULE_DECIDERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
@@ -41,8 +41,8 @@ def _version(version_id: int) -> CurriculumVersion:
 # ---------------------------------------------------------------- equivalence rules
 
 def request_rule(from_version_id: int, to_version_id: int, description: str) -> EquivalenceRule:
-    if not current_user().has_role("ACADEMIC_COORDINATOR", "SUPER_ADMIN"):
-        raise Forbidden("Equivalence rules are proposed by an Academic Coordinator after academic review")
+    if not current_user().has_role("BRANCH_MANAGER", "SUPER_ADMIN"):
+        raise Forbidden("Equivalence rules are proposed by a Branch Manager after academic review")
     source, target = _version(from_version_id), _version(to_version_id)
     if source.curriculum_version_id == target.curriculum_version_id:
         raise ValidationError("Invalid request data", {"to_version_id": ["Choose two different versions"]})
@@ -52,7 +52,7 @@ def request_rule(from_version_id: int, to_version_id: int, description: str) -> 
     db.session.flush()
     audit.record("EQUIVALENCE_RULE_PROPOSED", "equivalence_rule", rule.rule_id,
                  new={"from": source.version_label, "to": target.version_label}, reason=description)
-    for role_code, link in (("FOUNDER_CEO", "/founder/curriculum"), ("SUPER_ADMIN", "/academic/curriculum")):
+    for role_code, link in (("FOUNDER_CEO", "/founder/curriculum"), ("SUPER_ADMIN", "/branch/curriculum")):
         notify(category="Curriculum", title=f"Equivalence rule to approve: {source.version_label} → {target.version_label}",
                body=description, link=link, role_code=role_code, event_key=f"equivalence-rule:{rule.rule_id}:{role_code}",
                action_required=True)
@@ -108,7 +108,7 @@ def request_mapping(enrolment_id: int, data: dict) -> AcademicMapping:
     if not _receiving_trainer(enrolment, data["to_version_id"]):
         scope.assert_can_view_enrolment(enrolment)
     if not current_user().has_role(*REQUESTERS, branch_id=enrolment.service_branch_id):
-        raise Forbidden("A trainer or the Academic Coordinator prepares the academic mapping")
+        raise Forbidden("A trainer or the Branch Manager prepares the academic mapping")
     track = None
     if data.get("enrolment_track_id"):
         track = next((t for t in enrolment.tracks if t.enrolment_track_id == data["enrolment_track_id"]), None)
@@ -145,7 +145,7 @@ def request_mapping(enrolment_id: int, data: dict) -> AcademicMapping:
                  new={"mapping_id": mapping.mapping_id, "to": target.version_label, "credits": len(credits)},
                  branch_id=enrolment.service_branch_id)
     notify(category="Curriculum", title=f"Academic mapping to approve: {enrolment.enrolment_code} → {target.version_label}",
-           body=data["comparison"][:300], link="/academic/curriculum", role_code="ACADEMIC_COORDINATOR",
+           body=data["comparison"][:300], link="/branch/curriculum", role_code="BRANCH_MANAGER",
            branch_id=enrolment.service_branch_id, event_key=f"academic-mapping:{mapping.mapping_id}", action_required=True)
     return mapping
 
@@ -157,10 +157,11 @@ def decide_mapping(mapping_id: int, decision: str, note: str | None, student_acc
     enrolment = students_repo.get_enrolment(mapping.enrolment_id)
     scope.require_branch(enrolment.service_branch_id)
     if not current_user().has_role(*DECIDERS, branch_id=enrolment.service_branch_id):
-        raise Forbidden("The receiving branch's Academic Coordinator approves the academic mapping")
+        raise Forbidden("The receiving branch's Branch Manager approves the academic mapping")
     if mapping.status != "Pending":
         raise BusinessRule(f"This mapping is already {mapping.status}")
-    approvals.require_independent(mapping.requested_by, message="An independent reviewer must decide: not the person who prepared the mapping")
+    approvals.require_independent(mapping.requested_by, message="An independent reviewer must decide: not the person who prepared the mapping",
+                                  requester=mapping.requested_by)
     if decision == "Rejected" and not note:
         raise ValidationError("Invalid request data", {"note": ["Give the reason for rejecting the mapping"]})
     if decision == "Approved" and not student_acceptance:

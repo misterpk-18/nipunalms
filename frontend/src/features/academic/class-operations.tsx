@@ -24,7 +24,7 @@ import { useStaffOptions } from "@/features/shared/staff-picker";
 export type ClassTarget = { session_id: number; session_code: string; title: string; starts_at: string; ends_at: string; batch: BatchRef; branch: BranchRef };
 
 const TABS = ["People", "Incidents and disruptions", "Cover", "Shared batches", "Participation"] as const;
-const HOSTING_ROLES = ["TRAINER", "ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN"];
+const HOSTING_ROLES = ["TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN"];
 const opt = (values: string[]) => values.map((v) => ({ value: v, label: v }));
 export const DISRUPTION_CAUSES = opt(["Institute", "Provider", "Trainer", "Unknown"]);
 const who = (u: { full_name: string } | null) => u?.full_name ?? "—";
@@ -183,7 +183,7 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
   const manager = useCanManage();
   const incident = useDelivery(
     (body: Parameters<typeof deliveryApi.reportIncident>[1]) => deliveryApi.reportIncident(target.session_id, body),
-    "Incident reported — the coordinators and Branch Managers are alerted",
+    "Incident reported — the Branch Managers are alerted",
   );
   const disrupt = useDelivery((body: Parameters<typeof deliveryApi.recordDisruption>[1]) => deliveryApi.recordDisruption(target.session_id, body), "Disruption recorded");
   return (
@@ -192,7 +192,7 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
         <ActionDialog
           trigger={<Button size="sm">Report a link incident</Button>}
           title="Report a Meet link incident"
-          description="The coordinators and Branch Managers are alerted. Replacing the link removes it and tells the participants."
+          description="The Branch Managers are alerted. Replacing the link removes it and tells the participants."
           fields={[
             { name: "kind", label: "What happened", type: "select", options: opt(["Compromised link", "Unexpected joiner", "Host access failure", "Other"]) },
             { name: "description", label: "Description", type: "textarea", required: true },
@@ -275,7 +275,7 @@ function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations })
   const { hasRole } = useAuth();
   const manager = useCanManage();
   const approver = useIsManager();
-  const verifier = hasRole("ACADEMIC_COORDINATOR", "SUPER_ADMIN");
+  const verifier = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const trainers = useStaffOptions(target.branch.branch_id, ["TRAINER"]);
   const request = useDelivery((body: Parameters<typeof deliveryApi.requestCover>[1]) => deliveryApi.requestCover(target.session_id, body), "Cover requested");
   const decide = useDelivery(
@@ -356,7 +356,7 @@ function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations })
         <ActionDialog
           trigger={<Button size="sm">Request cover</Button>}
           title="Request a substitute or assistant"
-          description="Approval (Branch Manager) and verification (Academic Coordinator) both apply it, in either order. A substitute becomes the class trainer for this class only."
+          description="The Branch Manager approves and verifies it. A Branch Manager’s own request is decided by a Super Admin. A substitute becomes the class trainer for this class only."
           fields={[
             { name: "cover_role", label: "Cover role", type: "select", options: opt(["Substitute", "Assistant"]) },
             { name: "cover_user_id", label: "Cover person", type: "select", required: true, options: trainers, hint: "Trainers of this branch" },
@@ -378,7 +378,7 @@ function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations })
 
 function Shared({ target, ops }: { target: ClassTarget; ops: SessionOperations }) {
   const { hasRole } = useAuth();
-  const allowed = hasRole("ACADEMIC_COORDINATOR", "SUPER_ADMIN");
+  const allowed = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const batches = useQuery({ queryKey: ["delivery", "batches", "open"], queryFn: () => deliveryApi.batches({}), enabled: allowed });
   const add = useDelivery((body: { batch_id: number; topic_id?: number | null; coverage_note: string }) => deliveryApi.addRoster(target.session_id, body), "Batch added to the class");
   const remove = useDelivery((batchId: number) => deliveryApi.removeRoster(target.session_id, batchId), "Batch removed from the class");
@@ -429,7 +429,7 @@ function Shared({ target, ops }: { target: ClassTarget; ops: SessionOperations }
           onSubmit={(v) => add.mutateAsync({ batch_id: Number(v["batch_id"]), coverage_note: v["coverage_note"]!, topic_id: v["topic_id"] ? Number(v["topic_id"]) : null })}
         />
       )}
-      {!allowed && <p className="text-xs text-muted-foreground">Academic Coordinators and Super Admins manage shared classes.</p>}
+      {!allowed && <p className="text-xs text-muted-foreground">Branch Managers and Super Admins manage shared classes.</p>}
     </div>
   );
 }

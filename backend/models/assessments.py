@@ -467,7 +467,7 @@ class Result(db.Model):
 
     @property
     def counting_marks(self) -> Decimal:
-        """What would be published: the moderated marks when the Academic Coordinator adjusted them, else the trainer's."""
+        """What would be published: the moderated marks when the Branch Manager adjusted them, else the trainer's."""
         return self.moderated_marks if self.moderated_marks is not None else self.provisional_marks
 
     def item(self) -> dict:

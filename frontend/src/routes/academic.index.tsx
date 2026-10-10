@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AcademicDashboard } from "@/features/academic/dashboard";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/academic/")({ component: AcademicDashboard });
+// The Academic Coordinator workspace was merged into the Branch Manager's: old links and bookmarks land on the Branch dashboard
+export const Route = createFileRoute("/academic/")({
+  beforeLoad: () => {
+    throw redirect({ href: "/branch", replace: true });
+  },
+});

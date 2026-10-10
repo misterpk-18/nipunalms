@@ -3,10 +3,10 @@ at the record's branch (403 when the record is visible but the user may not chan
 from services.context import CurrentUser, current_user
 from services.errors import Forbidden
 
-# Academic Coordinators and Branch Managers of the branch, and Super Admin (all branches). The Founder / CEO reads only.
-MANAGE_ROLES = ("ACADEMIC_COORDINATOR", "BRANCH_MANAGER", "SUPER_ADMIN")
-# Curriculum is global (not per branch): Academic Coordinators and Super Admin draft, submit and review it
-CURRICULUM_ROLES = ("ACADEMIC_COORDINATOR", "SUPER_ADMIN")
+# Branch Managers of the branch, and Super Admin (all branches). The Founder / CEO reads only.
+MANAGE_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
+# Curriculum is global (not per branch): Branch Managers and Super Admin draft, submit and review it
+CURRICULUM_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
 # ... and the Founder / CEO or Super Admin approve, activate and retire it (Module 14 §5, §11)
 CURRICULUM_APPROVER_ROLES = ("FOUNDER_CEO", "SUPER_ADMIN")
 
