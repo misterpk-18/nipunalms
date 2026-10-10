@@ -176,8 +176,8 @@ figure out what to do next."
 | U2. Merge Academic Coordinator into Branch Manager | **Done** (db 106) | `9469df1` | L |
 | U3. Design system foundation | **Done** | `b3bee1f` | M |
 | U4. Shell, navigation, search, counts | **Done** | `af7c16a` | M |
-| U5. Notifications inbox (all roles) | **Done** | `U5_COMMIT` | S |
-| U6. WhatsApp through the CRM (CRM round 6) | **Built, switched off** (db 107) | `U6_COMMIT` | M |
+| U5. Notifications inbox (all roles) | **Done** | `fd464dd` | S |
+| U6. WhatsApp through the CRM (CRM round 6) | **Built, switched off** (db 107) | `ea2a1ea` | M |
 | U7. Sign-in and accounts | To do | | M |
 | U8. Student: Home and My Learning | To do | | L |
 | U9. Student: Schedule, Tasks & Tests | To do | | M |
