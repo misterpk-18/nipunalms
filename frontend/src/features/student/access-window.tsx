@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { accessText, contentApi, formatDate, type AccessOverview } from "@/api/content";
-import { QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { QueryView, Section, Tag } from "@/components/lms/ui";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,7 +46,7 @@ export function AccessWindow({ focus }: { focus: "Recording" | "Material" }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {pending && <StatusBadge tone="warning">{`${pending.request_code} pending`}</StatusBadge>}
+                    {pending && <Tag tone="warning">{`${pending.request_code} pending`}</Tag>}
                     {row.can_request.Recording || row.can_request.Material ? (
                       <Button variant="outline" size="sm" onClick={() => setRequesting(row)}>
                         Request extension

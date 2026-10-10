@@ -18,7 +18,7 @@ export function ContentDetailDialog({ id, onClose }: { id: number; onClose: () =
               <DialogHeader>
                 <DialogTitle>{item.title}</DialogTitle>
                 <DialogDescription>
-                  {item.item_code} · {item.content_type} · <StatusBadge>{item.status}</StatusBadge>
+                  {item.item_code} · {item.content_type} · <StatusBadge domain="content" code={item.status} />
                 </DialogDescription>
               </DialogHeader>
               <KeyValue
@@ -43,7 +43,7 @@ export function ContentDetailDialog({ id, onClose }: { id: number; onClose: () =
                 {(item.versions ?? []).map((v) => (
                   <li key={v.content_version_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2">
                     <div>
-                      <strong>v{v.version_no}</strong> {v.original_filename ?? v.url} <StatusBadge>{v.status}</StatusBadge>
+                      <strong>v{v.version_no}</strong> {v.original_filename ?? v.url} <StatusBadge domain="content" code={v.status} />
                       <div className="text-xs text-muted-foreground">
                         {v.uploaded_by.full_name} · {formatDateTime(v.uploaded_at)}
                         {v.change_summary && ` · ${v.change_summary}`}

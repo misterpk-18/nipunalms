@@ -100,7 +100,7 @@ function InterviewTest({ testId, title }: { testId: number; title: string }) {
             cols={[
               { h: "Time", c: (s) => formatIst(s.starts_at) },
               { h: "Student", c: (s) => s.student?.full_name ?? "Open" },
-              { h: "State", c: (s) => <StatusBadge>{s.status}</StatusBadge> },
+              { h: "State", c: (s) => <StatusBadge domain="slot" code={s.status} /> },
               {
                 h: "Actions",
                 c: (s) => (

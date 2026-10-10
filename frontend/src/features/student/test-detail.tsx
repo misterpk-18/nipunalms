@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { assessmentsApi, type Slot, type StudentAttempt, type TestItem, type TestQuestion } from "@/api/assessments";
 import { errorMessage } from "@/api/client";
-import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { Breadcrumbs } from "@/components/lms/breadcrumbs";
+import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { clock, formatIst } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
+import { MyTestStatus } from "./tests";
 
 type Answers = Record<string, unknown>;
 
@@ -93,7 +95,7 @@ function QuestionField({
             value={(value as string) ?? ""}
             onChange={(e) => onChange(e.target.value)}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Code execution: Integration Unavailable. Your trainer reads and marks your code.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Your code is not run automatically. Your trainer reads and marks it.</p>
         </>
       );
     default:
@@ -158,12 +160,12 @@ function AttemptRunner({ initial, onDone }: { initial: StudentAttempt; onDone: (
         <span className="font-mono text-lg font-semibold" aria-label="Time remaining">
           {left === null ? "No time limit" : clock(left)}
         </span>
-        <span className="text-xs text-muted-foreground">Server-authoritative timer — closing the tab does not pause time.</span>
+        <span className="text-xs text-muted-foreground">The timer runs on our server — closing the tab does not pause time.</span>
         <div className="ml-auto">
-          {saved === "Saved" && <StatusNote state="Saved" />}
-          {saved === "Saving" && <StatusNote state="Saving" />}
+          {saved === "Saved" && <StatusNote tone="success">Saved.</StatusNote>}
+          {saved === "Saving" && <StatusNote tone="info">Saving…</StatusNote>}
           {saved === "Failed" && (
-            <StatusNote state="Failed">Connection interrupted. Your last saved answers are kept; we will retry. The server timer continues.</StatusNote>
+            <StatusNote tone="danger">Connection interrupted. Your last saved answers are kept; we will retry. The server timer continues.</StatusNote>
           )}
         </div>
       </div>
@@ -217,7 +219,7 @@ function InterviewSlots({ test }: { test: TestItem }) {
         <div className="mb-3 rounded-lg border p-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <strong>Your slot: {formatIst(mine.starts_at)}</strong>
-            <StatusBadge>{mine.status}</StatusBadge>
+            <StatusBadge domain="slot" code={mine.status} />
           </div>
           {mine.status === "Completed" && (
             <p className="mt-2">
@@ -287,13 +289,8 @@ export function TestDetail() {
       <QueryView query={query}>
         {(test) => (
           <>
-            <nav className="mb-2 text-sm">
-              <Link to="/tests" className="text-primary underline">
-                Tests
-              </Link>{" "}
-              / {test.title}
-            </nav>
-            <PageHead title={test.title} actions={<StatusBadge tone="info">{test.kind}</StatusBadge>} />
+            <Breadcrumbs items={[{ label: "Tests", to: "/tests" }, { label: test.title }]} />
+            <PageHead title={test.title} actions={<Tag tone="info">{test.kind}</Tag>} />
             {running ? (
               <AttemptRunner initial={running} onDone={() => void finishRunning()} />
             ) : (
@@ -301,7 +298,7 @@ export function TestDetail() {
                 <Section>
                   <KeyValue
                     items={[
-                      ["Status", <StatusBadge key="s">{test.my?.my_status ?? test.status}</StatusBadge>],
+                      ["Status", <MyTestStatus key="s" test={test} />],
                       ["Duration", test.duration_minutes ? `${test.duration_minutes} minutes` : "Untimed"],
                       ["Opens", formatIst(test.opens_at)],
                       ["Closes", formatIst(test.closes_at)],
@@ -322,7 +319,7 @@ export function TestDetail() {
                           {test.status === "Available" ? "You have used every attempt." : `This test is ${test.status}.`}
                         </span>
                       )}
-                      {start.isError && <StatusNote state="Failed">{errorMessage(start.error)}</StatusNote>}
+                      {start.isError && <StatusNote tone="danger" title="Could not start the test.">{errorMessage(start.error)}</StatusNote>}
                     </div>
                   )}
                 </Section>

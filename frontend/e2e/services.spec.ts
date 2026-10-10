@@ -94,8 +94,8 @@ test("student career screen: consent, opportunities, applying", async ({ page },
   await expect(page.getByText("Until 12 Jul 2027").first()).toBeVisible();
   await expect(page.getByText("CV v3 — Data roles").first()).toBeVisible();
   await expect(page.getByRole("cell", { name: "Junior Data Analyst", exact: true })).toBeVisible();
-  await expect(page.getByText("Interview Scheduled").first()).toBeVisible();
-  await expect(page.getByText("Confirmation Pending").first()).toBeVisible();
+  await expect(page.getByText("Interview set").first()).toBeVisible();
+  await expect(page.getByText("Waiting to be confirmed").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Apply for Data Engineer Trainee" }).click();
   await expect(page.getByText("Application recorded")).toBeVisible();

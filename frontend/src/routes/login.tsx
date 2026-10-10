@@ -5,7 +5,7 @@ import { ApiError, errorMessage } from "@/api/client";
 import { useAuth } from "@/auth/auth";
 import { AuthPage } from "@/components/lms/auth-page";
 import { PasswordField } from "@/components/lms/password-field";
-import { Note, Section, StatusBadge } from "@/components/lms/ui";
+import { Note, Section, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -108,7 +108,7 @@ function Login() {
             ))}
           </ol>
           <div className="mt-3">
-            <StatusBadge tone="info">{t("accessAfterAllocation")}</StatusBadge>
+            <Tag tone="info">{t("accessAfterAllocation")}</Tag>
           </div>
         </Section>
         <Section>

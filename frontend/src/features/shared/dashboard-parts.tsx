@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import type { CrmFigure, CrmValue } from "@/api/dashboards";
 import { Section, StatusNote } from "@/components/lms/ui";
+import { statusInfo } from "@/lib/status";
 import { fmtDateTime } from "@/features/shared/format";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -62,7 +63,7 @@ export function CrmTile({ label, figure, rank }: { label: string; figure: CrmFig
         value="Unavailable"
         hint={
           <>
-            {figure.state} — {figure.reason}
+            {statusInfo("figure", figure.state).label} — {figure.reason}
             {figure.refreshed_at && <> · CRM finance data last refreshed {fmtDateTime(figure.refreshed_at)}</>}
           </>
         }
@@ -79,8 +80,8 @@ export function CrmTile({ label, figure, rank }: { label: string; figure: CrmFig
           {figure.target !== null && <>of {crmAmount(figure, figure.target)} target · </>}
           {figure.period && <>{figure.period.label} · </>}
           From CRM, {fmtDateTime(figure.as_of)}
-          {figure.stale && <> · Stale: the CRM has not refreshed this recently</>}
-          {figure.state === "Partial Data" && <> · Partial Data: no figures yet from {figure.missing_branches.map((b) => b.branch_name).join(", ")}</>}
+          {figure.stale && <> · Out of date: the CRM has not refreshed this recently</>}
+          {figure.state === "Partial Data" && <> · Incomplete data: no figures yet from {figure.missing_branches.map((b) => b.branch_name).join(", ")}</>}
         </>
       }
     />
@@ -115,6 +116,6 @@ export function QuickLinks({ title, links }: { title: string; links: readonly (r
 
 /** A card whose source is Empty or Unavailable: say so, in words (never a blank or a zero). */
 export function CardGap({ card }: { card: { state: string; message?: string | null } }) {
-  if (card.state === "Unavailable") return <StatusNote state="Error">{card.message ?? "This information could not be loaded right now."}</StatusNote>;
+  if (card.state === "Unavailable") return <StatusNote tone="danger">{card.message ?? "This information could not be loaded right now."}</StatusNote>;
   return <p className="text-sm text-muted-foreground">{card.message ?? "Nothing here yet."}</p>;
 }

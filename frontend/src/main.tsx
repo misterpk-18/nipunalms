@@ -18,6 +18,15 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Dark mode follows the system setting, live: the .dark class on <html> carries the dark tokens (styles.css). */
+function followSystemTheme() {
+  const query = window.matchMedia("(prefers-color-scheme: dark)");
+  const apply = () => document.documentElement.classList.toggle("dark", query.matches);
+  apply();
+  query.addEventListener("change", apply);
+}
+followSystemTheme();
+
 const router = createRouter({ routeTree, context: { queryClient }, defaultPreload: "intent", scrollRestoration: true });
 
 declare module "@tanstack/react-router" {

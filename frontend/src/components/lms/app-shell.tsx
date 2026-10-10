@@ -144,7 +144,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex">
-        <nav aria-label="Main" className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r bg-card p-3 md:block">
+        <aside className="hidden w-60 shrink-0 border-r bg-card md:block">
+        <nav aria-label="Main" className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto p-3">
           <ul className="space-y-0.5">
             {items.map((item, index) => (
               <li key={item.to}>
@@ -166,6 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </ul>
         </nav>
+        </aside>
         <main id="main" className="min-w-0 flex-1 px-3 pb-28 pt-4 sm:px-6 md:pb-10">
           {children}
         </main>

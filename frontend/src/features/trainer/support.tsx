@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { SUPPORT_CATEGORIES, supportApi, type SupportCategory } from "@/api/support";
 import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
-import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, PageHead, QueryView, Section, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,7 +52,7 @@ export function TrainerSupport() {
                 cols={[
                   { h: "Student", c: (r) => r.student.full_name },
                   { h: "Batch", c: (r) => <span className="font-mono text-xs">{r.batch.batch_code}</span> },
-                  { h: "Support flag", c: (r) => <StatusBadge>{r.flag}</StatusBadge> },
+                  { h: "Support flag", c: (r) => <Tag tone="warning">{r.flag}</Tag> },
                 ]}
               />
             )}

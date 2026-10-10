@@ -102,6 +102,55 @@
   --chart-5: oklch(75% 0.06 260);
 }
 
+/* Dark mode: follows the system setting (main.tsx puts .dark on <html>). Status colours keep their meaning; text on the soft
+   backgrounds stays above 4.5:1 contrast. */
+.dark {
+  color-scheme: dark;
+  --background: oklch(19% 0.025 258);
+  --foreground: oklch(94% 0.01 250);
+  --card: oklch(23% 0.03 258);
+  --card-foreground: oklch(94% 0.01 250);
+  --popover: oklch(23% 0.03 258);
+  --popover-foreground: oklch(94% 0.01 250);
+  --primary: oklch(68% 0.14 256);
+  --primary-foreground: oklch(17% 0.03 258);
+  --secondary: oklch(29% 0.035 258);
+  --secondary-foreground: oklch(92% 0.015 250);
+  --muted: oklch(27% 0.03 258);
+  --muted-foreground: oklch(75% 0.025 255);
+  --accent: oklch(32% 0.05 256);
+  --accent-foreground: oklch(95% 0.015 250);
+  --destructive: oklch(62% 0.2 27);
+  --destructive-foreground: oklch(99% 0 0);
+  --border: oklch(34% 0.03 258);
+  --input: oklch(40% 0.03 258);
+  --ring: oklch(68% 0.15 256);
+  --sidebar: oklch(23% 0.03 258);
+  --sidebar-foreground: oklch(94% 0.01 250);
+  --sidebar-accent: oklch(32% 0.05 256);
+  --sidebar-accent-foreground: oklch(95% 0.015 250);
+  --sidebar-border: oklch(34% 0.03 258);
+  --overlay: oklch(10% 0.02 258 / 0.6);
+  --navy: oklch(16% 0.04 260);
+  --navy-foreground: oklch(95% 0.01 250);
+  --navy-muted: oklch(28% 0.06 260);
+  --success: oklch(80% 0.14 150);
+  --success-soft: oklch(30% 0.06 150);
+  --warning: oklch(83% 0.13 80);
+  --warning-soft: oklch(32% 0.06 75);
+  --danger: oklch(79% 0.14 25);
+  --danger-soft: oklch(31% 0.08 27);
+  --info: oklch(80% 0.1 250);
+  --info-soft: oklch(30% 0.07 256);
+  --neutral: oklch(80% 0.02 258);
+  --neutral-soft: oklch(30% 0.02 258);
+  --chart-1: oklch(70% 0.15 256);
+  --chart-2: oklch(72% 0.12 165);
+  --chart-3: oklch(80% 0.13 80);
+  --chart-4: oklch(75% 0.11 230);
+  --chart-5: oklch(78% 0.06 260);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

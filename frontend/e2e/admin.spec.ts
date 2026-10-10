@@ -25,9 +25,9 @@ test.describe("Super Admin", () => {
     await expect(page.getByRole("heading", { name: "Integration Readiness" })).toBeVisible();
 
     const meet = page.getByRole("row", { name: /Google Meet organizer — Guntur/ });
-    await expect(meet).toContainText("Pending Verification");
-    await expect(page.getByRole("row", { name: /WhatsApp/ }).first()).toContainText("Not Configured");
-    await expect(page.getByText("nothing here is Live Verified without evidence")).toBeVisible();
+    await expect(meet).toContainText("Waiting for a check");
+    await expect(page.getByRole("row", { name: /WhatsApp/ }).first()).toContainText("Not set up");
+    await expect(page.getByText("nothing here is treated as live without evidence")).toBeVisible();
 
     // A setup that is not Configured cannot be marked Verified
     await page.getByRole("button", { name: "Update WhatsApp" }).click();
@@ -49,7 +49,7 @@ test.describe("Super Admin", () => {
     await login(page, USERS.admin);
     await page.goto("/admin/security");
     await expect(page.getByRole("heading", { name: "Security Readiness" })).toBeVisible();
-    await expect(page.getByRole("row", { name: /Server-side scope enforcement/ })).toContainText("Configured");
+    await expect(page.getByRole("row", { name: /Server-side scope enforcement/ })).toContainText("Set up");
 
     const evidence = `Stale token refused after re-login ${RUN}`;
     await page.getByRole("button", { name: "Update Re-authentication for sensitive actions" }).click();
@@ -187,8 +187,8 @@ test.describe("Super Admin", () => {
     await failed.getByRole("button", { name: /^Retry / }).click();
     await expect(page.getByText(/Unknown course 'NIT-CRS-999'/).first()).toBeVisible();
 
-    await page.getByRole("tab", { name: /Outbox/ }).click();
-    await expect(page.getByRole("row", { name: /LmsAccountProvisioned/ }).first()).toContainText("Pending");
+    await page.getByRole("tab", { name: /Sent to the CRM/ }).click();
+    await expect(page.getByRole("row", { name: /LmsAccountProvisioned/ }).first()).toContainText("Waiting");
   });
 
   test("audit log shows the account actions with the actor and filters by action", async ({ page }) => {
@@ -221,7 +221,7 @@ test.describe("boundaries", () => {
 
     await login(page, USERS.bmGnt);
     await page.goto("/admin/users");
-    await expect(page.getByText("Permission Restricted")).toBeVisible();
+    await expect(page.getByText(/cannot open this workspace/)).toBeVisible();
   });
 });
 

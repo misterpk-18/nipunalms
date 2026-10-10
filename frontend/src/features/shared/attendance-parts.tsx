@@ -3,7 +3,8 @@ import { useState, type ReactNode } from "react";
 import type { Measures } from "@/api/attendance";
 import { fmtDateTime, percent } from "@/features/shared/format";
 import { NativeSelect, Field } from "@/components/lms/forms";
-import { Grid, Note, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { EmptyState } from "@/components/lms/empty-state";
+import { Grid, Note, Section, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,11 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 /** The attendance cell of a table: the percentage, or the reason there is none ("Partial Data", "Not started"). */
 export function AttendanceCell({ measures }: { measures: Measures["attendance"] }) {
-  if (measures.state === "Not started") return <StatusBadge tone="neutral">Not started</StatusBadge>;
+  if (measures.state === "Not started") return <StatusBadge domain="attendance" code="Not started" />;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
-      {measures.state === "Partial Data" ? <StatusBadge tone="warning">Partial Data</StatusBadge> : <strong>{percent(measures.percent)}</strong>}
-      {measures.alert && <StatusBadge tone="danger">Alert &lt; {measures.alert_threshold}%</StatusBadge>}
+      {measures.state === "Partial Data" ? <StatusBadge domain="attendance" code="Partial Data" /> : <strong>{percent(measures.percent)}</strong>}
+      {measures.alert && <Tag tone="danger">Alert &lt; {measures.alert_threshold}%</Tag>}
     </span>
   );
 }
@@ -49,7 +50,7 @@ export function MeasureCards({ measures }: { measures: Measures }) {
       </Section>
       <Section title="2 · Attendance / approved recovery">
         {attendance.state === "Not started" ? (
-          <StatusNote state="Empty">Attendance starts counting from your first regular class.</StatusNote>
+          <EmptyState reason="Attendance starts counting from your first regular class." />
         ) : (
           <>
             <Meter value={attendance.percent} label={`${attendance.present + attendance.late} attended of ${attendance.marked} marked classes`} />
@@ -59,12 +60,12 @@ export function MeasureCards({ measures }: { measures: Measures }) {
             </p>
             {attendance.state === "Partial Data" && (
               <div className="mt-2">
-                <StatusNote state="Partial Data">{attendance.unmarked} delivered class(es) are not marked yet, so this figure is provisional.</StatusNote>
+                <StatusNote tone="warning">{attendance.unmarked} delivered class(es) are not marked yet, so this figure is provisional.</StatusNote>
               </div>
             )}
             {attendance.alert && (
               <div className="mt-2">
-                <StatusNote state="Error">Attendance is below {attendance.alert_threshold}%. Ask your Branch Manager about recovery options.</StatusNote>
+                <StatusNote tone="danger">Attendance is below {attendance.alert_threshold}%. Ask your Branch Manager about recovery options.</StatusNote>
               </div>
             )}
           </>
@@ -78,11 +79,9 @@ export function MeasureCards({ measures }: { measures: Measures }) {
       </Section>
       <Section title="4 · LMS engagement">
         <div className="flex items-center gap-2">
-          <StatusBadge
-            tone={engagement.level === "High" ? "success" : engagement.level === "Medium" ? "info" : engagement.level === "Low" ? "warning" : "neutral"}
-          >
+          <Tag tone={engagement.level === "High" ? "success" : engagement.level === "Medium" ? "info" : engagement.level === "Low" ? "warning" : "neutral"}>
             {engagement.level}
-          </StatusBadge>
+          </Tag>
           <span className="text-sm text-muted-foreground">
             {engagement.events_in_window} activity event(s) in the last {engagement.window_days} days
           </span>

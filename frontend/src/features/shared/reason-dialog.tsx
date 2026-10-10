@@ -12,6 +12,8 @@ export function ReasonDialog({
   label = "Reason",
   confirmLabel,
   busy,
+  minLength = 3,
+  destructive,
   onSubmit,
 }: {
   trigger: ReactNode;
@@ -20,6 +22,10 @@ export function ReasonDialog({
   label?: string;
   confirmLabel: string;
   busy?: boolean;
+  /** The shortest reason accepted; shown under the box until it is reached. */
+  minLength?: number;
+  /** Styles the button as a destructive action (reject, revoke, discard). */
+  destructive?: boolean;
   onSubmit: (reason: string) => Promise<unknown> | unknown;
 }) {
   const [open, setOpen] = useState(false);
@@ -47,12 +53,13 @@ export function ReasonDialog({
         <div className="space-y-1.5">
           <Label htmlFor={id}>{label}</Label>
           <Textarea id={id} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+          {reason.trim().length < minLength && <p className="text-xs text-muted-foreground">Write at least {minLength} characters.</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button disabled={busy || reason.trim().length < 3} onClick={() => void submit()}>
+          <Button variant={destructive ? "destructive" : "default"} disabled={busy || reason.trim().length < minLength} onClick={() => void submit()}>
             {confirmLabel}
           </Button>
         </DialogFooter>

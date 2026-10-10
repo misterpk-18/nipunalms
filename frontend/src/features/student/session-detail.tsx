@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
+import { Breadcrumbs } from "@/components/lms/breadcrumbs";
 import { deliveryApi, type ClassSession } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
-import { KeyValue, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { KeyValue, PageHead, QueryView, Section, StatusNote } from "@/components/lms/ui";
 import { useT } from "@/lib/i18n";
 import { MeetBadge, StateBadge, fmtDate, fmtTime } from "@/features/shared/delivery-ui";
 
@@ -35,19 +36,13 @@ export function SessionDetail() {
       <QueryView query={query}>
         {(s) => (
           <>
-            <nav aria-label="Breadcrumb" className="mb-2 text-sm">
-              {s.topic_path ? (
-                <Link to="/topics/$topicId" params={{ topicId: String(s.topic_path.topic_id) }} className="text-primary underline">
-                  {s.topic_path.title}
-                </Link>
-              ) : (
-                <Link to="/schedule" className="text-primary underline">
-                  Schedule
-                </Link>
-              )}{" "}
-              / {s.title}
-            </nav>
-            <PageHead title={s.title} description={`Actual Class Session · ${s.session_code}`} actions={<StateBadge label={s.state_label} />} />
+            <Breadcrumbs
+              items={[
+                s.topic_path ? { label: s.topic_path.title, to: `/topics/${s.topic_path.topic_id}` } : { label: "Schedule", to: "/schedule" },
+                { label: s.title },
+              ]}
+            />
+            <PageHead title={s.title} description={`Class ${s.session_code}`} actions={<StateBadge label={s.state_label} />} />
             <Section>
               <KeyValue
                 items={[
@@ -71,7 +66,7 @@ export function SessionDetail() {
             </Section>
             {s.mode !== "Classroom" && s.meet_status !== "Linked" && (
               <div className="mt-4">
-                <StatusNote state="Pending Verification">
+                <StatusNote tone="warning">
                   The Meet link for this class is not associated yet. It appears here once your branch has confirmed it — nothing is assumed from the class
                   time.
                 </StatusNote>

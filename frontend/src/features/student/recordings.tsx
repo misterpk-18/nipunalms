@@ -46,7 +46,7 @@ export function Recordings() {
                   </>
                 ),
               },
-              { h: "Status", c: (r) => <StatusBadge>{r.status}</StatusBadge> },
+              { h: "Status", c: (r) => <StatusBadge domain="recording" code={r.status} /> },
               { h: "Access until", c: (r) => accessText(r.access) },
               { h: "Download", c: (r) => (r.download_allowed ? "Download permitted" : "Streaming only — download not permitted") },
               {
@@ -75,9 +75,9 @@ export function Recordings() {
               {playing?.recording_code} · {playing?.playback.mode === "stream" ? "Streaming only" : "Download permitted"}
             </DialogDescription>
           </DialogHeader>
-          {playing?.status_note && <StatusNote state="Partial Data">{playing.status_note}</StatusNote>}
+          {playing?.status_note && <StatusNote tone="warning">{playing.status_note}</StatusNote>}
           {playing && !playing.playback.available ? (
-            <StatusNote state="Integration Unavailable">{playing.playback.message}</StatusNote>
+            <StatusNote tone="info">{playing.playback.message}</StatusNote>
           ) : (
             <div className="grid aspect-video place-items-center rounded-lg bg-navy text-sm text-navy-foreground">Player</div>
           )}

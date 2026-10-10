@@ -1,4 +1,4 @@
-/** Module 14 on the curriculum screens: topic details and dependencies, hours and the completion profile, required
+/** The curriculum screens: topic details and dependencies, hours and the completion profile, required
  * assessments, combo pins, the reusable library, academic mappings, equivalence rules and branch variations. */
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -8,7 +8,7 @@ import {
   type TopicRow,
 } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
-import { DataTable, Note, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, QueryView, Section, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { ActionDialog } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
@@ -19,7 +19,7 @@ const DECISIONS = [
   { value: "Rejected", label: "Reject" },
 ];
 
-/** Outcome, class, effort, weight, evidence and dependencies of one topic (Module 14 §2, §4). */
+/** Outcome, class, effort, weight, evidence and dependencies of one topic. */
 export function TopicDetails({ topic, siblings, editable }: { topic: TopicRow; siblings: TopicRow[]; editable: boolean }) {
   const update = useDelivery((body: Record<string, unknown>) => deliveryApi.updateTopic(topic.topic_id, body), "Topic updated");
   const others = siblings.filter((t) => t.topic_id !== topic.topic_id);
@@ -101,7 +101,7 @@ export function VersionPlanning({ version, editable, author }: { version: Curric
   return (
     <div className="grid gap-3 rounded-lg border p-3 text-sm sm:grid-cols-2">
       <div className="space-y-1">
-        <h4 className="font-semibold">Hours (Module 14 §6)</h4>
+        <h4 className="font-semibold">Hours</h4>
         {totals && (
           <>
             <p>
@@ -113,7 +113,7 @@ export function VersionPlanning({ version, editable, author }: { version: Curric
                 Included booster {totals.booster.track_code}: {hours(totals.booster.total_minutes)}
               </p>
             )}
-            <StatusBadge tone={totals.hours_verified ? "success" : "warning"}>{totals.hours_verified ? "Hours verified" : "Hours Pending"}</StatusBadge>
+            <Tag tone={totals.hours_verified ? "success" : "warning"}>{totals.hours_verified ? "Hours verified" : "Hours not verified"}</Tag>
             {totals.unestimated_topics > 0 && <p className="text-muted-foreground">{totals.unestimated_topics} topic(s) without an estimate</p>}
           </>
         )}
@@ -130,7 +130,7 @@ export function VersionPlanning({ version, editable, author }: { version: Curric
             Attendance ≥ {p.attendance_minimum_pct}% · pass mark {p.pass_mark_pct}% · recovery: {p.recovery_rule} · reassessment: {p.reassessment_rule}
           </p>
         ) : (
-          <StatusBadge tone="warning">Pending — nothing completes without it</StatusBadge>
+          <Tag tone="warning">Not set — nothing completes without it</Tag>
         )}
         {editable && author && (
           <ActionDialog
@@ -159,7 +159,7 @@ export function VersionPlanning({ version, editable, author }: { version: Curric
             {version.assessment_requirements!.map((r) => (
               <li key={r.requirement_id} className="flex flex-wrap items-center justify-between gap-2">
                 <span>
-                  <StatusBadge>{r.kind}</StatusBadge> {r.title} — {r.outcome} · weight {r.weight} · pass: {r.pass_rule}
+                  <Tag>{r.kind}</Tag> {r.title} — {r.outcome} · weight {r.weight} · pass: {r.pass_rule}
                 </span>
                 {editable && author && (
                   <Button size="sm" variant="ghost" onClick={() => deleteRequirement.mutate(r.requirement_id)}>
@@ -218,7 +218,7 @@ export function VersionPlanning({ version, editable, author }: { version: Curric
   );
 }
 
-/** A combo parent pins the exact version of each track and the booster (Module 14 §2). */
+/** A combo parent pins the exact version of each track and the booster. */
 export function ComboPins({ version, editable }: { version: CurriculumVersion; editable: boolean }) {
   const course = useQuery({
     queryKey: ["delivery", "overview"],
@@ -243,7 +243,7 @@ export function ComboPins({ version, editable }: { version: CurriculumVersion; e
         {components.map((c) => (
           <li key={c.component_id} className="flex flex-wrap items-center justify-between gap-2">
             <span>
-              {c.track_code} — {c.track_name}: {pinned.get(c.component_id)?.version_label ?? <StatusBadge tone="warning">Not pinned</StatusBadge>}
+              {c.track_code} — {c.track_name}: {pinned.get(c.component_id)?.version_label ?? <Tag tone="warning">Not pinned</Tag>}
             </span>
             {editable && (
               <ActionDialog
@@ -275,7 +275,7 @@ export function ComboPins({ version, editable }: { version: CurriculumVersion; e
   );
 }
 
-/** Record that a combo component matches its standalone course in outcomes, scope, depth and assessment (Module 14 §3). */
+/** Record that a combo component matches its standalone course in outcomes, scope, depth and assessment. */
 export function EquivalenceReview({ componentId, trackCode, note }: { componentId: number; trackCode: string; note?: string | null }) {
   const review = useDelivery((text: string) => deliveryApi.reviewEquivalence(componentId, text), "Equivalence review recorded");
   return (
@@ -394,7 +394,7 @@ export function CurriculumDecisions() {
             rows={page.data}
             getKey={(x) => x.variation_id}
             cols={[
-              { h: "Kind", c: (x) => <StatusBadge>{x.kind}</StatusBadge> },
+              { h: "Kind", c: (x) => <Tag>{x.kind}</Tag> },
               { h: "Variation", c: (x) => [x.description, x.remedial_plan && `Remedial plan: ${x.remedial_plan}`].filter(Boolean).join(" · ") },
               { h: "Recorded by", c: (x) => x.requested_by.full_name },
               {
@@ -445,7 +445,7 @@ export function CurriculumDecisions() {
   );
 }
 
-/** Record a branch or batch variation of an Approved / Active version (Module 14 §7). */
+/** Record a branch or batch variation of an Approved / Active version. */
 export function RecordVariation({ version }: { version: CurriculumVersion }) {
   const { profile } = useAuth();
   const create = useDelivery((body: Record<string, unknown>) => deliveryApi.createVariation(body), "Variation recorded");
@@ -496,7 +496,7 @@ export function CurriculumModelNote() {
 }
 
 
-/** Prepare an individual academic mapping to another version of the course (Module 14 §8); the Branch Manager of the receiving branch decides. */
+/** Prepare an individual academic mapping to another version of the course; the Branch Manager of the receiving branch decides. */
 export function PrepareMapping({ enrolmentId, courseId }: { enrolmentId: number; courseId: number }) {
   const versions = useQuery({
     queryKey: ["delivery", "versions", "mappable", courseId],

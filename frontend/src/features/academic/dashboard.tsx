@@ -22,7 +22,7 @@ export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) 
             {embedded ? (
               <h2 className="text-lg font-semibold">Academic work</h2>
             ) : (
-              <PageHead title="Academic dashboard" description={`${d.scope.label} · LMS academic domain`} />
+              <PageHead title="Academic dashboard" description={`${d.scope.label} · batches, classes and approvals that need you`} />
             )}
             <TileRow label="Priority tiles">
               <Tile
@@ -61,9 +61,9 @@ export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) 
               />
             </TileRow>
             {d.batch_risks.map((risk) => (
-              <StatusNote key={risk.batch_id} state={risk.readiness === "Blocked" ? "Failed" : "Pending Verification"}>
+              <StatusNote key={risk.batch_id} tone={risk.readiness === "Blocked" ? "danger" : "warning"}>
                 {risk.batch_code}: {risk.reason ?? risk.readiness}
-                {risk.recovery_owner && <> · Recovery Owner: {risk.recovery_owner}</>}. Paid receipts and Admissions are preserved.
+                {risk.recovery_owner && <> · Owner: {risk.recovery_owner}</>}. Paid receipts and Admissions are preserved.
               </StatusNote>
             ))}
             <QuickLinks title="Quick links" links={LINKS} />

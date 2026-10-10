@@ -83,7 +83,7 @@ export function AiControls() {
                 h: "State",
                 c: (c) =>
                   c.active ? (
-                    <StatusBadge>Off</StatusBadge>
+                    <StatusBadge domain="integration" code="Off" />
                   ) : (
                     `Restored ${fmtDateTime(c.restored_at)} — ${c.restoration_note ?? ""}`
                   ),

@@ -26,7 +26,7 @@ function Activate() {
     <AuthPage>
       <Section title={t("activateAccount")}>
         {!token ? (
-          <StatusNote state="Error">{t("forgotHelp")}</StatusNote>
+          <StatusNote tone="danger">{t("forgotHelp")}</StatusNote>
         ) : (
           <QueryView query={check}>
             {(result) =>
@@ -34,7 +34,7 @@ function Activate() {
                 <ActivationForm token={token} studentCode={result.student_code_masked} />
               ) : (
                 <div className="space-y-3">
-                  <StatusNote state="Error">
+                  <StatusNote tone="danger">
                     {result.status === "expired" ? "This activation link has expired." : "This activation link has already been used."}
                   </StatusNote>
                   {result.status === "expired" && <p className="text-sm text-muted-foreground">{t("forgotHelp")}</p>}

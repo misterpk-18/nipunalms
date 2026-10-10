@@ -30,7 +30,7 @@ function ReviewCard({ submission }: { submission: Submission }) {
   const id = submission.submission_id;
 
   return (
-    <Section title={`${assignment.title} — ${submission.student.full_name}`} actions={<StatusBadge>{state}</StatusBadge>} className="space-y-2">
+    <Section title={`${assignment.title} — ${submission.student.full_name}`} actions={<StatusBadge domain="work" code={state} />} className="space-y-2">
       <p className="text-sm text-muted-foreground">
         Submission v{submission.version_no} · {formatIst(submission.submitted_at)} · {submission.submission_code}
         {submission.is_late && " · Late"}

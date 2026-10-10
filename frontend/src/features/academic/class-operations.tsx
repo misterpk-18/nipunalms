@@ -1,4 +1,4 @@
-/** One live class under the Meet operations view (Module 16): people, incidents, disruptions, cover, shared batches and participation. */
+/** One live class under the Meet operations view: people, incidents, disruptions, cover, shared batches and participation. */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -16,7 +16,7 @@ import type { BranchRef } from "@/api/types";
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DataTable, PillTabs, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { ActionDialog, fmtDate, fmtRange, fromIstInput, toIstInput, useCanManage, useIsManager } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 import { useStaffOptions } from "@/features/shared/staff-picker";
@@ -49,7 +49,7 @@ function People({ target, ops }: { target: ClassTarget; ops: SessionOperations }
         getKey={(p) => p.session_person_id}
         empty="No host, backup or guest is named yet. The trainer hosts by default."
         cols={[
-          { h: "Role", c: (p: SessionPerson) => <StatusBadge tone={p.role === "Guest" ? "warning" : "info"}>{p.role}</StatusBadge> },
+          { h: "Role", c: (p: SessionPerson) => <Tag tone={p.role === "Guest" ? "warning" : "info"}>{p.role}</Tag> },
           {
             h: "Who",
             c: (p: SessionPerson) =>
@@ -75,7 +75,7 @@ function People({ target, ops }: { target: ClassTarget; ops: SessionOperations }
                 "—"
               ),
           },
-          { h: "Status", c: (p: SessionPerson) => <StatusBadge>{p.status}</StatusBadge> },
+          { h: "Status", c: (p: SessionPerson) => <StatusBadge domain="approval" code={p.status} /> },
           ...(manager
             ? [
                 {
@@ -248,7 +248,7 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
           { h: "Kind", c: (d: Disruption) => <><strong>{d.kind}</strong>{d.detail && <div>{d.detail}</div>}</> },
           { h: "Delay", c: (d: Disruption) => (d.delay_minutes != null ? `${d.delay_minutes} min` : "—") },
           { h: "Cause", c: (d: Disruption) => d.cause },
-          { h: "Status", c: (d: Disruption) => <StatusBadge tone={d.status === "Open" ? "warning" : "success"}>{d.status}</StatusBadge> },
+          { h: "Status", c: (d: Disruption) => <StatusBadge domain="approval" code={d.status} /> },
           {
             h: "Recovery",
             c: (d: Disruption) =>
@@ -297,7 +297,7 @@ function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations })
             h: "Status",
             c: (c: CoverRequest) => (
               <>
-                <StatusBadge>{c.status}</StatusBadge>
+                <StatusBadge domain="approval" code={c.status} />
                 <div className="mt-1 text-xs text-muted-foreground">
                   {c.approved_at ? `Approved by ${who(c.approved_by)}` : "Not approved yet"} · {c.verified_at ? `Verified by ${who(c.verified_by)}` : "Not verified yet"}
                 </div>
@@ -483,7 +483,7 @@ function ParticipationTab({ target, ops }: { target: ClassTarget; ops: SessionOp
             h: "Match",
             c: (p: Participation) => (
               <>
-                <StatusBadge tone={p.match_status === "Matched" ? "success" : p.match_status === "Dismissed" ? "neutral" : "warning"}>{p.match_status}</StatusBadge>
+                <StatusBadge domain="approval" code={p.match_status} />
                 {p.matched_user && <div className="text-xs text-muted-foreground">{p.matched_user.full_name}</div>}
               </>
             ),

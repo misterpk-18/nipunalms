@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { profileApi } from "@/api/profile";
-import { ConfirmAction, KeyValue, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
+import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { fmtDateTime, fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
@@ -34,7 +35,7 @@ export function Profile() {
                 <Section title="Identity">
                   <KeyValue
                     items={[
-                      ["Student Master ID", <span className="font-mono">{student.student_code}</span>],
+                      ["Student ID", <span className="font-mono">{student.student_code}</span>],
                       ["Name", lang === "te" && student.name_te ? student.name_te : student.full_name],
                       ["Email", student.email ?? "No email on file (optional)"],
                       [
@@ -45,7 +46,7 @@ export function Profile() {
                       ],
                       ["Original / admitting branch", student.original_branch.branch_name],
                       ["Current service branch", student.service_branch.branch_name],
-                      ["Activation", <StatusBadge>{student.activation_status}</StatusBadge>],
+                      ["Activation", <StatusBadge domain="account" code={student.activation_status} />],
                     ]}
                   />
                 </Section>
@@ -83,16 +84,16 @@ export function Profile() {
                 title="Devices & sessions"
                 actions={
                   profile.devices.length > 1 && (
-                    <ConfirmAction
+                    <ConfirmDialog
                       title="Sign out other devices?"
-                      description="Every session except this one is ended."
+                      consequence="Every other device is signed out now. You stay signed in here."
                       confirmLabel="Sign out others"
                       onConfirm={async () => void (await signOutOthers.mutateAsync())}
                     >
                       <Button variant="outline" size="sm">
                         Sign out other devices
                       </Button>
-                    </ConfirmAction>
+                    </ConfirmDialog>
                   )
                 }
               >
@@ -103,7 +104,7 @@ export function Profile() {
                         {d.label} — {d.current ? "this device" : fmtDateTime(d.last_seen_at)}
                       </span>
                       {d.current ? (
-                        <StatusBadge tone="success">Active</StatusBadge>
+                        <Tag tone="success">Active</Tag>
                       ) : (
                         <Button variant="outline" size="sm" onClick={() => signOut.mutate(d.session_id)} aria-label={`Sign out ${d.label}`}>
                           Sign out

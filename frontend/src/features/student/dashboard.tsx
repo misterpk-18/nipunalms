@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMyHome, type StudentHome } from "@/api/dashboards";
+import { EmptyState } from "@/components/lms/empty-state";
 import { Grid, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Meter } from "@/features/shared/attendance-parts";
 import { CardGap, Tile } from "@/features/shared/dashboard-parts";
 import { fmtDate, fmtDateTime, fmtRange } from "@/features/shared/format";
 import { useLanguage, useT } from "@/lib/i18n";
+import { statusInfo } from "@/lib/status";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -128,7 +130,7 @@ function Cards({ home }: { home: StudentHome }) {
               · {fmtDate(rec.class_date)}
             </p>
             <div className="mt-2">
-              <StatusBadge>{rec.status}</StatusBadge>
+              <StatusBadge domain="recording" code={rec.status} />
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {rec.access_until ? `Access until ${fmtDate(rec.access_until)}` : "Access window pending — set once your Joining Date is confirmed"}
@@ -155,14 +157,14 @@ function Cards({ home }: { home: StudentHome }) {
       <HomeCard title={t("attendanceAlert")}>
         {att.state === "Ready" ? (
           att.latest_absence ? (
-            <StatusNote state={att.latest_absence.recovery ? "Pending Verification" : att.alert ? "Error" : "Not Submitted"}>
+            <StatusNote tone={att.latest_absence.recovery ? "warning" : att.alert ? "danger" : "info"}>
               {att.latest_absence.recovery
                 ? `Absence on ${fmtDate(att.latest_absence.starts_at)} has a recovery reference (${att.latest_absence.recovery.recovery_code}, ${att.latest_absence.recovery.status}).`
                 : `Absence on ${fmtDate(att.latest_absence.starts_at)} has no recovery request yet.`}
               {att.alert && ` Attendance is below ${att.alert_threshold}%.`}
             </StatusNote>
           ) : att.alert ? (
-            <StatusNote state="Error">Attendance is below {att.alert_threshold}%.</StatusNote>
+            <StatusNote tone="danger">Attendance is below {att.alert_threshold}%.</StatusNote>
           ) : (
             <p className="text-sm text-muted-foreground">No absence to recover. Attendance is on track.</p>
           )
@@ -173,7 +175,7 @@ function Cards({ home }: { home: StudentHome }) {
       <HomeCard title={t("certStatus")}>
         {cert.state === "Ready" ? (
           <>
-            <StatusBadge>{cert.status}</StatusBadge>
+            <StatusBadge domain="certificate" code={cert.status} />
             <p className="mt-1 text-xs text-muted-foreground">From LMS Certificate Register.</p>
           </>
         ) : (
@@ -207,7 +209,7 @@ function Cards({ home }: { home: StudentHome }) {
       <HomeCard title={t("askNipuna")}>
         {ai.state === "Ready" ? (
           <>
-            <StatusBadge>{ai.mode === "ai" ? ai.status : `${ai.status} (rule-based)`}</StatusBadge>
+            <StatusBadge domain="assistant" code={ai.status} label={ai.mode === "ai" ? undefined : `${statusInfo("assistant", ai.status).label} (rule-based)`} />
             <p className="mt-1 text-xs text-muted-foreground">
               {ai.used} of {ai.limit} daily responses used (IST).
             </p>
@@ -221,10 +223,10 @@ function Cards({ home }: { home: StudentHome }) {
 }
 
 function Freshness({ engagement }: { engagement: StudentHome["engagement"] }) {
-  if (engagement.state === "Stale") return <StatusNote state="Stale">{engagement.message} Shown as Stale rather than as zero.</StatusNote>;
-  if (engagement.state === "Fresh") return <StatusNote state="Saved">Engagement data last refreshed {fmtDateTime(engagement.refreshed_at)}.</StatusNote>;
-  if (engagement.state === "Unavailable") return <StatusNote state="Error">{engagement.message ?? "Engagement data could not be loaded."}</StatusNote>;
-  return <StatusNote state="Empty">{engagement.message}</StatusNote>;
+  if (engagement.state === "Stale") return <StatusNote tone="warning">{engagement.message} Shown as out of date rather than as zero.</StatusNote>;
+  if (engagement.state === "Fresh") return <StatusNote tone="success">Engagement data last refreshed {fmtDateTime(engagement.refreshed_at)}.</StatusNote>;
+  if (engagement.state === "Unavailable") return <StatusNote tone="danger">{engagement.message ?? "Engagement data could not be loaded."}</StatusNote>;
+  return <EmptyState reason={engagement.message ?? "No engagement data yet."} />;
 }
 
 export function StudentHome() {

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
+import { Breadcrumbs } from "@/components/lms/breadcrumbs";
 import { deliveryApi } from "@/api/delivery";
 import { PageHead, QueryView } from "@/components/lms/ui";
 import { DeliveryBar } from "@/features/shared/delivery-ui";
@@ -16,16 +17,13 @@ export function TrackDetail() {
       <QueryView query={query}>
         {({ enrolment, track, delivery, modules }) => (
           <>
-            <nav aria-label="Breadcrumb" className="mb-2 text-sm">
-              <Link to="/my-courses" className="text-primary underline">
-                My Courses
-              </Link>{" "}
-              /{" "}
-              <Link to="/courses/$enrolmentId" params={{ enrolmentId }} className="text-primary underline">
-                {enrolment.course.course_code} (parent)
-              </Link>{" "}
-              / {track.track_code}
-            </nav>
+            <Breadcrumbs
+              items={[
+                { label: "My Courses", to: "/my-courses" },
+                { label: `${enrolment.course.course_code} (parent)`, to: `/courses/${enrolmentId}` },
+                { label: track.track_code },
+              ]}
+            />
             <div className="mb-3 rounded-lg border bg-muted px-3 py-2 text-sm">
               <strong>Parent programme:</strong> {enrolment.course.course_code} — {enrolment.course.title}
               {enrolment.curriculum_version ? ` · ${enrolment.curriculum_version.version_label}` : ""}

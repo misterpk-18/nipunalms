@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { assessmentsApi, type AttemptRow } from "@/api/assessments";
-import { DataTable, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, QueryView, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -119,7 +119,7 @@ export function GradingQueue() {
                     "—"
                   ),
               },
-              { h: "State", c: (a) => <StatusBadge>{`${a.manual_pending} to grade`}</StatusBadge> },
+              { h: "State", c: (a) => <Tag tone="warning">{`${a.manual_pending} to grade`}</Tag> },
               {
                 h: "Action",
                 c: (a) => (

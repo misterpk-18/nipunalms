@@ -15,7 +15,7 @@ test("a coordinator sees state labels and the 7-point readiness record on a batc
 
   // The list names states the way the people who run batches do
   const running = page.getByRole("row", { name: /NIT-GNT-BAT-2026-000001/ });
-  await expect(running).toContainText("In Progress");
+  await expect(running).toContainText("In progress");
   await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ }).first()).toContainText("Draft");
   await expect(page.getByLabel("Filter by state")).toContainText("Confirmed");
   await expect(page.getByLabel("Filter by state")).toContainText("On Hold");

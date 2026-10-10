@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { deliveryApi, type MyEnrolment } from "@/api/delivery";
-import { Note, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
+import { Note, PageHead, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { useT } from "@/lib/i18n";
 import { DeliveryBar, mono } from "@/features/shared/delivery-ui";
 import { MaterialChangesCard, SlotPreferenceCard } from "./batch-changes";
@@ -25,15 +25,15 @@ export function MyCourses() {
   const query = useQuery({ queryKey: ["delivery", "my-enrolments"], queryFn: deliveryApi.myEnrolments });
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHead title={t("myCourses")} description="One Student Master · multiple Admissions and Course Enrolments" />
+      <PageHead title={t("myCourses")} description="Your courses, batches and course progress, and any batch changes that need your answer." />
       <QueryView query={query} isEmpty={(rows) => rows.length === 0} empty="You have no course enrolments yet.">
         {(rows) => (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {rows.map((e) => (
               <section key={e.enrolment_id} className="flex flex-col rounded-xl border bg-card p-4 shadow-sm" aria-label={e.course.title}>
                 <div className="flex flex-wrap gap-2">
-                  <StatusBadge tone="info">{kindLabel(e.kind)}</StatusBadge>
-                  <StatusBadge>{e.status}</StatusBadge>
+                  <Tag tone="info">{kindLabel(e.kind)}</Tag>
+                  <StatusBadge domain="enrolment" code={e.status} />
                 </div>
                 <p className="mt-3">{mono(e.course.course_code)}</p>
                 <h2 className="font-semibold">{e.course.title}</h2>

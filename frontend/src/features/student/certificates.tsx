@@ -8,7 +8,7 @@ export function Certificates() {
   const query = useMyCertificates();
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <PageHead title={t("certificates")} description="LMS Certificate Register · Course Completion and Internship certificates" />
+      <PageHead title={t("certificates")} description="Your Course Completion and Internship certificates." />
       <Note>
         Certificates come from a completion review, not from a percentage. The number is allocated when a certificate is issued and stays the same if it is
         reissued.
@@ -19,8 +19,8 @@ export function Certificates() {
             <h2 className="text-lg font-semibold">My certificates</h2>
             <CertificateTable rows={data.certificates} withActions={false} />
             {data.configuration_pending.map((p) => (
-              <StatusNote key={p.enrolment.enrolment_id} state="Pending Verification">
-                {p.enrolment.course.course_code} (complimentary): Configuration Pending — {p.message.toLowerCase()}.
+              <StatusNote key={p.enrolment.enrolment_id} tone="warning">
+                {p.enrolment.course.course_code} (complimentary): not set up yet — {p.message.toLowerCase()}.
               </StatusNote>
             ))}
           </>

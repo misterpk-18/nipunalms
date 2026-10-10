@@ -53,7 +53,7 @@ export function AccessDenied() {
   const { profile } = useAuth();
   return (
     <div className="mx-auto max-w-lg py-10">
-      <StatusNote state="Permission Restricted">
+      <StatusNote tone="info">
         Your role ({[...new Set(profile?.scopes.map((s) => s.role_name))].join(" · ")}) cannot open this workspace.{" "}
         <Link className="underline" to={profile?.home_route ?? "/"}>
           Go to your home

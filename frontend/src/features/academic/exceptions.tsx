@@ -16,7 +16,7 @@ export function AcademicExceptions() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
-      <PageHead title="Exception / Recovery queue" description="Open exceptions from every academic area at your branch. Each needs a named recovery owner." />
+      <PageHead title="Exception / Recovery queue" description="Open exceptions from every academic area at your branch. Each needs a named owner." />
       <div className="max-w-64">
         <NativeSelect
           aria-label="Exception type"
@@ -44,8 +44,8 @@ export function AcademicExceptions() {
                 { h: "ID", c: (i) => i.reference },
                 { h: "Type", c: (i) => <ItemCell item={i} /> },
                 ...(manyBranches ? [{ h: "Branch", c: (i: (typeof page.data)[number]) => i.branch?.branch_name ?? "All branches" }] : []),
-                { h: "Recovery owner", c: (i) => <OwnerCell item={i} /> },
-                { h: "State", c: (i) => <StatusBadge>{i.state}</StatusBadge> },
+                { h: "Owner", c: (i) => <OwnerCell item={i} /> },
+                { h: "State", c: (i) => <StatusBadge domain="exception" code={i.state} /> },
                 { h: "Age", c: (i) => ageText(i.age_days) },
                 { h: "Action", c: (i) => (canLog ? <RecoveryStepButton item={i} /> : <span className="text-xs text-muted-foreground">Read only</span>) },
               ]}

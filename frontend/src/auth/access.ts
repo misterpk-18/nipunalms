@@ -186,7 +186,7 @@ export function mobileBarItems(workspace: Workspace): NavItem[] {
   return pinned ? pinned.map((to) => items.find((i) => i.to === to)!) : items.slice(0, 4);
 }
 
-const WORKSPACE_ROOTS = ["/trainer", "/branch", "/admin"];
+const WORKSPACE_ROOTS = ["/trainer", "/branch", "/admin", "/founder"];
 
 /** Workspace index links match exactly; every other item is active for its own sub-paths too. */
 export function isNavActive(path: string, to: string): boolean {

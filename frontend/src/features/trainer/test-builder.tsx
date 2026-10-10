@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { assessmentsApi, batchesForAuthoring, TEST_KINDS, type TestItem } from "@/api/assessments";
 import { Field, NativeSelect } from "@/components/lms/forms";
-import { DataTable, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -161,11 +161,11 @@ export function TestBuilder() {
             getKey={(t) => t.test_id}
             cols={[
               { h: "Title", c: (t) => <span className="font-medium">{t.title}</span> },
-              { h: "Type", c: (t) => <StatusBadge tone="info">{t.kind}</StatusBadge> },
+              { h: "Type", c: (t) => <Tag tone="info">{t.kind}</Tag> },
               { h: "Batch", c: (t) => <span className="font-mono text-xs">{t.batch.batch_code}</span> },
               { h: "Duration", c: (t) => (t.duration_minutes ? `${t.duration_minutes} min` : "Untimed") },
               { h: "Window", c: (t) => (t.opens_at || t.closes_at ? `${formatIst(t.opens_at)} → ${formatIst(t.closes_at)}` : "—") },
-              { h: "State", c: (t) => <StatusBadge>{t.status}</StatusBadge> },
+              { h: "State", c: (t) => <StatusBadge domain="test" code={t.status === "Available" ? "Released" : t.status} /> },
               { h: "Missing", c: (t) => (t.gaps?.length ? t.gaps.join("; ") : "Ready") },
               {
                 h: "Actions",

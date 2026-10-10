@@ -18,7 +18,7 @@ export function AdminDashboard() {
       <QueryView query={query}>
         {(d) => (
           <>
-            <PageHead title="Super Admin — all authorised branches" description="Readiness register and exception queues" />
+            <PageHead title="Super Admin — all authorised branches" description="Check integration readiness and work through the open exception queues." />
             <TileRow label="Priority tiles">
               <Tile
                 rank={1}
@@ -46,7 +46,7 @@ export function AdminDashboard() {
               <Tile label="Failed provisioning" value={d.provisioning.count} hint="Access held back until the enrolment is provisioned" to="/admin/students" />
               <Tile label="Open exceptions (all queues)" value={d.open_exceptions.count} to="/admin/exceptions" />
             </TileRow>
-            <StatusNote state="Integration Unavailable">
+            <StatusNote tone="info">
               CRM/LMS sync, Meet, Drive, AI and messaging are not verified; nothing here is treated as live.
             </StatusNote>
 
@@ -58,7 +58,7 @@ export function AdminDashboard() {
                 cols={[
                   { h: "Flow", c: (f) => f.flow },
                   { h: "Last successful", c: (f) => (f.last_successful_at ? istDateTime(f.last_successful_at) : "Never") },
-                  { h: "State", c: (f) => <StatusBadge>{f.state}</StatusBadge> },
+                  { h: "State", c: (f) => <StatusBadge domain="integration" code={f.state} /> },
                   { h: "Detail", c: (f) => f.detail ?? "—" },
                 ]}
               />
@@ -83,20 +83,20 @@ export function AdminDashboard() {
                   { h: "ID", c: (p) => p.reference },
                   { h: "Item", c: (p) => p.detail ?? p.title },
                   { h: "Issue", c: (p) => p.title },
-                  { h: "State", c: (p) => <StatusBadge>{p.state}</StatusBadge> },
+                  { h: "State", c: (p) => <StatusBadge domain="exception" code={p.state} /> },
                 ]}
               />
             </Section>
 
             <Section title="AI status">
               <p className="text-sm">
-                Ask Nipuna: <StatusBadge>{d.ai.state}</StatusBadge> · Student {d.ai.student_daily_limit} / Staff {d.ai.staff_daily_limit} responses per IST day
+                Ask Nipuna: <StatusBadge domain="assistant" code={d.ai.state} /> · Student {d.ai.student_daily_limit} / Staff {d.ai.staff_daily_limit} responses per IST day
                 ·{" "}
                 {d.ai.monthly_ceiling.state === "Configured" ? (
                   <>monthly rupee ceiling ₹{d.ai.monthly_ceiling.amount_inr.toLocaleString("en-IN")}</>
                 ) : (
                   <>
-                    monthly rupee ceiling not yet approved (<StatusBadge>Configuration Pending</StatusBadge>)
+                    monthly rupee ceiling not yet approved (<StatusBadge domain="figure" code="Configuration Pending" />)
                   </>
                 )}
                 .
@@ -104,7 +104,7 @@ export function AdminDashboard() {
             </Section>
 
             <QuickLinks title="Go to" links={LINKS} />
-            <Note>Readiness views only — no live administration. Server/API permissions remain production Pending Verification.</Note>
+            <Note>Readiness views only — no live administration. Server/API permissions still have to be checked before go-live.</Note>
           </>
         )}
       </QueryView>

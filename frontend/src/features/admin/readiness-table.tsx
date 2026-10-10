@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
-import { DataTable, StatusBadge, type Tone } from "@/components/lms/ui";
+import { DataTable, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
 import { FormDialog } from "./shared";
 import { istDateTime } from "./format";
@@ -23,20 +23,6 @@ export type ReadinessRow = {
   notes: string | null;
   verified_at: string | null;
   last_checked_at: string | null;
-};
-
-const CONFIGURATION_TONE: Record<ConfigurationStatus, Tone> = {
-  "Not Configured": "neutral",
-  "Configuration Pending": "warning",
-  Configured: "success",
-  Misconfigured: "danger",
-};
-
-const VERIFICATION_TONE: Record<VerificationStatus, Tone> = {
-  "Not Verified": "neutral",
-  "Pending Verification": "warning",
-  Verified: "success",
-  Failed: "danger",
 };
 
 export function ReadinessTable({ rows, caption, onEdit }: { rows: ReadinessRow[]; caption: string; onEdit?: (row: ReadinessRow) => void }) {
@@ -57,12 +43,12 @@ export function ReadinessTable({ rows, caption, onEdit }: { rows: ReadinessRow[]
           ),
         },
         { h: "Requirement", c: (r) => <span className="text-sm">{r.requirement}</span> },
-        { h: "Configuration", c: (r) => <StatusBadge tone={CONFIGURATION_TONE[r.configuration_status]}>{r.configuration_status}</StatusBadge> },
+        { h: "Configuration", c: (r) => <StatusBadge domain="integration" code={r.configuration_status} /> },
         {
           h: "Operational verification",
           c: (r) => (
             <>
-              <StatusBadge tone={VERIFICATION_TONE[r.verification_status]}>{r.verification_status}</StatusBadge>
+              <StatusBadge domain="integration" code={r.verification_status} />
               {r.evidence && <div className="mt-1 text-xs text-muted-foreground">Evidence: {r.evidence}</div>}
               {r.verified_at && <div className="text-xs text-muted-foreground">Verified {istDateTime(r.verified_at)}</div>}
             </>

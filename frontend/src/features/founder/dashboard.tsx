@@ -14,7 +14,7 @@ export function FounderDashboard() {
           const access = d.decisions.access_exceptions;
           return (
             <>
-              <PageHead title="Founder / CEO overview" description="LMS academic domain (Module 25 ordering)" />
+              <PageHead title="Founder / CEO overview" description="See the academic picture across branches and the decisions waiting for you." />
               <TileRow label="Priority tiles">
                 <CrmTile rank={1} label="Verified collections against target" figure={d.crm.verified_collections} />
                 <CrmTile rank={2} label="New paid Admissions against target" figure={d.crm.new_paid_admissions} />
@@ -42,7 +42,7 @@ export function FounderDashboard() {
                 <ul className="space-y-2 text-sm">
                   <li className="flex flex-wrap justify-between gap-2">
                     <span>Approve monthly AI rupee ceiling (after developer estimate)</span>
-                    <StatusBadge>{ceiling.state === "Configured" ? `Configured — ₹${ceiling.amount_inr.toLocaleString("en-IN")}` : ceiling.state}</StatusBadge>
+                    <StatusBadge domain="figure" code={ceiling.state} label={ceiling.state === "Configured" ? `Set — ₹${ceiling.amount_inr.toLocaleString("en-IN")}` : undefined} />
                   </li>
                   {access.items.map((item) => (
                     <li key={item.request_id} className="flex flex-wrap justify-between gap-2">
@@ -52,7 +52,7 @@ export function FounderDashboard() {
                           Decide
                         </Link>
                       </span>
-                      <StatusBadge>{access.state}</StatusBadge>
+                      <StatusBadge domain="figure" code={access.state} />
                     </li>
                   ))}
                   {access.count === 0 && (
@@ -64,7 +64,7 @@ export function FounderDashboard() {
                 </ul>
               </Section>
 
-              <StatusNote state="Integration Unavailable">Revenue and collections are CRM figures — not shown here.</StatusNote>
+              <StatusNote tone="info">Revenue and collections are CRM figures — not shown here.</StatusNote>
               <div className="flex flex-wrap gap-2 text-sm">
                 <Link to="/admin" className="tap inline-flex items-center rounded-lg border px-3 hover:bg-accent">
                   Super Admin view
@@ -73,7 +73,7 @@ export function FounderDashboard() {
                   Branch views
                 </Link>
               </div>
-              <Note>Only approved Module 25 ordering is used; unavailable sources display as Not Configured.</Note>
+              <Note>Figures from sources that are not connected show as not connected instead of zero.</Note>
             </>
           );
         }}

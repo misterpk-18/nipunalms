@@ -22,7 +22,7 @@ function VerifyCertificate() {
         <QueryView query={query}>
           {(c) => (
             <div className="space-y-3">
-              <StatusNote state={c.state === "Valid — Current Version" ? "Saved" : c.state === "Revoked" ? "Error" : "Stale"}>
+              <StatusNote tone={c.state === "Valid — Current Version" ? "success" : c.state === "Revoked" ? "danger" : "warning"}>
                 {c.state}
                 {c.current_version && ` — the current copy is version ${c.current_version.version} (${c.current_version.state})`}
               </StatusNote>

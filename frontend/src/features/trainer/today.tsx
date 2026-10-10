@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { dashboardKeys, dashboardsApi, useTrainerToday, type TodaySession, type TrainerToday } from "@/api/dashboards";
 import { deliveryApi } from "@/api/delivery";
+import { EmptyState } from "@/components/lms/empty-state";
 import { Grid, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,9 +41,9 @@ function MeetStep({ session, onContinue }: { session: TodaySession; onContinue: 
           ) : (
             <Button disabled>Join / Start Meet</Button>
           )}
-          <StatusBadge>{meet.label}</StatusBadge>
+          <StatusBadge domain="meet" code={meet.status} label={meet.label} />
           <span className="text-xs text-muted-foreground">
-            {meet.link ? "Opens Google Meet as the branch organizer." : "The organizer link is not associated yet."}
+            {meet.link ? "Opens Google Meet as the branch organizer." : "The Meet link is not set yet."}
             {meet.organizer_email && ` Meet organizer: ${meet.organizer_email}.`}
           </span>
         </div>
@@ -57,7 +58,7 @@ function MeetStep({ session, onContinue }: { session: TodaySession; onContinue: 
 function NotesStep({ session, onSaved }: { session: TodaySession; onSaved: () => void }) {
   const [notes, setNotes] = useState(session.notes ?? "");
   const save = useApiMutation((value: string) => dashboardsApi.saveSessionNotes(session.session_id, value), {
-    success: "Close-out saved. Recording mapping stays Pending Verification.",
+    success: "Close-out saved. The recording is still waiting to be matched to this class.",
     onSuccess: onSaved,
   });
   return (
@@ -88,7 +89,7 @@ function SessionFlow({ session }: { session: TodaySession }) {
       <p className="mb-3 text-sm text-muted-foreground">
         {fmtDate(session.starts_at)} · {fmtRange(session.starts_at, session.ends_at)} · <span className="font-mono text-xs">{session.batch.batch_code}</span> ·{" "}
         {session.mode}
-        {session.room ? ` · ${session.room}` : ""} <StatusBadge>{session.state}</StatusBadge>
+        {session.room ? ` · ${session.room}` : ""} <StatusBadge domain="session" code={session.state} />
       </p>
       <ol className="mb-4 grid gap-2 sm:grid-cols-5" aria-label="Session flow">
         {STEPS.map((label, i) => (
@@ -146,8 +147,8 @@ function SessionFlow({ session }: { session: TodaySession }) {
       )}
       {step === 4 && <NotesStep session={session} onSaved={refresh} />}
       {step === 5 && (
-        <StatusNote state="Saved">
-          Session closed out. Recording mapping: {session.recording.mapping}.
+        <StatusNote tone="success">
+          Session closed out. Recording: {session.recording.mapping === "Mapped" ? "matched to this class" : "waiting to be matched to this class"}.
           {session.notes && <span className="mt-1 block text-xs">Notes: {session.notes}</span>}
         </StatusNote>
       )}
@@ -215,7 +216,7 @@ export function TrainerToday() {
   const query = useTrainerToday();
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHead title="Today" description="Trainer · scope: assigned batches & students only" />
+      <PageHead title="Today" description="Run today's classes and see what needs your attention." />
       <QueryView query={query}>
         {(data) => (
           <>
@@ -224,7 +225,7 @@ export function TrainerToday() {
               data.today.sessions.map((session) => <SessionFlow key={session.session_id} session={session} />)
             ) : (
               <div className="mt-6">
-                {data.today.state === "Empty" ? <StatusNote state="Empty">No assigned session scheduled today.</StatusNote> : <CardGap card={data.today} />}
+                {data.today.state === "Empty" ? <EmptyState reason="No class is scheduled for you today." /> : <CardGap card={data.today} />}
               </div>
             )}
             <div className="mt-4">

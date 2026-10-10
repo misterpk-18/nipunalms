@@ -34,7 +34,7 @@ test("trainer uploads and submits content, coordinator approves and releases it,
   const row = page.getByRole("row", { name: new RegExp(TITLE) });
   await expect(row).toContainText("Draft");
   await row.getByRole("button", { name: "Submit for review" }).click();
-  await expect(row).toContainText("Submitted");
+  await expect(row).toContainText("Waiting for review");
 
   await signInAs(page, USERS.coordGnt);
   await page.goto("/branch/content-review");
@@ -71,17 +71,17 @@ test("student recordings show status, expiry and policy; the coordinator works t
 
   await signInAs(page, USERS.student);
   await page.goto("/recordings");
-  await expect(page.getByRole("row", { name: /Window functions lab/ })).toContainText("Released");
+  await expect(page.getByRole("row", { name: /Window functions lab/ })).toContainText("Available");
   await expect(page.getByRole("row", { name: /Window functions lab/ })).toContainText("Until 12 Jan 2027");
   await expect(page.getByRole("row", { name: /Window functions lab/ })).toContainText("Streaming only — download not permitted");
-  await expect(page.getByRole("row", { name: /Linear regression intuition/ })).toContainText("Partial");
+  await expect(page.getByRole("row", { name: /Linear regression intuition/ })).toContainText("Partly available");
   await expect(page.getByRole("row", { name: /Logistic regression & odds/ })).toContainText("Not playable");
   await expect(page.getByText("EXT-031 pending")).toBeVisible();
   await page
     .getByRole("row", { name: /Window functions lab/ })
     .getByRole("button", { name: "Watch" })
     .click();
-  await expect(page.getByRole("dialog")).toContainText("Integration Unavailable");
+  await expect(page.getByRole("dialog")).toContainText("Google Drive recording integration");
   await page.keyboard.press("Escape");
 
   await signInAs(page, USERS.coordGnt);
@@ -93,7 +93,7 @@ test("student recordings show status, expiry and policy; the coordinator works t
     .getByRole("row", { name: /RX-0012/ })
     .getByRole("button", { name: "Start" })
     .click();
-  await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("In Progress");
+  await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("In progress");
 
   // Releasing the held recording closes RX-0013
   await page.getByRole("tab", { name: "Recordings" }).click();
@@ -107,7 +107,7 @@ test("student recordings show status, expiry and policy; the coordinator works t
 
   await signInAs(page, USERS.student);
   await page.goto("/recordings");
-  await expect(page.getByRole("row", { name: /Logistic regression & odds/ })).toContainText("Released");
+  await expect(page.getByRole("row", { name: /Logistic regression & odds/ })).toContainText("Available");
 });
 
 test("an access-extension request is approved by the branch and the student sees the new expiry", async ({ page, request }, info) => {

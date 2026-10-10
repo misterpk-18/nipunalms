@@ -47,7 +47,7 @@ test("student home shows the ranked tiles and every card for Anvitha, and switch
   await expect(learning.getByRole("link")).toHaveAttribute("href", /\/topics\/\d+/);
   const recording = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "Latest Released Recording", exact: true }) });
   await expect(recording.getByRole("link")).toHaveAttribute("href", "/recordings");
-  await expect(recording.getByText("Released", { exact: true })).toBeVisible();
+  await expect(recording.getByText("Available", { exact: true })).toBeVisible();
   await expect(recording.getByText(/Access until \d{1,2} \w{3,4} \d{4}/)).toBeVisible();
   await expect(page.getByText(/REC-0041/)).toBeVisible();
   await expect(page.getByText("Not Yet Eligible")).toBeVisible();
@@ -85,7 +85,7 @@ test("trainer today: tiles, the empty state, then the session flow from open to 
   await expect(page.getByText("Submissions awaiting my review")).toBeVisible();
   await expect(page.getByText("Assigned students with open support flags")).toBeVisible();
   await expect(page.getByText(/Oldest: \d+ days?/)).toBeVisible();
-  await expect(page.getByText("No assigned session scheduled today.")).toBeVisible();
+  await expect(page.getByText("No class is scheduled for you today.")).toBeVisible();
   await expect(page.getByText(/Trainers see only assigned batches and students/)).toBeVisible();
 
   // the coordinator schedules a class for today (ten minutes from now, IST)

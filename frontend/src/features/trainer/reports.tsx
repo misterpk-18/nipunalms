@@ -1,4 +1,5 @@
 import { useTrainerReports, type TrainerReports as Reports } from "@/api/dashboards";
+import { EmptyState } from "@/components/lms/empty-state";
 import { Grid, Note, PageHead, QueryView, Section, StatusNote } from "@/components/lms/ui";
 import { Meter } from "@/features/shared/attendance-parts";
 import { CardGap } from "@/features/shared/dashboard-parts";
@@ -17,7 +18,7 @@ function PerBatch({ reports, measure }: { reports: Reports; measure: "delivery" 
           />
           {measure === "attendance" && row.attendance.state === "Partial Data" && (
             <div className="mt-2">
-              <StatusNote state="Partial Data">
+              <StatusNote tone="warning">
                 {row.attendance.partial_data} student(s) have unmarked delivered classes, so the batch average is provisional.
               </StatusNote>
             </div>
@@ -32,24 +33,24 @@ function PerBatch({ reports, measure }: { reports: Reports; measure: "delivery" 
 }
 
 function Turnaround({ data }: { data: Reports["review_turnaround"] }) {
-  if (data.state === "Unavailable") return <StatusNote state="Error">{data.message}</StatusNote>;
-  if (data.state === "Empty") return <StatusNote state="Empty">{data.message}</StatusNote>;
+  if (data.state === "Unavailable") return <StatusNote tone="danger">{data.message}</StatusNote>;
+  if (data.state === "Empty") return <EmptyState reason={data.message ?? "Nothing has been reviewed yet."} />;
   return (
     <div className="space-y-2">
       <p className="text-3xl font-semibold tabular-nums">{data.average_hours === null ? "—" : `${data.average_hours} h`}</p>
       <p className="text-xs text-muted-foreground">
         Average time from submission to review across {data.measured} of {data.reviewed} reviewed submission(s).
       </p>
-      {data.state === "Partial Data" && <StatusNote state="Partial Data">{data.message}</StatusNote>}
+      {data.state === "Partial Data" && <StatusNote tone="warning">{data.message}</StatusNote>}
     </div>
   );
 }
 
 function Engagement({ data }: { data: Reports["engagement"] }) {
-  if (data.state === "Stale") return <StatusNote state="Stale">{data.message} Shown as Stale rather than as zero.</StatusNote>;
-  if (data.state === "Unavailable") return <StatusNote state="Error">{data.message}</StatusNote>;
+  if (data.state === "Stale") return <StatusNote tone="warning">{data.message} Shown as out of date rather than as zero.</StatusNote>;
+  if (data.state === "Unavailable") return <StatusNote tone="danger">{data.message}</StatusNote>;
   return (
-    <StatusNote state="Saved">
+    <StatusNote tone="success">
       Latest learning activity across {data.students} student(s): {fmtDateTime(data.refreshed_at)}.
     </StatusNote>
   );
@@ -59,7 +60,7 @@ export function TrainerReports() {
   const query = useTrainerReports();
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <PageHead title="Reports" description="Assigned batches only · source: LMS reporting" />
+      <PageHead title="Reports" description="Delivery, attendance and review figures for the batches assigned to you." />
       <QueryView query={query}>
         {(reports) => (
           <>

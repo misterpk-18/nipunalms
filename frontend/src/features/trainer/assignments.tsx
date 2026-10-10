@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { assessmentsApi, batchesForAuthoring, ASSIGNMENT_KINDS, AI_RULES, type Assignment } from "@/api/assessments";
-import { ConfirmAction, DataTable, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
+import { DataTable, PageHead, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -144,7 +145,7 @@ function SubmissionsDialog({ assignment, onClose }: { assignment: Assignment | n
                 { h: "Student", c: (s) => s.student.full_name },
                 { h: "Version", c: (s) => `v${s.version_no}${s.is_late ? " (late)" : ""}` },
                 { h: "Submitted", c: (s) => formatIst(s.submitted_at) },
-                { h: "State", c: (s) => <StatusBadge>{s.review ? s.review.outcome : s.review_started_at ? "Under Review" : "Submitted"}</StatusBadge> },
+                { h: "State", c: (s) => <StatusBadge domain="work" code={s.review ? s.review.outcome : s.review_started_at ? "Under Review" : "Submitted"} /> },
               ]}
             />
           )}
@@ -212,9 +213,9 @@ export function TrainerAssignments() {
               { h: "Title", c: (a) => <span className="font-medium">{a.title}</span> },
               { h: "Batch", c: (a) => <span className="font-mono text-xs">{a.batch.batch_code}</span> },
               { h: "Topic", c: (a) => a.topic?.title ?? "—" },
-              { h: "Type", c: (a) => <StatusBadge tone={a.is_required ? "info" : "neutral"}>{a.is_required ? "Required" : "Optional"}</StatusBadge> },
+              { h: "Type", c: (a) => <Tag tone={a.is_required ? "info" : "neutral"}>{a.is_required ? "Required" : "Optional"}</Tag> },
               { h: "Due", c: (a) => formatIst(a.due_at) },
-              { h: "State", c: (a) => <StatusBadge>{a.status}</StatusBadge> },
+              { h: "State", c: (a) => <StatusBadge domain="assignment" code={a.status} /> },
               {
                 h: "Submissions",
                 c: (a) => (a.counts ? `${a.counts.submitted} submitted · ${a.counts.awaiting_review} to review` : "—"),
@@ -237,9 +238,9 @@ export function TrainerAssignments() {
                       </Button>
                     )}
                     {a.can_manage && a.status !== "Withdrawn" && (
-                      <ConfirmAction
+                      <ConfirmDialog
                         title="Withdraw this assignment?"
-                        description="Students no longer see it. Submissions and reviews already recorded are kept."
+                        consequence="Students will no longer see it. Submissions and reviews already recorded are kept."
                         destructive
                         confirmLabel="Withdraw"
                         onConfirm={async () => void (await withdraw.mutateAsync(a))}
@@ -247,7 +248,7 @@ export function TrainerAssignments() {
                         <Button size="sm" variant="outline">
                           Withdraw
                         </Button>
-                      </ConfirmAction>
+                      </ConfirmDialog>
                     )}
                   </div>
                 ),

@@ -79,9 +79,9 @@ function AllocateDialog({ row }: { row: EnrolmentRow }) {
                 <>
                   <CheckList checks={r.checks} />
                   <p className="text-sm">
-                    Result: <StatusBadge>{r.result}</StatusBadge>
+                    Result: <StatusBadge domain="readiness" code={r.result === "Blocked" ? "Blocked" : r.result === "Review needed" ? "Pending Verification" : "Ready"} label={r.result} />
                     {r.recovery_owner && (
-                      <span className="ml-2 text-muted-foreground">Recovery owner: {r.recovery_owner}. Paid receipt and Admission are preserved.</span>
+                      <span className="ml-2 text-muted-foreground">Owner: {r.recovery_owner}. Paid receipt and Admission are preserved.</span>
                     )}
                   </p>
                   {r.warnings.length > 0 && (

@@ -32,7 +32,7 @@ for (const role of ROLES) {
     for (const item of role.nav) await expect(nav.getByRole("link", { name: item, exact: true }).first()).toBeVisible();
 
     await page.goto(role.other);
-    await expect(page.getByText("Permission Restricted")).toBeVisible();
+    await expect(page.getByText(/cannot open this workspace/)).toBeVisible();
     await page.getByRole("link", { name: "Go to your home" }).click();
     await expect(page).toHaveURL(new RegExp(`${role.home}$`));
   });

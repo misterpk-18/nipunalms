@@ -1,32 +1,37 @@
 import { useAcademicReports, type AcademicReportBlock } from "@/api/dashboards";
 import { useBranchSummary } from "@/api/attendance";
-import { DataTable, Grid, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { DataTable, Grid, PageHead, QueryView, Section, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
+import { EmptyState } from "@/components/lms/empty-state";
 import { Meter } from "@/features/shared/attendance-parts";
 import { percent } from "@/features/shared/format";
 
 function Delivered({ block }: { block: AcademicReportBlock["curriculum_delivered"] }) {
   if (block.state === "Unavailable" || block.state === "Empty")
-    return <StatusNote state={block.state === "Empty" ? "Empty" : "Error"}>{block.message}</StatusNote>;
+    return block.state === "Empty" ? (
+      <EmptyState reason={block.message ?? "Nothing to report yet."} />
+    ) : (
+      <StatusNote tone="danger">{block.message ?? "Something went wrong. Try again or raise a support request."}</StatusNote>
+    );
   return (
     <div className="space-y-2">
       <Meter value={block.percent ?? null} label={`All running batches (${block.batches})`} />
-      {block.state === "Partial Data" && <StatusNote state="Partial Data">{block.message}</StatusNote>}
+      {block.state === "Partial Data" && <StatusNote tone="warning">{block.message}</StatusNote>}
     </div>
   );
 }
 
 function Attendance({ block }: { block: AcademicReportBlock["attendance"] }) {
-  if (block.state === "Unavailable") return <StatusNote state="Error">{block.message}</StatusNote>;
+  if (block.state === "Unavailable") return <StatusNote tone="danger">{block.message ?? "Something went wrong. Try again or raise a support request."}</StatusNote>;
   const recovery = block.recovery;
   return (
     <div className="space-y-2">
       {block.state === "Empty" ? (
-        <StatusNote state="Empty">{block.message}</StatusNote>
+        <EmptyState reason={block.message ?? "Nothing to report yet."} />
       ) : (
         <Meter value={block.percent ?? null} label="Branch average (trainer-confirmed)" />
       )}
       {block.state === "Partial Data" && (
-        <StatusNote state="Partial Data">{block.partial_data_students} student(s) have unmarked delivered classes, so the average is provisional.</StatusNote>
+        <StatusNote tone="warning">{block.partial_data_students} student(s) have unmarked delivered classes, so the average is provisional.</StatusNote>
       )}
       {recovery && (
         <p className="text-xs text-muted-foreground">
@@ -39,20 +44,20 @@ function Attendance({ block }: { block: AcademicReportBlock["attendance"] }) {
 }
 
 function Completion({ block }: { block: AcademicReportBlock["completion_reviews"] }) {
-  if (block.state === "Unavailable") return <StatusNote state="Error">{block.message}</StatusNote>;
-  if (block.state === "Empty") return <StatusNote state="Empty">{block.message}</StatusNote>;
+  if (block.state === "Unavailable") return <StatusNote tone="danger">{block.message ?? "Something went wrong. Try again or raise a support request."}</StatusNote>;
+  if (block.state === "Empty") return <EmptyState reason={block.message ?? "Nothing to report yet."} />;
   return (
     <div className="space-y-2">
       <p className="text-3xl font-semibold tabular-nums">{block.closed}</p>
       <p className="text-xs text-muted-foreground">Completion reviews closed · {block.open} still open</p>
-      {block.state === "Partial Data" && <StatusNote state="Partial Data">{block.message}</StatusNote>}
+      {block.state === "Partial Data" && <StatusNote tone="warning">{block.message}</StatusNote>}
     </div>
   );
 }
 
 function LeadTime({ block }: { block: AcademicReportBlock["certificate_lead_time"] }) {
-  if (block.state === "Unavailable") return <StatusNote state="Error">{block.message}</StatusNote>;
-  if (block.state !== "Calculated") return <StatusNote state="Integration Unavailable">Not Configured. {block.message}</StatusNote>;
+  if (block.state === "Unavailable") return <StatusNote tone="danger">{block.message ?? "Something went wrong. Try again or raise a support request."}</StatusNote>;
+  if (block.state !== "Calculated") return <StatusNote tone="info">Not set up. {block.message}</StatusNote>;
   return (
     <div className="space-y-1">
       <p className="text-3xl font-semibold tabular-nums">{block.average_days} days</p>
@@ -75,11 +80,11 @@ function BatchTable() {
               empty="No batch has allocated students yet."
               cols={[
                 { h: "Batch", c: (b) => `${b.batch.batch_code} (${b.batch.course_code})` },
-                { h: "State", c: (b) => <StatusBadge>{b.state}</StatusBadge> },
+                { h: "State", c: (b) => <StatusBadge domain="batch" code={b.state} /> },
                 { h: "Students", c: (b) => b.students },
                 { h: "Curriculum delivered", c: (b) => percent(b.avg_delivery) },
                 { h: "Attendance", c: (b) => percent(b.avg_attendance) },
-                { h: "Partial data", c: (b) => (b.partial_data > 0 ? <StatusBadge tone="warning">{`${b.partial_data} student(s)`}</StatusBadge> : "None") },
+                { h: "Partial data", c: (b) => (b.partial_data > 0 ? <Tag tone="warning">{`${b.partial_data} student(s)`}</Tag> : "None") },
               ]}
             />
             <p className="mt-2 text-xs text-muted-foreground">Each measure is averaged on its own; there is no combined score.</p>
@@ -94,7 +99,7 @@ export function AcademicReports() {
   const query = useAcademicReports();
   return (
     <div className="mx-auto max-w-6xl space-y-5">
-      <PageHead title="Academic Reports" description="Branch figures · source: LMS reporting" />
+      <PageHead title="Academic Reports" description="Delivery, attendance, completion and certificate figures for your branch." />
       <QueryView query={query} isEmpty={(data) => data.branches.length === 0} empty="No branch to report on.">
         {(data) => (
           <>

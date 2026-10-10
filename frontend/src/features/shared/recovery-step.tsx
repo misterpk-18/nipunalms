@@ -32,8 +32,8 @@ export function OwnerCell({ item }: { item: ExceptionItem }) {
   if (item.owner) return <span>{item.owner.full_name}</span>;
   return (
     <div>
-      <StatusBadge tone="warning">Awaiting named owner</StatusBadge>
-      {item.owner_label && <p className="mt-1 text-xs text-muted-foreground">Recovery owner: {item.owner_label}</p>}
+      <StatusBadge domain="exception" code="Awaiting named owner" />
+      {item.owner_label && <p className="mt-1 text-xs text-muted-foreground">Owner: {item.owner_label}</p>}
     </div>
   );
 }

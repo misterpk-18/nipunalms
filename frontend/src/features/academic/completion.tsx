@@ -93,7 +93,13 @@ export function AcademicCompletion() {
               {
                 h: "State",
                 c: (r) => (
-                  <StatusBadge>{r.review?.status === "Open" ? "Review open" : r.review?.decision ? `${r.review.decision}` : r.certificate_status}</StatusBadge>
+                  r.review?.status === "Open" ? (
+                    <StatusBadge domain="completion" code="Review open" />
+                  ) : r.review?.decision ? (
+                    <StatusBadge domain="completion" code={r.review.decision} />
+                  ) : (
+                    <StatusBadge domain="certificate" code={r.certificate_status} />
+                  )
                 ),
               },
               { h: "Action", c: (r) => <Actions row={r} /> },

@@ -131,7 +131,7 @@ export function AcademicBatches() {
               { h: "Capacity", c: (b) => `${b.allocated_count} / ${b.capacity}` },
               { h: "Trainer", c: (b) => b.trainers.map((t) => t.full_name).join(", ") || "Unassigned" },
               { h: "State", c: (b) => <StateBadge label={b.state_label} /> },
-              { h: "Readiness", c: (b) => <StatusBadge>{b.readiness}</StatusBadge> },
+              { h: "Readiness", c: (b) => <StatusBadge domain="readiness" code={b.readiness} /> },
               {
                 h: "",
                 c: (b) => (

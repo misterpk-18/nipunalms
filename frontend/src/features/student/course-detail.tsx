@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { deliveryApi, type ModuleRow } from "@/api/delivery";
-import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { Breadcrumbs } from "@/components/lms/breadcrumbs";
+import { EmptyState } from "@/components/lms/empty-state";
+import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { DeliveryBar, fmtDay, fmtRange, mono } from "@/features/shared/delivery-ui";
 import { StatusExplanation, kindLabel } from "./my-courses";
 
 export function ModuleList({ modules, empty }: { modules: ModuleRow[]; empty: string }) {
-  if (modules.length === 0) return <StatusNote state="Empty">{empty}</StatusNote>;
+  if (modules.length === 0) return <EmptyState reason={empty} />;
   return (
     <ul className="space-y-3">
       {modules.map((m) => (
@@ -15,7 +17,7 @@ export function ModuleList({ modules, empty }: { modules: ModuleRow[]; empty: st
             <Link to="/modules/$moduleId" params={{ moduleId: String(m.module_id) }} className="font-semibold text-primary underline">
               {m.title}
             </Link>
-            <StatusBadge>{m.status}</StatusBadge>
+            <StatusBadge domain="session" code={m.status} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {m.topic_count} topic(s), {m.required_topic_count} required · {m.session_count} class session(s), {m.delivered_count} delivered
@@ -34,12 +36,7 @@ export function CourseDetail() {
       <QueryView query={query}>
         {(e) => (
           <>
-            <nav aria-label="Breadcrumb" className="mb-2 text-sm">
-              <Link to="/my-courses" className="text-primary underline">
-                My Courses
-              </Link>{" "}
-              / {e.course.course_code}
-            </nav>
+            <Breadcrumbs items={[{ label: "My Courses", to: "/my-courses" }, { label: e.course.course_code }]} />
             <PageHead title={e.course.title} description={`${e.course.course_code} · ${kindLabel(e.kind)}`} />
             <div className="grid gap-4 lg:grid-cols-3">
               <Section title="Enrolment details" className="lg:col-span-2">
@@ -60,7 +57,7 @@ export function CourseDetail() {
                       "Recording / material access until",
                       e.joining_date ? (e.access_end ? fmtDay(e.access_end) : "Set from your Joining Date") : "Pending — starts from confirmed Joining Date",
                     ],
-                    ["Certificate status", <StatusBadge key="c">{e.certificate_status}</StatusBadge>],
+                    ["Certificate status", <StatusBadge key="c" domain="certificate" code={e.certificate_status} />],
                     ["Support", `Branch Manager — ${e.service_branch.branch_name}`],
                   ]}
                 />
@@ -87,7 +84,7 @@ export function CourseDetail() {
                   ) : (
                     <p className="text-sm text-muted-foreground">No finance summary from the CRM yet.</p>
                   )}
-                  <p className="mt-1 text-xs text-muted-foreground">Shown only where permitted. CRM is authoritative.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Shown only where permitted. The figures come from the CRM.</p>
                   <Link to="/finance" className="text-sm text-primary underline">
                     Fees & receipts
                   </Link>
@@ -101,7 +98,7 @@ export function CourseDetail() {
                   {e.tracks.map((t) => (
                     <li key={t.enrolment_track_id} className="rounded-lg border p-3">
                       <div className="flex flex-wrap gap-2">
-                        <StatusBadge tone={t.role === "Included booster" ? "neutral" : "info"}>{t.role}</StatusBadge>
+                        <Tag tone={t.role === "Included booster" ? "neutral" : "info"}>{t.role}</Tag>
                         {mono(t.track_code)}
                       </div>
                       <p className="mt-1 font-medium">{t.track_name}</p>

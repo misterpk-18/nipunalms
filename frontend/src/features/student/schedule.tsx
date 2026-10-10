@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { deliveryApi } from "@/api/delivery";
 import { NativeSelect } from "@/components/lms/forms";
-import { PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
+import { PageHead, QueryView } from "@/components/lms/ui";
 import { useT } from "@/lib/i18n";
 import { MeetBadge, StateBadge, fmtDate, fmtTime, mono } from "@/features/shared/delivery-ui";
 import { JoinButton } from "./session-detail";

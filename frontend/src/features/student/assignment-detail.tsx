@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { assessmentsApi, type Assignment, type Submission } from "@/api/assessments";
 import { errorMessage } from "@/api/client";
-import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { Breadcrumbs } from "@/components/lms/breadcrumbs";
+import { KeyValue, Note, PageHead, QueryView, Section, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,8 +21,8 @@ function VersionCard({ version }: { version: Submission }) {
         <span className="text-muted-foreground">
           {formatIst(version.submitted_at)} · receipt {version.submission_code}
         </span>
-        {version.is_late && <StatusBadge tone="warning">Late</StatusBadge>}
-        {version.review?.outcome === "Resubmission Requested" && <StatusBadge>Resubmission Requested</StatusBadge>}
+        {version.is_late && <Tag tone="warning">Late</Tag>}
+        {version.review?.outcome === "Resubmission Requested" && <StatusBadge domain="work" code="Resubmission Requested" />}
       </div>
       {version.body_text && <p className="mt-1 whitespace-pre-wrap">{version.body_text}</p>}
       {version.link_url && (
@@ -60,7 +61,7 @@ function SubmissionForm({ assignment }: { assignment: Assignment }) {
       setFile(null);
     },
   });
-  if (!my.window.allowed) return <StatusNote state="Not Submitted">{my.window.reason ?? "Submissions are closed."}</StatusNote>;
+  if (!my.window.allowed) return <StatusNote tone="info">{my.window.reason ?? "Submissions are closed."}</StatusNote>;
   const label = my.window.mode === "resubmission" ? "Submit resubmission" : my.window.mode === "replacement" ? "Replace my submission" : "Submit";
   return (
     <form
@@ -90,7 +91,7 @@ function SubmissionForm({ assignment }: { assignment: Assignment }) {
           <Textarea id="sub-ai" rows={2} value={disclosure} onChange={(e) => setDisclosure(e.target.value)} />
         </div>
       )}
-      {submit.isError && <StatusNote state="Failed">{errorMessage(submit.error)}</StatusNote>}
+      {submit.isError && <StatusNote tone="danger" title="Could not submit.">{errorMessage(submit.error)}</StatusNote>}
       <Button type="submit" disabled={submit.isPending || (!text && !link && !file)}>
         {submit.isPending ? "Submitting…" : label}
       </Button>
@@ -111,18 +112,13 @@ export function AssignmentDetail() {
           const result = my.result;
           return (
             <>
-              <nav className="mb-2 text-sm">
-                <Link to="/assignments" className="text-primary underline">
-                  {t("assignments")}
-                </Link>{" "}
-                / {a.title}
-              </nav>
+              <Breadcrumbs items={[{ label: t("assignments"), to: "/assignments" }, { label: a.title }]} />
               <PageHead
                 title={a.title}
                 actions={
                   <>
-                    <StatusBadge tone={a.is_required ? "info" : "neutral"}>{a.is_required ? "Required" : "Optional"}</StatusBadge>
-                    <StatusBadge>{my.state}</StatusBadge>
+                    <Tag tone={a.is_required ? "info" : "neutral"}>{a.is_required ? "Required" : "Optional"}</Tag>
+                    <StatusBadge domain="work" code={my.state} />
                   </>
                 }
               />

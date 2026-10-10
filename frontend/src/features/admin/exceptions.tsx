@@ -41,7 +41,7 @@ export function AdminExceptions() {
                     { h: "Item", c: (i) => <ItemCell item={i} /> },
                     { h: "Branch", c: (i) => i.branch?.branch_name ?? "All branches" },
                     { h: "Owner", c: (i) => <OwnerCell item={i} /> },
-                    { h: "State", c: (i) => <StatusBadge>{i.state}</StatusBadge> },
+                    { h: "State", c: (i) => <StatusBadge domain="exception" code={i.state} /> },
                     { h: "Age", c: (i) => ageText(i.age_days) },
                     { h: "Action", c: (i) => (canLog ? <RecoveryStepButton item={i} /> : <span className="text-xs text-muted-foreground">Read only</span>) },
                   ]}

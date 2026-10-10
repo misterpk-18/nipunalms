@@ -96,7 +96,7 @@ export function AcademicCalendar() {
               { h: "Dates", c: (c) => (c.starts_on === c.ends_on ? fmtDate(c.starts_on) : `${fmtDate(c.starts_on)} – ${fmtDate(c.ends_on)}`) },
               { h: "What", c: (c) => [c.title, c.reason].filter(Boolean).join(" — ") },
               { h: "Applies to", c: (c) => c.branch?.branch_name ?? "Every branch" },
-              { h: "Status", c: (c) => <StatusBadge>{c.status}</StatusBadge> },
+              { h: "Status", c: (c) => <StatusBadge domain="approval" code={c.status} /> },
               {
                 h: "",
                 c: (c) =>

@@ -36,7 +36,7 @@ export function FounderCurriculum() {
               cols={[
                 { h: "Course", c: (v) => (v.component ? `${v.component.track_code} — ${v.component.track_name}` : `${v.course.course_code} — ${v.course.title}`) },
                 { h: "Version", c: (v) => v.version_label },
-                { h: "Status", c: (v) => <StatusBadge>{v.status}</StatusBadge> },
+                { h: "Status", c: (v) => <StatusBadge domain="curriculum" code={v.status} /> },
                 { h: "Content", c: (v) => `${v.counts.modules} module(s), ${v.counts.topics} topic(s)` },
                 { h: "Created", c: (v) => fmtDate(v.created_at) },
                 {

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { contentApi, formatDate, type ExtensionRequest } from "@/api/content";
-import { DataTable, Note, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -54,7 +54,7 @@ export function AccessExtensions() {
                   </>
                 ),
               },
-              { h: "State", c: (r) => <StatusBadge tone={r.needs_exception && r.status === "Pending" ? "danger" : undefined}>{stateText(r)}</StatusBadge> },
+              { h: "State", c: (r) => r.needs_exception && r.status === "Pending" ? <Tag tone="danger">{stateText(r)}</Tag> : <StatusBadge domain="approval" code={r.status} label={stateText(r)} /> },
               {
                 h: "Action",
                 c: (r) =>

@@ -1,24 +1,16 @@
 /** Building blocks shared by every LMS screen (visual language from the approved prototype's shared components). */
-import { useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { CircleAlert, CircleCheck, CircleX, Clock, Info, Loader, Lock, PlugZap, TriangleAlert, type LucideIcon } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleX, Info, TriangleAlert, type LucideIcon } from "lucide-react";
 import { errorMessage } from "@/api/client";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { EmptyState } from "@/components/lms/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { statusInfo, type StatusDomain, type StatusTone } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
-export type Tone = "success" | "warning" | "danger" | "info" | "neutral";
+export type Tone = StatusTone;
 
-const TONE_CLASS: Record<Tone, string> = {
+export const TONE_CLASS: Record<Tone, string> = {
   success: "bg-success-soft text-success border-success/30",
   warning: "bg-warning-soft text-warning border-warning/30",
   danger: "bg-danger-soft text-danger border-danger/30",
@@ -26,7 +18,7 @@ const TONE_CLASS: Record<Tone, string> = {
   neutral: "bg-neutral-soft text-neutral border-neutral/25",
 };
 
-const TONE_ICON: Record<Tone, LucideIcon> = {
+export const TONE_ICON: Record<Tone, LucideIcon> = {
   success: CircleCheck,
   warning: TriangleAlert,
   danger: CircleX,
@@ -36,7 +28,11 @@ const TONE_ICON: Record<Tone, LucideIcon> = {
 
 // ---------------------------------------------------------------- layout
 
+/** The page title and one line saying what you can do here. It also names the browser tab. */
 export function PageHead({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
+  useEffect(() => {
+    document.title = `${title} · Nipuna LMS`;
+  }, [title]);
   return (
     <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
@@ -105,60 +101,42 @@ export function KeyValue({ items }: { items: [label: ReactNode, value: ReactNode
 
 // ---------------------------------------------------------------- status
 
-/** The status-state catalogue: every screen reports loading, empty, partial, restricted and failed data the same way. */
-const STATES = {
-  Loading: { tone: "info", icon: Loader, text: "Loading…" },
-  Empty: { tone: "neutral", icon: Info, text: "Nothing here yet." },
-  "Partial Data": { tone: "warning", icon: TriangleAlert, text: "Some sources did not respond; figures shown are incomplete." },
-  "Pending Verification": { tone: "warning", icon: Clock, text: "Awaiting verification — not treated as confirmed." },
-  Stale: { tone: "warning", icon: Clock, text: "Data is older than the freshness window." },
-  "Integration Unavailable": { tone: "neutral", icon: PlugZap, text: "This integration is not connected yet." },
-  "Permission Restricted": { tone: "neutral", icon: Lock, text: "Your role cannot view this information." },
-  Error: { tone: "danger", icon: CircleX, text: "Something went wrong. Try again or raise a support request." },
-  Saving: { tone: "info", icon: Loader, text: "Saving…" },
-  Saved: { tone: "success", icon: CircleCheck, text: "Saved." },
-  "Not Submitted": { tone: "neutral", icon: Info, text: "Not submitted yet." },
-  Failed: { tone: "danger", icon: CircleX, text: "Action failed." },
-  "Confirmation Pending": { tone: "warning", icon: Clock, text: "Waiting for confirmation." },
-} as const satisfies Record<string, { tone: Tone; icon: LucideIcon; text: string }>;
-
-export type StatusState = keyof typeof STATES;
-
-export function StatusNote({ state, children }: { state: StatusState; children?: ReactNode }) {
-  const { tone, icon: Icon, text } = STATES[state];
+/** A message about the state of a page or a form: information, success, a warning or a failure. */
+export function StatusNote({ tone, title, children }: { tone: Exclude<Tone, "neutral">; title?: string; children: ReactNode }) {
+  const Icon = TONE_ICON[tone];
   return (
-    <div role="status" className={cn("flex items-start gap-2 rounded-lg border px-3 py-2 text-sm", TONE_CLASS[tone])}>
-      <Icon className={cn("mt-0.5 size-4 shrink-0", (state === "Loading" || state === "Saving") && "animate-spin")} aria-hidden />
+    <div role={tone === "danger" ? "alert" : "status"} className={cn("flex items-start gap-2 rounded-lg border px-3 py-2 text-sm", TONE_CLASS[tone])}>
+      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div>
-        <strong className="font-semibold">{state}:</strong> {children ?? text}
+        {title && <strong className="font-semibold">{title} </strong>}
+        {children}
       </div>
     </div>
   );
 }
 
-/** Tone for a status string; the order matters (a "Pending" word beats a generic success word). */
-export function toneFor(status: string): Tone {
-  const t = status.toLowerCase();
-  if (/(?<!not )\breviewed\b/.test(t)) return "success"; // "Reviewed" is done; "Under Review" is still open
-  if (/(revoked|failed|error|absent(?!.*recovery)|blocked|overdue|rejected|cancelled|breach)/.test(t)) return "danger";
-  if (/(pending|partial|held|stale|review|awaiting|warning|forming|quota|interrupted|not yet|alert|open|due|rescheduled|escalated|expiring)/.test(t))
-    return "warning";
-  if (/(unavailable|not configured|not released|disabled|restricted|superseded|not submitted|not started|none|expired|withdrawn|inactive|suspended|—)/.test(t))
-    return "neutral";
-  if (
-    /(issued|released|present|delivered|reviewed|saved|active|ready|approved|running|verified|submitted|available|completed|activated|published|resolved|live)/.test(
-      t,
-    )
-  )
-    return "success";
-  return "info";
+const BADGE_CLASS = "inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium leading-5";
+
+/**
+ * A status from the dictionary (lib/status.ts): fixed colour, plain label, and the "what it means" line as a tooltip.
+ * `label` replaces the text when the API sends a more specific one (for example an attendance entry with its recovery).
+ */
+export function StatusBadge({ domain, code, label }: { domain: StatusDomain; code: string | number | null | undefined; label?: ReactNode }) {
+  const info = statusInfo(domain, code);
+  const Icon = TONE_ICON[info.tone];
+  return (
+    <span className={cn(BADGE_CLASS, TONE_CLASS[info.tone])} title={info.help || undefined}>
+      <Icon className="size-3.5 shrink-0" aria-hidden />
+      <span className="break-words">{label ?? info.label}</span>
+    </span>
+  );
 }
 
-export function StatusBadge({ children, tone }: { children: ReactNode; tone?: Tone }) {
-  const resolved = tone ?? toneFor(String(children));
-  const Icon = TONE_ICON[resolved];
+/** A small label that is not a status: a kind, a role, a count. The tone is chosen by the caller, never guessed from the text. */
+export function Tag({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
+  const Icon = TONE_ICON[tone];
   return (
-    <span className={cn("inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium leading-5", TONE_CLASS[resolved])}>
+    <span className={cn(BADGE_CLASS, TONE_CLASS[tone])}>
       <Icon className="size-3.5 shrink-0" aria-hidden />
       <span className="break-words">{children}</span>
     </span>
@@ -176,14 +154,16 @@ export function DataTable<T>({
   caption,
   getKey,
   empty = "Nothing here yet.",
+  emptyAction,
 }: {
   rows: T[];
   cols: Column<T>[];
   caption: string;
   getKey: (row: T, index: number) => string | number;
-  empty?: string;
+  empty?: ReactNode;
+  emptyAction?: ReactNode;
 }) {
-  if (rows.length === 0) return <StatusNote state="Empty">{empty}</StatusNote>;
+  if (rows.length === 0) return <EmptyState reason={empty} action={emptyAction} />;
   return (
     <div>
       <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
@@ -251,79 +231,62 @@ export function PillTabs<T extends string>({ tabs, value, onChange, label }: { t
 }
 
 /**
- * Renders a TanStack Query result: Loading while it loads, Error (with the API message and a retry link) when it
- * fails, Empty when `isEmpty` says so, and `children(data)` otherwise.
+ * Renders a TanStack Query result: a skeleton while it loads, an error (with the API message and a retry link) when it
+ * fails, an empty state with the reason (and an optional next action) when `isEmpty` says so, and `children(data)` otherwise.
  */
 export function QueryView<T>({
   query,
   isEmpty,
   empty,
+  emptyAction,
+  skeleton = "table",
   children,
 }: {
   query: UseQueryResult<T>;
   isEmpty?: (data: T) => boolean;
-  empty?: string;
+  empty?: ReactNode;
+  emptyAction?: ReactNode;
+  skeleton?: "table" | "cards" | "detail";
   children: (data: T) => ReactNode;
 }) {
-  if (query.isPending) return <StatusNote state="Loading" />;
+  if (query.isPending) return <LoadingSkeleton kind={skeleton} />;
   if (query.isError)
     return (
-      <StatusNote state="Error">
+      <StatusNote tone="danger" title="Could not load this.">
         {errorMessage(query.error)}{" "}
         <button className="underline" onClick={() => void query.refetch()}>
           Try again
         </button>
       </StatusNote>
     );
-  if (isEmpty?.(query.data)) return <StatusNote state="Empty">{empty}</StatusNote>;
+  if (isEmpty?.(query.data)) return <EmptyState reason={empty ?? "Nothing here yet."} action={emptyAction} />;
   return <>{children(query.data)}</>;
 }
 
-// ---------------------------------------------------------------- actions
-
-/** Wraps a trigger element (usually a Button) in a confirmation dialog; `onConfirm` runs only after the user agrees. */
-export function ConfirmAction({
-  children,
-  title,
-  description,
-  confirmLabel = "Confirm",
-  destructive,
-  onConfirm,
-}: {
-  children: ReactNode;
-  title: string;
-  description?: ReactNode;
-  confirmLabel?: string;
-  destructive?: boolean;
-  onConfirm: () => void | Promise<void>;
-}) {
-  const [busy, setBusy] = useState(false);
+/** What shows while data loads: the rough shape of the page instead of a line of text. */
+export function LoadingSkeleton({ kind = "table" }: { kind?: "table" | "cards" | "detail" }) {
+  if (kind === "cards")
+    return (
+      <div role="status" aria-label="Loading" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+    );
+  if (kind === "detail")
+    return (
+      <div role="status" aria-label="Loading" className="space-y-3">
+        <Skeleton className="h-7 w-1/3" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-40 rounded-xl" />
+      </div>
+    );
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={busy}
-            className={cn(destructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await onConfirm();
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <div role="status" aria-label="Loading" className="space-y-2">
+      <Skeleton className="h-9 rounded-lg" />
+      {[0, 1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-12 rounded-lg" />
+      ))}
+    </div>
   );
 }

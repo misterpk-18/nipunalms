@@ -1,5 +1,5 @@
 /**
- * Batch operations (Module 15): the lifecycle buttons for each state and role, the edit dialog, and the request records
+ * Batch operations: the lifecycle buttons for each state and role, the edit dialog, and the request records
  * of one batch: capacity increases, student transfers, material changes with each student's agreement, merge / split
  * and completion handovers.
  */
@@ -19,7 +19,7 @@ import {
 } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
-import { DataTable, Note, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { ActionDialog, fmtDate, fmtDay, useCanManage, useIsManager } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 import { useStaffOptions } from "@/features/shared/staff-picker";
@@ -418,7 +418,7 @@ function CapacityRequests({ batch, manager, approver }: { batch: BatchDetail; ma
       h: "Status",
       c: (r: CapacityRequest) => (
         <>
-          <StatusBadge>{r.status}</StatusBadge>
+          <StatusBadge domain="approval" code={r.status} />
           <div className="mt-1 text-xs text-muted-foreground">
             {who(r.requested_by)}, {fmtDate(r.requested_at)}
             {r.decision_note ? ` · ${r.decision_note}` : ""}
@@ -514,7 +514,7 @@ function TransferRequests({ batch, manager, approver }: { batch: BatchDetail; ma
                   <>
                     {r.from_batch?.batch_code ?? "—"} → {r.to_batch.batch_code}
                     {r.enrolment_track_id && <div className="text-xs text-muted-foreground">One combo track</div>}
-                    {r.interbranch && <StatusBadge tone="info">Another branch</StatusBadge>}
+                    {r.interbranch && <Tag tone="info">Another branch</Tag>}
                   </>
                 ),
               },
@@ -523,7 +523,7 @@ function TransferRequests({ batch, manager, approver }: { batch: BatchDetail; ma
                 h: "Status",
                 c: (r: TransferRequest) => (
                   <>
-                    <StatusBadge>{r.status}</StatusBadge>
+                    <StatusBadge domain="approval" code={r.status} />
                     <div className="mt-1 text-xs text-muted-foreground">
                       {who(r.requested_by)}, {fmtDate(r.requested_at)}
                       {r.decision_note ? ` · ${r.decision_note}` : ""}
@@ -686,7 +686,7 @@ function MaterialChanges({ batch, manager, approver, roster, sameCourse }: { bat
                 h: "Status",
                 c: (c: MaterialChange) => (
                   <>
-                    <StatusBadge>{c.status}</StatusBadge>
+                    <StatusBadge domain="approval" code={c.status} />
                     <div className="mt-1 text-xs text-muted-foreground">
                       {who(c.requested_by)}, {fmtDate(c.requested_at)}
                       {c.decision_note ? ` · ${c.decision_note}` : ""}
@@ -859,7 +859,7 @@ function Successions({ batch, manager, approver, roster, sameCourse }: { batch: 
             h: "Status",
             c: (s: Succession) => (
               <>
-                <StatusBadge>{s.status}</StatusBadge>
+                <StatusBadge domain="approval" code={s.status} />
                 <div className="mt-1 text-xs text-muted-foreground">
                   {who(s.requested_by)}, {fmtDate(s.requested_at)}
                   {s.status === "Approved" && s.moved_count != null ? ` · ${s.moved_count} moved` : ""}

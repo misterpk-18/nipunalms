@@ -55,7 +55,7 @@ export function AcademicContentReview() {
                 h: "State",
                 c: (i) => (
                   <>
-                    <StatusBadge>{i.status}</StatusBadge>
+                    <StatusBadge domain="content" code={i.status} />
                     {i.submitted_at && <div className="text-xs text-muted-foreground">{formatDateTime(i.submitted_at)}</div>}
                   </>
                 ),

@@ -1,9 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { assessmentsApi } from "@/api/assessments";
-import { Note, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
+import { assessmentsApi, type TestItem } from "@/api/assessments";
+import { Note, PageHead, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { formatIst } from "@/lib/format";
 import { useT } from "@/lib/i18n";
+
+/** The student's state for a test: their booking or attempt first, otherwise whether the test is open. */
+export function MyTestStatus({ test }: { test: TestItem }) {
+  const mine = test.my?.my_status;
+  if (mine) {
+    if (mine.startsWith("Submitted")) return <StatusBadge domain="work" code="Submitted" label={mine} />;
+    if (mine === "In progress") return <StatusBadge domain="test" code="In progress" />;
+    return <StatusBadge domain="slot" code={mine} />;
+  }
+  if (test.status === "Scheduled") return <StatusBadge domain="test" code="Scheduled" label={`Scheduled ${formatIst(test.opens_at)}`} />;
+  return <StatusBadge domain="test" code={test.status === "Available" ? "Released" : test.status} />;
+}
 
 export function Tests() {
   const t = useT();
@@ -17,8 +29,8 @@ export function Tests() {
             {page.data.map((test) => (
               <li key={test.test_id} className="rounded-xl border bg-card p-4 shadow-sm">
                 <div className="flex flex-wrap gap-2">
-                  <StatusBadge tone="info">{test.kind}</StatusBadge>
-                  <StatusBadge>{test.my?.my_status ?? (test.status === "Scheduled" ? `Scheduled ${formatIst(test.opens_at)}` : test.status)}</StatusBadge>
+                  <Tag tone="info">{test.kind}</Tag>
+                  <MyTestStatus test={test} />
                 </div>
                 <Link to="/tests/$id" params={{ id: String(test.test_id) }} className="mt-2 block font-semibold text-primary underline">
                   {test.title}

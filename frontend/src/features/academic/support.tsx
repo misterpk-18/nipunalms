@@ -6,7 +6,7 @@ export function AcademicSupport() {
     <>
       <PageHead
         title="Academic Support"
-        description="Support requests of your branch, with their named owners. Reply, resolve, escalate or reassign from a request."
+        description="Reply to, resolve, escalate or reassign your branch's support requests."
       />
       <SupportDesk mode="staff" caption="Support requests" empty="No support requests for your branch." />
     </>

@@ -20,7 +20,7 @@ export function AcademicRecordingExceptions() {
         title="Recording Exception Queue"
         description="Recordings that are partial, held, unavailable or blocked by an integration, each with a named owner."
       />
-      <StatusNote state="Integration Unavailable">
+      <StatusNote tone="info">
         Google Drive and Meet are not connected yet: recordings are registered by hand and playback is not verified.
       </StatusNote>
       <div className="mt-4">
@@ -78,7 +78,7 @@ function Exceptions() {
                 h: "Status",
                 c: (e) => (
                   <>
-                    <StatusBadge>{e.issue_type}</StatusBadge> <StatusBadge>{e.status}</StatusBadge>
+                    <StatusBadge domain="recording" code={e.issue_type} /> <StatusBadge domain="recording" code={e.status} />
                     {e.escalation && (
                       <div className="mt-1 text-xs text-warning">
                         Escalation: {e.escalation} ({e.age_hours} h)
@@ -187,7 +187,7 @@ function Recordings() {
                 h: "Status",
                 c: (r) => (
                   <>
-                    <StatusBadge>{r.status}</StatusBadge>
+                    <StatusBadge domain="recording" code={r.status} />
                     <div className="text-xs text-muted-foreground">
                       {r.hold_reason ?? r.partial_note ?? (r.media_ref ? `${r.source} · ${r.media_ref}` : "No media reference")}
                     </div>

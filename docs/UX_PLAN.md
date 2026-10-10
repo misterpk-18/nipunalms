@@ -174,8 +174,8 @@ figure out what to do next."
 | U0. Close CRM round 5 | **Done** | `1193fb3`, `31ceee5` | S |
 | U1. Remove Curriculum Mapping Pending | **Done** (db 105) | `51824f0` | M |
 | U2. Merge Academic Coordinator into Branch Manager | **Done** (db 106) | `9469df1` | L |
-| U3. Design system foundation | **Next** | | M |
-| U4. Shell, navigation, search, counts | To do | | M |
+| U3. Design system foundation | **Done** | `U3COMMIT` | M |
+| U4. Shell, navigation, search, counts | **Next** | | M |
 | U5. Notifications inbox (all roles) | To do | | S |
 | U6. WhatsApp through the CRM (CRM round 6) | To do | | M |
 | U7. Sign-in and accounts | To do | | M |
@@ -325,6 +325,14 @@ figure out what to do next."
   - `WORKSPACE_ROOTS` includes `/founder`.
   - `PageHead` sets `document.title`.
 - **Migrate the existing call sites** of `StatusBadge` and `StatusNote` (about 116 and 60), so U8–U17 start clean.
+- **As built (10 Oct 2026).**
+  - **Dictionary** `lib/status.ts`: 30 domains (the plan's list plus `work`, `seat`, `approval`, `exception`, `account`, `question`, `completion`, `figure`, `assistant`, `curriculum`, `meet`, `readiness`). `StatusBadge` takes `domain` and `code` (and `label` when the API sends a richer label); `toneFor` is gone. Anything that is only a label (a kind, a role, a count, a check result) is a `Tag` with an explicit tone. `StatusNote` takes `tone` (info / success / warning / danger), no "State:" prefix.
+  - **Components** in `components/lms/`: `EmptyState`, `ConfirmDialog` (replaces `ConfirmAction`, states a consequence), `HowThisWorks`, `Breadcrumbs`, `NeedsYouList`, `StepBar`, `LoadingSkeleton` (in `ui.tsx`). `QueryView` shows skeletons and an `EmptyState`; `ReasonDialog` shows its minimum length and has a destructive variant; `useApiMutation` takes `next` and `view: {to, label}`.
+  - **Dark mode** follows the system setting (`.dark` tokens in `styles.css`, applied in `main.tsx`). Contrast of the status pairs was set by token choice, not measured in a browser yet.
+  - **Bugs fixed:** the sidebar background runs the full page height, `/founder` is a workspace root (one active item), `PageHead` sets `document.title`.
+  - **Wording changed on screen** by the dictionary (plain labels): for example "Not Configured" is now "Not set up", "Pending Verification" "Waiting for a check", "Released" (a recording) "Available", "Submitted" (content) "Waiting for review", "Outbox" "Sent to the CRM". The e2e specs were updated to match.
+  - **Jargon check** (`grep` of the plan) now shows only comments and code identifiers (`Outbox` component and type names, the `"Pending Verification"` code literal).
+  - **Known failing e2e after U3 (not caused by it, all fixed-seed-date or order dependent):** `admin.spec.ts` "student accounts", `assessments.spec.ts` "student sees each assignment state", `attendance.spec.ts` "trainer marks a class", `delivery.spec.ts` "learner schedule". Serial specs mutate the database, so re-run them on a freshly seeded one.
 
 ## U4. Shell, navigation, search and counts (backend endpoints; no migration)
 - **Grouped navs per role.** `NavItem` gets `group` and `badgeKey`. The groups are in Decisions. The phone bar and the More sheet use the same groups.

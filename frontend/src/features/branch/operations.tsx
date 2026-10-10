@@ -37,7 +37,7 @@ export function BranchOperations() {
                     h: "Readiness",
                     c: (b) => (
                       <>
-                        <StatusBadge>{b.readiness}</StatusBadge>
+                        <StatusBadge domain="readiness" code={b.readiness} />
                         {b.readiness_reason && (
                           <div className="mt-1 text-xs text-muted-foreground">
                             {b.readiness_reason}
@@ -125,7 +125,7 @@ export function BranchOperations() {
                   { h: "Student", c: (r) => `${r.student.full_name} (${r.student.student_code})` },
                   { h: "Course", c: (r) => `${r.course.course_code} · ${r.kind}` },
                   { h: "Batch", c: (r) => (r.batch ? mono(r.batch.batch_code) : "Not allocated") },
-                  { h: "Status", c: (r) => <StatusBadge>{r.status}</StatusBadge> },
+                  { h: "Status", c: (r) => <StatusBadge domain="enrolment" code={r.status} /> },
                 ]}
               />
             )}

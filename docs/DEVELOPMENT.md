@@ -243,11 +243,25 @@ icons as the prototype). Student labels come from the dictionary. **Bottom bar**
 
 **Theme** (`src/styles.css`): the prototype's oklch tokens — `--navy`, `--navy-foreground`, `--navy-muted`, `--primary`,
 `--accent`, tone pairs `--success|warning|danger|info|neutral` (+ `-soft`), `--radius: 0.625rem` — mapped onto shadcn's
-`--background/--card/--border/…`. Tone utilities: `bg-success-soft text-success`, etc.
+`--background/--card/--border/…`. Tone utilities: `bg-success-soft text-success`, etc. A `.dark` token block follows the system
+setting (`main.tsx` toggles the class on `<html>` and listens for changes); status tones keep their meaning in both modes.
 
-**Shared components** (`components/lms/`): `PageHead`, `Section`, `Grid`, `Note`, `KeyValue`, `StatusNote` (13-state
-catalogue), `StatusBadge` (tone from the status text via `toneFor`), `DataTable` (table → cards), `PillTabs`,
-`QueryView`, `ConfirmAction` in `ui.tsx`; `Field`, `NativeSelect`, `applyServerErrors`, `cleanBody` in `forms.tsx`.
+**Shared components** (`components/lms/`), the design system every screen reuses (UX phase U3):
+- `ui.tsx`: `PageHead` (also sets `document.title`), `Section`, `Grid`, `Note`, `KeyValue`, `StatusBadge` (a dictionary status),
+  `Tag` (a label that is not a status, with an explicit tone), `StatusNote` (info / success / warning / danger message),
+  `DataTable` (table → cards), `PillTabs`, `QueryView` (skeleton while loading, error, `EmptyState` when empty), `LoadingSkeleton`.
+- One file each: `EmptyState` (reason + next action), `ConfirmDialog` (title + a one-line consequence; use it before anything
+  that cannot be undone or that students will see), `HowThisWorks` (policy text, collapsed), `Breadcrumbs`, `NeedsYouList`
+  (rows of what / where / age / button for a home screen), `StepBar` (ordered setup steps and the next action).
+- `forms.tsx`: `Field`, `NativeSelect`, `applyServerErrors`, `cleanBody`. `features/shared/reason-dialog` asks for a written
+  reason (minimum length shown, destructive variant).
+- `lib/mutation.ts` `useApiMutation` toasts say what happened, an optional `next` line says what happens next and
+  `view: { to, label }` adds a "View" link to the changed item.
+
+**The status dictionary** (`lib/status.ts`): `STATUS[domain][code] = { label, tone, help }` and `statusInfo(domain, code)`. Every
+status on screen is `<StatusBadge domain="…" code={…} />`: the colour, the plain label and the tooltip ("what it means / what to
+do") come from the dictionary, never from the text. Use `label=` only when the API sends a richer label (an attendance entry
+with its recovery). An unknown code shows its own text in grey and warns once in development: add it to the dictionary.
 
 **Shared feature parts** (`features/shared/`): `notification-centre`, `assistant` (Ask Nipuna), `support-desk`,
 `reason-dialog`, `certificate-register`, `attendance-parts` (`MeasureCards`, `Meter`), `content-detail`, `delivery-ui`
@@ -268,9 +282,10 @@ bilingual go into `DICTIONARY` in `lib/i18n.ts` and are read with `useT()`; staf
 `const { enrolmentId } = useParams({ from: "/courses/$enrolmentId" })`. A new route needs a route file, a nav entry in
 `access.ts` and a row in §5.
 
-**Status wording** — use `StatusNote` states for loading / empty / partial / restricted / failed data and `StatusBadge`
-for row statuses; pass `tone` explicitly when the text-based mapping is wrong. A figure with nothing behind it shows
-Empty / Not Yet Calculable / Not Configured / Stale, never 0.
+**Status wording** — a list with nothing in it is an `EmptyState` that says why and offers the next action; loading is a
+skeleton; partial, restricted or failed data is a `StatusNote` with a tone; a row status is a `StatusBadge`; anything that is
+only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind it shows "Not available" / "Not connected" /
+"Out of date", never 0. Policy and rule text goes in `HowThisWorks`, not in the page description.
 
 **Tests** — one Playwright spec per area in `e2e/`, logging in with `login(page, USERS.<role>)`; desktop plus a
 `@mobile` check for new screens.

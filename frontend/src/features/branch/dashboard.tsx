@@ -16,7 +16,7 @@ export function BranchDashboard() {
       <QueryView query={query}>
         {(d) => (
           <>
-            <PageHead title="Branch dashboard" description={`${d.scope.label} · what needs the Branch Manager`} />
+            <PageHead title="Branch dashboard" description={`${d.scope.label} · see what needs your attention`} />
             <TileRow label="Priority tiles">
               <CrmTile rank={1} label="Branch verified collections against target" figure={d.crm.verified_collections} />
               <CrmTile rank={2} label="Branch new paid Admissions" figure={d.crm.new_paid_admissions} />
@@ -43,9 +43,9 @@ export function BranchDashboard() {
               />
             </TileRow>
             {d.batch_risks.map((risk) => (
-              <StatusNote key={risk.batch_id} state="Pending Verification">
+              <StatusNote key={risk.batch_id} tone="warning">
                 {risk.batch_code}: {risk.reason ?? risk.readiness}
-                {risk.recovery_owner && <> · Recovery Owner: {risk.recovery_owner}</>}
+                {risk.recovery_owner && <> · Owner: {risk.recovery_owner}</>}
               </StatusNote>
             ))}
             <QuickLinks title="Go to" links={LINKS} />

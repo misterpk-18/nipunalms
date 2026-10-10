@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
-import { ConfirmAction, DataTable, KeyValue, Note, PageHead, QueryView, Section, StatusBadge, type Tone } from "@/components/lms/ui";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
+import { DataTable, KeyValue, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
 import { FilterField, FormDialog, Pager, SecretDialog } from "./shared";
 import { istDateTime, useCanAdminister } from "./format";
@@ -19,12 +20,6 @@ const ACTIVATION_CHANNELS = [
   { value: "CRM provisioning", label: "CRM provisioning (not delivered)" },
   { value: "Staff issued", label: "Staff issued" },
 ];
-const ACTIVATION_TONE: Record<StudentAccount["activation_status"], Tone> = {
-  "Account Created": "neutral",
-  "Activation Pending": "warning",
-  Activated: "success",
-  Suspended: "danger",
-};
 
 const enrolmentSummary = (counts: Record<string, number>) =>
   Object.entries(counts)
@@ -87,7 +82,7 @@ export function AdminStudents() {
                       ),
                     },
                     { h: "Branch", c: (s) => s.service_branch.branch_code },
-                    { h: "Activation", c: (s) => <StatusBadge tone={ACTIVATION_TONE[s.activation_status]}>{s.activation_status}</StatusBadge> },
+                    { h: "Activation", c: (s) => <StatusBadge domain="account" code={s.activation_status} /> },
                     {
                       h: "LMS account",
                       c: (s) => (
@@ -166,9 +161,7 @@ function StudentPanel({ studentId, onClose }: { studentId: number; onClose: () =
                     ["Service branch", `${s.service_branch.branch_name} (${s.service_branch.branch_code})`],
                     [
                       "Activation",
-                      <StatusBadge key="a" tone={ACTIVATION_TONE[s.activation_status]}>
-                        {s.activation_status}
-                      </StatusBadge>,
+                      <StatusBadge key="a" domain="account" code={s.activation_status} />,
                     ],
                     [
                       "LMS account",
@@ -206,16 +199,16 @@ function StudentPanel({ studentId, onClose }: { studentId: number; onClose: () =
                       </Button>
                     )}
                     {s.user_id !== null && (
-                      <ConfirmAction
+                      <ConfirmDialog
                         title="Sign this student out everywhere?"
-                        description="Every active session ends. The student can sign in again."
+                        consequence="Every active session of this student ends now. The student can sign in again with their password."
                         confirmLabel="Revoke sessions"
                         onConfirm={() => revoke.mutateAsync().then(() => undefined)}
                       >
                         <Button variant="outline" size="sm">
                           <LogOut className="size-3.5" /> Revoke sessions
                         </Button>
-                      </ConfirmAction>
+                      </ConfirmDialog>
                     )}
                   </div>
                 )}
@@ -230,7 +223,7 @@ function StudentPanel({ studentId, onClose }: { studentId: number; onClose: () =
                       { h: "Enrolment", c: (e) => <span className="font-mono text-xs">{e.enrolment_code}</span> },
                       { h: "Course", c: (e) => `${e.course_title} (${e.course_code})` },
                       { h: "Kind", c: (e) => e.kind },
-                      { h: "Status", c: (e) => <StatusBadge>{e.status}</StatusBadge> },
+                      { h: "Status", c: (e) => <StatusBadge domain="enrolment" code={e.status} /> },
                     ]}
                   />
                 </div>

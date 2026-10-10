@@ -1,11 +1,11 @@
-/** Meet operations (Module 16 §10): one day of classes with link and host readiness, delays, attendance and log state, and the open work around them. */
+/** Meet operations: one day of classes with link and host readiness, delays, attendance and log state, and the open work around them. */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type MeetOpsRow } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, Grid, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Grid, Note, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { fmtDate, fmtRange, mono } from "@/features/shared/delivery-ui";
 import { todayIso } from "@/lib/format";
 import { ClassOperationsDialog, ResolveDisruptionDialog } from "./class-operations";
@@ -28,7 +28,7 @@ function Tile({ label, value, tone }: { label: string; value: number | string; t
 }
 
 const linkCell = (r: MeetOpsRow) =>
-  r.link_ready === null ? "—" : <StatusBadge tone={r.link_ready ? "success" : "warning"}>{r.link_ready ? "Link ready" : (r.meet_status_label ?? "No link")}</StatusBadge>;
+  r.link_ready === null ? "—" : r.link_ready ? <StatusBadge domain="meet" code="Linked" /> : <Tag tone="warning">{r.meet_status_label ?? "No link"}</Tag>;
 
 export function MeetOperations() {
   const { profile } = useAuth();
@@ -103,11 +103,11 @@ export function MeetOperations() {
                     c: (r) =>
                       r.disruption ? (
                         <>
-                          <StatusBadge tone="danger">{r.disruption.kind}</StatusBadge>
+                          <Tag tone="danger">{r.disruption.kind}</Tag>
                           {r.disruption.delay_minutes != null && <div className="text-xs text-muted-foreground">{r.disruption.delay_minutes} min</div>}
                         </>
                       ) : r.delay_notice_at ? (
-                        <StatusBadge tone="warning">Delay noticed</StatusBadge>
+                        <Tag tone="warning">Delay noticed</Tag>
                       ) : (
                         "None"
                       ),
@@ -117,12 +117,12 @@ export function MeetOperations() {
                     c: (r) => (
                       <>
                         {r.attendance.marked} of {r.attendance.seats}
-                        {r.attendance.awaiting_confirmation && <div><StatusBadge tone="warning">Awaiting the trainer</StatusBadge></div>}
+                        {r.attendance.awaiting_confirmation && <div><Tag tone="warning">Awaiting the trainer</Tag></div>}
                       </>
                     ),
                   },
                   { h: "Recording", c: (r) => (r.recording.length ? r.recording.join(", ") : "—") },
-                  { h: "Class log", c: (r) => (r.log_overdue ? <StatusBadge tone="danger">Overdue</StatusBadge> : <span className="text-muted-foreground">{r.state_label}</span>) },
+                  { h: "Class log", c: (r) => (r.log_overdue ? <StatusBadge domain="exception" code="Overdue" /> : <span className="text-muted-foreground">{r.state_label}</span>) },
                   { h: "", c: (r) => <ClassOperationsDialog target={{ ...r, branch: r.branch }} /> },
                 ]}
               />
@@ -203,7 +203,7 @@ export function MeetOperations() {
               </Section>
               <Section title="Meet integration">
                 <p className="mb-2">
-                  <StatusBadge tone={ops.integration.verified ? "success" : "warning"}>{ops.integration.verified ? "Verified" : "Not verified"}</StatusBadge>
+                  <StatusBadge domain="integration" code={ops.integration.verified ? "Verified" : "Not Verified"} />
                 </p>
                 <p className="text-sm">{ops.integration.note}</p>
               </Section>
@@ -216,7 +216,7 @@ export function MeetOperations() {
                 getKey={(j) => j.job_name}
                 cols={[
                   { h: "Check", c: (j) => JOB_LABELS[j.job_name] ?? j.job_name },
-                  { h: "Last succeeded", c: (j) => (j.last_ok_at ? fmtDate(j.last_ok_at) + " " + new Date(j.last_ok_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) + " IST" : <StatusBadge tone="warning">Not yet</StatusBadge>) },
+                  { h: "Last succeeded", c: (j) => (j.last_ok_at ? fmtDate(j.last_ok_at) + " " + new Date(j.last_ok_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) + " IST" : <Tag tone="warning">Not yet</Tag>) },
                 ]}
               />
             </Section>

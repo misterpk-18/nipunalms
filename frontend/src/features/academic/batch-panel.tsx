@@ -3,14 +3,15 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type BatchDetail, type Check } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
-import { DataTable, KeyValue, Note, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { DataTable, KeyValue, Note, PillTabs, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
+import { statusInfo } from "@/lib/status";
 import { ActionDialog, StateBadge, fmtDate, fmtDay, useCanManage } from "@/features/shared/delivery-ui";
 import { timetableLabel } from "@/features/academic/timetable";
 import { RosterDialog, useDelivery } from "@/features/shared/sessions";
 import { EditBatchDialog, HandoverDialog, LifecycleActions, RequestTransferDialog, RequestsTab } from "./batch-operations";
 
 const TABS = ["Overview", "Readiness", "Trainers", "Students", "Requests", "History"] as const;
-const CHECK_TONE = { pass: "success", fail: "danger", pending: "warning", warn: "warning" } as const;
+const CHECK_TONE = { pass: "success", fail: "danger", pending: "neutral", warn: "warning" } as const;
 const CHECK_WORD = { pass: "Pass", fail: "Fail", pending: "Pending", warn: "Review" } as const;
 
 export function CheckList({ checks }: { checks: Check[] }) {
@@ -20,7 +21,7 @@ export function CheckList({ checks }: { checks: Check[] }) {
         <li key={c.key} className="rounded-lg border p-2 text-sm">
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium">{c.label}</span>
-            <StatusBadge tone={CHECK_TONE[c.status]}>{CHECK_WORD[c.status]}</StatusBadge>
+            <Tag tone={CHECK_TONE[c.status]}>{CHECK_WORD[c.status]}</Tag>
           </div>
           <p className="mt-1 text-muted-foreground">{c.detail}</p>
         </li>
@@ -68,7 +69,7 @@ function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) 
           ],
           ["Proposed", batch.proposed_by ? `${batch.proposed_by.full_name}, ${batch.proposed_at ? fmtDate(batch.proposed_at) : ""}${batch.proposal_note ? ` — ${batch.proposal_note}` : ""}` : "—"],
           ["Confirmed", batch.confirmed_by ? `${batch.confirmed_by.full_name}, ${batch.confirmed_at ? fmtDate(batch.confirmed_at) : ""}` : "—"],
-          ["Readiness", <StatusBadge key="r">{batch.readiness}</StatusBadge>],
+          ["Readiness", <StatusBadge key="r" domain="readiness" code={batch.readiness} />],
         ]}
       />
       {manager && !closed && (
@@ -92,16 +93,16 @@ function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean
       {(r) => (
         <div className="space-y-3">
           <p className="text-sm">
-            Recorded: <StatusBadge>{r.readiness}</StatusBadge>
+            Recorded: <StatusBadge domain="readiness" code={r.readiness} />
             {r.readiness_reason && <span className="ml-2 text-muted-foreground">{r.readiness_reason}</span>}
-            {r.recovery_owner && <span className="ml-2 text-muted-foreground">· Recovery owner: {r.recovery_owner}</span>}
+            {r.recovery_owner && <span className="ml-2 text-muted-foreground">· Owner: {r.recovery_owner}</span>}
           </p>
           <CheckList checks={r.checks} />
           <h3 className="pt-2 text-sm font-semibold">Readiness record (7 points)</h3>
           <p className="text-sm text-muted-foreground">Points 1 to 6 must pass before the batch can be proposed; point 7 is advisory.</p>
           <CheckList checks={r.checklist} />
           <p className="text-sm">
-            The checks suggest: <StatusBadge>{r.suggested.readiness}</StatusBadge>
+            The checks suggest: <StatusBadge domain="readiness" code={r.suggested.readiness} />
           </p>
           {manager && (
             <div className="flex flex-wrap gap-2">
@@ -119,17 +120,17 @@ function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean
                   </Button>
                 }
                 title="Set readiness"
-                description="Blocked needs a reason and a recovery owner; Ready is only accepted when the required checks pass."
+                description="Blocked needs a reason and an owner; Ready is only accepted when the required checks pass."
                 fields={[
                   {
                     name: "readiness",
                     label: "Readiness",
                     type: "select",
-                    options: ["Ready", "Blocked", "Pending Verification"].map((v) => ({ value: v, label: v })),
+                    options: ["Ready", "Blocked", "Pending Verification"].map((v) => ({ value: v, label: statusInfo("readiness", v).label })),
                     value: r.readiness,
                   },
                   { name: "reason", label: "Reason", type: "textarea" },
-                  { name: "owner", label: "Recovery owner" },
+                  { name: "owner", label: "Owner" },
                 ]}
                 onSubmit={(v) => set.mutateAsync({ readiness: v["readiness"]!, readiness_reason: v["reason"] || null, recovery_owner: v["owner"] || null })}
               />
@@ -160,7 +161,7 @@ function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
         empty="No trainer is assigned yet."
         cols={[
           { h: "Trainer", c: (t) => t.full_name },
-          { h: "Role", c: (t) => <StatusBadge tone={t.role === "Lead" ? "info" : "neutral"}>{t.role}</StatusBadge> },
+          { h: "Role", c: (t) => <Tag tone={t.role === "Lead" ? "info" : "neutral"}>{t.role}</Tag> },
           { h: "Since", c: (t) => fmtDay(t.from_date) },
           ...(manager
             ? [
@@ -258,7 +259,7 @@ function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
                 h: "Seat",
                 c: (r) => (
                   <>
-                    <StatusBadge>{r.status}</StatusBadge>
+                    <StatusBadge domain="seat" code={r.status} />
                     <div className="mt-1 text-xs text-muted-foreground">
                       {fmtDay(r.effective_from)}
                       {r.effective_to ? ` → ${fmtDay(r.effective_to)}` : ""}
@@ -316,7 +317,7 @@ export function BatchPanel({ batchId }: { batchId: number }) {
         <Section title={`${batch.batch_code} — ${batch.display_name ?? batch.course.title}`} actions={<RosterDialog batch={batch} />}>
           {batch.readiness !== "Ready" && (
             <p className="mb-3 text-sm">
-              <StatusBadge>{batch.readiness}</StatusBadge> {batch.readiness_reason} {batch.recovery_owner && `· Recovery owner: ${batch.recovery_owner}`}
+              <StatusBadge domain="readiness" code={batch.readiness} /> {batch.readiness_reason} {batch.recovery_owner && `· Owner: ${batch.recovery_owner}`}
             </p>
           )}
           <PillTabs label="Batch sections" tabs={TABS} value={tab} onChange={setTab} />

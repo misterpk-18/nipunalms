@@ -7,7 +7,8 @@ import type { RoleCode } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
-import { ConfirmAction, DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
+import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
 import { FilterField, FormDialog, Pager, SecretDialog } from "./shared";
 import { istDateTime, useCanAdminister } from "./format";
@@ -128,9 +129,9 @@ export function AdminUsers() {
                       h: "Status",
                       c: (u) => (
                         <div className="flex flex-wrap gap-1">
-                          <StatusBadge tone={u.is_active ? "success" : "neutral"}>{u.is_active ? "Active" : "Deactivated"}</StatusBadge>
-                          {u.must_change_password && <StatusBadge tone="warning">Must change password</StatusBadge>}
-                          {u.is_locked && <StatusBadge tone="danger">Locked</StatusBadge>}
+                          <StatusBadge domain="account" code={u.is_active ? "Active" : "Deactivated"} />
+                          {u.must_change_password && <StatusBadge domain="account" code="Must change password" />}
+                          {u.is_locked && <StatusBadge domain="account" code="Locked" />}
                         </div>
                       ),
                     },
@@ -149,16 +150,16 @@ export function AdminUsers() {
                                 >
                                   <Plus className="size-3.5" /> Role
                                 </Button>
-                                <ConfirmAction
+                                <ConfirmDialog
                                   title={`Reset password for ${u.full_name}?`}
-                                  description="A new temporary password is shown once, every session ends and they must change it at next sign-in."
+                                  consequence="A new temporary password is shown once and every session of this person ends. They must change the password at their next sign-in."
                                   confirmLabel="Reset password"
                                   onConfirm={() => reset.mutateAsync(u).then(() => undefined)}
                                 >
                                   <Button variant="outline" size="sm" aria-label={`Reset password for ${u.full_name}`}>
                                     <KeyRound className="size-3.5" /> Reset
                                   </Button>
-                                </ConfirmAction>
+                                </ConfirmDialog>
                                 {u.is_active ? (
                                   <Button
                                     variant="outline"

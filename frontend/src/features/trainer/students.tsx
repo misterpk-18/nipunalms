@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supportApi } from "@/api/support";
-import { DataTable, Note, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, PageHead, QueryView, Tag } from "@/components/lms/ui";
 
 export function TrainerStudents() {
   const query = useQuery({ queryKey: ["support", "assigned-students"], queryFn: supportApi.assignedStudents });
@@ -17,7 +17,7 @@ export function TrainerStudents() {
               cols={[
                 { h: "Student", c: (r) => r.student.full_name },
                 { h: "Batch", c: (r) => <span className="font-mono text-xs">{r.batch.batch_code}</span> },
-                { h: "Support flag", c: (r) => <StatusBadge tone={r.open_requests.length ? "warning" : "neutral"}>{r.flag}</StatusBadge> },
+                { h: "Support flag", c: (r) => <Tag tone={r.open_requests.length ? "warning" : "neutral"}>{r.flag}</Tag> },
               ]}
             />
           )}

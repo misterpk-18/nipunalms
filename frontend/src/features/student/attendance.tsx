@@ -7,7 +7,7 @@ import {
   type StudentAttendance,
   type StudentAttendanceRow,
 } from "@/api/attendance";
-import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { useApiMutation } from "@/lib/mutation";
 import { useT } from "@/lib/i18n";
@@ -39,7 +39,7 @@ function AttendanceTable({ block }: { block: StudentAttendance }) {
         />
       )}
       {row.correction_pending ? (
-        <StatusBadge tone="warning">Correction pending</StatusBadge>
+        <Tag tone="warning">Correction pending</Tag>
       ) : (
         <FormDialog
           trigger={
@@ -83,7 +83,7 @@ function AttendanceTable({ block }: { block: StudentAttendance }) {
           { h: "Date", c: (r) => `${fmtDate(r.session.starts_at)} · ${fmtRange(r.session.starts_at, r.session.ends_at)}` },
           { h: "Session", c: (r) => r.session.title },
           { h: "Trainer", c: (r) => r.session.trainer.full_name },
-          { h: "State", c: (r) => <StatusBadge>{r.label}</StatusBadge> },
+          { h: "State", c: (r) => <StatusBadge domain="attendance" code={r.status ?? "Not yet marked"} label={r.label} /> },
           { h: "Action", c: actions },
         ]}
       />
@@ -96,7 +96,7 @@ export function Attendance() {
   const query = useMyAttendance();
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <PageHead title={t("attendance")} description="Per actual Class Session · trainer-confirmed attendance (LMS)" />
+      <PageHead title={t("attendance")} description="Your attendance for each class, as confirmed by your trainer." />
       <QueryView query={query} isEmpty={(blocks) => blocks.length === 0} empty="Attendance appears once you are allocated to a batch.">
         {(blocks) => blocks.map((block) => <AttendanceTable key={block.enrolment.enrolment_id} block={block} />)}
       </QueryView>

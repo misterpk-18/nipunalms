@@ -1,10 +1,10 @@
-/** Two cards on My Courses: changes to a batch that need the student's agreement (Module 15 §12) and the preferred-slot request. */
+/** Two cards on My Courses: changes to a batch that need the student's agreement and the preferred-slot request. */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type MyMaterialChange, type SlotOption, type SlotPreference } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/lms/forms";
-import { Note, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { Note, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { ActionDialog, fmtDate, fmtDay, mono } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 
@@ -20,9 +20,9 @@ function ChangeCard({ change }: { change: MyMaterialChange }) {
   return (
     <li className="rounded-xl border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge tone="info">{change.kind}</StatusBadge>
+        <Tag tone="info">{change.kind}</Tag>
         {mono(change.batch.batch_code)}
-        {answered && <StatusBadge tone={mine.response === "Agreed" ? "success" : "warning"}>You {mine.response.toLowerCase()}</StatusBadge>}
+        {answered && <Tag tone={mine.response === "Agreed" ? "success" : "warning"}>You {mine.response.toLowerCase()}</Tag>}
       </div>
       <p className="mt-2 text-sm">
         <span className="text-muted-foreground">Now: </span>
@@ -98,7 +98,6 @@ export function MaterialChangesCard() {
 // ---------------------------------------------------------------- preferred slot
 
 const OPEN_STATUSES = ["Requested", "Waitlisted"];
-const STATUS_TONE = { Requested: "info", Waitlisted: "warning", Confirmed: "success", "Not Possible": "danger", Withdrawn: "neutral" } as const;
 
 const optionLabel = (o: SlotOption) =>
   [
@@ -125,7 +124,7 @@ function CurrentRequest({ preference }: { preference: SlotPreference }) {
   return (
     <div className="space-y-2 rounded-xl border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge tone={STATUS_TONE[preference.status]}>{preference.status}</StatusBadge>
+        <StatusBadge domain="slot" code={preference.status} />
         <span>{details.join(" · ") || "Your request"}</span>
       </div>
       {preference.note && <p className="text-muted-foreground">Your note: {preference.note}</p>}

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type Batch, type ClassLog, type ClassSession, type RescheduleRequest } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DataTable, QueryView, StatusBadge, type Column } from "@/components/lms/ui";
+import { DataTable, QueryView, StatusBadge, Tag, type Column } from "@/components/lms/ui";
 import { useAuth } from "@/auth/auth";
 import { useApiMutation } from "@/lib/mutation";
 import { ActionDialog, MeetBadge, StateBadge, fmtDay, fmtRange, fromIstInput, mono, toIstInput, useIsManager } from "./delivery-ui";
@@ -230,7 +230,7 @@ export function SessionActions({ session, manager, trainer: isTrainer }: { sessi
           }
         />
       )}
-      {trainer && !manager && session.open_request_id && <StatusBadge tone="warning">Reschedule requested</StatusBadge>}
+      {trainer && !manager && session.open_request_id && <StatusBadge domain="approval" code="Requested" label="Reschedule requested" />}
       {manager && open && online && (
         <>
           <ActionDialog
@@ -283,9 +283,9 @@ export function sessionColumns(actions: { manager: boolean; trainer: boolean } |
           </div>
           {(s.purpose !== "Regular" || s.approval_status === "Pending") && (
             <div className="mt-1 flex flex-wrap gap-1">
-              {s.purpose !== "Regular" && <StatusBadge tone="info">{s.purpose} class</StatusBadge>}
-              {s.approval_status === "Pending" && <StatusBadge tone="warning">Awaiting approval</StatusBadge>}
-              {s.approval_status === "Rejected" && <StatusBadge tone="danger">Not approved</StatusBadge>}
+              {s.purpose !== "Regular" && <Tag tone="info">{s.purpose} class</Tag>}
+              {s.approval_status === "Pending" && <StatusBadge domain="approval" code="Pending" label="Awaiting approval" />}
+              {s.approval_status === "Rejected" && <StatusBadge domain="approval" code="Rejected" label="Not approved" />}
             </div>
           )}
           {s.state === "Cancelled" && s.replacement_waiver && <div className="mt-1 text-xs text-muted-foreground">No replacement needed: {s.replacement_waiver}</div>}
@@ -404,7 +404,7 @@ export function RosterDialog({ batch }: { batch: Pick<Batch, "batch_id" | "batch
               cols={[
                 { h: "Student", c: (r) => `${r.student.full_name} (${r.student.student_code})` },
                 { h: "Enrolment", c: (r) => r.enrolment.enrolment_code },
-                { h: "Status", c: (r) => <StatusBadge>{r.enrolment.status}</StatusBadge> },
+                { h: "Status", c: (r) => <StatusBadge domain="enrolment" code={r.enrolment.status} /> },
                 { h: "Joined", c: (r) => (r.enrolment.joining_date ? fmtDay(r.enrolment.joining_date) : `since ${fmtDay(r.effective_from)}`) },
               ]}
             />

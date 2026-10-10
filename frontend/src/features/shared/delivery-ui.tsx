@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, NativeSelect } from "@/components/lms/forms";
-import { StatusBadge, type Tone } from "@/components/lms/ui";
+import { StatusBadge } from "@/components/lms/ui";
+import { STATUS } from "@/lib/status";
 import type { ClassSession, Delivery } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { ApiError } from "@/api/client";
@@ -45,31 +46,13 @@ export function DeliveryBar({ delivery, label = "Sessions delivered" }: { delive
   );
 }
 
-const MEET_TONE: Record<string, Tone> = { Associated: "success", Failed: "danger", "Pending Verification": "warning", "Not Required": "neutral" };
-
 export function MeetBadge({ session }: { session: Pick<ClassSession, "meet_status_label"> }) {
-  return <StatusBadge tone={MEET_TONE[session.meet_status_label] ?? "neutral"}>Meet: {session.meet_status_label}</StatusBadge>;
+  return <StatusBadge domain="meet" code={session.meet_status_label} />;
 }
 
-const STATE_TONE: Record<string, Tone> = {
-  Draft: "neutral",
-  Proposed: "warning",
-  Confirmed: "info",
-  "In Progress": "success",
-  "In Progress (Full)": "success",
-  "On Hold": "warning",
-  Completed: "success",
-  Cancelled: "danger",
-  Archived: "neutral",
-  Planned: "neutral",
-  Rescheduled: "warning",
-  Held: "success",
-  "Partially Held": "warning",
-};
-
-/** The batch or class state as the people who run it name it (`state_label`), with a fixed tone. */
+/** The batch or class state as the people who run it name it (`state_label`); the dictionary owns the colour and wording. */
 export function StateBadge({ label }: { label: string }) {
-  return <StatusBadge tone={STATE_TONE[label] ?? "info"}>{label}</StatusBadge>;
+  return <StatusBadge domain={label in STATUS.batch ? "batch" : "session"} code={label} />;
 }
 
 /** Whether a branch manager or super admin is signed in: the only people who may override an advisory warning or decide a request. */

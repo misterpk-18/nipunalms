@@ -10,7 +10,7 @@ import {
   type RegisterRow,
   type RegisterSession,
 } from "@/api/attendance";
-import { DataTable, PageHead, PillTabs, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { DataTable, PageHead, PillTabs, QueryView, Section, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormDialog } from "@/features/shared/attendance-parts";
@@ -65,7 +65,7 @@ export function RegisterForm({ sessionId, onSaved }: { sessionId: number; onSave
             </p>
             {register.locked && (
               <div className="mb-3">
-                <StatusNote state="Confirmation Pending">
+                <StatusNote tone="warning">
                   Attendance locked {register.lock_days} days after the class. Changes need a correction that an independent reviewer approves.
                 </StatusNote>
               </div>
@@ -81,12 +81,12 @@ export function RegisterForm({ sessionId, onSaved }: { sessionId: number; onSave
                       <span className="ml-2 text-xs text-muted-foreground">{row.student.student_code}</span>
                       {row.recovery && (
                         <span className="ml-2">
-                          <StatusBadge>{row.label}</StatusBadge>
+                          <StatusBadge domain="attendance" code={row.attendance?.status ?? row.label} label={row.label} />
                         </span>
                       )}
                       {row.correction_pending && (
                         <span className="ml-2">
-                          <StatusBadge tone="warning">Correction pending</StatusBadge>
+                          <Tag tone="warning">Correction pending</Tag>
                         </span>
                       )}
                     </div>
@@ -117,7 +117,7 @@ export function RegisterForm({ sessionId, onSaved }: { sessionId: number; onSave
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <StatusBadge>{current ? `${current} (trainer-confirmed)` : "Not yet marked"}</StatusBadge>
+                        <StatusBadge domain="attendance" code={current ?? "Not yet marked"} label={current ? `${current} (confirmed by trainer)` : undefined} />
                         {register.can_mark && !row.correction_pending && (
                           <FormDialog
                             trigger={
@@ -168,9 +168,9 @@ export function RegisterForm({ sessionId, onSaved }: { sessionId: number; onSave
                   Confirm attendance
                 </Button>
                 {unmarked > 0 ? (
-                  <StatusNote state="Not Submitted">{unmarked} student(s) not yet marked.</StatusNote>
+                  <StatusNote tone="info">{unmarked} student(s) not yet marked.</StatusNote>
                 ) : (
-                  <StatusNote state="Saved">Every seat is marked. Meet attendance evidence: Integration Unavailable.</StatusNote>
+                  <StatusNote tone="success">Every seat is marked. Meet attendance evidence is not connected yet.</StatusNote>
                 )}
               </div>
             )}
@@ -237,7 +237,7 @@ export function TrainerAttendance() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <PageHead title="Attendance register" description="Trainer-confirmed attendance for each actual Class Session." />
+      <PageHead title="Attendance register" description="Mark and confirm attendance for each class you have held." />
       <PillTabs label="Sessions" tabs={["Pending", "All"] as const} value={tab} onChange={setTab} />
       <QueryView query={query} isEmpty={(page) => page.data.length === 0} empty={tab === "Pending" ? "Every class is marked." : "No class has been held yet."}>
         {(page) => (
@@ -250,7 +250,7 @@ export function TrainerAttendance() {
               { h: "Session", c: (s) => s.title },
               { h: "Batch", c: (s) => s.batch.batch_code },
               { h: "Marked", c: (s) => `${s.marked} of ${s.seats}` },
-              { h: "State", c: (s) => <StatusBadge>{s.locked ? "Locked" : s.attendance_state}</StatusBadge> },
+              { h: "State", c: (s) => <StatusBadge domain={s.locked ? "session" : "attendance"} code={s.locked ? "Locked" : s.attendance_state} /> },
               { h: "Action", c: pick },
             ]}
           />

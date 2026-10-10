@@ -1,20 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { adminApi, adminKeys, CRM_EVENT_STATUSES, OUTBOX_STATUSES, type CrmEvent, type CrmOutboxRow, type EventFilters, type OutboxFilters } from "@/api/admin";
+import { adminApi, adminKeys, CRM_EVENT_STATUSES, OUTBOX_STATUSES, type CrmEvent, type EventFilters, type OutboxFilters } from "@/api/admin";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, Grid, KeyValue, Note, PageHead, PillTabs, QueryView, Section, StatusBadge, type Tone } from "@/components/lms/ui";
+import { DataTable, Grid, KeyValue, Note, PageHead, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
 import { FilterField, Pager } from "./shared";
 import { istDateTime, useCanAdminister } from "./format";
 
-const EVENT_TONE: Record<CrmEvent["status"], Tone> = { Received: "info", Applied: "success", "Ignored — stale": "neutral", Failed: "danger" };
-const OUTBOX_TONE: Record<CrmOutboxRow["status"], Tone> = { Pending: "warning", Delivered: "success", Failed: "danger" };
-
-const TABS = ["Inbox (events from the CRM)", "Outbox (values for the CRM)"] as const;
+const TABS = ["Received from the CRM", "Sent to the CRM"] as const;
 
 function Counter({ label, value, tone }: { label: string; value: number | string; tone?: "danger" | "warning" }) {
   return (
@@ -38,14 +35,14 @@ export function AdminCrmSync() {
 
   return (
     <>
-      <PageHead title="CRM Sync" description="Events received from the CRM and values queued for it. The CRM stays authoritative for admissions and finance." />
+      <PageHead title="CRM Sync" description="See events received from the CRM and values waiting to be sent to it, and retry any that failed. Admissions and finance stay in the CRM." />
       <div className="space-y-4">
         <QueryView query={summary}>
           {(s) => (
             <Grid cols={4}>
               <Counter label="Failed events" value={s.failed_events} {...(s.failed_events > 0 ? { tone: "danger" as const } : {})} />
               <Counter label="Applied events" value={s.events["Applied"] ?? 0} />
-              <Counter label="Pending outbox" value={s.pending_outbox} {...(s.pending_outbox > 0 ? { tone: "warning" as const } : {})} />
+              <Counter label="Waiting to send" value={s.pending_outbox} {...(s.pending_outbox > 0 ? { tone: "warning" as const } : {})} />
               <Counter label="Last event received" value={istDateTime(s.last_event_received_at)} />
             </Grid>
           )}
@@ -55,8 +52,8 @@ export function AdminCrmSync() {
           {tab === TABS[0] ? <Inbox /> : <Outbox />}
         </Section>
         <Note>
-          Failed events keep their error and can be retried once the cause (for example a course that had not arrived yet) is fixed. Outbox delivery to the CRM
-          is not connected yet: rows stay Pending and the CRM can pull them.
+          Failed events keep their error and can be retried once the cause (for example a course that had not arrived yet) is fixed. Sending values to the CRM
+          is not connected yet: they stay waiting and the CRM can pull them.
         </Note>
       </div>
     </>
@@ -130,7 +127,7 @@ function Inbox() {
                   ),
                 },
                 { h: "Version", c: (e) => `v${e.source_version}` },
-                { h: "Status", c: (e) => <StatusBadge tone={EVENT_TONE[e.status]}>{e.status}</StatusBadge> },
+                { h: "Status", c: (e) => <StatusBadge domain="crmEvent" code={e.status} /> },
                 {
                   h: "Result",
                   c: (e) =>
@@ -200,9 +197,7 @@ function EventDialog({ id, onClose }: { id: number; onClose: () => void }) {
                   ],
                   [
                     "Status",
-                    <StatusBadge key="s" tone={EVENT_TONE[e.status]}>
-                      {e.status}
-                    </StatusBadge>,
+                    <StatusBadge key="s" domain="crmEvent" code={e.status} />,
                   ],
                   ["Source version", `v${e.source_version}`],
                   ["Occurred at", istDateTime(e.occurred_at)],
@@ -235,7 +230,7 @@ function Outbox() {
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <FilterField label="Status">
           <NativeSelect
-            aria-label="Outbox status"
+            aria-label="Sent value status"
             placeholder="All"
             value={filters.status ?? ""}
             options={OUTBOX_STATUSES.map((s) => ({ value: s, label: s }))}
@@ -244,7 +239,7 @@ function Outbox() {
         </FilterField>
         <FilterField label="Type">
           <NativeSelect
-            aria-label="Outbox type"
+            aria-label="Sent value type"
             placeholder="All"
             value={filters.event_type ?? ""}
             options={(summary.data?.outbox_event_types ?? []).map((t) => ({ value: t, label: t }))}
@@ -252,17 +247,17 @@ function Outbox() {
           />
         </FilterField>
       </div>
-      <QueryView query={query} isEmpty={(page) => page.data.length === 0} empty="The outbox is empty.">
+      <QueryView query={query} isEmpty={(page) => page.data.length === 0} empty="No values are waiting to be sent to the CRM.">
         {(page) => (
           <>
             <DataTable
-              caption="CRM outbox"
+              caption="Values sent to the CRM"
               rows={page.data}
               getKey={(r) => r.outbox_id}
               cols={[
                 { h: "Value", c: (r) => <div className="font-medium">{r.event_type}</div> },
                 { h: "Payload", c: (r) => <code className="break-all text-xs">{JSON.stringify(r.payload)}</code> },
-                { h: "Status", c: (r) => <StatusBadge tone={OUTBOX_TONE[r.status]}>{r.status}</StatusBadge> },
+                { h: "Status", c: (r) => <StatusBadge domain="crmEvent" code={r.status} /> },
                 { h: "Attempts", c: (r) => r.attempts },
                 { h: "Queued", c: (r) => istDateTime(r.created_at) },
                 { h: "Delivered", c: (r) => istDateTime(r.delivered_at) },

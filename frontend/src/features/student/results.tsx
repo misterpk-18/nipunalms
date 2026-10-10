@@ -4,6 +4,14 @@ import { DataTable, Note, PageHead, QueryView, StatusBadge } from "@/components/
 import { formatIst } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
+/** The API sends a plain sentence for each state; this picks the dictionary entry that sets its colour. */
+function stateOf(state: string): { domain: "result" | "work"; code: string } {
+  if (state.startsWith("Provisional")) return { domain: "result", code: "Provisional" };
+  if (state === "Resubmission requested") return { domain: "work", code: "Resubmission Requested" };
+  if (state === "Pending review") return { domain: "work", code: "Under Review" };
+  return { domain: "result", code: state };
+}
+
 export function Results() {
   const t = useT();
   const query = useQuery({ queryKey: ["results", "mine"], queryFn: assessmentsApi.myResults });
@@ -20,8 +28,8 @@ export function Results() {
               { h: "Assessment", c: (r) => r.item },
               { h: "Type", c: (r) => r.type },
               { h: "Score", c: (r) => r.score ?? (r.state === "Published" ? "—" : "Withheld until publication") },
-              { h: "State", c: (r) => <StatusBadge>{r.state}</StatusBadge> },
-              { h: "Result", c: (r) => (r.pass_status ? <StatusBadge>{r.pass_status}</StatusBadge> : "—") },
+              { h: "State", c: (r) => <StatusBadge domain={stateOf(r.state).domain} code={stateOf(r.state).code} label={r.state} /> },
+              { h: "Result", c: (r) => (r.pass_status ? <StatusBadge domain="result" code={r.pass_status === "Passed" ? "Pass" : "Fail"} label={r.pass_status} /> : "—") },
               { h: "Published", c: (r) => formatIst(r.published_at) },
             ]}
           />

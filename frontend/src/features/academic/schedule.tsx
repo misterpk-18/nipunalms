@@ -163,8 +163,8 @@ export function AcademicSchedule() {
   return (
     <>
       <PageHead
-        title="Schedule / Actual Class Sessions"
-        description="Scheduled classes, the actual Class Session, and the Meet association for each online class."
+        title="Class schedule"
+        description="See each scheduled class, what actually happened in it, and the Meet link for each online class."
         actions={manager && open.length > 0 ? <NewSessionDialog batches={open} /> : undefined}
       />
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

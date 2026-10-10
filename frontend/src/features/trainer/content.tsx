@@ -49,7 +49,7 @@ export function TrainerContent() {
                 h: "Review state",
                 c: (i) => (
                   <>
-                    <StatusBadge>{i.status}</StatusBadge>
+                    <StatusBadge domain="content" code={i.status} />
                     <div className="text-xs text-muted-foreground">{formatDateTime(i.updated_at)}</div>
                   </>
                 ),

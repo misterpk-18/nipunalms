@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { attendanceApi, attendanceKeys, useCorrections, useProgressRows, useRecoveries } from "@/api/attendance";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, PageHead, QueryView, Section, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AttendanceCell, FormDialog } from "@/features/shared/attendance-parts";
@@ -164,7 +164,7 @@ export function AcademicProgress() {
               { h: "Curriculum delivered", c: (r) => percent(r.delivery.percent) },
               { h: "Attendance / recovery", c: (r) => <AttendanceCell measures={r.attendance} /> },
               { h: "Required learning", c: (r) => percent(r.required_learning.percent) },
-              { h: "Engagement", c: (r) => <StatusBadge>{r.engagement.level}</StatusBadge> },
+              { h: "Engagement", c: (r) => <Tag tone={r.engagement.level === "High" ? "success" : r.engagement.level === "Low" ? "warning" : r.engagement.level === "Medium" ? "info" : "neutral"}>{r.engagement.level}</Tag> },
             ]}
           />
         )}

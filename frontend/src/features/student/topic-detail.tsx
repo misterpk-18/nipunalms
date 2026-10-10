@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
+import { Breadcrumbs } from "@/components/lms/breadcrumbs";
+import { EmptyState } from "@/components/lms/empty-state";
 import { deliveryApi } from "@/api/delivery";
-import { PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { fmtRange } from "@/features/shared/delivery-ui";
 
 export function TopicDetail() {
@@ -12,20 +14,15 @@ export function TopicDetail() {
       <QueryView query={query}>
         {(t) => (
           <>
-            <nav aria-label="Breadcrumb" className="mb-2 text-sm">
-              <Link to="/modules/$moduleId" params={{ moduleId: String(t.module.module_id) }} className="text-primary underline">
-                {t.module.title}
-              </Link>{" "}
-              / {t.title}
-            </nav>
+            <Breadcrumbs items={[{ label: t.module.title, to: `/modules/${t.module.module_id}` }, { label: t.title }]} />
             <PageHead
               title={t.title}
               description="Topic"
-              actions={<StatusBadge tone={t.is_required ? "info" : "neutral"}>{t.is_required ? "Required" : "Optional"}</StatusBadge>}
+              actions={<Tag tone={t.is_required ? "info" : "neutral"}>{t.is_required ? "Required" : "Optional"}</Tag>}
             />
             <Section title="Class sessions">
               {t.sessions.length === 0 ? (
-                <StatusNote state="Empty">No class session covers this topic yet.</StatusNote>
+                <EmptyState reason="No class covers this topic yet. Classes appear here once your branch schedules them." />
               ) : (
                 <ul className="divide-y">
                   {t.sessions.map((s) => (
@@ -34,7 +31,7 @@ export function TopicDetail() {
                         {s.title}
                       </Link>
                       <span className="text-sm text-muted-foreground">{fmtRange(s.starts_at, s.ends_at)}</span>
-                      <StatusBadge>{s.state}</StatusBadge>
+                      <StatusBadge domain="session" code={s.state} />
                     </li>
                   ))}
                 </ul>

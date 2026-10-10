@@ -4,7 +4,8 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { deliveryApi, type CurriculumRow, type CurriculumVersion, type ModuleContent, type TopicClass, type TopicRow } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
-import { DataTable, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { DataTable, Note, PageHead, QueryView, Section, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
+import { EmptyState } from "@/components/lms/empty-state";
 import { ActionDialog, fmtDate, mono } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 import {
@@ -99,7 +100,7 @@ function ModuleEditor({ module, editable, author, versionTopics }: { module: Mod
               )}
             </span>
             <span className="flex flex-wrap items-center gap-1.5">
-              <StatusBadge tone={t.topic_class === "Required" ? "info" : "neutral"}>{t.topic_class}</StatusBadge>
+              <Tag tone={t.topic_class === "Required" ? "info" : "neutral"}>{t.topic_class}</Tag>
               <TopicDetails topic={t} siblings={versionTopics} editable={editable} />
               {editable && (
                 <>
@@ -158,7 +159,7 @@ function ModuleEditor({ module, editable, author, versionTopics }: { module: Mod
   );
 }
 
-/** Branch Managers draft, submit and review; the Founder / CEO or Super Admin approve, activate and retire (Module 14 §5). */
+/** Branch Managers draft, submit and review; the Founder / CEO or Super Admin approve, activate and retire. */
 export function VersionEditor({ versionId }: { versionId: number }) {
   const { hasRole } = useAuth();
   const author = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
@@ -181,7 +182,7 @@ export function VersionEditor({ versionId }: { versionId: number }) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-lg font-semibold">
-                  {v.version_label} <StatusBadge>{v.status}</StatusBadge>
+                  {v.version_label} <StatusBadge domain="curriculum" code={v.status} />
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {v.counts.modules} module(s), {v.counts.topics} topic(s), {v.counts.required_topics} required · used by {v.usage.batches} batch(es) and{" "}
@@ -247,7 +248,7 @@ export function VersionEditor({ versionId }: { versionId: number }) {
                 )}
               </div>
             </div>
-            {draft && v.blockers && v.blockers.length > 0 && <StatusNote state="Pending Verification">Before review: {v.blockers.join("; ")}.</StatusNote>}
+            {draft && v.blockers && v.blockers.length > 0 && <StatusNote tone="warning">Before review: {v.blockers.join("; ")}.</StatusNote>}
             {!approver && (v.status === "Under Review" || v.status === "Approved") && (
               <Note>
                 {v.status === "Under Review" ? "Awaiting approval" : "Approved; awaiting activation"} by the Founder / CEO or Super Admin.
@@ -363,7 +364,7 @@ function SlotPanel({ slot }: { slot: Slot }) {
                 )}
               </>
             ) : (
-              <StatusNote state="Empty">Choose a version to view or edit it.</StatusNote>
+              <EmptyState reason="Choose a version to view or edit it." />
             )}
           </>
         )}
@@ -414,7 +415,7 @@ export function AcademicCurriculum() {
                 h: "Delivery readiness",
                 c: (r) => (
                   <>
-                    <StatusBadge>{r.readiness}</StatusBadge>
+                    <StatusBadge domain="readiness" code={r.readiness} />
                     {r.waiting_batches > 0 && <div className="mt-1 text-xs text-muted-foreground">{r.waiting_batches} batch(es) have no curriculum yet</div>}
                   </>
                 ),

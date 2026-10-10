@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { get } from "@/api/client";
 import { SUPPORT_CATEGORIES, SUPPORT_STATUSES, supportApi, type SupportDetail, type SupportFilters, type SupportSummary } from "@/api/support";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -25,9 +25,9 @@ export type SupportMode = "student" | "staff";
 export function SupportState({ request }: { request: SupportSummary }) {
   return (
     <div className="flex flex-wrap gap-1">
-      <StatusBadge>{request.status}</StatusBadge>
-      {request.escalation_level && <StatusBadge tone="warning">Escalated to {request.escalation_level}</StatusBadge>}
-      {request.sla_breached && <StatusBadge tone="danger">SLA breached</StatusBadge>}
+      <StatusBadge domain="support" code={request.status} />
+      {request.escalation_level && <Tag tone="warning">Escalated to {request.escalation_level}</Tag>}
+      {request.sla_breached && <Tag tone="danger">Reply overdue</Tag>}
     </div>
   );
 }

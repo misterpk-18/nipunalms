@@ -51,9 +51,7 @@ export function Assistant({ title }: { title: string }) {
               />
               <Section className="mb-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <StatusBadge tone={s.status === "AI Available" ? "success" : s.status === "Configuration Pending" ? "warning" : "danger"}>
-                    {s.status}
-                  </StatusBadge>
+                  <StatusBadge domain="assistant" code={blocked ? "AI Unavailable" : s.status} label={blocked ? s.status : undefined} />
                   <span>
                     Usage today (IST):{" "}
                     <strong data-testid="ai-usage">
@@ -88,7 +86,7 @@ export function Assistant({ title }: { title: string }) {
                   </div>
                   {blocked && (
                     <div className="mt-3">
-                      <StatusNote state="Permission Restricted">{BLOCKED[s.status]}</StatusNote>
+                      <StatusNote tone="info">{BLOCKED[s.status]}</StatusNote>
                     </div>
                   )}
                   {latest && <AnswerCard answer={latest} onRate={(rating) => feedback.mutate({ id: latest.ai_query_id, rating })} />}
@@ -130,9 +128,11 @@ function AnswerCard({ answer, onRate }: { answer: AiAnswer; onRate: (rating: "He
   return (
     <div className="mt-4 rounded-lg border bg-muted p-3 text-sm" aria-live="polite" data-testid="ai-answer">
       <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge tone={refused ? "warning" : answer.is_fallback ? "neutral" : "info"}>
-          {refused ? "Not answered: out of scope" : answer.is_fallback ? "Answered from your records (rule-based)" : "AI-written answer"}
-        </StatusBadge>
+        <StatusBadge
+          domain="assistant"
+          code={refused ? "Refused" : answer.is_fallback ? "Fallback" : "Answered"}
+          label={refused ? "Not answered: out of scope" : answer.is_fallback ? "Answered from your records (rule-based)" : "AI-written answer"}
+        />
         <span className="text-xs text-muted-foreground">Q: {answer.question}</span>
       </div>
       <p className="mt-2 whitespace-pre-wrap break-words">{answer.answer}</p>

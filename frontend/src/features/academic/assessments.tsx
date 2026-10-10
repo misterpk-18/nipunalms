@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { assessmentsApi, type Result, type ReviewQueueRow } from "@/api/assessments";
-import { DataTable, Note, PageHead, PillTabs, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, PageHead, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ function ResultRow({ result }: { result: Result }) {
     <li className="rounded-lg border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <strong>{result.student.full_name}</strong>
-        <StatusBadge>{result.status}</StatusBadge>
+        <StatusBadge domain="result" code={result.status} />
         <span>
           Trainer {result.provisional_marks} / {result.max_marks}
           {result.moderated_marks && ` · Moderated ${result.moderated_marks}`}
@@ -98,7 +98,7 @@ function Moderation() {
           getKey={(r) => `${r.kind}-${r.item_id}-${r.batch.batch_id}`}
           cols={[
             { h: "Item", c: (r) => <span className="font-medium">{r.title}</span> },
-            { h: "Type", c: (r) => <StatusBadge tone="info">{r.type}</StatusBadge> },
+            { h: "Type", c: (r) => <Tag tone="info">{r.type}</Tag> },
             { h: "Batch", c: (r) => <span className="font-mono text-xs">{r.batch.batch_code}</span> },
             {
               h: "Results",
@@ -107,7 +107,7 @@ function Moderation() {
                   ? (r.gaps?.join("; ") ?? "")
                   : `${r.counts.provisional} provisional · ${r.counts.moderated} moderated · ${r.counts.published} published`,
             },
-            { h: "State", c: (r) => <StatusBadge>{r.state}</StatusBadge> },
+            { h: "State", c: (r) => <StatusBadge domain={r.state === "Configuration Pending" || r.state === "Awaiting Grading" ? "test" : "result"} code={r.state} /> },
             {
               h: "Action",
               c: (r) => (

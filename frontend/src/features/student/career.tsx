@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { careerApi, type CareerOverview, type CareerProfile, type ProfileUpdate } from "@/api/career";
 import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
-import { ConfirmAction, DataTable, KeyValue, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
+import { DataTable, KeyValue, Note, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ export function Career() {
   const query = useQuery({ queryKey: ["career", "me"], queryFn: careerApi.overview });
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <PageHead title={t("careerSupport")} description="Source: placement records (verified outcomes)" />
+      <PageHead title={t("careerSupport")} description="Prepare your profile and CV, and see approved job opportunities." />
       <QueryView query={query}>{(overview) => <CareerBody overview={overview} />}</QueryView>
     </div>
   );
@@ -61,7 +62,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
             <>
               <KeyValue
                 items={[
-                  ["Opt-in", <StatusBadge tone="success">Opted in — {fmtDate(profile.opted_in_at)}</StatusBadge>],
+                  ["Opt-in", <Tag tone="success">Opted in — {fmtDate(profile.opted_in_at)}</Tag>],
                   ["Support period", profile.support_end ? `Until ${fmtDate(profile.support_end)}` : "—"],
                   ["Preferred roles", profile.preferred_roles.join(", ") || "—"],
                   ["Preferred locations", profile.preferred_locations.join(", ") || "—"],
@@ -70,21 +71,21 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
                     profile.skills.length ? (
                       <span className="flex flex-wrap gap-1">
                         {profile.skills.map((s) => (
-                          <StatusBadge key={s.name} tone={s.confidence === "Verified" ? "success" : "neutral"}>
+                          <Tag key={s.name} tone={s.confidence === "Verified" ? "success" : "neutral"}>
                             {s.name} · {s.confidence}
-                          </StatusBadge>
+                          </Tag>
                         ))}
                       </span>
                     ) : (
                       "—"
                     ),
                   ],
-                  ["Referral readiness", <StatusBadge>{profile.readiness}</StatusBadge>],
+                  ["Referral readiness", <StatusBadge domain="career" code={profile.readiness} />],
                   [
                     "Consent for employer referral",
-                    <StatusBadge tone={profile.sharing_consent ? "success" : "warning"}>
+                    <Tag tone={profile.sharing_consent ? "success" : "warning"}>
                       {profile.sharing_consent ? "Active — renewable" : "Not given"}
-                    </StatusBadge>,
+                    </Tag>,
                   ],
                   [
                     "Profile completeness",
@@ -94,15 +95,15 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
               />
               <div className="mt-3 flex flex-wrap gap-2">
                 {profile.sharing_consent ? (
-                  <ConfirmAction
+                  <ConfirmDialog
                     title="Withdraw consent?"
-                    description="Withdrawing stops future sharing of your profile with employers. Applications already sent stay on record."
+                    consequence="Withdrawing stops future sharing of your profile with employers. Applications already sent stay on record."
                     confirmLabel="Withdraw consent"
                     destructive
                     onConfirm={async () => void (await consent.mutateAsync(false))}
                   >
                     <Button variant="outline">Withdraw consent</Button>
-                  </ConfirmAction>
+                  </ConfirmDialog>
                 ) : (
                   <Button onClick={() => consent.mutate(true)} disabled={consent.isPending}>
                     Give consent to share with employers
@@ -134,7 +135,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
                       <p className="font-semibold">{o.title}</p>
                       <p>{o.employer_name}</p>
                     </div>
-                    <StatusBadge tone="success">Verified</StatusBadge>
+                    <StatusBadge domain="career" code="Verified" />
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {o.employment_type} · {o.work_mode}
@@ -144,7 +145,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
                   {o.required_skills.length > 0 && <p className="mt-1 text-xs">Skills: {o.required_skills.join(", ")}</p>}
                   <div className="mt-2">
                     {o.applied ? (
-                      <StatusBadge tone="info">Applied</StatusBadge>
+                      <StatusBadge domain="career" code="Applied" />
                     ) : (
                       <Button size="sm" onClick={() => apply.mutate(o.opportunity_id)} disabled={apply.isPending} aria-label={`Apply for ${o.title}`}>
                         Apply
@@ -171,15 +172,16 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
             h: "Interview round",
             c: (a) => (a.interview_round ? `${a.interview_round}${a.interview_at ? ` — ${fmtDateTime(a.interview_at)}` : ""}` : (a.status_note ?? "—")),
           },
-          { h: "State", c: (a) => <StatusBadge>{a.status}</StatusBadge> },
+          { h: "State", c: (a) => <StatusBadge domain="career" code={a.status} /> },
           {
             h: "Action",
             c: (a) =>
               a.closed ? (
                 "—"
               ) : (
-                <ConfirmAction
+                <ConfirmDialog
                   title="Withdraw this application?"
+                  consequence="The employer is told you are no longer applying. You can apply again while the opportunity is open."
                   confirmLabel="Withdraw"
                   destructive
                   onConfirm={async () => void (await withdraw.mutateAsync(a.application_id))}
@@ -187,7 +189,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
                   <Button size="sm" variant="outline" aria-label={`Withdraw ${a.opportunity.title}`}>
                     Withdraw
                   </Button>
-                </ConfirmAction>
+                </ConfirmDialog>
               ),
           },
         ]}
@@ -204,7 +206,7 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
               { h: "Date", c: (o) => fmtDate(o.event_date) },
               {
                 h: "Verification",
-                c: (o) => <StatusBadge>{o.verification_status === "Pending Verification" ? "Confirmation Pending" : o.verification_status}</StatusBadge>,
+                c: (o) => <StatusBadge domain="career" code={o.verification_status} />,
               },
             ]}
           />
@@ -247,7 +249,7 @@ function CvSection({ overview }: { overview: CareerOverview }) {
                 </span>
                 {cv.review_feedback && <span className="block text-xs">Feedback: {cv.review_feedback}</span>}
               </span>
-              <StatusBadge>{cv.review_status}</StatusBadge>
+              <StatusBadge domain="cv" code={cv.review_status} />
             </li>
           ))}
         </ul>

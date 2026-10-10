@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { contentApi, CONTENT_TYPES, accessText, openContentFile, type StudentResource } from "@/api/content";
 import { errorMessage } from "@/api/client";
-import { DataTable, Note, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, Note, PageHead, QueryView, Tag } from "@/components/lms/ui";
 import { NativeSelect } from "@/components/lms/forms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ export function Resources() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHead title={t("resources")} description="Content Library — released learning materials for your enrolled courses." />
+      <PageHead title={t("resources")} description="Open or download the learning materials released for your courses." />
       <AccessWindow focus="Material" />
       <div className="mb-3 grid gap-2 sm:grid-cols-3">
         <NativeSelect
@@ -73,7 +73,7 @@ export function Resources() {
             getKey={(r) => r.content_item_id}
             cols={[
               { h: "Resource", c: (r) => <span className="font-medium">{r.title}</span> },
-              { h: "Type", c: (r) => <StatusBadge tone="info">{r.content_type}</StatusBadge> },
+              { h: "Type", c: (r) => <Tag tone="info">{r.content_type}</Tag> },
               {
                 h: "Used in",
                 c: (r) => [r.track ? `${r.track.track_name}` : r.course.course_code, r.topic?.title].filter(Boolean).join(" · "),
@@ -100,8 +100,7 @@ export function Resources() {
       </QueryView>
       <div className="mt-4">
         <Note>
-          One authoritative resource can appear in multiple placements; progress and files are not duplicated. Downloads follow the policy set for each
-          resource.
+          The same resource can appear under more than one topic; it is still one file. Downloads follow the policy set for each resource.
         </Note>
       </div>
     </div>

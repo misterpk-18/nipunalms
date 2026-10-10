@@ -58,7 +58,7 @@ test("learner navigates My Courses, a combo track, module, topic and session", a
   await page.getByRole("link", { name: "Linear & Logistic Regression" }).click();
   await expect(page.getByRole("heading", { name: "Linear & Logistic Regression" })).toBeVisible();
   await page.getByRole("link", { name: "Linear regression intuition" }).click();
-  await expect(page.getByText("Actual Class Session · SES-000101")).toBeVisible();
+  await expect(page.getByText("Class SES-000101")).toBeVisible();
   await expect(page.getByText("Meet organizer (label)")).toBeVisible();
   await expect(page.getByRole("button", { name: "Join Class" })).toBeDisabled();
 });

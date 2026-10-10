@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { assessmentsApi, batchesForAuthoring, QUESTION_TYPES, type Question, type QuestionType } from "@/api/assessments";
 import { Field, NativeSelect } from "@/components/lms/forms";
-import { DataTable, PillTabs, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -242,10 +242,10 @@ export function QuestionBank({ canApprove = false, initialStatus = "All" }: { ca
                 ),
               },
               { h: "Question", c: (q) => <span className="whitespace-pre-wrap">{q.stem}</span> },
-              { h: "Type", c: (q) => <StatusBadge tone="info">{q.question_type}</StatusBadge> },
+              { h: "Type", c: (q) => <Tag tone="info">{q.question_type}</Tag> },
               { h: "Topic", c: (q) => q.topic?.title ?? "—" },
               { h: "Marks", c: (q) => `${q.marks} · ${q.difficulty}` },
-              { h: "Status", c: (q) => <StatusBadge>{q.status}</StatusBadge> },
+              { h: "Status", c: (q) => <StatusBadge domain="question" code={q.status} /> },
               {
                 h: "Actions",
                 c: (q) => (

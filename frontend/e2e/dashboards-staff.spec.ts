@@ -27,7 +27,7 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
   test("Guntur coordinator: tiles, batch risk note, quick links", async ({ page }) => {
     await login(page, USERS.coordGnt);
     await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
-    await expect(page.getByText("Guntur · what needs the Branch Manager")).toBeVisible();
+    await expect(page.getByText("Guntur · see what needs your attention")).toBeVisible();
     // Counts depend on what earlier specs resolved, so the tiles are checked for shape, not for the seed's exact numbers
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/\d/);
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
@@ -42,7 +42,7 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
 
   test("Vijayawada coordinator sees only Vijayawada", async ({ page }) => {
     await login(page, USERS.coordVij);
-    await expect(page.getByText("Vijayawada · what needs the Branch Manager")).toBeVisible();
+    await expect(page.getByText("Vijayawada · see what needs your attention")).toBeVisible();
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText("0");
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
     await expect(page.getByText("NIT-GNT-BAT-2026-000003")).toHaveCount(0);
@@ -57,8 +57,8 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
     await login(page, USERS.coordGnt);
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Exceptions", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
-    const row = page.getByRole("row").filter({ hasText: "Awaiting batch allocation" }).filter({ hasText: "Awaiting named owner" }).first();
-    await expect(row).toContainText("Awaiting named owner");
+    const row = page.getByRole("row").filter({ hasText: "Awaiting batch allocation" }).filter({ hasText: "No owner yet" }).first();
+    await expect(row).toContainText("No owner yet");
     await expect(row).toContainText("Branch Manager — Guntur");
     const reference = (await row.getByRole("cell").first().innerText()).trim();
 
@@ -70,9 +70,9 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
     await expect(page.getByText("Recovery step logged.")).toBeVisible();
 
     const updated = page.getByRole("row", { name: new RegExp(reference) });
-    await expect(updated).toContainText("Recovery In Progress");
+    await expect(updated).toContainText("Being worked on");
     await expect(updated).toContainText("Branch Manager");
-    await expect(updated).not.toContainText("Awaiting named owner");
+    await expect(updated).not.toContainText("No owner yet");
     await expect(updated).toContainText("recovery step");
   });
 
@@ -89,10 +89,10 @@ test.describe("Branch dashboard", () => {
   test("Branch Manager: CRM figures are Unavailable, never zero; locked to the branch", async ({ page }) => {
     await login(page, USERS.bmGnt);
     await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
-    await expect(page.getByText("Guntur · what needs the Branch Manager")).toBeVisible();
+    await expect(page.getByText("Guntur · see what needs your attention")).toBeVisible();
     for (const label of ["Branch verified collections against target", "Branch new paid Admissions", "Overdue branch follow-ups"]) {
       await expect(tile(page, label)).toContainText("Unavailable");
-      await expect(tile(page, label)).toContainText("Not Configured");
+      await expect(tile(page, label)).toContainText("Not connected");
       await expect(tile(page, label)).not.toHaveText(/(^|\s)0(\s|$)/);
     }
     await expect(tile(page, "Running / starting batches")).toBeVisible();
@@ -113,13 +113,13 @@ test.describe("Super Admin overview and exception queues", () => {
     await expect(tile(page, "Critical integration failures")).toBeVisible();
     await expect(tile(page, "Work awaiting named ownership/cover")).toContainText("Open exceptions with no named owner");
     await expect(tile(page, "Overdue payment verifications")).toContainText("Unavailable");
-    await expect(tile(page, "Overdue payment verifications")).toContainText("Not Configured");
+    await expect(tile(page, "Overdue payment verifications")).toContainText("Not connected");
     await expect(tile(page, "Integrations operationally verified")).toContainText("0 /");
     await expect(tile(page, "Failed provisioning")).toBeVisible();
     await expect(tile(page, "Open exceptions (all queues)")).toBeVisible();
     await expect(page.getByRole("heading", { name: "CRM / LMS sync status" })).toBeVisible();
     await expect(page.getByRole("row", { name: /CRM → LMS events/ })).toContainText("1 failed event(s)");
-    await expect(page.getByRole("row", { name: /LMS → CRM status outbox/ })).toContainText("Integration Unavailable");
+    await expect(page.getByRole("row", { name: /LMS → CRM status outbox/ })).toContainText("Not connected");
     await expect(page.getByRole("heading", { name: "Provisioning exceptions" })).toBeVisible();
     await expect(page.getByText("monthly rupee ceiling not yet approved")).toBeVisible();
     await expect(page.locator("#main").getByRole("link", { name: "Exception queues" })).toBeVisible();
@@ -137,7 +137,7 @@ test.describe("Super Admin overview and exception queues", () => {
     await expect(recording).toContainText("Vijayawada");
     await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("Guntur");
     await expect(page.getByRole("row", { name: /seed-/ })).toContainText("All branches");
-    await expect(page.getByRole("row", { name: /EXT-033/ })).toContainText("Awaiting Approval");
+    await expect(page.getByRole("row", { name: /EXT-033/ })).toContainText("Waiting for a decision");
   });
 
   test("the Founder reads the queues but cannot log steps", async ({ page }) => {
@@ -155,7 +155,7 @@ test.describe("Founder overview", () => {
     await expect(page.getByRole("heading", { name: "Founder / CEO overview" })).toBeVisible();
     for (const label of ["Verified collections against target", "New paid Admissions against target", "Overdue amount"]) {
       await expect(tile(page, label)).toContainText("Unavailable");
-      await expect(tile(page, label)).toContainText("Not Configured");
+      await expect(tile(page, label)).toContainText("Not connected");
     }
     await expect(tile(page, "Active enrolments in delivery")).toContainText("Guntur");
     await expect(tile(page, "Active enrolments in delivery")).toContainText("Vijayawada");
@@ -164,10 +164,10 @@ test.describe("Founder overview", () => {
 
     const decisions = page.locator("section").filter({ has: page.getByRole("heading", { name: "Decisions needing you" }) });
     await expect(decisions).toContainText("Approve monthly AI rupee ceiling");
-    await expect(decisions).toContainText("Configuration Pending");
+    await expect(decisions).toContainText("Not set up");
     await expect(decisions).toContainText("Recording access exception after 2nd anniversary");
     await expect(decisions).toContainText("Sample Learner F.");
-    await expect(decisions).toContainText("Awaiting Approval");
+    await expect(decisions).toContainText("Awaiting a decision");
     await expect(page.locator("#main").getByRole("link", { name: "Super Admin view" })).toBeVisible();
     await expect(page.locator("#main").getByRole("link", { name: "Branch views" })).toBeVisible();
   });

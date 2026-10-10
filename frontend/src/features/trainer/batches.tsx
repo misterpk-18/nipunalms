@@ -24,7 +24,7 @@ export function TrainerBatches() {
               { h: "Dates", c: (b) => `${fmtDay(b.planned_start)} → ${fmtDay(b.planned_end)}` },
               { h: "Students", c: (b) => <RosterDialog batch={b} /> },
               { h: "State", c: (b) => <StateBadge label={b.state_label} /> },
-              { h: "Readiness", c: (b) => <StatusBadge>{b.readiness}</StatusBadge> },
+              { h: "Readiness", c: (b) => <StatusBadge domain="readiness" code={b.readiness} /> },
             ]}
           />
         )}

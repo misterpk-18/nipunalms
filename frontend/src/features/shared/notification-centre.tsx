@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { notificationsApi, type NotificationItem, type NotificationView } from "@/api/notifications";
+import { notificationsApi, type NotificationView } from "@/api/notifications";
 import { NativeSelect } from "@/components/lms/forms";
 import { DataTable, Note, PageHead, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
@@ -21,12 +21,6 @@ const VIEW_OF: Record<Tab, NotificationView> = {
   Completed: "completed",
   "System Issues": "system",
 };
-
-function actionLabel(n: NotificationItem) {
-  if (n.action_status === "Open") return "Not completed";
-  if (n.action_status === "Completed") return "Action Completed";
-  return "—";
-}
 
 export function NotificationCentre({ title }: { title: string }) {
   const [tab, setTab] = useState<Tab>("My Notifications");
@@ -101,11 +95,11 @@ export function NotificationCentre({ title }: { title: string }) {
                     </div>
                   ),
                 },
-                { h: "Delivery", c: (n) => <StatusBadge tone={n.delivery_status === "Failed" ? "neutral" : "success"}>{n.delivery_label}</StatusBadge> },
+                { h: "Delivery", c: (n) => <StatusBadge domain="notification" code={n.delivery_status} label={n.delivery_label} /> },
                 {
                   h: "Read",
                   c: (n) =>
-                    n.delivery_status === "Failed" ? "—" : <StatusBadge tone={n.read_at ? "success" : "warning"}>{n.read_at ? "Read" : "Unread"}</StatusBadge>,
+                    n.delivery_status === "Failed" ? "—" : <StatusBadge domain="notification" code={n.read_at ? "Read" : "Unread"} />,
                 },
                 {
                   h: "Acknowledged",
@@ -113,7 +107,7 @@ export function NotificationCentre({ title }: { title: string }) {
                     n.delivery_status === "Failed" ? (
                       "—"
                     ) : n.acknowledged_at ? (
-                      <StatusBadge tone="success">Acknowledged</StatusBadge>
+                      <StatusBadge domain="notification" code="Acknowledged" />
                     ) : (
                       <Button size="sm" variant="outline" onClick={() => acknowledge.mutate(n.notification_id)} aria-label={`Acknowledge ${n.title}`}>
                         Acknowledge
@@ -128,7 +122,7 @@ export function NotificationCentre({ title }: { title: string }) {
                         Mark action done
                       </Button>
                     ) : (
-                      <StatusBadge tone={n.action_status === "Completed" ? "success" : "neutral"}>{actionLabel(n)}</StatusBadge>
+                      <StatusBadge domain="notification" code={n.action_status === "Completed" ? "Completed" : "None"} />
                     ),
                 },
               ]}

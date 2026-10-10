@@ -19,7 +19,7 @@ function AdmissionFinance({ entry }: { entry: FinanceEntry }) {
   return (
     <Section title={`${entry.admission.admission_code} · ${entry.course.title}`}>
       {summary === null ? (
-        <StatusNote state="Pending Verification">The CRM has not sent a finance summary for this admission yet.</StatusNote>
+        <StatusNote tone="warning">The CRM has not sent a finance summary for this admission yet.</StatusNote>
       ) : (
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -96,11 +96,11 @@ export function Finance() {
   const query = useQuery({ queryKey: ["finance", "me"], queryFn: profileApi.finance });
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <PageHead title={t("finance")} description="Read-only · permitted summary · CRM (authoritative)" />
+      <PageHead title={t("finance")} description="See your fees, receipts and instalments. This page is read-only." />
       <QueryView query={query} isEmpty={(d) => d.admissions.length === 0} empty="No admissions are linked to your account.">
         {(data) => (
           <>
-            <StatusNote state="Pending Verification">{data.note}</StatusNote>
+            <StatusNote tone="warning">{data.note}</StatusNote>
             {data.admissions.map((entry) => (
               <AdmissionFinance key={entry.admission.admission_id} entry={entry} />
             ))}
@@ -111,7 +111,7 @@ export function Finance() {
           </>
         )}
       </QueryView>
-      <Note>CRM remains authoritative for Admission and finance. The LMS never writes to CRM records. Payment actions are not available here.</Note>
+      <Note>Admission and fee records are kept in the CRM. This site never changes them. You cannot pay from here.</Note>
     </div>
   );
 }

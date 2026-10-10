@@ -11,7 +11,7 @@ import {
   type FinancialException,
 } from "@/api/certificates";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, QueryView, StatusBadge } from "@/components/lms/ui";
+import { DataTable, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormDialog } from "@/features/shared/attendance-parts";
@@ -139,7 +139,7 @@ export function CertificateActions({ certificate }: { certificate: Certificate }
           onSubmit={(v) => ask.mutateAsync({ id, body: { kind: "Reinstatement", reason: v["reason"]!, evidence: v["evidence"]! } })}
         />
       )}
-      {certificate.pending_request && <StatusBadge>{`${certificate.pending_request.kind} requested`}</StatusBadge>}
+      {certificate.pending_request && <Tag tone="warning">{`${certificate.pending_request.kind} requested`}</Tag>}
     </div>
   );
 }
@@ -156,7 +156,7 @@ export function CertificateTable({ rows, withActions = true }: { rows: Certifica
         { h: "Type", c: (c) => c.certificate_type },
         { h: "Course", c: (c) => `${c.course.course_code} ${c.course.title}` },
         { h: "Holder", c: (c) => `${c.holder_name} (${c.branch.branch_code.replace("NIT-", "")})` },
-        { h: "Status", c: (c) => <StatusBadge>{c.status}</StatusBadge> },
+        { h: "Status", c: (c) => <StatusBadge domain="certificate" code={c.status} /> },
         ...(withActions ? [{ h: "Fee", c: (c: Certificate) => feeLabel(c) }] : []),
         {
           h: "Version",
@@ -209,7 +209,7 @@ export function CertificateDecisions() {
             getKey={(r: CertificateRequest) => r.request_id}
             cols={[
               { h: "Certificate", c: (r) => `${r.certificate.certificate_number ?? "—"} v${r.certificate.version} · ${r.certificate.holder_name}` },
-              { h: "Request", c: (r) => <StatusBadge>{r.kind}</StatusBadge> },
+              { h: "Request", c: (r) => <Tag tone="info">{r.kind}</Tag> },
               {
                 h: "Reason",
                 c: (r) =>
