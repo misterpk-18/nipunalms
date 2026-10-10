@@ -45,6 +45,17 @@ Don't create LMS versions of these. The learner would get each one twice:
 ## Before submitting (checklist for the owner)
 
 1. Replace `LMS_HOST` in every button with the production LMS domain.
+   - **Pinbot / Meta reject** a button URL that is not a real public `https://` address: not `LMS_HOST`, `localhost`, an IP address or a link shortener. Use the domain the LMS will really run on (for example `https://lms.yourcompany.in`).
+   - **A variable button also needs a sample URL**, shown to the reviewer: the same address with a made-up value in place of `{{1}}`. Enter the base with `{{1}}` at the end, and the sample in the sample field:
+
+     | # | Button URL (type this) | Sample URL (type this) |
+     |---|---|---|
+     | 2 | `https://<domain>/activate?token={{1}}` | `https://<domain>/activate?token=kQ3v9xZp2LmN8rT4` |
+     | 3 | `https://<domain>/activate?token={{1}}` | `https://<domain>/activate?token=pL7wQ2nX9vR4tK8m` |
+     | 8 | `https://<domain>/verify/{{1}}` | `https://<domain>/verify/NIT-CERT-2026-000123` |
+     | 4, 5, 6, 7, 9 | static: the full address, no variable | none |
+   - The variable must be the **last** part of the URL, which is why the token and the certificate number sit at the end.
+   - Template 1 has no URL: its button is Meta's one-tap **Copy code**.
 2. In Pinbot, create each template with the exact name, category, language, body and buttons from its file, and enter the sample values.
 3. For template 1, choose the **Authentication** category, turn on the security recommendation and a 10-minute expiry, and pick the **Copy code** button. The body text is fixed by Meta, so you only set those options.
 4. When a template is approved, put its name in the LMS setting `whatsapp_approved_templates` (a JSON list in `app_settings`). Only approved names are sent; the reply to the CRM (W1) already lists all nine.
