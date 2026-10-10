@@ -450,3 +450,10 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 | View `topic_progress` (per enrolment and topic of every followed curriculum version: `attended`, `recording_watched`, required assignments handed in, required tests taken, `is_done`, `status` = Done / Work to hand in / Not started) | A topic is Done when the student attended (or recovered) its class or watched its recording, and handed in every required assignment and test of the topic. Module and course percentages count topics Done. The four progress measures keep their own views |
 | `material_changes.reply_by` | The date a student is asked to answer a batch change by; set to now + `batch_change_reply_days` when the change goes to students |
 | `app_settings.batch_change_reply_days` (7) | Length of that answer window |
+
+## 110 — CRM round 6: WhatsApp status events
+
+| Change | Why |
+|---|---|
+| `crm_events` accepts `WhatsappStatusUpdated` | The CRM reports what happened to a message after answering Queued |
+| `whatsapp_outbox.crm_outbox_id`, `delivery_status` (Sent / Delivered / Read / Failed / Skipped), `delivery_version`, `delivery_at` | The latest reported state, applied only when its version is newer |

@@ -206,7 +206,10 @@ a course of the admission is running; **Inactive** — student suspended, or all
   caused it and the `whatsapp-send` job posts it after the commit to the CRM's `POST /lms/whatsapp` (W4), which applies its own
   switch, test numbers, consent and backoff. Nine LMS templates ([whatsapp-templates/](whatsapp-templates/README.md)); a timeout is
   never resent; messages older than 48 hours are skipped. The code ships switched off until the CRM ships the endpoint and the
-  owner has the templates approved. See [API.md §4.13](API.md).
+  owner has the templates approved. The CRM built `POST /lms/whatsapp` (its reply: `CRM_WHATSAPP_ROUND6_REPLY.md`): the normal first
+  answer is `Queued`, and what happens next arrives as `WhatsappStatusUpdated` events (Sent / Delivered / Read / Failed / Skipped,
+  versioned per dedupe key), which the LMS applies from db 110; an unknown key or an older version is answered 200. The CRM turns
+  the events on with `LMS_WHATSAPP_STATUS_EVENTS=1` once told the handler is live (it is). See [API.md §4.13](API.md).
 - **Rules the CRM relies on:** nothing pulled is ever deleted; a Blocked batch is not offered for sale; the LMS sends no
   promotional messages (service and learning messages only), so the CRM's "stop contact" stays CRM-only.
 - **Staff** use the same email in both systems: the pull names trainers and completion authorisers by email.

@@ -16,6 +16,10 @@ def insert_once(values: dict) -> WhatsappMessage | None:
     return db.session.get(WhatsappMessage, outbox_id) if outbox_id is not None else None
 
 
+def by_dedupe_key(dedupe_key: str) -> WhatsappMessage | None:
+    return db.session.execute(select(WhatsappMessage).where(WhatsappMessage.dedupe_key == dedupe_key)).scalar_one_or_none()
+
+
 def due(now: datetime, limit: int) -> list[WhatsappMessage]:
     """Queued messages not in flight and not waiting out a backoff, oldest first."""
     stmt = (select(WhatsappMessage).where(WhatsappMessage.status == "Queued", WhatsappMessage.attempt_started_at.is_(None),

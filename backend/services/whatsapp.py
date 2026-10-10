@@ -195,6 +195,26 @@ def _finish(message: WhatsappMessage, status: str, note: str | None = None, prov
         message.sent_at = _now()
 
 
+def apply_status_event(dedupe_key: str, status: str, version: int, *, provider_id: str | None, reason: str | None,
+                       crm_outbox_id: int | None, occurred_at: datetime | None) -> bool:
+    """Apply a WhatsappStatusUpdated event from the CRM. Returns False when it changed nothing (an unknown key or a version
+    that is not newer): the CRM must still be answered 200 so it never retries."""
+    message = whatsapp_repo.by_dedupe_key(dedupe_key)
+    if message is None or version <= message.delivery_version:
+        return False
+    message.delivery_version, message.delivery_status, message.delivery_at = version, status, occurred_at
+    message.crm_outbox_id = crm_outbox_id or message.crm_outbox_id
+    if provider_id:
+        message.provider_message_id = provider_id
+    if status == "Failed":
+        _finish(message, "Failed", f"The provider failed it: {reason or 'no reason given'}")
+    elif status == "Skipped":
+        _finish(message, "Skipped", f"The CRM skipped it: {reason or 'no reason given'}")
+    elif message.status == "Queued":
+        _finish(message, "Sent")  # the CRM has it on its way even though our own answer was lost
+    return True
+
+
 def _forget_secrets(message: WhatsappMessage) -> None:
     """A sign-in code or link is kept only until the message is done; a finished row keeps no secret."""
     template = TEMPLATES.get(message.template_name)
@@ -227,6 +247,8 @@ def _record_answer(message: WhatsappMessage, status_code: int, body: dict | None
         if state == "Skipped":
             _finish(message, "Skipped", f"The CRM skipped it: {data.get('reason') or 'no reason given'}")
         elif state in ("Sent", "Queued") or data.get("provider_message_id"):
+            # Queued is the normal first answer: the CRM posts it a moment later and reports back by status event
+            message.crm_outbox_id = data.get("outbox_id")
             _finish(message, "Sent", None, data.get("provider_message_id"))
         else:  # accepted but no confirmation: it may have been sent
             _finish(message, "Failed", "The CRM gave no confirmation; check before resending")

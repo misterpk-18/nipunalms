@@ -195,7 +195,7 @@ figure out what to do next."
 - **Backend first.** U0–U2 change roles and rules that every later screen depends on.
 - **Shared parts next.** U3–U5 build the shared components the screen phases reuse.
 - **Messaging before sign-in.** U6 has to come before U7, because the reset code and the links need the sending path.
-- **Migrations.** `db/105` is U1, `db/106` is U2, `db/107` is U6, `db/108` is U7 and `db/109` is U8 (U4 and U5 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+- **Migrations.** `db/105` is U1, `db/106` is U2, `db/107` is U6, `db/108` is U7, `db/109` is U8 and `db/110` is the WhatsApp status events (CRM round 6 reply) (U4 and U5 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
 
 ## Resuming in a new session
 

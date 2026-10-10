@@ -26,7 +26,7 @@ from repositories import crm as crm_repo
 from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
-from services import activation, allocations, audit, certificates
+from services import activation, allocations, audit, certificates, whatsapp
 from repositories.common import paginate
 from services.errors import AppError, BusinessRule, Conflict, NotFound, NotYetApplied, ValidationError
 from services.notifications import notify
@@ -676,7 +676,21 @@ def _branch_finance_snapshot(event: CrmEvent, data: dict) -> Handled:
     return Handled({"branch_id": branch.branch_id, "branch_code": branch.branch_code, "as_of": data["as_of"].isoformat()})
 
 
+# ---------------------------------------------------------------- WhatsappStatusUpdated
+
+def _whatsapp_status_updated(event: CrmEvent, data: dict) -> Handled:
+    """What the CRM's WhatsApp sender reports for one of our messages. An unknown key or an older version is answered
+    as stale (HTTP 200), never as a failure, so the CRM does not retry."""
+    changed = whatsapp.apply_status_event(
+        data["dedupe_key"], data["status"], event.source_version, provider_id=data.get("provider_message_id"), reason=data.get("reason"),
+        crm_outbox_id=data.get("crm_outbox_id"), occurred_at=data.get("occurred_at"))
+    if not changed:
+        return Handled({"reason": "No message with this key, or this status is not newer than the one already applied"}, stale=True)
+    return Handled({"dedupe_key": data["dedupe_key"], "status": data["status"]})
+
+
 HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
+    "WhatsappStatusUpdated": _whatsapp_status_updated,
     "CourseUpserted": _course_upserted,
     "AdmissionQualified": _admission_qualified,
     "AdmissionUpdated": _admission_updated,

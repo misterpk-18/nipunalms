@@ -714,3 +714,7 @@ Templates 1-3 (reset code, student activation link, staff invite) are queued by 
 | `GET /me/enrolments`, `GET /me/enrolments/{id}` | Add `topics {done, total, percent}` and `continue_topic`; modules add `topics_done` and `percent`; tracks add `topics` |
 | `GET /modules/{id}` | Topics carry the learner's `progress` (null for staff) |
 | `GET /me/topics/{id}` | Topic hub (students only): topic, module, track, `progress`, `sessions` (with attendance), `recordings`, `materials`, `assignments`, `tests`, `next_topic` |
+
+### 4.16 WhatsApp status events (CRM round 6, `110`)
+
+`WhatsappStatusUpdated` is a CRM event on the existing intake (`POST /integrations/crm/events`), data `{dedupe_key, status (Sent / Delivered / Read / Failed / Skipped), crm_outbox_id, provider_message_id, reason, occurred_at}`. It is applied when its `source_version` is higher than the last one for that dedupe key. `Failed` and `Skipped` also finish the LMS row with the reason; the other states set `delivery_status`. An unknown key or an older version is answered as `Ignored — stale` (not an error). The `Queued` answer to `POST /lms/whatsapp` is the normal first answer and stores `crm_outbox_id`.

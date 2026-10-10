@@ -317,3 +317,53 @@ def test_only_a_super_admin_unlocks(client, make_user, login):
     manager, other = make_user(roles=[("BRANCH_MANAGER", 1)]), make_user(roles=[("TRAINER", 1)])
 
     assert client.post(f"/api/v1/admin/users/{other.user_id}/unlock", headers=login(manager.email), json={"reason": "x"}).status_code == 403
+
+
+# ---------------------------------------------------------------- CRM round 6: status events
+
+def sent_message(client, make_user, login, switched_on):
+    """A staff invite handed to the CRM, which answered Queued (the normal first answer)."""
+    from services import whatsapp
+    from tests.test_whatsapp import FakeCrm
+    admin = make_user()
+    create_staff(client, login, admin)
+    db.session.commit()
+    crm = FakeCrm((200, {"data": {"status": "Queued", "outbox_id": 27}}))
+    whatsapp.send_pending(poster=crm)
+    (message,) = outbox(whatsapp_templates.STAFF_ACCOUNT_INVITE)
+    return message
+
+
+def status_event(crm_event, message, status, version, **data):
+    return crm_event("WhatsappStatusUpdated", {"dedupe_key": message.dedupe_key, "crm_outbox_id": 27, "status": status,
+                                               "provider_message_id": "wamid.1", "reason": None, **data}, source_version=version)
+
+
+def test_queued_is_the_normal_answer_and_the_status_events_follow_it(client, make_user, login, switched_on, crm_event):
+    message = sent_message(client, make_user, login, switched_on)
+    assert message.status == "Sent" and message.crm_outbox_id == 27
+
+    assert status_event(crm_event, message, "Sent", 1).status_code == 201
+    assert status_event(crm_event, message, "Delivered", 2).status_code == 201
+    db.session.refresh(message)
+    assert (message.delivery_status, message.delivery_version, message.provider_message_id) == ("Delivered", 2, "wamid.1")
+
+    older = status_event(crm_event, message, "Sent", 1, crm_outbox_id=27)
+    assert older.status_code == 200 or older.get_json()["data"]["status"] == "Ignored — stale"
+    db.session.refresh(message)
+    assert message.delivery_status == "Delivered"
+
+
+def test_a_failed_event_marks_the_message_failed_with_the_reason(client, make_user, login, switched_on, crm_event):
+    message = sent_message(client, make_user, login, switched_on)
+
+    status_event(crm_event, message, "Failed", 3, reason="template does not exist")
+
+    db.session.refresh(message)
+    assert message.status == "Failed" and "template does not exist" in message.status_note and message.delivery_status == "Failed"
+
+
+def test_an_event_for_an_unknown_message_is_answered_without_an_error(client, crm_event):
+    response = crm_event("WhatsappStatusUpdated", {"dedupe_key": "nobody:1", "status": "Delivered"}, source_version=1)
+
+    assert response.status_code < 300 and response.get_json()["data"]["status"] == "Ignored — stale"

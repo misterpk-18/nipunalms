@@ -224,7 +224,17 @@ def _branch_finance_snapshot(v: Validator) -> None:
     v.nested("followups", followups, required=True)
 
 
+def _whatsapp_status_updated(v: Validator) -> None:
+    v.string("dedupe_key", required=True, max_length=200)
+    v.choice("status", ("Sent", "Delivered", "Read", "Failed", "Skipped"), required=True)
+    v.integer("crm_outbox_id", nullable=True)
+    v.string("provider_message_id", nullable=True, max_length=200)
+    v.string("reason", nullable=True, max_length=1000)
+    v.datetime("occurred_at", nullable=True)
+
+
 PAYLOAD_RULES = {
+    "WhatsappStatusUpdated": _whatsapp_status_updated,
     "CourseUpserted": _course_upserted,
     "AdmissionQualified": _admission_qualified,
     "AdmissionUpdated": _admission_updated,
