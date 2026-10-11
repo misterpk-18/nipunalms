@@ -164,8 +164,8 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | End-to-end | `cd frontend && npx playwright test` (or `npm run e2e`) | Needs the API (dev DB) and Vite running; desktop + `@mobile` projects |
 
 E2E specs live in `frontend/e2e/` (one per area: `shell`, `admin`, `delivery`, `content`, `assessments`, `attendance`,
-`services`, `dashboards-learning`, `dashboards-staff`, `staff-account`); `e2e/helpers.ts` has the staging users and
-`login()`. Tests that change data assume a freshly seeded database. The Trainer Today spec schedules a class for today
+`services`, `trainer-u12`, `dashboards-learning`, `dashboards-staff`, `staff-account`); `e2e/helpers.ts` has the staging users and
+`login()`. Tests that change data assume a freshly seeded database. The trainer specs (`trainer-u12`, and the Today and register steps of `dashboards-learning`, `delivery`, `attendance`) schedule a class for today
 through the API, so it is skipped within ten minutes of midnight IST. `E2E_BASE_URL` points Playwright at another Vite
 port. Run one Playwright process at a time (they share `test-results/`).
 
@@ -336,11 +336,13 @@ only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind 
 
 | Route | Feature | API | Notes |
 |---|---|---|---|
-| `/trainer` | `today` | `/trainer/today` | Three tiles, then "Today's flow" per session: open session (`start`) → Join / Start Meet → save delivered topics (`deliver`) → attendance (`RegisterForm` from `trainer/attendance`) → notes and close-out (`PUT /class-sessions/{id}/notes`). Empty state "No assigned session scheduled today." and the scope note |
-| `/trainer/batches`, `/trainer/sessions` | `batches`, `sessions` | `/batches`, `/class-sessions` | Own batches with roster; sessions with Start / Deliver / request reschedule |
+| `/trainer` (`?session=<id>`) | `today`, `class-flow` | `/trainer/today`, `/class-sessions/{id}/flow` | The only way to run a class. "Next up" class expanded with its flow (Start class → Join → Attendance → Class log; progress and the draft log saved on the server so a refresh resumes), the others compact, finished ones collapsed; "No Meet link" has an Ask Branch Manager button; a **To do** list (classes without a log, assignments, test attempts, attendance, corrections, recoveries) with a button each; tomorrow's classes when nothing is left today. `?session=` opens one class (Run class from Sessions, or a missing log from an earlier day) |
+| `/trainer/batches` | `batches` | `/batches` | Own batches with roster |
+| `/trainer/sessions` | `sessions` | `/class-sessions` | The schedule (Coming up / Past) and reschedule requests waiting; Run class / Continue class / Add class log open the Today flow; Request reschedule. No Start or Mark delivered |
+| `/trainer/requests` | `requests` | `/me/requests` | **My requests** (TEACH, after Attendance): reschedule and correction requests, Waiting / Decided, with the decider and reason |
 | `/trainer/students` | `students` | `/trainer/students` | Assigned students with support flag |
 | `/trainer/reviews` | `reviews` | `/submissions?status=Awaiting Review&reviewer_me=true` | Start review, review |
-| `/trainer/attendance` | `attendance` | `/attendance/*` | Pending / All sessions, register with radio marking, Mark all Present, Confirm, request correction when locked, recoveries to verify |
+| `/trainer/attendance` (`?session=<id>`) | `attendance` | `/attendance/*` | **Unmarked & corrections**: Classes to mark · Corrections waiting · Recoveries to check · Recent classes (opens on the first with work). A class opens the register (the same `RegisterForm` as Today) with a sticky Save bar; correction requests when the register is closed |
 | `/trainer/content` | `content` | `/content-items/*` | Upload (batch → topic picker from `/content-items/options`, file or link), submit for review, new version, details |
 | `/trainer/assignments` | `assignments` | `/assignments/*` | Create / release / extend / withdraw, submissions list |
 | `/trainer/assessments` | `assessments` (tabs `test-builder`, `question-bank`, `grading`, `interviews`) | `/tests`, `/questions`, `/attempts`, slots | |

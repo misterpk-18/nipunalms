@@ -454,7 +454,8 @@ def decide_correction(correction_id: int, decision: str, note: str | None) -> At
                  reason=note, branch_id=enrolment.service_branch_id)
     if correction.requested_by != user.user_id:
         notify(category="Attendance", title=f"Attendance correction {decision.lower()}: {correction.session.title}",
-               body=note or f"The entry now says {correction.requested_status}.", link="/progress?tab=attendance",
+               body=note or (f"The entry now says {correction.requested_status}." if decision == "Approved" else "The entry stays as it was."),
+               link="/progress?tab=attendance" if correction.requester.student_id else "/trainer/requests",  # a student's request or a trainer's
                branch_id=enrolment.service_branch_id, recipient_user_ids=[correction.requested_by],
                event_key=f"correction-decided:{correction.correction_id}")
     return correction

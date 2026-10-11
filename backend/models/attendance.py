@@ -127,6 +127,7 @@ class AttendanceCorrection(db.Model):
     session: Mapped[ClassSession] = relationship(lazy="joined")
     enrolment: Mapped[Enrolment] = relationship(lazy="joined")
     requester: Mapped[User] = relationship(foreign_keys=[requested_by], lazy="joined")
+    decider: Mapped[User | None] = relationship(foreign_keys=[decided_by], lazy="joined")
 
     def to_dict(self) -> dict:
         return {
@@ -140,6 +141,7 @@ class AttendanceCorrection(db.Model):
             "status": self.status,
             "requested_by": {"user_id": self.requested_by, "full_name": self.requester.full_name},
             "requested_at": self.requested_at,
+            "decided_by": {"user_id": self.decided_by, "full_name": self.decider.full_name} if self.decider else None,
             "decided_at": self.decided_at,
             "decision_note": self.decision_note,
         }

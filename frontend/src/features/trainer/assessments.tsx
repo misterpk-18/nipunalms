@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearch } from "@tanstack/react-router";
 import { PageHead, PillTabs } from "@/components/lms/ui";
 import { GradingQueue } from "./grading";
 import { MockInterviews } from "./interviews";
@@ -8,7 +9,8 @@ import { TestBuilder } from "./test-builder";
 const TABS = ["Tests", "Question bank", "Grading queue", "Mock interviews"] as const;
 
 export function TrainerAssessments() {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Tests");
+  const { tab: wanted } = useSearch({ from: "/trainer/assessments" });
+  const [tab, setTab] = useState<(typeof TABS)[number]>(wanted === "grading" ? "Grading queue" : "Tests");
   return (
     <div className="mx-auto max-w-6xl">
       <PageHead title="Assessments" description="Tests, coding exercises, mock tests and interviews for the batches you teach." />

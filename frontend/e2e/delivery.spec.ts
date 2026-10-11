@@ -3,7 +3,7 @@ import { USERS, login } from "./helpers";
 
 /**
  * Delivery slice (S1) across roles: learner course navigation, batch creation and allocation, scheduling, the trainer's
- * start / deliver / reschedule request, and curriculum activation releasing waiting enrolments.
+ * class flow / reschedule request, and curriculum activation releasing waiting enrolments.
  * Tests mutate data and run in order: they assume a freshly seeded staging database (create-dev-db --yes && seed-dev).
  */
 
@@ -145,24 +145,28 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   await expect(page.getByRole("row", { name: /E2E weekly revision/ })).toHaveCount(3);
 });
 
-test("trainer starts and delivers the class, and requests a reschedule", async ({ page }) => {
+test("trainer runs the class from Today's flow, and requests a reschedule", async ({ page }) => {
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/sessions");
-  const live = page.getByRole("row", { name: /E2E live class/ });
-  await live.getByRole("button", { name: "Start" }).click();
-  await expect(page.getByText("Class started")).toBeVisible();
-  await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("In Progress");
+  // Sessions is the schedule: a class is run from Today, so there is no Start or Mark delivered here
+  await expect(page.getByRole("button", { name: "Mark delivered" })).toHaveCount(0);
   await page
     .getByRole("row", { name: /E2E live class/ })
-    .getByRole("button", { name: "Mark delivered" })
+    .getByRole("link", { name: "Run class" })
     .click();
-  await dialog(page).getByLabel("Notes (topics covered)").fill("Covered model evaluation");
-  await dialog(page).getByRole("button", { name: "Mark delivered" }).click();
-  await expect(page.getByText("Marked as delivered")).toBeVisible();
-  await page.getByRole("tab", { name: "Delivered / closed" }).click();
+  const flow = page.getByRole("region", { name: "Class: E2E live class" });
+  await flow.getByRole("button", { name: "Start class" }).click();
+  await expect(page.getByText("Class started.")).toBeVisible();
+  await flow.getByRole("button", { name: "Continue to attendance" }).click();
+  await flow.getByRole("button", { name: "Continue to class log" }).click();
+  await flow.getByLabel("Notes").fill("Covered model evaluation");
+  await flow.getByRole("button", { name: "Finish class" }).click();
+  await page.getByRole("button", { name: "Save class log" }).click();
+  await expect(page.getByText("Class log saved.")).toBeVisible();
+
+  await page.goto("/trainer/sessions");
   await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Held");
 
-  await page.getByRole("tab", { name: "Upcoming" }).click();
   const target = page.getByRole("row", { name: /PCA lab/ });
   await target.getByRole("button", { name: "Request reschedule" }).click();
   await dialog(page).getByLabel("Reason").fill("Lab clash with an exam");
@@ -176,7 +180,7 @@ test("coordinator approves the request; the session is rescheduled with history"
   const request = page.getByRole("row", { name: /PCA lab.*Lab clash with an exam/ });
   await request.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved — the session moved")).toBeVisible();
-  await expect(page.getByRole("row", { name: /PCA lab/ }).first()).toContainText("Rescheduled");
+  await expect(page.getByRole("row", { name: /PCA lab/ }).first()).toContainText("Moved");
 });
 
 test("super admin approves and activates the curriculum; the batch and its students pick it up", async ({ page }) => {

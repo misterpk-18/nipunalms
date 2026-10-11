@@ -5,7 +5,7 @@ import { USERS, login } from "./helpers";
 
 const ROLES = [
   { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Tasks & Tests", "Class Materials", "My Progress", "Certificates", "Career", "Ask Nipuna", "Support"], other: "/trainer" },
-  { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Sessions", "Reviews", "Batches", "Students", "Ask Nipuna"], other: "/branch" },
+  { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Sessions", "Attendance", "My requests", "Reviews", "Batches", "Students", "Ask Nipuna"], other: "/branch" },
   {
     name: "branch manager",
     user: USERS.bmGnt,

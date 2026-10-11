@@ -198,6 +198,13 @@ def requests_stmt(filters: dict, branch_ids: set[int] | None, batch_ids: set[int
     return stmt
 
 
+def requests_by_user(user_id: int, limit: int = 100) -> list[SessionChangeRequest]:
+    """The reschedule requests this person made, newest first."""
+    stmt = (select(SessionChangeRequest).where(SessionChangeRequest.requested_by == user_id)
+            .order_by(SessionChangeRequest.created_at.desc(), SessionChangeRequest.request_id.desc()).limit(limit))
+    return list(db.session.execute(stmt).scalars().unique())
+
+
 # ---------------------------------------------------------------- delivery counts
 
 def state_counts_by_batch(batch_ids: list[int]) -> dict[int, dict[str, int]]:

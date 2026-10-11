@@ -20,6 +20,7 @@ from config.timezone import IST
 from models import Batch, ClassSession, SessionChange, SessionChangeRequest, SessionPerson
 from repositories import batches as batches_repo
 from repositories import catalog as catalog_repo
+from repositories import class_flow as flow_repo
 from repositories import class_sessions as sessions_repo
 from repositories import users as users_repo
 from repositories.common import paginate
@@ -149,6 +150,11 @@ def _load_for_change(session_id: int, *, allow_own_trainer: bool = False) -> Cla
     if not (delivery_access.can_manage_branch(session.batch.branch_id) or teaches):
         raise Forbidden("You don't have access to this action")
     return session
+
+
+def load_for_change(session_id: int, *, allow_own_trainer: bool = False) -> ClassSession:
+    """The session, row-locked, for the callers outside this module (Today's class flow); same rules as `_load_for_change`."""
+    return _load_for_change(session_id, allow_own_trainer=allow_own_trainer)
 
 
 def _require_open(session: ClassSession, action: str) -> None:
@@ -545,7 +551,9 @@ def start(session_id: int) -> ClassSession:
 def deliver(session_id: int, log: dict) -> ClassSession:
     """The trainer's class log (Module 15 §15, Module 16 §7): Live (or an open class whose time has begun) -> Delivered, with
     the actual start and end, breaks, delivered minutes, and Held or Partially Held with what was not delivered. Missing times
-    default to when the class was started and its scheduled end."""
+    default to when the class was started and its scheduled end. The same call can carry the topics covered (`topic_ids`) and
+    the attendance entries (`attendance`, with an optional `attendance_default_status`), so Today's flow saves the whole log at
+    once; it also drops the flow's saved progress (db 112)."""
     session = _load_for_change(session_id, allow_own_trainer=True)
     if session.state not in ("Live", *OPEN_STATES):
         raise BusinessRule(f"Session {session.session_id} is {session.state} and cannot be marked Delivered")
@@ -567,15 +575,25 @@ def deliver(session_id: int, log: dict) -> ClassSession:
     outcome = log.get("outcome") or "Held"
     if outcome == "Partially Held" and not log.get("unfulfilled_note"):
         raise ValidationError("Say what was not delivered", {"unfulfilled_note": ["Required for a partially held class"]})
+    topic_ids = list(dict.fromkeys(log.get("topic_ids") or []))
+    for topic_id in topic_ids:
+        _valid_topic(session.batch, topic_id)
     session.state, session.delivered_at, session.delivery_outcome = "Delivered", now, outcome
     session.actual_start, session.actual_end, session.break_minutes, session.delivered_minutes = actual_start, actual_end, breaks, minutes
     session.unfulfilled_note = log.get("unfulfilled_note") if outcome == "Partially Held" else None
     if log.get("notes"):
         session.notes = log["notes"]
     db.session.flush()
+    if "topic_ids" in log:
+        flow_repo.replace_covered_topics(session.session_id, topic_ids)
+    flow_repo.clear_progress(session.session_id)
     audit.record("SESSION_DELIVERED", "class_session", session.session_id, branch_id=session.batch.branch_id,
                  new={"delivered_at": now, "starts_at": session.starts_at, "outcome": outcome, "delivered_minutes": minutes,
-                      "planned_minutes": session.planned_minutes})
+                      "planned_minutes": session.planned_minutes, "topics_covered": topic_ids or None})
+    if log.get("attendance") or log.get("attendance_default_status"):
+        from services import attendance as attendance_service  # imported here: attendance reaches back into this module through progress
+
+        attendance_service.mark_attendance(session.session_id, log.get("attendance") or [], log.get("attendance_default_status"))
     if outcome == "Partially Held":
         delivery_notices.notify_branch_managers(session.batch.branch_id, title=f"Partially held: {session.title}", category="Session",
                                                 body=f"{session.batch.batch_code} · {session.unfulfilled_note}", action_required=True,
@@ -642,8 +660,8 @@ def approve_request(request_id: int, note: str | None, override_reason: str | No
     request.status, request.decided_by, request.decided_at, request.decision_note = "Approved", actor_id(), _now(), note
     db.session.flush()
     delivery_notices.notify_users([request.requested_by], title=f"Reschedule approved: {session.title}", category="Session",
-                                  body=f"Now {_slot(session.starts_at, session.ends_at)}", event_key=f"reschedule-decision-{request.request_id}",
-                                  link="/trainer/sessions", branch_id=session.batch.branch_id)
+                                  body=f"Now {_slot(session.starts_at, session.ends_at)}" + (f". {note}" if note else ""),
+                                  event_key=f"reschedule-decision-{request.request_id}", link="/trainer/requests", branch_id=session.batch.branch_id)
     return request
 
 
@@ -652,7 +670,7 @@ def reject_request(request_id: int, note: str) -> SessionChangeRequest:
     request.status, request.decided_by, request.decided_at, request.decision_note = "Rejected", actor_id(), _now(), note
     db.session.flush()
     delivery_notices.notify_users([request.requested_by], title=f"Reschedule not approved: {request.session.title}", category="Session", body=note,
-                                  event_key=f"reschedule-decision-{request.request_id}", link="/trainer/sessions",
+                                  event_key=f"reschedule-decision-{request.request_id}", link="/trainer/requests",
                                   branch_id=request.session.batch.branch_id)
     return request
 

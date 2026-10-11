@@ -1,6 +1,6 @@
 /** Dashboards (docs/API.md §4.10–4.11): Student Home, Trainer Today, the trainer / academic reports and the staff summaries. Each screen makes one request. */
 import { useQuery } from "@tanstack/react-query";
-import { get, put } from "./client";
+import { get, post, put } from "./client";
 import type { BranchRef, DateOnly, DateTime, UserRef } from "./types";
 
 /** Every card reports Ready, Empty (nothing to show yet) or Unavailable (its source failed; the rest still render). */
@@ -136,6 +136,21 @@ export type StudentHome = {
 
 // ---------------------------------------------------------------- Trainer Today
 
+export type FlowStep = "open" | "join" | "attendance" | "log";
+export type ClassOutcome = "Held" | "Partially Held";
+/** What the trainer has typed into the class log so far; it is kept on the server, so a refresh resumes here. */
+export type ClassLogDraft = {
+  outcome?: ClassOutcome | null;
+  actual_start?: string | null;
+  actual_end?: string | null;
+  break_minutes?: number | null;
+  unfulfilled_note?: string | null;
+  notes?: string | null;
+  topic_ids?: number[];
+};
+export type TopicOption = { topic_id: number; title: string; module: string };
+
+/** One class as Today's guided flow shows it (`GET /trainer/today`, `GET /class-sessions/{id}/flow`). */
 export type TodaySession = {
   session_id: number;
   session_code: string;
@@ -145,11 +160,14 @@ export type TodaySession = {
   mode: string;
   room: string | null;
   state: string;
+  state_label: string;
+  live_at: DateTime | null;
   delivered_at: DateTime | null;
   notes: string | null;
+  approval_status: string;
   batch: BatchRef;
   topic: { topic_id: number; title: string } | null;
-  meet: { status: string; label: string; link: string | null; organizer_email: string | null };
+  meet: { status: string; label: string; link: string | null; organizer_email: string | null; link_requested_at: DateTime | null };
   attendance: {
     seats: number;
     marked: number;
@@ -162,6 +180,41 @@ export type TodaySession = {
     can_mark: boolean;
   };
   recording: { count: number; mapping: "Mapped" | "Pending Verification" };
+  flow: {
+    /** The steps this class still needs; empty once it is logged. */
+    steps: FlowStep[];
+    step: FlowStep | null;
+    draft: ClassLogDraft;
+    can_start: boolean;
+    start_opens_at: DateTime;
+    awaiting_approval: boolean;
+    topic_options: TopicOption[];
+  };
+  /** The class log, once the class is logged as delivered. */
+  log: {
+    outcome: ClassOutcome | null;
+    actual_start: DateTime | null;
+    actual_end: DateTime | null;
+    break_minutes: number;
+    delivered_minutes: number | null;
+    planned_minutes: number;
+    unfulfilled_note: string | null;
+    topics: { topic_id: number; title: string }[];
+  } | null;
+};
+
+/** A class in a plain list: tomorrow's classes and the classes still without a log. */
+export type CompactSession = {
+  session_id: number;
+  title: string;
+  starts_at: DateTime;
+  ends_at: DateTime;
+  mode: string;
+  room: string | null;
+  state: string;
+  state_label: string;
+  batch: BatchRef;
+  topic: { topic_id: number; title: string } | null;
 };
 
 export type TrainerToday = {
@@ -173,7 +226,17 @@ export type TrainerToday = {
     reviews: Card<{ count: number; oldest_submitted_at: DateTime | null; oldest_age_days: number | null }>;
     support_flags: Card<{ count: number; assigned_students: number }>;
   };
-  today: Card<{ date: DateOnly; sessions: TodaySession[] }>;
+  today: Card<{ date: DateOnly; sessions: TodaySession[]; next_up: number | null }>;
+  /** Shown when nothing is left to run today. */
+  tomorrow: { date: DateOnly; sessions: CompactSession[] } | Gap | null;
+  todo:
+    | {
+        assignments: number;
+        attempts: number;
+        class_logs: { count: number; sessions: CompactSession[] };
+        attendance: { classes: number; corrections: number; recoveries: number; total: number };
+      }
+    | Gap;
 };
 
 // ---------------------------------------------------------------- Reports
@@ -226,7 +289,9 @@ export const dashboardsApi = {
   trainerToday: () => get<TrainerToday>("/trainer/today"),
   trainerReports: () => get<TrainerReports>("/trainer/reports"),
   academicReports: () => get<AcademicReports>("/academic/reports"),
-  saveSessionNotes: (sessionId: number, notes: string) => put<{ session_id: number; notes: string | null }>(`/class-sessions/${sessionId}/notes`, { notes }),
+  classFlow: (sessionId: number) => get<TodaySession>(`/class-sessions/${sessionId}/flow`),
+  saveClassFlow: (sessionId: number, body: { step?: FlowStep | null; draft?: ClassLogDraft }) => put<TodaySession>(`/class-sessions/${sessionId}/flow`, body),
+  askForMeetLink: (sessionId: number) => post<TodaySession>(`/class-sessions/${sessionId}/meet/request-link`),
 };
 
 export const dashboardKeys = {
@@ -242,6 +307,8 @@ export const dashboardKeys = {
 
 export const useMyHome = () => useQuery({ queryKey: dashboardKeys.home, queryFn: dashboardsApi.home });
 export const useTrainerToday = () => useQuery({ queryKey: dashboardKeys.today, queryFn: dashboardsApi.trainerToday });
+export const useClassFlow = (sessionId: number | null) =>
+  useQuery({ queryKey: ["trainer", "flow", sessionId], queryFn: () => dashboardsApi.classFlow(sessionId!), enabled: sessionId !== null });
 export const useTrainerReports = () => useQuery({ queryKey: dashboardKeys.trainerReports, queryFn: dashboardsApi.trainerReports });
 export const useAcademicReports = () => useQuery({ queryKey: dashboardKeys.academicReports, queryFn: dashboardsApi.academicReports });
 

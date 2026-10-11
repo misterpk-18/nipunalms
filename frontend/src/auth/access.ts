@@ -12,6 +12,7 @@ import {
   CircleCheck,
   ClipboardCheck,
   ClipboardList,
+  FileClock,
   FileQuestion,
   FolderOpen,
   GraduationCap,
@@ -114,9 +115,10 @@ const STUDENT_NAV: NavItem[] = [
 export const STUDENT_ACCOUNT: NavItem = { to: "/my-account", label: "My Account", tkey: "myAccount", icon: User };
 
 const TRAINER_NAV: NavItem[] = [
-  { to: "/trainer", label: "Today", icon: House, group: "Teach" },
+  { to: "/trainer", label: "Today", icon: House, group: "Teach", badgeKey: "class_logs" },
   { to: "/trainer/sessions", label: "Sessions", icon: CalendarDays, group: "Teach" },
-  { to: "/trainer/attendance", label: "Attendance", icon: CalendarCheck, group: "Teach" },
+  { to: "/trainer/attendance", label: "Attendance", icon: CalendarCheck, group: "Teach", badgeKey: "attendance" },
+  { to: "/trainer/requests", label: "My requests", icon: FileClock, group: "Teach" },
   { to: "/trainer/reviews", label: "Reviews", icon: ClipboardCheck, group: "Grade", badgeKey: "to_grade" },
   { to: "/trainer/assignments", label: "Assignments", icon: ClipboardList, group: "Grade" },
   { to: "/trainer/assessments", label: "Assessments", icon: FileQuestion, group: "Grade" },

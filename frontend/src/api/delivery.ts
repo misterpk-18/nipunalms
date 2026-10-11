@@ -524,6 +524,11 @@ export type ClassLog = {
   break_minutes?: number;
   unfulfilled_note?: string;
   notes?: string;
+  /** Topics covered in the class (a topic of the batch's course). */
+  topic_ids?: number[];
+  /** Attendance entries saved with the log, and the status for every seat without an entry. Today's flow marks attendance on its own step instead. */
+  attendance?: { enrolment_id: number; status: "Present" | "Absent" | "Late" | "Excused"; remarks?: string | null }[];
+  attendance_default_status?: "Present" | "Absent" | "Late" | "Excused";
 };
 export type DecisionStatus = "Pending" | "Approved" | "Rejected";
 type DecisionFields = {

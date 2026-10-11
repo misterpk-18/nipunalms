@@ -3,6 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
@@ -186,3 +187,24 @@ class MeetEvent(db.Model):
             "actor": self.actor.to_summary() if self.actor else None,
             "created_at": self.created_at,
         }
+
+
+class ClassFlowProgress(db.Model):
+    """Where a trainer stands in Today's guided flow for one class, and the half-finished class log (db 112)."""
+
+    __tablename__ = "class_flow_progress"
+
+    session_id: Mapped[int] = mapped_column(Integer, ForeignKey("class_sessions.session_id"), primary_key=True)
+    step: Mapped[str] = mapped_column(String(20), default="open")
+    draft: Mapped[dict] = mapped_column(JSONB, default=dict)
+    updated_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+
+
+class ClassSessionTopic(db.Model):
+    """A topic the trainer logged as covered in a delivered class (db 112)."""
+
+    __tablename__ = "class_session_topics"
+
+    session_id: Mapped[int] = mapped_column(Integer, ForeignKey("class_sessions.session_id"), primary_key=True)
+    topic_id: Mapped[int] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"), primary_key=True)

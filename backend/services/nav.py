@@ -7,13 +7,9 @@ card lives in the browser, not here.
 """
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
-
-from config.database import db
 from repositories import dashboards as dash_repo
 from repositories import nav as nav_repo
-from repositories import tests as tests_repo
-from services import assessment_scope, scope, student_work, submissions
+from services import scope, student_work, trainer_todo
 from services import exceptions as exceptions_service
 from services import crm_sync
 from services.auth import workspaces_for
@@ -48,10 +44,12 @@ def _student_counts() -> dict[str, int]:
 
 def _trainer_counts() -> dict[str, int]:
     user = current_user()
-    _, meta = submissions.list_submissions({"status": "Awaiting Review", "reviewer_me": True}, 1, 1)
-    attempts_stmt = tests_repo.attempts_stmt({"grading_status": "Awaiting Grading", "reviewer_id": user.user_id}, assessment_scope.visible_batch_clause)
-    attempts = db.session.execute(select(func.count()).select_from(attempts_stmt.order_by(None).subquery())).scalar_one()
-    return {"to_grade": meta["total"] + attempts, "support": nav_repo.support_open_for_owner(user.user_id)}
+    return {
+        "to_grade": trainer_todo.assignments_to_review() + trainer_todo.attempts_to_mark(),
+        "support": nav_repo.support_open_for_owner(user.user_id),
+        "attendance": trainer_todo.attendance_work()["total"],
+        "class_logs": trainer_todo.class_logs_missing(datetime.now(timezone.utc), 1)[0],
+    }
 
 
 def _branch_counts(branch_id: int | None) -> dict[str, int]:

@@ -465,3 +465,11 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 | Table `support_attachments` (`support_request_id`, `support_message_id`, `uploaded_by_user_id`, `file_path`, `original_filename`, `mime_type`, `file_size_bytes`) | A file attached to a support message. The bytes are on disk under `UPLOAD_DIR/support`; type, size and who may download are checked by the service |
 | Table `email_change_codes` (`user_id`, `new_email`, `code_hash`, `expires_at`, `wrong_attempts`, `used_at`) | The 6-digit code that confirms a student's new email. Only a hash of `"<user id>:<email>:<code>"` is stored; single use, 10 minutes, burned after 5 wrong tries; at most 5 per person per hour (service rule) |
 | `branches.payment_instructions` (text) | How and where a student pays at that branch, shown on the Next payment card. Set through `PUT /branches/{id}/payment-instructions` |
+
+## 112 — UX phase U12: the trainer's class flow
+
+| Change | Why |
+|---|---|
+| Table `class_flow_progress` (`session_id` PK, `step` open / join / attendance / log, `draft` jsonb, `updated_by`, `updated_at`) | Where a trainer stands in Today's flow for a class and the half-written class log, so a refresh resumes at the same step. The row is deleted when the class is logged; the class's own state stays the truth |
+| Table `class_session_topics` (`session_id`, `topic_id`) | The topics the trainer logged as covered in a delivered class. The class keeps its one planned topic (`class_sessions.topic_id`), which still drives student topic progress |
+| `meet_events.event_type` accepts `Link requested` | The trainer's one-click "no Meet link" request to the Branch Managers |

@@ -2,19 +2,17 @@
 
 Everything is limited to the batches the trainer is assigned to, through services/scope.py. Nothing is calculated from scratch:
 the tiles read the class sessions (S1), the review queue (S3) and the support flags (S5); the reports read the progress view (S4)
-and the S3 review timestamps. The "Today's flow" stepper on the client drives the existing endpoints (start / deliver a session,
-the attendance register, session notes) - this response only says where each of today's sessions stands.
+and the S3 review timestamps. Each of today's classes comes with the state of its guided flow (services/class_flow.py), plus tomorrow's classes when nothing is left
+today and the to-do counts (services/trainer_todo.py).
 """
 from datetime import datetime, time, timedelta, timezone
 
 from config.timezone import IST, today_ist
-from models import ClassSession
 from repositories import batches as batches_repo
 from repositories import progress as progress_repo
-from repositories import recordings as recordings_repo
 from repositories import reports as reports_repo
 from repositories import settings as settings_repo
-from services import attendance, meet, scope, submissions, support
+from services import class_flow, scope, submissions, support, trainer_todo
 from services.cards import safe_card
 from services.context import current_user
 from services.errors import Forbidden
@@ -63,42 +61,46 @@ def _flags_tile() -> dict:
     return {"state": "Ready", "count": len(flagged), "assigned_students": len({row["student"]["student_id"] for row in students})}
 
 
-def _session_item(session: ClassSession) -> dict:
-    register = attendance.get_register(session.session_id)
-    summary = register.summary()
-    recordings = recordings_repo.recordings_of_session(session.session_id)
-    return {
-        "session_id": session.session_id,
-        "session_code": session.session_code,
-        "title": session.title,
-        "starts_at": session.starts_at,
-        "ends_at": session.ends_at,
-        "mode": session.mode,
-        "room": session.room,
-        "state": session.state,
-        "delivered_at": session.delivered_at,
-        "notes": session.notes,
-        "batch": session.batch.to_summary(),
-        "topic": {"topic_id": session.topic.topic_id, "title": session.topic.title} if session.topic else None,
-        "meet": {"status": session.meet_status, "label": meet.status_label(session.meet_status), "link": session.meet_link,
-                 "organizer_email": session.batch.branch.mailbox if session.mode != "Classroom" else None},
-        "attendance": {**summary, "locked": register.locked, "can_mark": register.can_mark},
-        "recording": {"count": len(recordings), "mapping": "Mapped" if recordings else "Pending Verification"},
-    }
+def _next_up(sessions: list[dict], now: datetime) -> int | None:
+    """The class to run next: the one that is on now, else the first still to come, else the first one still without a log."""
+    unfinished = [s for s in sessions if s["state"] != "Delivered"]
+    live = [s for s in unfinished if s["state"] == "Live"]
+    coming = [s for s in unfinished if s["ends_at"] >= now]
+    pick = (live or coming or unfinished or [None])[0]
+    return pick["session_id"] if pick else None
 
 
 def _today_sessions(user_id: int, now: datetime) -> dict:
     today = today_ist()
     sessions = reports_repo.sessions_of_trainer(user_id, _start_of_day(today), _start_of_day(today + timedelta(days=1)))
-    sessions = [s for s in sessions if s.state != "Cancelled"]
-    return {"state": "Ready" if sessions else "Empty", "date": today, "sessions": [_session_item(s) for s in sessions],
-            "message": None if sessions else "No assigned session scheduled today."}
+    items = [class_flow.item(s, now) for s in sessions if s.state != "Cancelled"]
+    return {"state": "Ready" if items else "Empty", "date": today, "sessions": items, "next_up": _next_up(items, now),
+            "message": None if items else "No assigned session scheduled today."}
+
+
+def _tomorrow(user_id: int) -> dict:
+    day = today_ist() + timedelta(days=1)
+    sessions = reports_repo.sessions_of_trainer(user_id, _start_of_day(day), _start_of_day(day + timedelta(days=1)))
+    return {"date": day, "sessions": [class_flow.compact(s) for s in sessions if s.state != "Cancelled"]}
+
+
+def _todo(now: datetime) -> dict:
+    """The counts behind the to-do list under today's classes (the same ones the navigation badges use)."""
+    missing, oldest = trainer_todo.class_logs_missing(now)
+    return {
+        "assignments": trainer_todo.assignments_to_review(),
+        "attempts": trainer_todo.attempts_to_mark(),
+        "class_logs": {"count": missing, "sessions": [class_flow.compact(s) for s in oldest]},
+        "attendance": trainer_todo.attendance_work(),
+    }
 
 
 def today() -> dict:
     user_id = _require_trainer()
     now = _now()
     batch_ids = scope.trainer_batch_ids()
+    today_card = safe_card("trainer_today", lambda: _today_sessions(user_id, now))
+    nothing_left = today_card.get("state") != "Ready" or today_card.get("next_up") is None
     return {
         "as_of": now,
         "scope_note": SCOPE_NOTE,
@@ -108,7 +110,9 @@ def today() -> dict:
             "reviews": safe_card("trainer_reviews", lambda: _reviews_tile(now)),
             "support_flags": safe_card("trainer_flags", _flags_tile),
         },
-        "today": safe_card("trainer_today", lambda: _today_sessions(user_id, now)),
+        "today": today_card,
+        "tomorrow": safe_card("trainer_tomorrow", lambda: _tomorrow(user_id)) if nothing_left else None,
+        "todo": safe_card("trainer_todo", lambda: _todo(now)),
     }
 
 

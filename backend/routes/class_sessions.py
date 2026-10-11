@@ -64,6 +64,27 @@ def deliver(session_id: int):
     return class_sessions_controller.deliver(session_id)
 
 
+@class_sessions_bp.get("/class-sessions/<int:session_id>/flow")
+@login_required
+@require_roles("TRAINER")
+def get_flow(session_id: int):
+    return class_sessions_controller.get_flow(session_id)
+
+
+@class_sessions_bp.put("/class-sessions/<int:session_id>/flow")
+@login_required
+@require_roles("TRAINER")
+def save_flow(session_id: int):
+    return class_sessions_controller.save_flow(session_id)
+
+
+@class_sessions_bp.post("/class-sessions/<int:session_id>/meet/request-link")
+@login_required
+@require_roles("TRAINER")
+def request_meet_link(session_id: int):
+    return class_sessions_controller.request_meet_link(session_id)
+
+
 @class_sessions_bp.put("/class-sessions/<int:session_id>/notes")
 @login_required
 @require_roles(*TEACHING_ROLES)

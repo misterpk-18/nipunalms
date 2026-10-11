@@ -16,7 +16,7 @@ from models.students import (
     StudentActivation,
 )
 from models.system import ActivityEvent, AppSetting, AuditLog, Integration, Notification
-from models.delivery import BatchEvent, CurriculumEvent, MeetEvent, SessionChange, SessionChangeRequest
+from models.delivery import BatchEvent, ClassFlowProgress, ClassSessionTopic, CurriculumEvent, MeetEvent, SessionChange, SessionChangeRequest
 
 __all__ = [
     "Assignment", "AssignmentSubmission", "AttemptAnswer", "InterviewSlot", "Question", "Result", "SubmissionReview", "Test",
@@ -25,7 +25,7 @@ __all__ = [
     "BatchAllocation", "BatchCrmState", "BatchTrainer", "Branch", "BranchFinanceSnapshot", "ClassSession", "Course", "CourseComponent", "CrmEvent", "CrmOutbox",
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "SecurityControl", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
-    "BatchEvent", "CurriculumEvent", "MeetEvent", "SessionChange", "SessionChangeRequest",
+    "BatchEvent", "ClassFlowProgress", "ClassSessionTopic", "CurriculumEvent", "MeetEvent", "SessionChange", "SessionChangeRequest",
 ]
 
 # Slice S4: attendance, progress, completion review, certificates

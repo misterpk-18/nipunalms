@@ -1,5 +1,6 @@
 /** Class-session tables and actions shared by the trainer, academic and branch workspaces, plus the batch roster. */
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { deliveryApi, type Batch, type ClassLog, type ClassSession, type RescheduleRequest } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -52,8 +53,12 @@ export function SessionActions({ session, manager, trainer: isTrainer }: { sessi
   const open = session.state === "Scheduled" || session.state === "Rescheduled";
   const awaitingApproval = session.approval_status === "Pending";
   const started = Date.now() >= new Date(session.starts_at).getTime();
-  const canStart = (manager || trainer) && open && !awaitingApproval && Date.now() >= new Date(session.starts_at).getTime() - START_OPENS_MS;
-  const canDeliver = (manager || trainer) && (session.state === "Live" || (open && started && !awaitingApproval));
+  // A trainer runs a class from Today's guided flow (Run class below); starting and logging it here is for the managers who cover one
+  const canStart = manager && open && !awaitingApproval && Date.now() >= new Date(session.starts_at).getTime() - START_OPENS_MS;
+  const canDeliver = manager && (session.state === "Live" || (open && started && !awaitingApproval));
+  const ended = Date.now() >= new Date(session.ends_at).getTime();
+  const canRun = trainer && !awaitingApproval && (open || session.state === "Live");
+  const runLabel = session.state === "Live" ? "Continue class" : ended ? "Add class log" : "Run class";
   const online = session.mode !== "Classroom";
   const within24 = new Date(session.starts_at).getTime() - Date.now() < DAY_MS;
   const times = [
@@ -82,6 +87,13 @@ export function SessionActions({ session, manager, trainer: isTrainer }: { sessi
 
   return (
     <div className="flex flex-wrap gap-1.5">
+      {canRun && (
+        <Button asChild size="sm">
+          <Link to="/trainer" search={{ session: session.session_id }}>
+            {runLabel}
+          </Link>
+        </Button>
+      )}
       {canStart && open && (
         <Button size="sm" onClick={() => start.mutate(session.session_id)}>
           Start
@@ -125,7 +137,12 @@ export function SessionActions({ session, manager, trainer: isTrainer }: { sessi
             // Closing a class early: the end defaults to now, never a time still in the future
             // Defaults: from when the trainer started the class to its scheduled end, or to now when it closes early
             { name: "actual_start", label: "Actual start (IST)", type: "datetime", value: toIstInput(session.live_at ?? session.starts_at) },
-            { name: "actual_end", label: "Actual end (IST)", type: "datetime", value: toIstInput(logEnd(session.live_at ?? session.starts_at, session.ends_at)) },
+            {
+              name: "actual_end",
+              label: "Actual end (IST)",
+              type: "datetime",
+              value: toIstInput(logEnd(session.live_at ?? session.starts_at, session.ends_at)),
+            },
             { name: "break_minutes", label: "Break minutes", type: "number", min: 0, value: "0" },
             {
               name: "unfulfilled_note",
@@ -288,7 +305,9 @@ export function sessionColumns(actions: { manager: boolean; trainer: boolean } |
               {s.approval_status === "Rejected" && <StatusBadge domain="approval" code="Rejected" label="Not approved" />}
             </div>
           )}
-          {s.state === "Cancelled" && s.replacement_waiver && <div className="mt-1 text-xs text-muted-foreground">No replacement needed: {s.replacement_waiver}</div>}
+          {s.state === "Cancelled" && s.replacement_waiver && (
+            <div className="mt-1 text-xs text-muted-foreground">No replacement needed: {s.replacement_waiver}</div>
+          )}
           {s.delivered_minutes != null && s.planned_minutes != null && (s.state === "Delivered" || s.state === "Live") && (
             <div className="mt-1 text-xs text-muted-foreground">
               {s.delivered_minutes} of {s.planned_minutes} minutes{s.unfulfilled_note ? ` · Not delivered: ${s.unfulfilled_note}` : ""}

@@ -1,33 +1,53 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi } from "@/api/delivery";
-import { Note, PageHead, PillTabs, QueryView, Section } from "@/components/lms/ui";
+import { HowThisWorks } from "@/components/lms/how-this-works";
+import { PageHead, PillTabs, QueryView, Section } from "@/components/lms/ui";
+import { Button } from "@/components/ui/button";
 import { RequestsPanel, SessionsTable } from "@/features/shared/sessions";
 
-const TABS = ["Upcoming", "Delivered / closed", "All"] as const;
+const TABS = ["Coming up", "Past"] as const;
 
+/** The trainer's schedule and reschedule requests. A class is run from Today's flow ("Run class" opens it there). */
 export function TrainerSessions() {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Upcoming");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("Coming up");
   const query = useQuery({
     queryKey: ["delivery", "sessions", "trainer", tab],
-    queryFn: () => deliveryApi.sessions(tab === "Upcoming" ? { upcoming: true } : {}),
-    select: (page) =>
-      tab === "Delivered / closed" ? { ...page, data: page.data.filter((s) => s.state === "Delivered" || s.state === "Cancelled").reverse() } : page,
+    // Coming up also shows a class that was cancelled or moved, so you see why it is not on. Past: everything that has ended, newest first, including a class that never got its log (it shows "Add class log")
+    queryFn: () => deliveryApi.sessions({ window: tab === "Coming up" ? "coming" : "past" }),
   });
   return (
-    <>
-      <PageHead title="Class sessions" description="Scheduled vs actual Class Session — start a class, mark it delivered, or ask for a reschedule." />
+    <div className="mx-auto max-w-6xl">
+      <PageHead title="Sessions" description="Your class schedule. Open a class to run it, or ask your Branch Manager to move one." />
       <PillTabs label="Sessions" tabs={TABS} value={tab} onChange={setTab} />
-      <QueryView query={query}>{(page) => <SessionsTable caption="Class sessions" rows={page.data} actions={{ manager: false, trainer: true }} />}</QueryView>
-      <Section className="mt-6" title="My reschedule requests">
+      <QueryView
+        query={query}
+        isEmpty={(page) => page.data.length === 0}
+        empty={tab === "Coming up" ? "No class is scheduled for you. Your Branch Manager adds classes to your batches." : "No class has ended yet."}
+      >
+        {(page) => <SessionsTable caption="Class sessions" rows={page.data} actions={{ manager: false, trainer: true }} />}
+      </QueryView>
+      <Section
+        className="mt-6"
+        title="Reschedule requests waiting"
+        actions={
+          <Button asChild size="sm" variant="outline">
+            <Link to="/trainer/requests">All my requests</Link>
+          </Button>
+        }
+      >
         <RequestsPanel manager={false} />
       </Section>
       <div className="mt-4">
-        <Note>
-          Start opens up to 60 minutes before the class. A session only counts as taught once you save its class log (Held or Partially Held); a class that is
-          cancelled or moved is never a student absence.
-        </Note>
+        <HowThisWorks>
+          <p>
+            Run class opens the class on Today, where you start it, mark attendance and save the class log. A class counts as taught once you save its log. A
+            class that is cancelled or moved is never counted as an absence for the students.
+          </p>
+          <p>To move a class, ask for a reschedule; your Branch Manager decides. The answer appears under My requests.</p>
+        </HowThisWorks>
       </div>
-    </>
+    </div>
   );
 }

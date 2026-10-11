@@ -14,12 +14,22 @@ export type NeedsYouItem = {
   age?: ReactNode;
   /** Where the button goes. */
   to: string;
+  /** Search parameters of that screen (`{ tab: "grading" }`). */
+  search?: Record<string, unknown>;
   /** The button's label ("Allocate"). */
   action: string;
 };
 
 /** A home screen's first block: what needs this person now, one row and one button each. */
-export function NeedsYouList({ title = "Needs you", items, empty = "Nothing needs you right now." }: { title?: string; items: NeedsYouItem[]; empty?: ReactNode }) {
+export function NeedsYouList({
+  title = "Needs you",
+  items,
+  empty = "Nothing needs you right now.",
+}: {
+  title?: string;
+  items: NeedsYouItem[];
+  empty?: ReactNode;
+}) {
   return (
     <section aria-label={title} className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
       <h2 className="mb-3 text-base font-semibold">{title}</h2>
@@ -40,7 +50,9 @@ export function NeedsYouList({ title = "Needs you", items, empty = "Nothing need
                 )}
               </div>
               <Button asChild size="sm">
-                <Link to={item.to}>{item.action}</Link>
+                <Link to={item.to} {...(item.search ? { search: item.search as never } : {})}>
+                  {item.action}
+                </Link>
               </Button>
             </li>
           ))}

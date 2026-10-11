@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { USERS, login } from "./helpers";
+import { PASSWORD, USERS, login } from "./helpers";
 
 /**
  * Slice S4: attendance, progress and certificates across roles. Run against a freshly seeded dev database
@@ -8,24 +8,49 @@ import { USERS, login } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
-test("trainer marks a class: everyone Present, one exception, confirmed", async ({ page }, info) => {
+test("trainer marks a class: everyone Present, one exception, saved", async ({ page, request }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
+  // a class for today in trainer.g3's batch, created relative to now so no seed date is needed
+  const login3 = async (who: string) => {
+    const response = await request.post("/api/v1/auth/login", { data: { login: who, password: PASSWORD } });
+    const { data } = await response.json();
+    return { token: data.token as string, userId: data.user.user_id as number };
+  };
+  const bm = await login3(USERS.bmGnt);
+  const trainer = await login3("trainer.g3@nipuna.test");
+  const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
+  const batches = await (await request.get("/api/v1/batches", { headers: headers(trainer.token) })).json();
+  const start = new Date(Date.now() + 5 * 60_000);
+  const created = await request.post("/api/v1/class-sessions", {
+    headers: headers(bm.token),
+    data: {
+      batch_id: batches.data[0].batch_id,
+      title: "E2E register class",
+      starts_at: start.toISOString(),
+      ends_at: new Date(start.getTime() + 40 * 60_000).toISOString(),
+      mode: "Classroom",
+      trainer_user_id: trainer.userId,
+    },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  const sessionId = (await created.json()).data[0].session_id as number;
+  expect((await request.post(`/api/v1/class-sessions/${sessionId}/start`, { headers: headers(trainer.token) })).ok()).toBeTruthy();
+
   await login(page, "trainer.g3@nipuna.test");
   await page.goto("/trainer/attendance");
-  await page.getByRole("tab", { name: "All" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Unmarked & corrections" })).toBeVisible();
+  await page.getByRole("tab", { name: "Classes to mark" }).click();
   await page
-    .getByRole("row", { name: /Mini project kick-off/ })
-    .getByRole("button", { name: /Mark attendance|Open register/ })
+    .getByRole("row", { name: /E2E register class/ })
+    .getByRole("link", { name: "Mark attendance" })
     .click();
 
-  await expect(page.getByRole("heading", { name: /Mini project kick-off/ })).toBeVisible();
-  const markAll = page.getByRole("button", { name: "Mark all Present" });
-  if (await markAll.isEnabled()) await markAll.click();
-  const firstStudent = page.getByRole("radiogroup").first();
-  await firstStudent.getByText("Absent", { exact: true }).click();
-  await page.getByRole("button", { name: "Confirm attendance" }).click();
-  await expect(page.getByText("Attendance confirmed.")).toBeVisible();
-  await expect(page.getByText("Every seat is marked.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /E2E register class/ })).toBeVisible();
+  await page.getByRole("button", { name: "Mark everyone else Present" }).click();
+  await page.getByRole("radiogroup").first().getByText("Absent", { exact: true }).click();
+  await page.getByRole("button", { name: "Save attendance" }).click();
+  await expect(page.getByText("Attendance saved.")).toBeVisible();
+  await expect(page.getByText("Everyone is marked")).toBeVisible();
 });
 
 test("student sees attendance with approved recovery, four separate progress measures and certificate status", async ({ page }, info) => {
@@ -60,7 +85,7 @@ test("coordinator sees alerts and partial data, then recommends a certificate; t
   const learnerG = page.getByRole("row", { name: /Sample Learner G\./ });
   await expect(learnerG).toContainText("71%");
   await expect(learnerG).toContainText("Alert");
-  await expect(page.getByRole("row", { name: /Sample Learner I\./ })).toContainText("Partial Data");
+  await expect(page.getByRole("row", { name: /Sample Learner I\./ })).toContainText("Incomplete data");
 
   await page.goto("/branch/certificates");
   const learnerC = page.getByRole("row", { name: /Sample Learner C\./ });

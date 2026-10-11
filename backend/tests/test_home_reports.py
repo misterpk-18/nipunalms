@@ -137,7 +137,7 @@ def test_trainer_today_is_trainer_only(client, world):
 
 def test_trainer_today_empty_state_and_scope_note(client, world):
     data = today_view(client, world)
-    assert data["today"] == {"state": "Empty", "date": data["today"]["date"], "sessions": [], "message": "No assigned session scheduled today."}
+    assert data["today"] == {"state": "Empty", "date": data["today"]["date"], "sessions": [], "next_up": None, "message": "No assigned session scheduled today."}
     assert "assigned batches and students" in data["scope_note"]
     assert data["tiles"]["sessions"]["count"] == 0
     assert data["tiles"]["reviews"] == {"state": "Ready", "count": 0, "oldest_submitted_at": None, "oldest_age_days": None}

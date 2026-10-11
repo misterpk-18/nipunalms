@@ -1,242 +1,271 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { dashboardKeys, dashboardsApi, useTrainerToday, type TodaySession, type TrainerToday } from "@/api/dashboards";
-import { deliveryApi } from "@/api/delivery";
+import { Link, useSearch } from "@tanstack/react-router";
+import { useClassFlow, useTrainerToday, type CompactSession, type TodaySession, type TrainerToday } from "@/api/dashboards";
 import { EmptyState } from "@/components/lms/empty-state";
 import { GettingStartedCard } from "@/components/lms/getting-started";
-import { Grid, Note, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { HowThisWorks } from "@/components/lms/how-this-works";
+import { NeedsYouList, type NeedsYouItem } from "@/components/lms/needs-you-list";
+import { PageHead, QueryView, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { CardGap, Tile } from "@/features/shared/dashboard-parts";
-import { fmtDate, fmtDateTime, fmtRange } from "@/features/shared/format";
-import { RegisterForm } from "@/features/trainer/attendance";
-import { useApiMutation } from "@/lib/mutation";
+import { ClassFlow, FinishedClass } from "@/features/trainer/class-flow";
+import { fmtDate, fmtRange } from "@/features/shared/format";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Open today's session", "Join / Start Meet", "Record delivered topics", "Mark attendance", "Notes & closeout"] as const;
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** Where a session stands in the flow: from the class state, what is marked and whether notes exist. */
-function stepOf(session: TodaySession, meetAcknowledged: boolean, attendanceAcknowledged: boolean): number {
-  if (session.state === "Scheduled" || session.state === "Rescheduled") return 0;
-  if (session.state === "Live") return meetAcknowledged ? 2 : 1;
-  const a = session.attendance;
-  if (a.seats > 0 && a.marked < a.seats && !attendanceAcknowledged) return 3;
-  return session.notes ? 5 : 4;
-}
-
-function MeetStep({ session, onContinue }: { session: TodaySession; onContinue: () => void }) {
-  const { meet } = session;
+/** A class in a plain list: when, what, which batch and its state. */
+function CompactRow({ session }: { session: CompactSession }) {
   return (
-    <div className="space-y-2">
-      {session.mode === "Classroom" ? (
-        <p className="text-sm">Classroom session{session.room ? ` in ${session.room}` : ""} — no Meet needed.</p>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {meet.link ? (
-            <Button asChild>
-              <a href={meet.link} target="_blank" rel="noreferrer">
-                Join / Start Meet
-              </a>
-            </Button>
-          ) : (
-            <Button disabled>Join / Start Meet</Button>
-          )}
-          <StatusBadge domain="meet" code={meet.status} label={meet.label} />
-          <span className="text-xs text-muted-foreground">
-            {meet.link ? "Opens Google Meet as the branch organizer." : "The Meet link is not set yet."}
-            {meet.organizer_email && ` Meet organizer: ${meet.organizer_email}.`}
-          </span>
-        </div>
-      )}
-      <Button variant="outline" onClick={onContinue}>
-        Continue (class started)
-      </Button>
-    </div>
+    <li className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">
+          {fmtRange(session.starts_at, session.ends_at)} · {session.title}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {session.batch.batch_code} · {session.mode}
+          {session.room ? ` · ${session.room}` : ""}
+          {session.topic ? ` · ${session.topic.title}` : ""}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <StatusBadge domain="session" code={session.state} />
+      </div>
+    </li>
   );
 }
 
-function NotesStep({ session, onSaved }: { session: TodaySession; onSaved: () => void }) {
-  const [notes, setNotes] = useState(session.notes ?? "");
-  const save = useApiMutation((value: string) => dashboardsApi.saveSessionNotes(session.session_id, value), {
-    success: "Close-out saved. The recording is still waiting to be matched to this class.",
-    onSuccess: onSaved,
-  });
+function OtherClasses({ sessions }: { sessions: TodaySession[] }) {
+  if (sessions.length === 0) return null;
   return (
-    <div className="space-y-2">
-      <label htmlFor={`notes-${session.session_id}`} className="block text-sm font-medium">
-        Session notes
-      </label>
-      <Textarea id={`notes-${session.session_id}`} rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      <Button disabled={!notes.trim() || save.isPending} onClick={() => save.mutate(notes.trim())}>
-        Close out session
-      </Button>
-    </div>
-  );
-}
-
-function SessionFlow({ session }: { session: TodaySession }) {
-  const queryClient = useQueryClient();
-  const [meetAcknowledged, setMeetAcknowledged] = useState(false);
-  const [attendanceAcknowledged, setAttendanceAcknowledged] = useState(false);
-  const [topicChecked, setTopicChecked] = useState(false);
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: dashboardKeys.today });
-  const start = useApiMutation(() => deliveryApi.startSession(session.session_id), { success: "Session opened.", onSuccess: refresh });
-  const deliver = useApiMutation(() => deliveryApi.deliverSession(session.session_id), { success: "Delivered topics saved.", onSuccess: refresh });
-  const step = stepOf(session, meetAcknowledged, attendanceAcknowledged);
-
-  return (
-    <Section className="mt-6" title={`Today's flow — ${session.title}`}>
-      <p className="mb-3 text-sm text-muted-foreground">
-        {fmtDate(session.starts_at)} · {fmtRange(session.starts_at, session.ends_at)} · <span className="font-mono text-xs">{session.batch.batch_code}</span> ·{" "}
-        {session.mode}
-        {session.room ? ` · ${session.room}` : ""} <StatusBadge domain="session" code={session.state} />
-      </p>
-      <ol className="mb-4 grid gap-2 sm:grid-cols-5" aria-label="Session flow">
-        {STEPS.map((label, i) => (
-          <li
-            key={label}
-            aria-current={i === step ? "step" : undefined}
-            className={cn("rounded-lg border p-2 text-sm", i === step && "border-primary bg-accent font-semibold", i < step && "bg-success-soft")}
-          >
-            <span className="text-xs">{i < step ? "✓ Done" : `Step ${i + 1}`}</span>
-            <br />
-            {label}
+    <section aria-label="Later today" className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
+      <h2 className="mb-1 text-base font-semibold">Also today</h2>
+      <ul className="divide-y">
+        {sessions.map((s) => (
+          <li key={s.session_id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">
+                {fmtRange(s.starts_at, s.ends_at)} · {s.title}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {s.batch.batch_code} · {s.mode}
+                {s.room ? ` · ${s.room}` : ""}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusBadge domain="session" code={s.state} />
+              <Button asChild size="sm" variant="outline">
+                <Link to="/trainer" search={{ session: s.session_id }}>
+                  Open class
+                </Link>
+              </Button>
+            </div>
           </li>
         ))}
-      </ol>
-
-      {step === 0 && (
-        <div className="space-y-1">
-          <Button disabled={start.isPending} onClick={() => start.mutate(undefined)}>
-            Open session
-          </Button>
-          <p className="text-xs text-muted-foreground">A class can be opened up to 60 minutes before it begins.</p>
-        </div>
-      )}
-      {step === 1 && <MeetStep session={session} onContinue={() => setMeetAcknowledged(true)} />}
-      {step === 2 && (
-        <fieldset>
-          <legend className="mb-2 text-sm font-medium">Topics delivered in this actual Class Session</legend>
-          {session.topic ? (
-            <label className="tap flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={topicChecked} onChange={(e) => setTopicChecked(e.target.checked)} />
-              {session.topic.title}
-            </label>
-          ) : (
-            <p className="text-sm text-muted-foreground">This class has no curriculum topic attached. Saving records that the class was taught.</p>
-          )}
-          <Button className="mt-2" disabled={(session.topic !== null && !topicChecked) || deliver.isPending} onClick={() => deliver.mutate(undefined)}>
-            Save delivered topics
-          </Button>
-        </fieldset>
-      )}
-      {step === 3 && (
-        <div className="space-y-2">
-          <p className="text-sm">
-            Mark attendance below ({session.attendance.marked} of {session.attendance.seats} marked), or open the{" "}
-            <Link to="/trainer/attendance" className="text-primary underline">
-              attendance register
-            </Link>
-            .
-          </p>
-          <RegisterForm sessionId={session.session_id} onSaved={refresh} />
-          <Button variant="outline" onClick={() => setAttendanceAcknowledged(true)}>
-            Continue to notes (attendance not complete)
-          </Button>
-        </div>
-      )}
-      {step === 4 && <NotesStep session={session} onSaved={refresh} />}
-      {step === 5 && (
-        <StatusNote tone="success">
-          Session closed out. Recording: {session.recording.mapping === "Mapped" ? "matched to this class" : "waiting to be matched to this class"}.
-          {session.notes && <span className="mt-1 block text-xs">Notes: {session.notes}</span>}
-        </StatusNote>
-      )}
-    </Section>
+      </ul>
+    </section>
   );
 }
 
-function Tiles({ tiles }: { tiles: TrainerToday["tiles"] }) {
-  const { sessions, reviews, support_flags: flags } = tiles;
+function FinishedClasses({ sessions }: { sessions: TodaySession[] }) {
+  const [openId, setOpenId] = useState<number | null>(null);
+  if (sessions.length === 0) return null;
   return (
-    <Grid cols={3}>
-      <Tile
-        rank={1}
-        label="Assigned sessions scheduled"
-        value={sessions.state === "Ready" ? sessions.count : "Unavailable"}
-        hint={
-          sessions.state === "Ready" ? (
-            `Next ${sessions.window_days} days${sessions.next_starts_at ? ` · next ${fmtDateTime(sessions.next_starts_at)}` : ""}`
-          ) : (
-            <CardGap card={sessions} />
-          )
-        }
-      />
-      <Tile
-        rank={2}
-        label="Submissions awaiting my review"
-        value={reviews.state === "Ready" ? reviews.count : "Unavailable"}
-        hint={
-          reviews.state !== "Ready" ? (
-            <CardGap card={reviews} />
-          ) : reviews.oldest_age_days === null ? (
-            "Nothing waiting"
-          ) : (
-            <>
-              Oldest: {reviews.oldest_age_days} day{reviews.oldest_age_days === 1 ? "" : "s"} ·{" "}
-              <Link to="/trainer/reviews" className="text-primary underline">
-                Open reviews
-              </Link>
-            </>
-          )
-        }
-      />
-      <Tile
-        rank={3}
-        label="Assigned students with open support flags"
-        value={flags.state === "Ready" ? flags.count : "Unavailable"}
-        hint={
-          flags.state === "Ready" ? (
-            <>
-              of {flags.assigned_students} assigned ·{" "}
-              <Link to="/trainer/support" className="text-primary underline">
-                Open support
-              </Link>
-            </>
-          ) : (
-            <CardGap card={flags} />
-          )
-        }
-      />
-    </Grid>
+    <details className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
+      <summary className="cursor-pointer text-base font-semibold">Finished today ({sessions.length})</summary>
+      <ul className="mt-2 divide-y">
+        {sessions.map((s) => (
+          <li key={s.session_id} className="py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">
+                  {fmtRange(s.starts_at, s.ends_at)} · {s.title}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {s.batch.batch_code} · attendance {s.attendance.marked} of {s.attendance.seats} marked
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusBadge domain="session" code={s.state} />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-expanded={openId === s.session_id}
+                  onClick={() => setOpenId(openId === s.session_id ? null : s.session_id)}
+                >
+                  {openId === s.session_id ? "Hide" : "View"}
+                </Button>
+              </div>
+            </div>
+            {openId === s.session_id && (
+              <div className="mt-3">
+                <FinishedClass session={s} />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function Tomorrow({ tomorrow }: { tomorrow: Extract<TrainerToday["tomorrow"], { sessions: CompactSession[] }> }) {
+  return (
+    <section aria-label="Tomorrow" className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
+      <h2 className="mb-1 text-base font-semibold">Tomorrow · {fmtDate(tomorrow.date)}</h2>
+      {tomorrow.sessions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No class is scheduled for tomorrow either.</p>
+      ) : (
+        <ul className="divide-y">
+          {tomorrow.sessions.map((s) => (
+            <CompactRow key={s.session_id} session={s} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function todoItems(todo: Extract<TrainerToday["todo"], { assignments: number }>): NeedsYouItem[] {
+  const items: NeedsYouItem[] = [];
+  for (const session of todo.class_logs.sessions)
+    items.push({
+      id: `log-${session.session_id}`,
+      what: `Class log missing: ${session.title}`,
+      where: `${session.batch.batch_code} · ${fmtDate(session.starts_at)}`,
+      to: "/trainer",
+      search: { session: session.session_id },
+      action: "Add class log",
+    });
+  if (todo.class_logs.count > todo.class_logs.sessions.length)
+    items.push({
+      id: "log-more",
+      what: `${plural(todo.class_logs.count - todo.class_logs.sessions.length, "more class")} without a log`,
+      to: "/trainer/sessions",
+      search: {},
+      action: "Open Sessions",
+    });
+  if (todo.assignments > 0)
+    items.push({ id: "assignments", what: `${plural(todo.assignments, "assignment")} to review`, to: "/trainer/reviews", action: "Review" });
+  if (todo.attempts > 0)
+    items.push({
+      id: "attempts",
+      what: `${plural(todo.attempts, "test attempt")} to mark`,
+      to: "/trainer/assessments",
+      search: { tab: "grading" },
+      action: "Mark",
+    });
+  const { classes, corrections, recoveries } = todo.attendance;
+  if (classes > 0)
+    items.push({
+      id: "attendance",
+      what: `Attendance is not complete for ${plural(classes, "class", "classes")}`,
+      to: "/trainer/attendance",
+      action: "Mark attendance",
+    });
+  if (corrections > 0)
+    items.push({
+      id: "corrections",
+      what: `${plural(corrections, "attendance correction")} waiting for a decision`,
+      to: "/trainer/attendance",
+      action: "See corrections",
+    });
+  if (recoveries > 0)
+    items.push({
+      id: "recoveries",
+      what: `${plural(recoveries, "recovery", "recoveries")} for you to check`,
+      to: "/trainer/attendance",
+      action: "Check recoveries",
+    });
+  return items;
+}
+
+function Todo({ todo }: { todo: TrainerToday["todo"] }) {
+  if (!("assignments" in todo)) return <StatusNote tone="warning">The to-do list could not be loaded just now.</StatusNote>;
+  return (
+    <NeedsYouList
+      title="To do"
+      items={todoItems(todo)}
+      empty="You are all caught up: no work to review, no missing class logs and no attendance left to mark."
+    />
+  );
+}
+
+/** The class the trainer is working on: today's next-up class, or the one opened with `?session=`. */
+function Focus({ session, nextUp, today }: { session: number | undefined; nextUp: number | null; today: TodaySession[] }) {
+  const focusId = session ?? nextUp;
+  const inList = today.find((s) => s.session_id === focusId);
+  // A class that is not one of today's (Run class from Sessions, or a missing log from an earlier day)
+  const extra = useClassFlow(focusId !== null && !inList ? focusId : null);
+  if (focusId === null) return null;
+  const focused = inList ?? extra.data;
+  if (!focused)
+    return (
+      <QueryView query={extra} skeleton="detail">
+        {() => null}
+      </QueryView>
+    );
+  const label = !inList ? "Opened from your list" : focused.state === "Live" ? "On now" : focusId === nextUp ? "Next up" : "Class";
+  return (
+    <>
+      {!inList && session && (
+        <p className="text-sm">
+          <Link to="/trainer" className="text-primary underline">
+            Back to today
+          </Link>
+        </p>
+      )}
+      <ClassFlow key={focused.session_id} session={focused} label={label} />
+    </>
   );
 }
 
 export function TrainerToday() {
+  const { session } = useSearch({ from: "/trainer/" });
   const query = useTrainerToday();
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHead title="Today" description="Run today's classes and see what needs your attention." />
+    <div className={cn("mx-auto max-w-4xl")}>
+      <PageHead title="Today" description="Run today's classes and see what needs you." />
       <div className="mb-4">
         <GettingStartedCard workspace="trainer" />
       </div>
-      <QueryView query={query}>
-        {(data) => (
-          <>
-            <Tiles tiles={data.tiles} />
-            {data.today.state === "Ready" ? (
-              data.today.sessions.map((session) => <SessionFlow key={session.session_id} session={session} />)
-            ) : (
-              <div className="mt-6">
-                {data.today.state === "Empty" ? <EmptyState reason="No class is scheduled for you today." /> : <CardGap card={data.today} />}
-              </div>
-            )}
-            <div className="mt-4">
-              <Note>{data.scope_note}</Note>
+      <QueryView query={query} skeleton="detail">
+        {(data) => {
+          const ready = data.today.state === "Ready" ? data.today : null;
+          const sessions = ready?.sessions ?? [];
+          const focusId = session ?? ready?.next_up ?? null;
+          const others = sessions.filter((s) => s.session_id !== focusId && s.state !== "Delivered");
+          const finished = sessions.filter((s) => s.session_id !== focusId && s.state === "Delivered");
+          const tomorrow = data.tomorrow && "sessions" in data.tomorrow ? data.tomorrow : null;
+          return (
+            <div className="space-y-4">
+              {data.today.state === "Unavailable" && (
+                <StatusNote tone="warning">Today's classes could not be loaded just now. Try again in a moment.</StatusNote>
+              )}
+              {data.today.state === "Empty" && !session && (
+                <EmptyState
+                  reason="No class is scheduled for you today."
+                  action={
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/trainer/sessions">See your schedule</Link>
+                    </Button>
+                  }
+                />
+              )}
+              <Focus session={session} nextUp={ready?.next_up ?? null} today={sessions} />
+              <OtherClasses sessions={others} />
+              <FinishedClasses sessions={finished} />
+              {tomorrow && !session && <Tomorrow tomorrow={tomorrow} />}
+              <Todo todo={data.todo} />
+              <HowThisWorks>
+                <p>
+                  Today is where you run a class: start it, join the meeting, mark attendance and save the class log. Your place is kept, so you can refresh or
+                  switch device and carry on.
+                </p>
+                <p>{data.scope_note}</p>
+              </HowThisWorks>
             </div>
-          </>
-        )}
+          );
+        }}
       </QueryView>
     </div>
   );

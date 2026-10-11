@@ -225,6 +225,13 @@ def corrections_stmt(filters: dict, scope_condition) -> Select:
     return stmt
 
 
+def corrections_by_user(user_id: int, limit: int = 100) -> list[AttendanceCorrection]:
+    """The attendance corrections this person asked for, newest first."""
+    stmt = (select(AttendanceCorrection).where(AttendanceCorrection.requested_by == user_id)
+            .order_by(AttendanceCorrection.requested_at.desc(), AttendanceCorrection.correction_id.desc()).limit(limit))
+    return list(db.session.execute(stmt).scalars().unique())
+
+
 def sessions_missing_attendance(start: date, end: date) -> list[tuple[ClassSession, int]]:
     """Delivered classes held between start and end (IST dates) with seats that have no attendance entry yet, and how many."""
     class_day = func.date(func.timezone("Asia/Kolkata", ClassSession.starts_at))

@@ -2,6 +2,8 @@ from flask import request
 
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated, require_changes
 from models.enums import DELIVERY_MODES, MEET_STATUSES, RESCHEDULE_REQUEST_STATUSES, SESSION_STATES
+from models.attendance_enums import ATTENDANCE_STATUSES
+from services import class_flow as class_flow_service
 from services import class_sessions as class_sessions_service
 from services import delivery_access
 from services.errors import ValidationError
@@ -24,6 +26,7 @@ def list_class_sessions():
     v.choice("approval_status", ("Not Required", "Pending", "Approved", "Rejected"))
     v.boolean("upcoming", default=False)
     v.boolean("mine", default=False)
+    v.choice("window", ("coming", "past"))
     v.date("from")
     v.date("to")
     filters = v.validate()
@@ -147,7 +150,42 @@ def deliver(session_id: int):
     v.datetime("actual_end", nullable=True)
     v.integer("break_minutes", nullable=True, min_value=0, max_value=600)
     v.string("unfulfilled_note", nullable=True, max_length=2000)
+    v.int_list("topic_ids", min_value=1)
+    v.choice("attendance_default_status", ATTENDANCE_STATUSES, nullable=True)
+
+    def entry_rules(entry: Validator) -> None:
+        entry.integer("enrolment_id", required=True, min_value=1)
+        entry.choice("status", ATTENDANCE_STATUSES, required=True)
+        entry.string("remarks", nullable=True, max_length=500)
+
+    v.list_of("attendance", entry_rules)
     return ok(_session(class_sessions_service.deliver(session_id, v.validate())))
+
+
+def get_flow(session_id: int):
+    return ok(class_flow_service.get(session_id))
+
+
+def save_flow(session_id: int):
+    v = Validator(json_body())
+    v.choice("step", class_flow_service.STEPS, nullable=True)
+
+    def draft_rules(draft: Validator) -> None:
+        draft.choice("outcome", class_flow_service.OUTCOMES, nullable=True)
+        draft.string("actual_start", nullable=True, max_length=40)
+        draft.string("actual_end", nullable=True, max_length=40)
+        draft.integer("break_minutes", nullable=True, min_value=0, max_value=600)
+        draft.string("unfulfilled_note", nullable=True, max_length=2000)
+        draft.string("notes", nullable=True, max_length=2000)
+        draft.int_list("topic_ids", min_value=1)
+
+    v.nested("draft", draft_rules, nullable=True)
+    data = v.validate()
+    return ok(class_flow_service.save_progress(session_id, data.get("step"), data.get("draft")))
+
+
+def request_meet_link(session_id: int):
+    return ok(class_flow_service.ask_for_meet_link(session_id))
 
 
 def confirm(session_id: int):
