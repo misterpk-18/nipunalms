@@ -1,30 +1,99 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { contentApi, CONTENT_TYPES, LINK_TYPES, formatDateTime, type ContentItem } from "@/api/content";
-import { DataTable, Note, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
+import { HowThisWorks } from "@/components/lms/how-this-works";
+import { DataTable, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
 import { ContentDetailDialog } from "@/features/shared/content-detail";
 
+/** What the status filter offers: plain words, each one a set of the item's statuses. */
+const STATUS_FILTERS = {
+  "": "All",
+  Draft: "Draft",
+  "Submitted,Under Review": "Waiting for review",
+  "Changes Requested": "Changes requested",
+  "Approved,Released": "Approved or released",
+  Rejected: "Rejected",
+} as const;
+
 export function TrainerContent() {
-  const query = useQuery({ queryKey: ["content-items", "mine"], queryFn: () => contentApi.items({ per_page: 100 }) });
+  const { batch } = useSearch({ from: "/trainer/content" });
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<keyof typeof STATUS_FILTERS>("");
+  const query = useQuery({
+    queryKey: ["content-items", "mine", batch ?? null, status],
+    queryFn: () => contentApi.items({ per_page: 100, ...(batch ? { batch_id: batch } : {}), ...(status ? { status } : {}) }),
+  });
+  const options = useQuery({ queryKey: ["content-items", "options"], queryFn: contentApi.options });
   const [uploading, setUploading] = useState(false);
   const [versionFor, setVersionFor] = useState<ContentItem | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
-  const submit = useApiMutation((id: number) => contentApi.submit(id), { success: "Submitted for academic review", invalidate: [["content-items"]] });
+  const submit = useApiMutation((id: number) => contentApi.submit(id), {
+    success: (item) => `${item.title} sent for review`,
+    next: "Your Branch Manager reviews it. You are told when they decide.",
+    invalidate: [["content-items"]],
+  });
+  const filtered = Boolean(batch) || status !== "";
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHead
         title="Content"
-        description="Upload session content and submit it for academic review."
+        description="Upload notes, files and links for your batches and send them to your Branch Manager for review."
         actions={<Button onClick={() => setUploading(true)}>Upload content</Button>}
       />
-      <QueryView query={query} isEmpty={(page) => page.data.length === 0} empty="No content yet. Upload a file or add a link for one of your batches.">
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="w-full sm:w-56">
+          <Label htmlFor="content-filter-batch">Batch</Label>
+          <NativeSelect
+            id="content-filter-batch"
+            placeholder="All my batches"
+            value={batch ?? ""}
+            onChange={(e) => void navigate({ to: "/trainer/content", search: e.target.value ? { batch: Number(e.target.value) } : {} })}
+            options={(options.data ?? []).map((o) => ({ value: o.batch.batch_id, label: o.batch.batch_code }))}
+          />
+        </div>
+        <div className="w-full sm:w-56">
+          <Label htmlFor="content-filter-status">Status</Label>
+          <NativeSelect
+            id="content-filter-status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as keyof typeof STATUS_FILTERS)}
+            options={Object.entries(STATUS_FILTERS).map(([value, label]) => ({ value, label }))}
+          />
+        </div>
+      </div>
+      <QueryView
+        query={query}
+        isEmpty={(page) => page.data.length === 0}
+        empty={filtered ? "No content matches these filters." : "No content yet. Upload a file or add a link for one of your batches, then send it for review."}
+        emptyAction={
+          filtered ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setStatus("");
+                void navigate({ to: "/trainer/content", search: {} });
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => setUploading(true)}>
+              Upload content
+            </Button>
+          )
+        }
+      >
         {(page) => (
           <DataTable
             caption="Content"
@@ -40,6 +109,14 @@ export function TrainerContent() {
                       {i.item_code} · {i.content_type} · v{i.version_no}
                       {i.released_version_no && i.released_version_no !== i.version_no && ` (students see v${i.released_version_no})`}
                     </div>
+                    {i.last_decision?.comment && (
+                      <div className="mt-1.5 rounded-md border border-warning/30 bg-warning-soft px-2 py-1.5 text-xs text-foreground">
+                        <strong>
+                          {i.last_decision.reviewer.full_name} {i.last_decision.action === "Rejected" ? "did not accept this" : "asked for changes"}:
+                        </strong>{" "}
+                        {i.last_decision.comment}
+                      </div>
+                    )}
                   </>
                 ),
               },
@@ -50,39 +127,49 @@ export function TrainerContent() {
                 c: (i) => (
                   <>
                     <StatusBadge domain="content" code={i.status} />
-                    <div className="text-xs text-muted-foreground">{formatDateTime(i.updated_at)}</div>
+                    <div className="text-xs text-muted-foreground">{fmtDate(i.updated_at)}</div>
                   </>
                 ),
               },
               {
                 h: "Action",
-                c: (i) => (
-                  <div className="flex flex-wrap gap-2">
-                    {(i.status === "Draft" || i.status === "Changes Requested") && (
-                      <Button size="sm" onClick={() => submit.mutate(i.content_item_id)} disabled={submit.isPending}>
-                        Submit for review
+                c: (i) => {
+                  const canChange = i.status !== "Submitted" && i.status !== "Under Review" && i.status !== "Retired";
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {i.status === "Draft" && (
+                        <Button size="sm" onClick={() => submit.mutate(i.content_item_id)} disabled={submit.isPending}>
+                          Submit for review
+                        </Button>
+                      )}
+                      {i.status === "Changes Requested" && (
+                        <Button size="sm" onClick={() => setVersionFor(i)}>
+                          Fix and resubmit
+                        </Button>
+                      )}
+                      {canChange && i.status !== "Changes Requested" && (
+                        <Button size="sm" variant="outline" onClick={() => setVersionFor(i)}>
+                          New version
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => setDetailId(i.content_item_id)}>
+                        Details
                       </Button>
-                    )}
-                    {i.status !== "Submitted" && i.status !== "Under Review" && i.status !== "Retired" && (
-                      <Button size="sm" variant="outline" onClick={() => setVersionFor(i)}>
-                        New version
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => setDetailId(i.content_item_id)}>
-                      Details
-                    </Button>
-                  </div>
-                ),
+                    </div>
+                  );
+                },
               },
             ]}
           />
         )}
       </QueryView>
       <div className="mt-4">
-        <Note>
-          Content is published to students only after Branch Manager review. A new version does not replace what students see until it is approved and
-          released.
-        </Note>
+        <HowThisWorks>
+          <p>
+            Students see content only after your Branch Manager approves and releases it. A new version does not replace what students see until it is approved
+            and released. When changes are requested, the reviewer&apos;s comment shows on the item: upload a corrected version and send it again.
+          </p>
+        </HowThisWorks>
       </div>
       {uploading && <UploadDialog onClose={() => setUploading(false)} />}
       {versionFor && <VersionDialog item={versionFor} onClose={() => setVersionFor(null)} />}
@@ -109,23 +196,31 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
     v.modules.flatMap((m) => m.topics.map((t) => ({ value: t.topic_id, label: `${v.track_name ?? v.version_label} · ${m.title} · ${t.title}` }))),
   );
 
-  const create = useApiMutation((form: FormData) => contentApi.create(form), {
-    success: "Saved as a draft",
-    invalidate: [["content-items"]],
-    onSuccess: onClose,
-  });
-  function save() {
+  const create = useApiMutation(
+    async (vars: { form: FormData; submit: boolean }) => {
+      const item = await contentApi.create(vars.form);
+      return vars.submit ? contentApi.submit(item.content_item_id) : item;
+    },
+    {
+      success: (item) => (item.status === "Submitted" ? `${item.title} sent for review` : "Saved as a draft"),
+      next: (item) => (item.status === "Submitted" ? "Your Branch Manager reviews it. You are told when they decide." : "Send it for review when it is ready."),
+      invalidate: [["content-items"]],
+      onSuccess: onClose,
+    },
+  );
+  function save(submit: boolean) {
     const form = new FormData();
     form.set("title", title.trim());
     form.set("content_type", type);
     form.set("batch_id", batchId);
     if (topicKey) form.set("topic_id", topicKey);
+    else if (batch) form.set("course_id", String(batch.course.course_id)); // no topic: the item belongs to the whole course
     if (description.trim()) form.set("description", description.trim());
     form.set("download_allowed", String(downloadAllowed && !isLink));
     form.set("staff_only", String(staffOnly));
     if (isLink) form.set("url", url.trim());
     else if (file) form.set("file", file);
-    create.mutate(form);
+    create.mutate({ form, submit });
   }
   const ready = title.trim() && batchId && (isLink ? url.trim() : file);
 
@@ -134,7 +229,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload content</DialogTitle>
-          <DialogDescription>The file is stored in LMS content storage as a draft. Submit it for review when it is ready.</DialogDescription>
+          <DialogDescription>Save it as a draft, or send it straight to your Branch Manager for review.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <Field label="Batch" htmlFor="content-batch">
@@ -188,16 +283,19 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
             </label>
           )}
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} /> Staff only (answer key, marking
-            guide or trainer notes): never shown to students
+            <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} /> Staff only (answer key, marking guide or trainer
+            notes): never shown to students
           </label>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={!ready || create.isPending} onClick={save}>
+          <Button variant="outline" disabled={!ready || create.isPending} onClick={() => save(false)}>
             Save draft
+          </Button>
+          <Button disabled={!ready || create.isPending} onClick={() => save(true)}>
+            Save &amp; submit for review
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -210,17 +308,25 @@ function VersionDialog({ item, onClose }: { item: ContentItem; onClose: () => vo
   const [url, setUrl] = useState("");
   const [summary, setSummary] = useState("");
   const isLink = item.storage_kind === "Link";
-  const add = useApiMutation((form: FormData) => contentApi.addVersion(item.content_item_id, form), {
-    success: "New version saved as a draft",
-    invalidate: [["content-items"]],
-    onSuccess: onClose,
-  });
-  function save() {
+  const add = useApiMutation(
+    async (vars: { form: FormData; submit: boolean }) => {
+      const saved = await contentApi.addVersion(item.content_item_id, vars.form);
+      return vars.submit ? contentApi.submit(saved.content_item_id) : saved;
+    },
+    {
+      success: (saved) => (saved.status === "Submitted" ? `${saved.title} sent for review` : "New version saved as a draft"),
+      next: (saved) =>
+        saved.status === "Submitted" ? "Your Branch Manager reviews it. You are told when they decide." : "Send it for review when it is ready.",
+      invalidate: [["content-items"]],
+      onSuccess: onClose,
+    },
+  );
+  function save(submit: boolean) {
     const form = new FormData();
     if (summary.trim()) form.set("change_summary", summary.trim());
     if (isLink) form.set("url", url.trim());
     else if (file) form.set("file", file);
-    add.mutate(form);
+    add.mutate({ form, submit });
   }
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -242,11 +348,14 @@ function VersionDialog({ item, onClose }: { item: ContentItem; onClose: () => vo
           <Input id="version-summary" value={summary} onChange={(e) => setSummary(e.target.value)} />
         </Field>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={(isLink ? !url.trim() : !file) || add.isPending} onClick={save}>
-            Save version
+          <Button variant="outline" disabled={(isLink ? !url.trim() : !file) || add.isPending} onClick={() => save(false)}>
+            Save draft
+          </Button>
+          <Button disabled={(isLink ? !url.trim() : !file) || add.isPending} onClick={() => save(true)}>
+            Save &amp; submit for review
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -125,7 +125,7 @@ def _trainer_steps() -> list[dict]:
     return [
         _step("class", "Open your first class", nav_repo.trainer_opened_a_class(user_id), "/trainer"),
         _step("attendance", "Mark attendance", nav_repo.trainer_marked_attendance(user_id), "/trainer/attendance"),
-        _step("grade", "Grade a submission", nav_repo.trainer_graded_a_submission(user_id), "/trainer/reviews"),
+        _step("grade", "Grade a submission", nav_repo.trainer_graded_a_submission(user_id), "/trainer/to-grade"),
     ]
 
 

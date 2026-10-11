@@ -424,6 +424,13 @@ def list_items(filters: dict, page: int, per_page: int) -> tuple[list[ContentIte
     return paginate(stmt, page, per_page)
 
 
+def review_comments(items: list[ContentItem]) -> dict[int, dict]:
+    """For each item waiting on its author (Changes Requested / Rejected): the reviewer's comment, who and when."""
+    waiting = [i.content_item_id for i in items if i.status in ("Changes Requested", "Rejected")]
+    return {item_id: {"action": r.action, "comment": r.comment, "reviewer": {"user_id": r.actor_user_id, "full_name": r.actor.full_name},
+                      "acted_at": r.acted_at} for item_id, r in content_repo.latest_decisions(waiting).items()}
+
+
 def get_item_detail(content_item_id: int) -> tuple[ContentItem, list[ContentReview]]:
     item = _get_staff_item(content_item_id)
     return item, content_repo.reviews_of(item.content_item_id)

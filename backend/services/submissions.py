@@ -75,7 +75,7 @@ def submit(assignment_id: int, data: dict, upload: FileStorage | None) -> Assign
     notifications.notify(
         category="Reviews", title="Submission awaiting review",
         body=f"{submission.student.full_name} submitted {assignment.title} (v{submission.version_no}).",
-        link="/trainer/reviews", event_key=f"submission:{submission.submission_id}", recipient_user_ids=[assignment.reviewer_user_id],
+        link="/trainer/to-grade", event_key=f"submission:{submission.submission_id}", recipient_user_ids=[assignment.reviewer_user_id],
         branch_id=assignment.batch.branch_id, action_required=True,
     )
     return submission

@@ -476,3 +476,21 @@ def test_placement_options_list_batches_versions_and_topics(client, login, world
     assert [t["title"] for t in versions[0]["modules"][0]["topics"]] == ["OOP & Collections", "Streams & Lambdas"]
     assert len(get(client, "/content-items/options", auth(login, world.people.admin))) == 2
     assert client.get(f"{API}/content-items/options", headers=auth(login, world.students.s1)).status_code == 403
+
+
+def test_the_item_list_carries_the_reviewers_comment_for_changes_requested(client, login, world):
+    trainer, coordinator = auth(login, world.people.t1), auth(login, world.people.ac)
+    item_id = create_item(client, trainer, world)["content_item_id"]
+    post(client, f"/content-items/{item_id}/submit", trainer)
+    row = next(i for i in get(client, "/content-items?batch_id=%d" % world.g1.batch_id, trainer) if i["content_item_id"] == item_id)
+    assert row["last_decision"] is None                                          # nothing to act on yet
+    post(client, f"/content-items/{item_id}/review", coordinator, json={"decision": "request_changes", "comment": "Add examples"})
+    row = next(i for i in get(client, "/content-items?status=Changes Requested", trainer) if i["content_item_id"] == item_id)
+    assert row["last_decision"]["comment"] == "Add examples" and row["last_decision"]["reviewer"]["full_name"] == "AC Guntur"
+    assert row["last_decision"]["action"] == "Changes Requested"
+    # a corrected version, resubmitted and approved, leaves nothing to act on
+    client.post(f"{API}/content-items/{item_id}/versions", headers=trainer, content_type="multipart/form-data",
+                data=upload_data(filename="notes-v2.pdf", change_summary="Examples added"))
+    post(client, f"/content-items/{item_id}/submit", trainer)
+    row = next(i for i in get(client, "/content-items", trainer) if i["content_item_id"] == item_id)
+    assert row["status"] == "Submitted" and row["last_decision"] is None

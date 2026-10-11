@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { TrainerReviews } from "@/features/trainer/reviews";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/trainer/reviews")({ component: TrainerReviews });
+/** "Reviews" became "To grade" (UX phase U13); old links and bookmarks still work. */
+export const Route = createFileRoute("/trainer/reviews")({
+  beforeLoad: () => {
+    throw redirect({ to: "/trainer/to-grade", replace: true });
+  },
+});

@@ -164,7 +164,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | End-to-end | `cd frontend && npx playwright test` (or `npm run e2e`) | Needs the API (dev DB) and Vite running; desktop + `@mobile` projects |
 
 E2E specs live in `frontend/e2e/` (one per area: `shell`, `admin`, `delivery`, `content`, `assessments`, `attendance`,
-`services`, `trainer-u12`, `dashboards-learning`, `dashboards-staff`, `staff-account`); `e2e/helpers.ts` has the staging users and
+`services`, `trainer-u12`, `trainer-u13`, `dashboards-learning`, `dashboards-staff`, `staff-account`); `e2e/helpers.ts` has the staging users and
 `login()`. Tests that change data assume a freshly seeded database. The trainer specs (`trainer-u12`, and the Today and register steps of `dashboards-learning`, `delivery`, `attendance`) schedule a class for today
 through the API, so it is skipped within ten minutes of midnight IST. `E2E_BASE_URL` points Playwright at another Vite
 port. Run one Playwright process at a time (they share `test-results/`).
@@ -337,18 +337,21 @@ only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind 
 | Route | Feature | API | Notes |
 |---|---|---|---|
 | `/trainer` (`?session=<id>`) | `today`, `class-flow` | `/trainer/today`, `/class-sessions/{id}/flow` | The only way to run a class. "Next up" class expanded with its flow (Start class → Join → Attendance → Class log; progress and the draft log saved on the server so a refresh resumes), the others compact, finished ones collapsed; "No Meet link" has an Ask Branch Manager button; a **To do** list (classes without a log, assignments, test attempts, attendance, corrections, recoveries) with a button each; tomorrow's classes when nothing is left today. `?session=` opens one class (Run class from Sessions, or a missing log from an earlier day) |
-| `/trainer/batches` | `batches` | `/batches` | Own batches with roster |
+| `/trainer/batches` | `batches` | `/trainer/batches` | **Batches** (PEOPLE): own batches with seats, next class, attendance and how many students need attention; each opens its page |
+| `/trainer/batches/$id` | `batch-page` | `/trainer/batches/{id}` | Batch page: step-free overview (students, classes covered, attendance, need attention), Classes (coming up, recent), Students (with Flag), Assignments, Content; breadcrumbs |
 | `/trainer/sessions` | `sessions` | `/class-sessions` | The schedule (Coming up / Past) and reschedule requests waiting; Run class / Continue class / Add class log open the Today flow; Request reschedule. No Start or Mark delivered |
-| `/trainer/requests` | `requests` | `/me/requests` | **My requests** (TEACH, after Attendance): reschedule and correction requests, Waiting / Decided, with the decider and reason |
-| `/trainer/students` | `students` | `/trainer/students` | Assigned students with support flag |
-| `/trainer/reviews` | `reviews` | `/submissions?status=Awaiting Review&reviewer_me=true` | Start review, review |
+| `/trainer/requests` | `requests` | `/me/requests` | **My requests** (TEACH, after Attendance): reschedule, correction and recovery requests, Waiting / Decided, with the decider and reason |
+| `/trainer/students` (`?batch=<id>`) | `students` | `/trainer/students` | **Students**: search, batch filter, "only students who need attention"; why each needs attention, support flag, Open and Flag on every row |
+| `/trainer/students/$id` | `student-page` | `/trainer/students/{id}` | Student page: Needs your attention (each reason with a button), attendance, work (Grade on hand-ins waiting), results, support requests, **Flag this student** |
+| `/trainer/to-grade` (`?batch=<id>`) | `to-grade` | `/trainer/to-grade` | **To grade** (GRADE, badge): one inbox of hand-ins and test attempts, overdue then oldest, tabs All / Assignments / Tests, batch filter, "Start with the first". `/trainer/reviews` redirects here |
+| `/trainer/to-grade/$kind/$id` | `grade-screen` | `/submissions/{id}`, `/attempts/{id}`, `/trainer/to-grade` | Focused grading: the work, an explicit **Start review** button, feedback and marks checked against the maximum, **Save & next** (the next item is fixed when pressed), Save, More (ask to resubmit, with a confirm); a test attempt marks every written answer; "n of m waiting" |
 | `/trainer/attendance` (`?session=<id>`) | `attendance` | `/attendance/*` | **Unmarked & corrections**: Classes to mark · Corrections waiting · Recoveries to check · Recent classes (opens on the first with work). A class opens the register (the same `RegisterForm` as Today) with a sticky Save bar; correction requests when the register is closed |
-| `/trainer/content` | `content` | `/content-items/*` | Upload (batch → topic picker from `/content-items/options`, file or link), submit for review, new version, details |
-| `/trainer/assignments` | `assignments` | `/assignments/*` | Create / release / extend / withdraw, submissions list |
-| `/trainer/assessments` | `assessments` (tabs `test-builder`, `question-bank`, `grading`, `interviews`) | `/tests`, `/questions`, `/attempts`, slots | |
-| `/trainer/support` | `support` | `/support-requests` | "Flag a student" dialog, requests the trainer owns or raised, students with open flags |
+| `/trainer/content` (`?batch=<id>`) | `content` | `/content-items/*` | Filters by batch and status; upload with **Save & submit for review** (primary) or Save draft; the reviewer's comment shows on a "Changes requested" or "Rejected" row (`last_decision`) with **Fix and resubmit**; new version; details |
+| `/trainer/assignments` | `assignments` | `/assignments/*` | Create, **edit a draft**, release (confirm), extend, withdraw, submissions list |
+| `/trainer/assessments` (`?tab=questions\|tests\|interviews`) | `assessments` (tabs `question-bank`, `test-builder`, `interviews`) | `/tests`, `/questions`, slots | Tabs in workflow order with counts and a one-line hint. Drafts of questions, tests and interviews can be edited; **New mock interview**; Release and Close ask first. The grading queue moved to To grade (`?tab=grading` redirects) |
+| `/trainer/support` | `support` | `/support-requests` | The simple view (`SupportDesk simple`): raise a request (the shared Flag dialog), reply, status and owner; Escalate and internal remarks under **More** in the request. Flag from a student row or page |
 | `/trainer/notifications`, `/trainer/ask-nipuna` | `shared/notification-centre`, `shared/assistant` | | The inbox is reached from the bell |
-| `/trainer/reports` | `reports` | `/trainer/reports` | Delivery and attendance per assigned batch (Meter), review turnaround (Partial Data), engagement (Stale) |
+| `/trainer/reports` | `reports` | `/trainer/at-risk`, `/trainer/reports` | **Students who need you** per batch, each reason with a button to where to act; the averages (attendance, classes covered, time to review, activity) as one Summary |
 
 #### Branch Manager screens (`features/academic/`, served under `/branch/*`)
 

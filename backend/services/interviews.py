@@ -107,7 +107,7 @@ def book_slot(slot_id: int) -> InterviewSlot:
     except IntegrityError:
         raise Conflict("You already have a booking for this mock interview") from None
     notifications.notify(category="Assessments", title="Interview slot to confirm",
-                         body=f"{slot_student_name(slot)} booked {test.title} on {_when(slot)}.", link="/trainer/assessments",
+                         body=f"{slot_student_name(slot)} booked {test.title} on {_when(slot)}.", link="/trainer/assessments?tab=interviews",
                          event_key=f"slot-booked:{slot_id}:{seat.enrolment_id}", recipient_user_ids=[slot.trainer_user_id],
                          branch_id=test.batch.branch_id, action_required=True)
     return slot

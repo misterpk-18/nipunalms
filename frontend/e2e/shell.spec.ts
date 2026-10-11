@@ -4,8 +4,34 @@ import { USERS, login } from "./helpers";
 /** Shell, per-role navigation and workspace guard (Phase 1b). Needs the API on :5060 with the staging users. */
 
 const ROLES = [
-  { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Tasks & Tests", "Class Materials", "My Progress", "Certificates", "Career", "Ask Nipuna", "Support"], other: "/trainer" },
-  { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Sessions", "Attendance", "My requests", "Reviews", "Batches", "Students", "Ask Nipuna"], other: "/branch" },
+  {
+    name: "student",
+    user: USERS.student,
+    home: "/dashboard",
+    nav: ["Home", "My Learning", "Schedule", "Tasks & Tests", "Class Materials", "My Progress", "Certificates", "Career", "Ask Nipuna", "Support"],
+    other: "/trainer",
+  },
+  {
+    name: "trainer",
+    user: USERS.trainerG1,
+    home: "/trainer",
+    nav: [
+      "Today",
+      "Sessions",
+      "Attendance",
+      "My requests",
+      "To grade",
+      "Assignments",
+      "Assessments",
+      "Content",
+      "Batches",
+      "Students",
+      "Support",
+      "Reports",
+      "Ask Nipuna",
+    ],
+    other: "/branch",
+  },
   {
     name: "branch manager",
     user: USERS.bmGnt,

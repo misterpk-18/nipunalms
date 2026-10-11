@@ -8,44 +8,50 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { formatIst, fromIstInput, istInputIn } from "@/lib/format";
+import { formatIst, fromIstInput, istInputIn, toIstInput } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 
 const REFRESH = [["assignments"]];
 
-function NewAssignmentDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const batches = useQuery({ queryKey: ["batches", "authoring"], queryFn: batchesForAuthoring, enabled: open });
-  const [batchId, setBatchId] = useState("");
-  const [topicId, setTopicId] = useState("");
-  const [title, setTitle] = useState("");
-  const [kind, setKind] = useState<string>(ASSIGNMENT_KINDS[0]);
-  const [brief, setBrief] = useState("");
-  const [required, setRequired] = useState(true);
-  const [maxMarks, setMaxMarks] = useState("20");
-  const [due, setDue] = useState(istInputIn(24 * 7));
-  const [aiRule, setAiRule] = useState<string>(AI_RULES[0]);
+/** Write a new assignment, or (with `assignment`) edit a draft that has not been released. */
+function AssignmentDialog({ open, onOpenChange, assignment }: { open: boolean; onOpenChange: (open: boolean) => void; assignment?: Assignment | undefined }) {
+  const editing = assignment !== undefined;
+  const batches = useQuery({ queryKey: ["batches", "authoring"], queryFn: batchesForAuthoring, enabled: open && !editing });
+  const [batchId, setBatchId] = useState(assignment ? String(assignment.batch.batch_id) : "");
+  const [topicId, setTopicId] = useState(assignment?.topic ? String(assignment.topic.topic_id) : "");
+  const [title, setTitle] = useState(assignment?.title ?? "");
+  const [kind, setKind] = useState<string>(assignment?.kind ?? ASSIGNMENT_KINDS[0]);
+  const [brief, setBrief] = useState(assignment?.brief ?? "");
+  const [required, setRequired] = useState(assignment?.is_required ?? true);
+  const [maxMarks, setMaxMarks] = useState(assignment ? String(Number(assignment.max_marks)) : "20");
+  const [due, setDue] = useState(assignment ? toIstInput(assignment.due_at) : istInputIn(24 * 7));
+  const [aiRule, setAiRule] = useState<string>(assignment?.ai_use_rule ?? AI_RULES[0]);
   const options = useQuery({
     queryKey: ["curriculum-options", batchId],
     queryFn: () => assessmentsApi.curriculum(Number(batchId)),
     enabled: open && batchId !== "",
   });
 
+  const fields = {
+    topic_id: topicId ? Number(topicId) : null,
+    title,
+    kind,
+    brief,
+    is_required: required,
+    max_marks: Number(maxMarks),
+    due_at: fromIstInput(due),
+    ai_use_rule: aiRule,
+  };
   const create = useApiMutation(
     (release: boolean) =>
-      assessmentsApi.createAssignment({
-        batch_id: Number(batchId),
-        topic_id: topicId ? Number(topicId) : null,
-        title,
-        kind,
-        brief,
-        is_required: required,
-        max_marks: Number(maxMarks),
-        due_at: fromIstInput(due),
-        ai_use_rule: aiRule,
-        release_now: release,
-      }),
+      editing
+        ? assessmentsApi
+            .updateAssignment(assignment.assignment_id, fields)
+            .then(async (updated) => (release ? assessmentsApi.releaseAssignment(updated.assignment_id) : updated))
+        : assessmentsApi.createAssignment({ batch_id: Number(batchId), ...fields, release_now: release }),
     {
       success: (a) => (a.status === "Released" ? "Assignment released to the batch" : "Draft saved"),
+      next: (a) => (a.status === "Released" ? "Students of the batch can see it and hand in work." : "Release it when it is ready."),
       invalidate: REFRESH,
       onSuccess: () => onOpenChange(false),
     },
@@ -55,20 +61,29 @@ function NewAssignmentDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New assignment</DialogTitle>
-          <DialogDescription>Linked to a curriculum topic; students allocated to the batch see it once released.</DialogDescription>
+          <DialogTitle>{editing ? `Edit ${assignment.title}` : "New assignment"}</DialogTitle>
+          <DialogDescription>
+            {editing
+              ? "Change this draft. Students cannot see it until you release it."
+              : "Linked to a curriculum topic; students allocated to the batch see it once released."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <Field label="Batch" htmlFor="asg-batch">
             <NativeSelect
               id="asg-batch"
               value={batchId}
+              disabled={editing}
               onChange={(e) => {
                 setBatchId(e.target.value);
                 setTopicId("");
               }}
               placeholder="Select a batch"
-              options={(batches.data?.data ?? []).map((b) => ({ value: b.batch_id, label: `${b.batch_code} · ${b.course.title}` }))}
+              options={
+                editing
+                  ? [{ value: assignment.batch.batch_id, label: assignment.batch.batch_code }]
+                  : (batches.data?.data ?? []).map((b) => ({ value: b.batch_id, label: `${b.batch_code} · ${b.course.title}` }))
+              }
             />
           </Field>
           <Field label="Curriculum topic" htmlFor="asg-topic">
@@ -111,10 +126,10 @@ function NewAssignmentDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={!batchId || !title || !brief || create.isPending} onClick={() => create.mutate(false)}>
-            Save draft
+            {editing ? "Save changes" : "Save draft"}
           </Button>
           <Button disabled={!batchId || !title || !brief || create.isPending} onClick={() => create.mutate(true)}>
-            Create and release
+            {editing ? "Save and release" : "Create and release"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -133,7 +148,7 @@ function SubmissionsDialog({ assignment, onClose }: { assignment: Assignment | n
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{assignment?.title}: submissions</DialogTitle>
-          <DialogDescription>Newest version per student. Review them in Reviews.</DialogDescription>
+          <DialogDescription>Newest version per student. Mark them in To grade.</DialogDescription>
         </DialogHeader>
         <QueryView query={query} isEmpty={(p) => p.data.length === 0} empty="No submissions yet.">
           {(page) => (
@@ -187,8 +202,10 @@ export function TrainerAssignments() {
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<Assignment | null>(null);
   const [extending, setExtending] = useState<Assignment | null>(null);
+  const [editing, setEditing] = useState<Assignment | null>(null);
   const release = useApiMutation((a: Assignment) => assessmentsApi.releaseAssignment(a.assignment_id), {
-    success: "Released to the batch",
+    success: (a) => `${a.title} released to the batch`,
+    next: "Students of the batch can see it and hand in work.",
     invalidate: REFRESH,
   });
   const withdraw = useApiMutation((a: Assignment) => assessmentsApi.withdrawAssignment(a.assignment_id, "Withdrawn by the trainer"), {
@@ -200,10 +217,15 @@ export function TrainerAssignments() {
     <div className="mx-auto max-w-6xl">
       <PageHead
         title="Assignments"
-        description="Create and release curriculum-linked assignments for the batches you teach."
+        description="Write assignments for your batches, release them, and see who has handed in. Marking happens in To grade."
         actions={<Button onClick={() => setCreating(true)}>New assignment</Button>}
       />
-      <QueryView query={query} isEmpty={(p) => p.data.length === 0} empty="No assignments yet.">
+      <QueryView
+        query={query}
+        isEmpty={(p) => p.data.length === 0}
+        empty="No assignments yet. Write one for a batch; students see it only once you release it."
+        emptyAction={<Button onClick={() => setCreating(true)}>New assignment</Button>}
+      >
         {(page) => (
           <DataTable
             caption="Assignments"
@@ -228,9 +250,19 @@ export function TrainerAssignments() {
                       Submissions
                     </Button>
                     {a.can_manage && a.status === "Draft" && (
-                      <Button size="sm" onClick={() => release.mutate(a)}>
-                        Release
+                      <Button size="sm" variant="outline" onClick={() => setEditing(a)}>
+                        Edit
                       </Button>
+                    )}
+                    {a.can_manage && a.status === "Draft" && (
+                      <ConfirmDialog
+                        title={`Release ${a.title}?`}
+                        consequence={`Students of ${a.batch.batch_code} will see it now and can hand in work. It is due ${formatIst(a.due_at)}.`}
+                        confirmLabel="Release"
+                        onConfirm={async () => void (await release.mutateAsync(a))}
+                      >
+                        <Button size="sm">Release</Button>
+                      </ConfirmDialog>
                     )}
                     {a.can_manage && a.status === "Released" && (
                       <Button size="sm" variant="outline" onClick={() => setExtending(a)}>
@@ -257,7 +289,8 @@ export function TrainerAssignments() {
           />
         )}
       </QueryView>
-      <NewAssignmentDialog open={creating} onOpenChange={setCreating} />
+      <AssignmentDialog open={creating} onOpenChange={setCreating} />
+      {editing && <AssignmentDialog key={editing.assignment_id} open assignment={editing} onOpenChange={(open) => !open && setEditing(null)} />}
       <SubmissionsDialog assignment={viewing} onClose={() => setViewing(null)} />
       <ExtendDialog key={extending?.assignment_id} assignment={extending} onClose={() => setExtending(null)} />
     </div>

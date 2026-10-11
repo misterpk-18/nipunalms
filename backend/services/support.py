@@ -124,6 +124,11 @@ def list_requests(filters: dict, page: int, per_page: int) -> tuple[list[Support
     return paginate(stmt, page, per_page)
 
 
+def open_requests_for(student_ids: list[int]) -> dict[int, list[SupportRequest]]:
+    """Open requests per student, newest first (the trainer's support flags)."""
+    return support_repo.open_requests_by_student(student_ids)
+
+
 def assigned_students() -> list[dict]:
     """The trainer's students (active seats in their batches) with any open support request as the flag."""
     rows = support_repo.assigned_students(scope.trainer_batch_ids())

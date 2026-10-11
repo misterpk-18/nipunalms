@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { assessmentsApi, type Slot } from "@/api/assessments";
+import { assessmentsApi, type Slot, type TestItem } from "@/api/assessments";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { DataTable, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TestDialog } from "./test-builder";
 import { formatIst, fromIstInput, istInputIn } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 
@@ -58,7 +60,9 @@ function FeedbackDialog({ slot, onClose }: { slot: Slot | null; onClose: () => v
   );
 }
 
-function InterviewTest({ testId, title }: { testId: number; title: string }) {
+function InterviewTest({ test, title }: { test: TestItem; title: string }) {
+  const testId = test.test_id;
+  const [editing, setEditing] = useState(false);
   const slots = useQuery({ queryKey: ["tests", "slots", testId], queryFn: () => assessmentsApi.slots(testId) });
   const [start, setStart] = useState(istInputIn(48));
   const [minutes, setMinutes] = useState("30");
@@ -75,11 +79,59 @@ function InterviewTest({ testId, title }: { testId: number; title: string }) {
   const confirm = useApiMutation((s: Slot) => assessmentsApi.confirmSlot(s.slot_id), { success: "Slot confirmed; the student is told", invalidate: REFRESH });
   const cancel = useApiMutation((s: Slot) => assessmentsApi.cancelSlot(s.slot_id, "Cancelled by the trainer"), {
     success: "Slot cancelled",
+    next: "A student who had booked it is told.",
     invalidate: REFRESH,
   });
+  const release = useApiMutation(() => assessmentsApi.releaseTest(testId), {
+    success: `${test.title} released`,
+    next: "Students of the batch can now book one of your slots.",
+    invalidate: REFRESH,
+  });
+  const close = useApiMutation(() => assessmentsApi.closeTest(testId), {
+    success: `${test.title} closed`,
+    next: "Students can no longer book. Confirmed interviews still go ahead.",
+    invalidate: REFRESH,
+  });
+  const draft = ["Configuration Pending", "Not Released"].includes(test.release_status);
 
   return (
-    <Section title={title}>
+    <Section
+      title={title}
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge domain="test" code={test.status === "Available" ? "Released" : test.status} />
+          {test.can_manage && draft && (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+          )}
+          {test.can_manage && test.release_status === "Not Released" && (
+            <ConfirmDialog
+              title={`Release ${test.title}?`}
+              consequence={`Students of ${test.batch.batch_code} will see this interview and can book one of your open slots.`}
+              confirmLabel="Release"
+              onConfirm={async () => void (await release.mutateAsync(undefined))}
+            >
+              <Button size="sm">Release</Button>
+            </ConfirmDialog>
+          )}
+          {test.can_manage && test.release_status === "Released" && (
+            <ConfirmDialog
+              title={`Close ${test.title}?`}
+              consequence="Students can no longer book a slot. Interviews already confirmed still go ahead. A closed interview cannot be reopened."
+              confirmLabel="Close interview"
+              destructive
+              onConfirm={async () => void (await close.mutateAsync(undefined))}
+            >
+              <Button size="sm" variant="outline">
+                Close
+              </Button>
+            </ConfirmDialog>
+          )}
+        </div>
+      }
+    >
+      {test.gaps && test.gaps.length > 0 && <p className="mb-2 text-sm text-muted-foreground">Before it can be released: {test.gaps.join("; ")}.</p>}
       <div className="mb-3 flex flex-wrap items-end gap-2">
         <Field label="Slot starts (IST)" htmlFor={`slot-start-${testId}`}>
           <Input id={`slot-start-${testId}`} type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
@@ -128,21 +180,36 @@ function InterviewTest({ testId, title }: { testId: number; title: string }) {
         )}
       </QueryView>
       <FeedbackDialog key={feedback?.slot_id} slot={feedback} onClose={() => setFeedback(null)} />
+      {editing && <TestDialog open test={test} onOpenChange={(open) => !open && setEditing(false)} />}
     </Section>
   );
 }
 
 export function MockInterviews() {
-  const query = useQuery({ queryKey: ["tests", "list", "interviews"], queryFn: () => assessmentsApi.tests({ kind: "Mock interview" }) });
+  const [creating, setCreating] = useState(false);
+  const query = useQuery({ queryKey: ["tests", "list", "staff"], queryFn: () => assessmentsApi.tests() });
   return (
-    <QueryView query={query} isEmpty={(p) => p.data.length === 0} empty="No mock interviews for your batches.">
-      {(page) => (
-        <div className="space-y-4">
-          {page.data.map((t) => (
-            <InterviewTest key={t.test_id} testId={t.test_id} title={`${t.title} · ${t.batch.batch_code}`} />
-          ))}
-        </div>
-      )}
-    </QueryView>
+    <div>
+      <div className="mb-3 flex justify-end">
+        <Button onClick={() => setCreating(true)}>New mock interview</Button>
+      </div>
+      <QueryView
+        query={query}
+        isEmpty={(p) => p.data.filter((t) => t.kind === "Mock interview").length === 0}
+        empty="No mock interviews yet. Create one for a batch, then offer time slots for students to book."
+        emptyAction={<Button onClick={() => setCreating(true)}>New mock interview</Button>}
+      >
+        {(page) => (
+          <div className="space-y-4">
+            {page.data
+              .filter((t) => t.kind === "Mock interview")
+              .map((t) => (
+                <InterviewTest key={t.test_id} test={t} title={`${t.title} · ${t.batch.batch_code}`} />
+              ))}
+          </div>
+        )}
+      </QueryView>
+      <TestDialog open={creating} onOpenChange={setCreating} fixedKind="Mock interview" />
+    </div>
   );
 }

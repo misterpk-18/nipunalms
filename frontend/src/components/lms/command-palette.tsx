@@ -12,9 +12,10 @@ const RECORD_ICONS: Record<SearchRecord["kind"], LucideIcon> = { student: Gradua
 const RECORD_GROUPS: Record<SearchRecord["kind"], string> = { student: "Students", batch: "Batches", certificate: "Certificates" };
 
 /** The screen a found record opens: the list that holds it in the workspace the person is in (record pages arrive with their screens). */
-function recordTarget(kind: SearchRecord["kind"], workspace: Workspace): string {
-  if (kind === "student") return workspace === "trainer" ? "/trainer/students" : workspace === "branch" ? "/branch/progress" : "/admin/students";
-  if (kind === "batch") return workspace === "trainer" ? "/trainer/batches" : "/branch/batches";
+function recordTarget(kind: SearchRecord["kind"], workspace: Workspace, id: number): string {
+  // The trainer's student and batch pages are record pages (U13); the other workspaces open the list until their phases build them
+  if (kind === "student") return workspace === "trainer" ? `/trainer/students/${id}` : workspace === "branch" ? "/branch/progress" : "/admin/students";
+  if (kind === "batch") return workspace === "trainer" ? `/trainer/batches/${id}` : "/branch/batches";
   return workspace === "founder" ? "/founder/certificates" : "/branch/certificates";
 }
 
@@ -86,7 +87,7 @@ export function CommandPalette({
                 rows.length > 0 && (
                   <CommandGroup key={kind} heading={RECORD_GROUPS[kind]}>
                     {rows.map((r) => (
-                      <CommandItem key={`${kind}:${r.id}`} value={`${kind}:${r.id}`} onSelect={() => go(recordTarget(kind, workspace))}>
+                      <CommandItem key={`${kind}:${r.id}`} value={`${kind}:${r.id}`} onSelect={() => go(recordTarget(kind, workspace, r.id))}>
                         <Icon className="mr-2 size-4 shrink-0" aria-hidden />
                         <span className="min-w-0">
                           <span className="block truncate text-sm">{r.title}</span>

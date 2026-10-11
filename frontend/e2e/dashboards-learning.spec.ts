@@ -72,7 +72,7 @@ test("trainer today: the next class or an empty day with tomorrow, and a to-do l
   await expect(page.getByText("Assigned sessions scheduled")).toHaveCount(0);
   const todo = page.getByRole("region", { name: "To do" });
   await expect(todo).toBeVisible();
-  await expect(todo.getByRole("link", { name: "Review" })).toBeVisible();
+  await expect(todo.getByRole("link", { name: "Grade" }).first()).toBeVisible();
   await expect(todo.getByText(/assignments? to review/)).toBeVisible();
 
   // a day with a class leads with it; an empty day says so and shows tomorrow
@@ -92,17 +92,17 @@ test("trainer today: the next class or an empty day with tomorrow, and a to-do l
   await expect(page.getByText(/Trainers see only assigned batches and students/)).toBeVisible();
 });
 
-test("trainer reports: delivery and attendance per assigned batch, review turnaround and engagement", async ({ page }, info) => {
+test("trainer reports: students at risk per batch with where to act, then a short summary", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/reports");
   await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
-  for (const title of ["Curriculum delivered", "Attendance (trainer-confirmed)", "Review turnaround", "Engagement"]) {
-    await expect(page.getByRole("heading", { level: 2, name: title, exact: true })).toBeVisible();
-  }
+  await expect(page.getByRole("heading", { level: 2, name: /^Students who need you/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Summary", exact: true })).toBeVisible();
   await expect(page.getByText(/NIT-GNT-BAT-2026-000001/).first()).toBeVisible();
-  await expect(page.getByText(/reviewed submission\(s\)/)).toBeVisible();
-  await expect(page.getByText(/Partial Data:/).first()).toBeVisible(); // unmarked delivered classes keep the attendance average provisional
+  await expect(page.getByText(/Average attendance/)).toBeVisible();
+  await expect(page.getByText(/Time to review/)).toBeVisible();
+  await page.getByText("How this works").click();
   await expect(page.getByText(/Trainers see only assigned batches and students/)).toBeVisible();
   // another branch's batches never appear
   await expect(page.getByText(/NIT-VIJ-BAT/)).toHaveCount(0);

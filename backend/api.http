@@ -11,13 +11,6 @@ Content-Type: application/json
 {"login": "admin@nipuna.test", "password": "Nipuna-staging-1"}
 
 # ================================================================ academic_records
-### academic_records.assign_mapping_owner
-PUT {{base}}/api/v1/enrolments/1/mapping-owner
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{}
-
 ### academic_records.create_variation
 POST {{base}}/api/v1/curriculum-variations
 Authorization: Bearer {{token}}
@@ -203,6 +196,20 @@ Content-Type: application/json
 
 ### admin_users.revoke_scope
 POST {{base}}/api/v1/admin/users/1/scopes/1/revoke
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.send_invite
+POST {{base}}/api/v1/admin/users/1/invite
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### admin_users.unlock
+POST {{base}}/api/v1/admin/users/1/unlock
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -450,6 +457,20 @@ Authorization: Bearer {{token}}
 
 ### auth.reauthenticate
 POST {{base}}/api/v1/auth/reauthenticate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### auth.request_reset_code
+POST {{base}}/api/v1/auth/reset-code
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### auth.reset_password
+POST {{base}}/api/v1/auth/reset
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -925,6 +946,10 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/certificate-requests
 Authorization: Bearer {{token}}
 
+### certificates.my_certificate_pdf
+GET {{base}}/api/v1/me/certificates/1/pdf
+Authorization: Bearer {{token}}
+
 ### certificates.my_certificates
 GET {{base}}/api/v1/me/certificates
 Authorization: Bearer {{token}}
@@ -1015,6 +1040,10 @@ Content-Type: application/json
 GET {{base}}/api/v1/class-sessions/1
 Authorization: Bearer {{token}}
 
+### class_sessions.get_flow
+GET {{base}}/api/v1/class-sessions/1/flow
+Authorization: Bearer {{token}}
+
 ### class_sessions.list_class_sessions
 GET {{base}}/api/v1/class-sessions
 Authorization: Bearer {{token}}
@@ -1037,6 +1066,13 @@ Content-Type: application/json
 
 {}
 
+### class_sessions.request_meet_link
+POST {{base}}/api/v1/class-sessions/1/meet/request-link
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### class_sessions.request_reschedule
 POST {{base}}/api/v1/class-sessions/1/reschedule-requests
 Authorization: Bearer {{token}}
@@ -1053,6 +1089,13 @@ Content-Type: application/json
 
 ### class_sessions.reset_meet
 POST {{base}}/api/v1/class-sessions/1/meet/reset
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### class_sessions.save_flow
+PUT {{base}}/api/v1/class-sessions/1/flow
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -1436,6 +1479,17 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/me/finance
 Authorization: Bearer {{token}}
 
+### finance.my_receipt_pdf
+GET {{base}}/api/v1/me/finance/receipts/1/1/pdf
+Authorization: Bearer {{token}}
+
+### finance.set_payment_instructions
+PUT {{base}}/api/v1/branches/1/payment-instructions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ health
 ### health.get_health
 GET {{base}}/api/v1/health
@@ -1495,6 +1549,28 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/me/schedule
 Authorization: Bearer {{token}}
 
+### my_courses.topic_hub
+GET {{base}}/api/v1/me/topics/1
+Authorization: Bearer {{token}}
+
+# ================================================================ my_requests
+### my_requests.list_mine
+GET {{base}}/api/v1/me/requests
+Authorization: Bearer {{token}}
+
+# ================================================================ nav
+### nav.getting_started
+GET {{base}}/api/v1/me/getting-started
+Authorization: Bearer {{token}}
+
+### nav.nav_counts
+GET {{base}}/api/v1/me/nav-counts
+Authorization: Bearer {{token}}
+
+### nav.search
+GET {{base}}/api/v1/search
+Authorization: Bearer {{token}}
+
 # ================================================================ notifications
 ### notifications.acknowledge
 POST {{base}}/api/v1/notifications/1/acknowledge
@@ -1544,9 +1620,23 @@ Content-Type: application/json
 {}
 
 # ================================================================ profile
+### profile.confirm_email
+POST {{base}}/api/v1/me/email/confirm
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### profile.get_profile
 GET {{base}}/api/v1/me/profile
 Authorization: Bearer {{token}}
+
+### profile.request_email_code
+POST {{base}}/api/v1/me/email/request-code
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 ### profile.sign_out_other_devices
 POST {{base}}/api/v1/me/devices/sign-out-others
@@ -1573,6 +1663,10 @@ Authorization: Bearer {{token}}
 
 ### progress.list_progress
 GET {{base}}/api/v1/progress/students
+Authorization: Bearer {{token}}
+
+### progress.my_next_steps
+GET {{base}}/api/v1/me/progress/next-steps
 Authorization: Bearer {{token}}
 
 ### progress.my_progress
@@ -1899,6 +1993,11 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/me/resources
 Authorization: Bearer {{token}}
 
+# ================================================================ student_work
+### student_work.my_work
+GET {{base}}/api/v1/me/work
+Authorization: Bearer {{token}}
+
 # ================================================================ students
 ### students.get_student
 GET {{base}}/api/v1/students/1
@@ -1939,6 +2038,10 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+### support.download_attachment
+GET {{base}}/api/v1/support-requests/attachments/1/download
+Authorization: Bearer {{token}}
 
 ### support.escalate
 POST {{base}}/api/v1/support-requests/1/escalate
@@ -2094,6 +2197,27 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ trainer
+### trainer.at_risk
+GET {{base}}/api/v1/trainer/at-risk
+Authorization: Bearer {{token}}
+
+### trainer.batch_page
+GET {{base}}/api/v1/trainer/batches/1
+Authorization: Bearer {{token}}
+
+### trainer.batches
+GET {{base}}/api/v1/trainer/batches
+Authorization: Bearer {{token}}
+
+### trainer.student_page
+GET {{base}}/api/v1/trainer/students/1
+Authorization: Bearer {{token}}
+
+### trainer.to_grade
+GET {{base}}/api/v1/trainer/to-grade
+Authorization: Bearer {{token}}
 
 # ================================================================ trainer_students
 ### trainer_students.assigned_students

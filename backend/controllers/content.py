@@ -30,7 +30,8 @@ def list_items():
 
     page, per_page = get_page_params()
     items, meta = content_service.list_items(filters, page, per_page)
-    return paginated([i.to_dict() for i in items], meta)
+    comments = content_service.review_comments(items)
+    return paginated([i.to_dict() | {"last_decision": comments.get(i.content_item_id)} for i in items], meta)
 
 
 def _payload() -> tuple[dict, object | None]:

@@ -145,14 +145,13 @@ function todoItems(todo: Extract<TrainerToday["todo"], { assignments: number }>)
       action: "Open Sessions",
     });
   if (todo.assignments > 0)
-    items.push({ id: "assignments", what: `${plural(todo.assignments, "assignment")} to review`, to: "/trainer/reviews", action: "Review" });
+    items.push({ id: "assignments", what: `${plural(todo.assignments, "assignment")} to review`, to: "/trainer/to-grade", action: "Grade" });
   if (todo.attempts > 0)
     items.push({
       id: "attempts",
       what: `${plural(todo.attempts, "test attempt")} to mark`,
-      to: "/trainer/assessments",
-      search: { tab: "grading" },
-      action: "Mark",
+      to: "/trainer/to-grade",
+      action: "Grade",
     });
   const { classes, corrections, recoveries } = todo.attendance;
   if (classes > 0)

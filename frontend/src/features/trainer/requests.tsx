@@ -7,6 +7,8 @@ import { PageHead, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lm
 import { Button } from "@/components/ui/button";
 import { fmtDateTime } from "@/features/shared/format";
 
+const KIND_LABEL = { reschedule: "Move a class", correction: "Attendance correction", recovery: "Recovery" } as const;
+
 const TABS = ["Waiting", "Decided", "All"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -22,7 +24,7 @@ function RequestCard({ request }: { request: MyRequest }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Tag tone="info">{request.kind === "reschedule" ? "Move a class" : "Attendance correction"}</Tag>
+          <Tag tone="info">{KIND_LABEL[request.kind]}</Tag>
           <StatusBadge domain="approval" code={request.status} />
         </div>
       </div>
@@ -46,8 +48,8 @@ function RequestCard({ request }: { request: MyRequest }) {
           </Button>
         ) : (
           <Button asChild size="sm" variant="outline">
-            <Link to="/trainer/attendance" search={{ session: request.session.session_id }}>
-              Open the register
+            <Link to="/trainer/attendance" search={request.kind === "recovery" ? {} : { session: request.session.session_id }}>
+              {request.kind === "recovery" ? "Open Attendance" : "Open the register"}
             </Link>
           </Button>
         )}
@@ -61,7 +63,7 @@ export function TrainerRequests() {
   const [tab, setTab] = useState<Tab | null>(null);
   return (
     <div className="mx-auto max-w-4xl">
-      <PageHead title="My requests" description="What you asked your Branch Manager for, and what they decided." />
+      <PageHead title="My requests" description="Class moves, attendance corrections and recoveries you asked for, and what your Branch Manager decided." />
       <QueryView
         query={query}
         skeleton="cards"

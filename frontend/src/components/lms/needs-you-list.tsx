@@ -14,7 +14,7 @@ export type NeedsYouItem = {
   age?: ReactNode;
   /** Where the button goes. */
   to: string;
-  /** Search parameters of that screen (`{ tab: "grading" }`). */
+  /** Search parameters of that screen (`{ session: 12 }`). */
   search?: Record<string, unknown>;
   /** The button's label ("Allocate"). */
   action: string;

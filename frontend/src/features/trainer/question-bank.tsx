@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/auth/auth";
 import { useApiMutation } from "@/lib/mutation";
 
 const CHOICE = ["Single choice", "Multiple choice"];
@@ -78,6 +79,22 @@ function AnswerKey({ type, state, set }: { type: QuestionType; state: KeyState; 
 type KeyState = { options: string[]; correct: string[]; truth: string; value: string; tolerance: string; variants: string; rubric: string };
 const EMPTY_KEY: KeyState = { options: ["", "", "", ""], correct: [], truth: "true", value: "", tolerance: "0", variants: "", rubric: "" };
 
+/** The answer-key form values of an existing question (the reverse of buildKey), so a draft can be edited. */
+function keyStateOf(q: Question): KeyState {
+  const key = q.answer_key as Record<string, unknown>;
+  const state: KeyState = { ...EMPTY_KEY, options: KEYS.map((k) => q.options.find((o) => o.key === k)?.text ?? "") };
+  if (q.question_type === "Single choice") state.correct = key["option"] ? [String(key["option"])] : [];
+  else if (q.question_type === "Multiple choice") state.correct = (key["options"] as string[] | undefined) ?? [];
+  else if (q.question_type === "True / False") state.truth = key["value"] === false ? "false" : "true";
+  else if (q.question_type === "Numeric") {
+    state.value = String(key["value"] ?? "");
+    state.tolerance = String(key["tolerance"] ?? 0);
+  } else if (q.question_type === "Short answer" || q.question_type === "Output prediction")
+    state.variants = ((key["variants"] as string[] | undefined) ?? []).join("\n");
+  else state.rubric = String(key["rubric"] ?? "");
+  return state;
+}
+
 function buildKey(type: QuestionType, s: KeyState): { options: { key: string; text: string }[]; answer_key: Record<string, unknown> } {
   const options = KEYS.map((key, i) => ({ key, text: s.options[i]?.trim() ?? "" })).filter((o) => o.text);
   if (type === "Single choice") return { options, answer_key: { option: s.correct[0] } };
@@ -97,16 +114,18 @@ function buildKey(type: QuestionType, s: KeyState): { options: { key: string; te
   return { options: [], answer_key: { rubric: s.rubric } };
 }
 
-function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+/** Write a new question, or (with `question`) edit a draft of your own. */
+function QuestionDialog({ open, onOpenChange, question }: { open: boolean; onOpenChange: (open: boolean) => void; question?: Question | undefined }) {
+  const editing = question !== undefined;
   const batches = useQuery({ queryKey: ["batches", "authoring"], queryFn: batchesForAuthoring, enabled: open });
-  const [courseId, setCourseId] = useState("");
-  const [topicId, setTopicId] = useState("");
-  const [type, setType] = useState<QuestionType>("Single choice");
-  const [stem, setStem] = useState("");
-  const [marks, setMarks] = useState("1");
-  const [difficulty, setDifficulty] = useState("Medium");
-  const [tags, setTags] = useState("");
-  const [key, setKey] = useState<KeyState>(EMPTY_KEY);
+  const [courseId, setCourseId] = useState(question ? String(question.course.course_id) : "");
+  const [topicId, setTopicId] = useState(question?.topic ? String(question.topic.topic_id) : "");
+  const [type, setType] = useState<QuestionType>(question?.question_type ?? "Single choice");
+  const [stem, setStem] = useState(question?.stem ?? "");
+  const [marks, setMarks] = useState(question ? String(Number(question.marks)) : "1");
+  const [difficulty, setDifficulty] = useState<string>(question?.difficulty ?? "Medium");
+  const [tags, setTags] = useState(question?.tags.join(", ") ?? "");
+  const [key, setKey] = useState<KeyState>(question ? keyStateOf(question) : EMPTY_KEY);
   const courses = [...new Map((batches.data?.data ?? []).map((b) => [b.course.course_id, b.course])).values()];
   const batchOfCourse = (batches.data?.data ?? []).find((b) => String(b.course.course_id) === courseId);
   const topics = useQuery({
@@ -114,29 +133,31 @@ function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     queryFn: () => assessmentsApi.curriculum(batchOfCourse!.batch_id),
     enabled: open && !!batchOfCourse,
   });
+  const body = {
+    topic_id: topicId ? Number(topicId) : null,
+    question_type: type,
+    stem,
+    marks: Number(marks),
+    difficulty,
+    tags: tags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean),
+    ...buildKey(type, key),
+  };
 
-  const create = useApiMutation(
-    () =>
-      assessmentsApi.createQuestion({
-        course_id: Number(courseId),
-        topic_id: topicId ? Number(topicId) : null,
-        question_type: type,
-        stem,
-        marks: Number(marks),
-        difficulty,
-        tags: tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-        ...buildKey(type, key),
-      }),
+  const save = useApiMutation(
+    () => (editing ? assessmentsApi.updateQuestion(question.question_id, body) : assessmentsApi.createQuestion({ course_id: Number(courseId), ...body })),
     {
       success: (q) => `${q.question_code} saved as a draft`,
+      next: "The Branch Manager approves it before it can go in a test.",
       invalidate: REFRESH,
       onSuccess: () => {
         onOpenChange(false);
-        setStem("");
-        setKey(EMPTY_KEY);
+        if (!editing) {
+          setStem("");
+          setKey(EMPTY_KEY);
+        }
       },
     },
   );
@@ -145,7 +166,7 @@ function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New question</DialogTitle>
+          <DialogTitle>{editing ? `Edit ${question.question_code}` : "New question"}</DialogTitle>
           <DialogDescription>Saved as a draft; the Branch Manager approves it before it can go in a test.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -153,12 +174,15 @@ function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             <NativeSelect
               id="q-course"
               value={courseId}
+              disabled={editing}
               onChange={(e) => {
                 setCourseId(e.target.value);
                 setTopicId("");
               }}
               placeholder="Select a course"
-              options={courses.map((c) => ({ value: c.course_id, label: c.title }))}
+              options={
+                editing ? [{ value: question.course.course_id, label: question.course.title }] : courses.map((c) => ({ value: c.course_id, label: c.title }))
+              }
             />
           </Field>
           <Field label="Topic" htmlFor="q-topic">
@@ -167,7 +191,10 @@ function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               value={topicId}
               onChange={(e) => setTopicId(e.target.value)}
               placeholder="Not linked to a topic"
-              options={(topics.data ?? []).flatMap((m) => m.topics.map((t) => ({ value: t.topic_id, label: `${m.title} → ${t.title}` })))}
+              options={[
+                ...(question?.topic && !topics.data ? [{ value: question.topic.topic_id, label: question.topic.title }] : []),
+                ...(topics.data ?? []).flatMap((m) => m.topics.map((t) => ({ value: t.topic_id, label: `${m.title} → ${t.title}` }))),
+              ]}
             />
           </Field>
           <Field label="Type" htmlFor="q-type">
@@ -200,8 +227,8 @@ function NewQuestionDialog({ open, onOpenChange }: { open: boolean; onOpenChange
           </div>
         </div>
         <DialogFooter>
-          <Button disabled={!courseId || !stem || create.isPending} onClick={() => create.mutate(undefined)}>
-            Save draft
+          <Button disabled={!courseId || !stem || save.isPending} onClick={() => save.mutate(undefined)}>
+            {editing ? "Save changes" : "Save draft"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -214,7 +241,9 @@ const STATUS_TABS = ["All", "Draft", "Approved", "Retired"] as const;
 /** The bank of the user's branch(es). `canApprove` shows the Branch Manager's approve / retire actions. */
 export function QuestionBank({ canApprove = false, initialStatus = "All" }: { canApprove?: boolean; initialStatus?: (typeof STATUS_TABS)[number] }) {
   const [status, setStatus] = useState<(typeof STATUS_TABS)[number]>(initialStatus);
+  const { profile } = useAuth();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Question | null>(null);
   const query = useQuery({ queryKey: ["questions", "list", status], queryFn: () => assessmentsApi.questions(status === "All" ? {} : { status }) });
   const approve = useApiMutation((q: Question) => assessmentsApi.approveQuestion(q.question_id), { success: "Question approved", invalidate: REFRESH });
   const retire = useApiMutation((q: Question) => assessmentsApi.retireQuestion(q.question_id), { success: "Question retired", invalidate: REFRESH });
@@ -260,6 +289,11 @@ export function QuestionBank({ canApprove = false, initialStatus = "All" }: { ca
                         Retire
                       </Button>
                     )}
+                    {!canApprove && q.status === "Draft" && q.author.user_id === profile?.user.user_id && (
+                      <Button size="sm" variant="outline" onClick={() => setEditing(q)}>
+                        Edit
+                      </Button>
+                    )}
                     {!canApprove && q.status !== "Draft" && (
                       <Button size="sm" variant="outline" onClick={() => revise.mutate(q)}>
                         New version
@@ -272,7 +306,8 @@ export function QuestionBank({ canApprove = false, initialStatus = "All" }: { ca
           />
         )}
       </QueryView>
-      <NewQuestionDialog open={creating} onOpenChange={setCreating} />
+      <QuestionDialog open={creating} onOpenChange={setCreating} />
+      {editing && <QuestionDialog key={editing.question_id} open question={editing} onOpenChange={(open) => !open && setEditing(null)} />}
     </div>
   );
 }

@@ -255,6 +255,25 @@ def test_my_requests_lists_reschedules_and_corrections_with_their_decisions(clie
     assert by_kind["correction"]["summary"].startswith("Not marked to Present") and by_kind["correction"]["session"]["title"] == "Older class"
 
 
+def test_my_requests_lists_recovery_requests_and_tells_the_trainer_the_decision(client, w):
+    from tests.test_attendance import absent_entry, request_recovery
+
+    attendance_id = absent_entry(client, w)
+    recovery = request_recovery(client, w, "t1", attendance_id).get_json()["data"]
+    (item,) = [i for i in mine(client, w)["items"] if i["kind"] == "recovery"]
+    assert item["status"] == "Pending" and item["decides"] == "Branch Manager" and item["title"] == "Recovery for Anvitha K."
+    assert item["summary"].startswith("Recording watched for the class") and item["reason"] == "Was unwell"
+    assert mine(client, w)["counts"] == {"waiting": 1, "decided": 0}
+
+    assert client.post(f"{API}/attendance/recoveries/{recovery['recovery_id']}/decision", json={"decision": "Approved", "decision_note": "Watch by Friday"},
+                       headers=w.h["bm"]).status_code == 200
+    (item,) = [i for i in mine(client, w)["items"] if i["kind"] == "recovery"]
+    assert item["status"] == "Approved" and item["decided_by"]["full_name"] == "Manager Guntur" and item["decision_note"] == "Watch by Friday"
+    told = db.session.execute(select(Notification).where(Notification.recipient_user_id == w.t1.user_id,
+                                                         Notification.event_key == f"recovery-decided-requester:{recovery['recovery_id']}")).scalar_one()
+    assert told.link == "/trainer/requests"
+
+
 def test_each_decision_notifies_the_trainer_with_a_link_to_my_requests(client, w):
     rid = ask_reschedule(client, w, w.future).get_json()["data"]["request_id"]
     cid = client.post(f"{API}/attendance/corrections", headers=w.h["t1"], json={

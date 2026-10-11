@@ -119,7 +119,7 @@ const TRAINER_NAV: NavItem[] = [
   { to: "/trainer/sessions", label: "Sessions", icon: CalendarDays, group: "Teach" },
   { to: "/trainer/attendance", label: "Attendance", icon: CalendarCheck, group: "Teach", badgeKey: "attendance" },
   { to: "/trainer/requests", label: "My requests", icon: FileClock, group: "Teach" },
-  { to: "/trainer/reviews", label: "Reviews", icon: ClipboardCheck, group: "Grade", badgeKey: "to_grade" },
+  { to: "/trainer/to-grade", label: "To grade", icon: ClipboardCheck, group: "Grade", badgeKey: "to_grade" },
   { to: "/trainer/assignments", label: "Assignments", icon: ClipboardList, group: "Grade" },
   { to: "/trainer/assessments", label: "Assessments", icon: FileQuestion, group: "Grade" },
   { to: "/trainer/content", label: "Content", icon: FolderOpen, group: "Grade" },
@@ -179,7 +179,7 @@ export const NAV: Record<Workspace, NavItem[]> = {
 /** Destinations pinned to the phone bottom bar (4 slots + More); workspaces without a list use their first four items. */
 const MOBILE_BAR: Partial<Record<Workspace, string[]>> = {
   student: ["/dashboard", "/my-courses", "/schedule", "/tasks"],
-  trainer: ["/trainer", "/trainer/sessions", "/trainer/reviews", "/trainer/students"],
+  trainer: ["/trainer", "/trainer/sessions", "/trainer/to-grade", "/trainer/students"],
   branch: ["/branch", "/branch/batches", "/branch/assessments", "/branch/exceptions"],
 };
 

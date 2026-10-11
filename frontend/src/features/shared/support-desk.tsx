@@ -39,7 +39,11 @@ export function SupportState({ request }: { request: SupportSummary }) {
   );
 }
 
-export function SupportDesk({ base = {}, caption, empty }: { base?: SupportFilters; caption: string; empty: string }) {
+/**
+ * `simple` is the trainer's view: no category filter or ID column, and escalating, reassigning and internal remarks sit under
+ * "More" in the request, so the first screen is just reading, replying and the status.
+ */
+export function SupportDesk({ base = {}, caption, empty, simple = false }: { base?: SupportFilters; caption: string; empty: string; simple?: boolean }) {
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
@@ -61,16 +65,18 @@ export function SupportDesk({ base = {}, caption, empty }: { base?: SupportFilte
             options={SUPPORT_STATUSES.map((s) => ({ value: s, label: s }))}
           />
         </div>
-        <div className="w-full sm:w-48">
-          <Label htmlFor="support-category">Category</Label>
-          <NativeSelect
-            id="support-category"
-            placeholder="All"
-            value={category}
-            onChange={(e) => (setCategory(e.target.value), setPage(1))}
-            options={SUPPORT_CATEGORIES.map((s) => ({ value: s, label: s }))}
-          />
-        </div>
+        {!simple && (
+          <div className="w-full sm:w-48">
+            <Label htmlFor="support-category">Category</Label>
+            <NativeSelect
+              id="support-category"
+              placeholder="All"
+              value={category}
+              onChange={(e) => (setCategory(e.target.value), setPage(1))}
+              options={SUPPORT_CATEGORIES.map((s) => ({ value: s, label: s }))}
+            />
+          </div>
+        )}
         <div className="w-full sm:w-64">
           <Label htmlFor="support-q">Search</Label>
           <Input id="support-q" placeholder="ID, subject or student" value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} />
@@ -84,11 +90,27 @@ export function SupportDesk({ base = {}, caption, empty }: { base?: SupportFilte
               rows={result.data}
               getKey={(r) => r.support_request_id}
               cols={[
-                { h: "ID", c: (r) => <span className="font-mono text-xs">{r.request_code}</span> },
+                ...(simple ? [] : [{ h: "ID", c: (r: SupportSummary) => <span className="font-mono text-xs">{r.request_code}</span> }]),
                 { h: "Student", c: (r: SupportSummary) => r.student.full_name },
-                { h: "Category", c: (r) => r.category },
-                { h: "Subject", c: (r) => r.subject },
-                { h: "Named owner", c: (r) => r.owner.label },
+                ...(simple
+                  ? [
+                      {
+                        h: "About",
+                        c: (r: SupportSummary) => (
+                          <>
+                            <div>{r.subject}</div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {r.request_code} · {r.category}
+                            </div>
+                          </>
+                        ),
+                      },
+                    ]
+                  : [
+                      { h: "Category", c: (r: SupportSummary) => r.category },
+                      { h: "Subject", c: (r: SupportSummary) => r.subject },
+                    ]),
+                { h: simple ? "With" : "Named owner", c: (r) => r.owner.label },
                 { h: "State", c: (r) => <SupportState request={r} /> },
                 {
                   h: "Open",
@@ -116,22 +138,22 @@ export function SupportDesk({ base = {}, caption, empty }: { base?: SupportFilte
           </>
         )}
       </QueryView>
-      <SupportPanel id={openId} onClose={() => setOpenId(null)} />
+      <SupportPanel id={openId} onClose={() => setOpenId(null)} simple={simple} />
     </div>
   );
 }
 
 type StaffMember = { user_id: number; full_name: string; role_code: string };
 
-export function SupportPanel({ id, onClose }: { id: number | null; onClose: () => void }) {
+export function SupportPanel({ id, onClose, simple = false }: { id: number | null; onClose: () => void; simple?: boolean }) {
   return (
     <Dialog open={id !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">{id !== null && <PanelBody id={id} />}</DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">{id !== null && <PanelBody id={id} simple={simple} />}</DialogContent>
     </Dialog>
   );
 }
 
-function PanelBody({ id }: { id: number }) {
+function PanelBody({ id, simple }: { id: number; simple: boolean }) {
   const { profile } = useAuth();
   const query = useQuery({ queryKey: ["support", "detail", id], queryFn: () => supportApi.get(id) });
   const done = { invalidate: [["support"]] };
@@ -139,6 +161,7 @@ function PanelBody({ id }: { id: number }) {
   const [internal, setInternal] = useState(false);
   const [target, setTarget] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [more, setMore] = useState(false);
 
   const [files, setFiles] = useState<File[]>([]);
   const message = useApiMutation((vars: { body: string; internal: boolean; files: File[] }) => supportApi.message(id, vars.body, vars.internal, vars.files), {
@@ -238,9 +261,11 @@ function PanelBody({ id }: { id: number }) {
                   <Button disabled={!text.trim() || message.isPending} onClick={() => message.mutate({ body: text.trim(), internal, files })}>
                     {internal ? "Add internal remark" : "Send reply"}
                   </Button>
-                  <label className="flex items-center gap-1.5 text-sm">
-                    <input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> Internal remark (student cannot see it)
-                  </label>
+                  {(!simple || more) && (
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> Internal remark (student cannot see it)
+                    </label>
+                  )}
                 </div>
               </div>
             )}
@@ -283,7 +308,12 @@ function PanelBody({ id }: { id: number }) {
                     onSubmit={(note) => status.mutateAsync({ status: "Resolved", note })}
                     trigger={<Button>Resolve</Button>}
                   />
-                  {request.escalation_level !== "Branch Manager" && (
+                  {simple && (
+                    <Button variant="ghost" aria-expanded={more} onClick={() => setMore((open) => !open)}>
+                      More
+                    </Button>
+                  )}
+                  {(!simple || more) && request.escalation_level !== "Branch Manager" && (
                     <ReasonDialog
                       title="Escalate this request"
                       description={"It goes to the Branch Manager."}
@@ -293,7 +323,7 @@ function PanelBody({ id }: { id: number }) {
                       trigger={<Button variant="outline">Escalate</Button>}
                     />
                   )}
-                  {profile?.scopes.some((s) => ["BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"].includes(s.role_code)) && (
+                  {(!simple || more) && profile?.scopes.some((s) => ["BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"].includes(s.role_code)) && (
                     <>
                       <div className="w-52">
                         <Label htmlFor="support-assign">Reassign to</Label>

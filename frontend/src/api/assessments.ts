@@ -228,7 +228,7 @@ export type TestInput = {
   kind: string;
   title: string;
   topic_id?: number | null;
-  instructions?: string;
+  instructions?: string | null;
   duration_minutes?: number | null;
   opens_at?: string | null;
   closes_at?: string | null;
@@ -394,6 +394,7 @@ export const assessmentsApi = {
   // question bank
   questions: (query?: Filters): Promise<Page<Question>> => list("/questions", { per_page: 100, ...query }),
   createQuestion: (body: QuestionInput) => post<Question>("/questions", body),
+  updateQuestion: (id: number, body: Partial<Omit<QuestionInput, "course_id">>) => patch<Question>(`/questions/${id}`, body),
   approveQuestion: (id: number) => post<Question>(`/questions/${id}/approve`, {}),
   retireQuestion: (id: number) => post<Question>(`/questions/${id}/retire`, {}),
   newVersion: (id: number) => post<Question>(`/questions/${id}/new-version`, {}),

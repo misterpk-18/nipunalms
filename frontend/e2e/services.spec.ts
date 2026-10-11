@@ -63,10 +63,10 @@ test("trainer sees the support flags of their students and their own notificatio
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/support");
-  await expect(page.getByRole("cell", { name: "SR-1051", exact: true })).toBeVisible();
+  await expect(page.getByText(/SR-1051/).first()).toBeVisible();
   await page.goto("/trainer/students");
-  await expect(page.getByRole("cell", { name: "Sample Learner G.", exact: true })).toBeVisible();
-  await expect(page.getByText("Open — Academic").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sample Learner G.", exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Open: Academic").first()).toBeVisible();
   await page.goto("/trainer/notifications");
   await expect(page.getByText(/Attendance for the 24 Sep class/).first()).toBeVisible();
 });

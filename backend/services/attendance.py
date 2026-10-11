@@ -358,6 +358,12 @@ def decide_recovery(recovery_id: int, decision: str, note: str | None, target_da
            body=note or f"Your recovery for {recovery.attendance.session.title} was approved. Complete it as agreed.",
            link="/progress?tab=attendance", branch_id=enrolment.service_branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
            event_key=f"recovery-decided:{recovery.recovery_id}")
+    if recovery.requested_by not in _student_user_ids(enrolment.student_id):
+        # Raised by a trainer for the student: the trainer hears the decision too, on My requests
+        notify(category="Attendance", title=f"Recovery {decision.lower()} ({recovery.recovery_code})",
+               body=note or f"The recovery you asked for ({recovery.attendance.session.title}) was approved.",
+               link="/trainer/requests", branch_id=enrolment.service_branch_id, recipient_user_ids=[recovery.requested_by],
+               event_key=f"recovery-decided-requester:{recovery.recovery_id}")
     return recovery
 
 

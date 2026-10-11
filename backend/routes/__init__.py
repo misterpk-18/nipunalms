@@ -91,8 +91,9 @@ BLUEPRINTS += [content_bp, recordings_bp, recording_exceptions_bp, access_extens
 # P3: Student Home, Trainer Today, workspace reports
 from routes.home import home_bp  # noqa: E402
 from routes.reports import reports_bp  # noqa: E402
+from routes.trainer import trainer_bp  # noqa: E402
 
-BLUEPRINTS += [home_bp, reports_bp]
+BLUEPRINTS += [home_bp, reports_bp, trainer_bp]
 
 # Phase 3: exception queue and staff dashboards
 from routes.dashboards import dashboards_bp  # noqa: E402

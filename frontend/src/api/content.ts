@@ -51,6 +51,8 @@ export type ContentItem = {
   submitted_at: DateTime | null;
   updated_at: DateTime;
   retire_reason: string | null;
+  /** What the reviewer said when they asked for changes or turned it down (staff lists only). */
+  last_decision?: { action: "Changes Requested" | "Rejected"; comment: string | null; reviewer: UserRef; acted_at: DateTime } | null;
   versions?: ContentVersion[];
   reviews?: ContentReview[];
 };

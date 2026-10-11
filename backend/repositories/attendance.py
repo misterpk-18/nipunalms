@@ -232,6 +232,13 @@ def corrections_by_user(user_id: int, limit: int = 100) -> list[AttendanceCorrec
     return list(db.session.execute(stmt).scalars().unique())
 
 
+def recoveries_by_user(user_id: int, limit: int = 100) -> list[AttendanceRecovery]:
+    """The recoveries this person asked for (a trainer raising one for a student), newest first."""
+    stmt = (select(AttendanceRecovery).where(AttendanceRecovery.requested_by == user_id)
+            .order_by(AttendanceRecovery.requested_at.desc(), AttendanceRecovery.recovery_id.desc()).limit(limit))
+    return list(db.session.execute(stmt).scalars().unique())
+
+
 def sessions_missing_attendance(start: date, end: date) -> list[tuple[ClassSession, int]]:
     """Delivered classes held between start and end (IST dates) with seats that have no attendance entry yet, and how many."""
     class_day = func.date(func.timezone("Asia/Kolkata", ClassSession.starts_at))

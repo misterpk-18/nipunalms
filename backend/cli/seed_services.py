@@ -106,7 +106,7 @@ def _notifications(ctx: "SeedContext") -> None:
         notify(category="Attendance", title=f"Attendance for the 24 Sep class of {code} is not marked yet", event_key=f"seed:{key}:a1",
                link="/trainer/attendance", recipient_user_ids=[trainer], action_required=True)
         notify(category="Review", title="Three submissions are waiting for your review", event_key=f"seed:{key}:a2",
-               link="/trainer/reviews", recipient_user_ids=[trainer])
+               link="/trainer/to-grade", recipient_user_ids=[trainer])
         notify(category="Session", title=f"Class of {code} rescheduled to 05 Oct", event_key=f"seed:{key}:a3", link="/trainer/sessions",
                recipient_user_ids=[trainer])
         db.session.execute(text("UPDATE notifications SET read_at = now(), acknowledged_at = now(), action_status = 'Completed' "

@@ -56,15 +56,20 @@ test("student opens a task, reads the brief and submits near the top", async ({ 
 test("trainer reviews it, the coordinator publishes, the student sees the published result", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.trainerG1);
-  await page.goto("/trainer/reviews");
-  const card = page.locator("section", { hasText: "Regression on housing dataset — Anvitha K." });
-  await expect(card).toBeVisible();
-  await expect(page.locator("section", { hasText: "Regression on housing dataset — Sample Learner G." })).toBeVisible();
-  await card.getByLabel("Feedback").fill("Solid baseline; justify the feature choice.");
-  await card.getByLabel(/^Marks/).fill("17");
-  await card.getByRole("button", { name: "Save review" }).click();
+  await page.goto("/trainer/to-grade");
+  const work = (student: string) => page.getByRole("row").filter({ hasText: "Regression on housing dataset" }).filter({ hasText: student });
+  await expect(work("Anvitha K.")).toBeVisible();
+  await expect(work("Sample Learner G.")).toBeVisible();
+  await work("Anvitha K.")
+    .getByRole("link", { name: /^Grade/ })
+    .click();
+  await page.getByRole("button", { name: "Start review" }).click();
+  await page.getByLabel("Feedback for the student").fill("Solid baseline; justify the feature choice.");
+  await page.getByLabel(/^Marks out of/).fill("17");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText(/Review saved/)).toBeVisible();
-  await expect(card).toBeHidden();
+  await page.goto("/trainer/to-grade");
+  await expect(work("Anvitha K.")).toHaveCount(0);
 
   await page.evaluate(() => window.sessionStorage.clear());
   await page.goto("/login");
@@ -138,7 +143,7 @@ test("mock interview slot is confirmed by the trainer", async ({ page }, info) =
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/assessments");
-  await page.getByRole("tab", { name: "Mock interviews" }).click();
+  await page.getByRole("tab", { name: /^Interviews/ }).click();
   await page.getByRole("button", { name: "Confirm" }).first().click();
   await expect(page.getByText(/Slot confirmed/)).toBeVisible();
 });

@@ -3,6 +3,7 @@ from flask import request, send_file
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated
 from models.support import SUPPORT_CATEGORIES, SUPPORT_PRIORITIES, SUPPORT_STATUSES
 from services import support as support_service
+from services import trainer_people
 
 
 def _payload() -> dict:
@@ -93,4 +94,9 @@ def assign(support_request_id: int):
 
 
 def assigned_students():
-    return ok(support_service.assigned_students())
+    """The trainer's students; ?q= searches name or student ID, ?batch_id= narrows to one batch (services/trainer_people.py)."""
+    v = Validator(request.args.to_dict())
+    v.string("q", max_length=100)
+    v.integer("batch_id", min_value=1)
+    filters = v.validate()
+    return ok(trainer_people.students(filters.get("q"), filters.get("batch_id")))

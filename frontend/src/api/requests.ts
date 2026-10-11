@@ -1,10 +1,10 @@
-/** The signed-in staff member's own requests (`GET /me/requests`): reschedules and attendance corrections. */
+/** The signed-in staff member's own requests (`GET /me/requests`): reschedules, attendance corrections and recovery requests. */
 import { useQuery } from "@tanstack/react-query";
 import { get } from "./client";
 import type { DateTime, UserRef } from "./types";
 
 export type MyRequest = {
-  kind: "reschedule" | "correction";
+  kind: "reschedule" | "correction" | "recovery";
   id: number;
   status: "Pending" | "Approved" | "Rejected";
   title: string;

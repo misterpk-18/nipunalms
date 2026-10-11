@@ -33,7 +33,7 @@ const ACTION_LABELS: Record<string, string> = {
   Assessments: "Open",
   Access: "View request",
   Assignments: "Open task",
-  Reviews: "Open reviews",
+  Reviews: "Grade work",
   Results: "View result",
 };
 const actionLabel = (category: string) => ACTION_LABELS[category] ?? "Open";

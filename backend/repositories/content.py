@@ -36,6 +36,19 @@ def reviews_of(content_item_id: int) -> list[ContentReview]:
     return list(db.session.execute(stmt).scalars())
 
 
+def latest_decisions(item_ids: list[int]) -> dict[int, ContentReview]:
+    """The newest "Changes Requested" / "Rejected" review of each item's current version (what the author has to act on)."""
+    if not item_ids:
+        return {}
+    latest_version = (select(func.max(ContentVersion.content_version_id)).where(ContentVersion.content_item_id == ContentReview.content_item_id)
+                      .correlate(ContentReview).scalar_subquery())
+    stmt = (select(ContentReview)
+            .where(ContentReview.content_item_id.in_(item_ids), ContentReview.action.in_(("Changes Requested", "Rejected")),
+                   ContentReview.content_version_id == latest_version)
+            .order_by(ContentReview.acted_at, ContentReview.review_id))
+    return {review.content_item_id: review for review in db.session.execute(stmt).scalars().unique()}  # the newest wins
+
+
 def _has_released_version():
     return exists().where(ContentVersion.content_item_id == ContentItem.content_item_id, ContentVersion.status == "Released")
 
