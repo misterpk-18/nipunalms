@@ -3,6 +3,7 @@
  * prototype); the profile's `workspaces` (from the API, already expanded per role) decides who may open it.
  */
 import {
+  Activity,
   Award,
   BookOpen,
   Briefcase,
@@ -19,8 +20,6 @@ import {
   House,
   Library,
   LifeBuoy,
-  Lock,
-  Plug,
   RefreshCw,
   ScrollText,
   ShieldCheck,
@@ -147,15 +146,15 @@ const BRANCH_NAV: NavItem[] = [
 ];
 
 const ADMIN_NAV: NavItem[] = [
-  { to: "/admin", label: "Super Admin", icon: ShieldCheck },
-  { to: "/admin/users", label: "Users & Access", icon: UserCog, group: "People", badgeKey: "users" },
-  { to: "/admin/students", label: "Student Accounts", icon: GraduationCap, group: "People" },
-  { to: "/admin/exceptions", label: "Exception Queues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
-  { to: "/admin/calendar", label: "Academic Calendar", icon: CalendarDays, group: "Operations" },
-  { to: "/admin/crm-sync", label: "CRM Sync", icon: RefreshCw, group: "Operations", badgeKey: "crm_sync" },
-  { to: "/admin/integrations", label: "Integration Readiness", icon: Plug, group: "System" },
-  { to: "/admin/security", label: "Security Readiness", icon: Lock, group: "System" },
-  { to: "/admin/audit", label: "Audit Log", icon: ScrollText, group: "System" },
+  { to: "/admin", label: "Home", icon: House, badgeKey: "home" },
+  { to: "/admin/users", label: "Users & access", icon: UserCog, group: "People", badgeKey: "users" },
+  { to: "/admin/students", label: "Student accounts", icon: GraduationCap, group: "People", badgeKey: "student_accounts" },
+  { to: "/admin/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
+  { to: "/admin/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
+  { to: "/admin/crm-sync", label: "CRM sync", icon: RefreshCw, group: "Operations", badgeKey: "crm_sync" },
+  { to: "/admin/setup", label: "Setup & health", icon: Activity, group: "System", badgeKey: "setup" },
+  { to: "/admin/ai-controls", label: "AI controls", icon: Sparkles, group: "System" },
+  { to: "/admin/audit", label: "Audit log", icon: ScrollText, group: "System" },
 ];
 
 const FOUNDER_NAV: NavItem[] = [
@@ -163,6 +162,7 @@ const FOUNDER_NAV: NavItem[] = [
   { to: "/founder/curriculum", label: "Curriculum approvals", icon: Library, group: "Approvals", badgeKey: "curriculum" },
   { to: "/founder/certificates", label: "Certificate decisions", icon: Award, group: "Approvals", badgeKey: "certificates" },
   { to: "/founder/access", label: "Access extensions", icon: Hourglass, group: "Approvals", badgeKey: "access" },
+  { to: "/founder/ai-controls", label: "AI controls", icon: Sparkles, group: "Safety" },
 ];
 
 export const NAV: Record<Workspace, NavItem[]> = {

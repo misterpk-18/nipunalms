@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from repositories import exceptions as exceptions_repo
 from repositories.common import paginate
+from services import exceptions as exceptions_service
 from services import scope
 from services.context import current_user
 from services.errors import Forbidden, ValidationError
@@ -59,7 +60,7 @@ def fix_link(source: str, source_id: int, branch_id: int | None) -> dict:
         case "CRM_EVENT":
             return {"to": "/admin/crm-sync", "search": {}}
         case "INTEGRATION":
-            return {"to": "/admin/integrations", "search": {}}
+            return {"to": "/admin/setup", "search": {}}
     return {"to": "/branch", "search": {}}
 
 
@@ -106,7 +107,7 @@ def list_issues(raw_filters: dict, page: int, per_page: int) -> tuple[list[dict]
         data = row.to_dict(now)
         items.append({**data, "id": f"{row.source}:{row.source_id}", "type": SOURCE_TYPE.get(row.source, "system"),
                       "type_label": SOURCE_LABELS.get(row.source, row.queue), "go_fix": fix_link(row.source, row.source_id, row.branch_id),
-                      "can_note": can_note and (row.branch_id is not None or user.has_role("SUPER_ADMIN"))})
+                      "can_note": can_note and (row.branch_id is not None or user.has_role("SUPER_ADMIN")), "can_assign": exceptions_service.can_assign(row.source, row.owner_user_id)})
     by_source = exceptions_repo.counts_by_source(filters, branch_ids)
     meta["counts"] = {key: sum(by_source.get(s, 0) for s in sources) for key, (_, sources) in TYPES.items()}
     meta["counts"]["all"] = sum(meta["counts"].values())

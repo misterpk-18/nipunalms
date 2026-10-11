@@ -74,8 +74,10 @@ class ExceptionRecoveryStep(db.Model):
     reason: Mapped[str] = mapped_column(Text)
     logged_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
     logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+    assigned_to: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))  # set when the step hands the issue to someone
 
     author: Mapped[User] = relationship(lazy="joined", foreign_keys=[logged_by])
+    assignee: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[assigned_to])
 
     def to_dict(self) -> dict:
         return {
@@ -85,4 +87,5 @@ class ExceptionRecoveryStep(db.Model):
             "reason": self.reason,
             "logged_by": {"user_id": self.author.user_id, "full_name": self.author.full_name},
             "logged_at": self.logged_at,
+            "assigned_to": None if self.assignee is None else {"user_id": self.assignee.user_id, "full_name": self.assignee.full_name},
         }

@@ -83,6 +83,7 @@ class User(db.Model):
             "is_active": self.is_active,
             "must_change_password": self.must_change_password,
             "is_locked": self.is_locked,
+            "locked_until": self.locked_until if self.is_locked else None,
             "last_login_at": self.last_login_at,
             "password_changed_at": self.password_changed_at,
             "created_at": self.created_at,

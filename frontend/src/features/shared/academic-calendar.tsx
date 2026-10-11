@@ -1,6 +1,7 @@
 /** The Nipuna Academic Calendar (Module 15 §9): company holidays set centrally, branch closures approved by the Branch
  * Manager. Approved closures that fall on scheduled classes ask the Branch Managers for replacements; nothing moves by itself. */
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/api/admin";
 import { list, post } from "@/api/client";
 import type { BranchRef, DateOnly, DateTime, UserRef } from "@/api/types";
@@ -9,6 +10,7 @@ import { DataTable, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/features/shared/attendance-parts";
 import { fmtDate } from "@/features/shared/format";
+import { Pager } from "@/features/admin/shared";
 import { useApiMutation } from "@/lib/mutation";
 
 type Closure = {
@@ -19,7 +21,7 @@ type Closure = {
   ends_on: DateOnly;
   title: string;
   reason: string | null;
-  status: "Pending" | "Approved" | "Rejected";
+  status: "Pending" | "Approved" | "Rejected" | "Cancelled";
   requested_by: UserRef;
   requested_at: DateTime;
   decided_by: UserRef | null;
@@ -27,7 +29,7 @@ type Closure = {
 };
 
 const calendarApi = {
-  list: () => list<Closure>("/calendar/closures", { per_page: 100 }),
+  list: (page: number) => list<Closure>("/calendar/closures", { per_page: 20, page, sort: "upcoming" }),
   create: (body: { kind: string; branch_id: number | null; starts_on: string; ends_on: string; title: string; reason?: string }) =>
     post<Closure>("/calendar/closures", body),
   decide: (id: number, decision: string, note?: string) => post<Closure>(`/calendar/closures/${id}/decision`, { decision, note }),
@@ -39,7 +41,8 @@ export function AcademicCalendar() {
   const central = hasRole("FOUNDER_CEO", "SUPER_ADMIN");
   const proposer = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const approver = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
-  const closures = useQuery({ queryKey: KEY, queryFn: calendarApi.list });
+  const [page, setPage] = useState(1);
+  const closures = useQuery({ queryKey: [...KEY, page], queryFn: () => calendarApi.list(page), placeholderData: keepPreviousData });
   const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches, enabled: central });
   const branchOptions = central ? (branches.data ?? []) : (profile?.allowed_branches ?? []);
   const create = useApiMutation(calendarApi.create, {
@@ -87,35 +90,38 @@ export function AcademicCalendar() {
         />
       )}
       <QueryView query={closures} isEmpty={(p) => p.data.length === 0} empty="No holidays or closures are published.">
-        {(page) => (
-          <DataTable
-            caption="Academic Calendar"
-            rows={page.data}
-            getKey={(c) => c.closure_id}
-            cols={[
-              { h: "Dates", c: (c) => (c.starts_on === c.ends_on ? fmtDate(c.starts_on) : `${fmtDate(c.starts_on)} – ${fmtDate(c.ends_on)}`) },
-              { h: "What", c: (c) => [c.title, c.reason].filter(Boolean).join(" — ") },
-              { h: "Applies to", c: (c) => c.branch?.branch_name ?? "Every branch" },
-              { h: "Status", c: (c) => <StatusBadge domain="approval" code={c.status} /> },
-              {
-                h: "",
-                c: (c) =>
-                  approver && c.status === "Pending" ? (
-                    <FormDialog
-                      trigger={<Button size="sm">Decide</Button>}
-                      title={`Branch closure: ${c.title}`}
-                      description="Approving closes the branch on these dates; Branch Managers are asked to replace affected classes."
-                      submitLabel="Record decision"
-                      fields={[
-                        { name: "decision", label: "Decision", kind: "select", options: ["Approved", "Rejected"], required: true, initial: "Approved" },
-                        { name: "note", label: "Note (required to reject)", kind: "textarea" },
-                      ]}
-                      onSubmit={(v) => decide.mutateAsync({ id: c.closure_id, decision: v["decision"]!, note: v["note"] || undefined })}
-                    />
-                  ) : null,
-              },
-            ]}
-          />
+        {(result) => (
+          <>
+            <DataTable
+              caption="Academic Calendar"
+              rows={result.data}
+              getKey={(c) => c.closure_id}
+              cols={[
+                { h: "Dates", c: (c) => (c.starts_on === c.ends_on ? fmtDate(c.starts_on) : `${fmtDate(c.starts_on)} – ${fmtDate(c.ends_on)}`) },
+                { h: "What", c: (c) => [c.title, c.reason].filter(Boolean).join(" — ") },
+                { h: "Applies to", c: (c) => c.branch?.branch_name ?? "Every branch" },
+                { h: "Status", c: (c) => <StatusBadge domain="approval" code={c.status} /> },
+                {
+                  h: "",
+                  c: (c) =>
+                    approver && c.status === "Pending" ? (
+                      <FormDialog
+                        trigger={<Button size="sm">Decide</Button>}
+                        title={`Branch closure: ${c.title}`}
+                        description="Approving closes the branch on these dates; Branch Managers are asked to replace affected classes."
+                        submitLabel="Record decision"
+                        fields={[
+                          { name: "decision", label: "Decision", kind: "select", options: ["Approved", "Rejected"], required: true, initial: "Approved" },
+                          { name: "note", label: "Note (required to reject)", kind: "textarea" },
+                        ]}
+                        onSubmit={(v) => decide.mutateAsync({ id: c.closure_id, decision: v["decision"]!, note: v["note"] || undefined })}
+                      />
+                    ) : null,
+                },
+              ]}
+            />
+            <Pager meta={result.meta} onPage={setPage} />
+          </>
         )}
       </QueryView>
     </div>

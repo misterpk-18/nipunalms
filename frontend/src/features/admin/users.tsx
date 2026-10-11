@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { KeyRound, LockOpen, Plus, Send, UserCheck, UserMinus, X } from "lucide-react";
@@ -12,13 +12,33 @@ import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/co
 import { useApiMutation } from "@/lib/mutation";
 import { FilterField, FormDialog, Pager, SecretDialog, type Secret } from "./shared";
 import { istDateTime, useCanAdminister, whatsappLine } from "./format";
+import { useUrlParams } from "./url-params";
 
-const STAFF_ROLES: { value: RoleCode; label: string; companyWide: boolean }[] = [
-  { value: "TRAINER", label: "Trainer", companyWide: false },
-  { value: "BRANCH_MANAGER", label: "Branch Manager", companyWide: false },
-  { value: "SUPER_ADMIN", label: "Super Admin", companyWide: true },
-  { value: "FOUNDER_CEO", label: "Founder / CEO", companyWide: true },
+/** What each role can do, in one line: shown beside the role in the picker so nobody has to remember. */
+const STAFF_ROLES: { value: RoleCode; label: string; companyWide: boolean; description: string }[] = [
+  { value: "TRAINER", label: "Trainer", companyWide: false, description: "Runs classes, marks attendance and grades work for their batches." },
+  {
+    value: "BRANCH_MANAGER",
+    label: "Branch Manager",
+    companyWide: false,
+    description: "Runs one branch: batches, schedule, results, certificates and student support.",
+  },
+  {
+    value: "SUPER_ADMIN",
+    label: "Super Admin",
+    companyWide: true,
+    description: "Looks after people and access, the CRM link, setup and health, in every branch.",
+  },
+  {
+    value: "FOUNDER_CEO",
+    label: "Founder / CEO",
+    companyWide: true,
+    description: "Decides curriculum, certificate exceptions and access extensions, and sees every branch.",
+  },
 ];
+
+const roleOptions = STAFF_ROLES.map((r) => ({ value: r.value, label: `${r.label} — ${r.description}` }));
+const roleHint = (role: RoleCode | "") => STAFF_ROLES.find((r) => r.value === role)?.description;
 
 type Action =
   | { kind: "create" }
@@ -49,8 +69,18 @@ const IDS = adminKeys.usersAll;
 /** Users & Access: staff accounts and their role scopes. Students are created by the CRM, never here. */
 export function AdminUsers() {
   const canEdit = useCanAdminister();
-  const [filters, setFilters] = useState<UserFilters>({ is_active: "true" });
-  const [action, setAction] = useState<Action | null>(null);
+  const [urlParams, setUrlParams] = useUrlParams();
+  const [filters, setFilters] = useState<UserFilters>({
+    is_active: "true",
+    ...(urlParams["q"] ? { q: urlParams["q"] } : {}),
+    ...(urlParams["locked"] === "true" ? { locked: "true" } : {}),
+  });
+  const [action, setAction] = useState<Action | null>(urlParams["add"] === "1" && canEdit ? { kind: "create" } : null);
+  useEffect(() => {
+    // Links from Home and the Audit log arrive with ?add=1, ?locked=true or ?q=: they have been applied, so the address goes back to plain
+    if (urlParams["add"] || urlParams["locked"] || urlParams["q"]) setUrlParams({ add: undefined, locked: undefined, q: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [secret, setSecret] = useState<{ title: string; user: StaffUserWithPassword } | null>(null);
   const query = useQuery({ queryKey: adminKeys.users(filters), queryFn: () => adminApi.users(filters) });
 
@@ -70,8 +100,8 @@ export function AdminUsers() {
   return (
     <>
       <PageHead
-        title="Users & Access"
-        description="Staff accounts and role scopes by branch. Students are created by the CRM and administered under Student Accounts."
+        title="Users & access"
+        description="Add staff, give or take away roles, unlock accounts and send invites. Students are created by the CRM and looked after under Student accounts."
         actions={
           canEdit && (
             <Button onClick={() => setAction({ kind: "create" })}>
@@ -99,12 +129,17 @@ export function AdminUsers() {
               <NativeSelect
                 aria-label="Status"
                 placeholder="All"
-                value={filters.is_active ?? ""}
+                value={filters.locked === "true" ? "locked" : (filters.is_active ?? "")}
                 options={[
                   { value: "true", label: "Active" },
+                  { value: "locked", label: "Locked (too many wrong passwords)" },
                   { value: "false", label: "Deactivated" },
                 ]}
-                onChange={(e) => setFilters({ ...filters, is_active: e.target.value, page: 1 })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const { locked: _locked, is_active: _active, ...rest } = filters;
+                  setFilters({ ...rest, ...(v === "locked" ? { locked: "true" } : v ? { is_active: v } : {}), page: 1 });
+                }}
               />
             </FilterField>
           </div>
@@ -157,6 +192,7 @@ export function AdminUsers() {
                           <StatusBadge domain="account" code={u.is_active ? "Active" : "Deactivated"} />
                           {u.must_change_password && <StatusBadge domain="account" code="Must change password" />}
                           {u.is_locked && <StatusBadge domain="account" code="Locked" />}
+                          {u.is_locked && u.locked_until && <span className="text-xs text-muted-foreground">until {istDateTime(u.locked_until)}</span>}
                         </div>
                       ),
                     },
@@ -175,27 +211,22 @@ export function AdminUsers() {
                                 >
                                   <Plus className="size-3.5" /> Role
                                 </Button>
-                                {u.must_change_password && u.is_active && (
-                                  <ConfirmDialog
-                                    title={`Send ${u.full_name} a new invite?`}
-                                    consequence="A new one-time link goes to their WhatsApp number. Any earlier link stops working."
-                                    confirmLabel="Send invite"
-                                    onConfirm={() => invite.mutateAsync(u).then(() => undefined)}
-                                  >
-                                    <Button variant="outline" size="sm" aria-label={`Send invite to ${u.full_name}`}>
-                                      <Send className="size-3.5" /> Invite
-                                    </Button>
-                                  </ConfirmDialog>
-                                )}
                                 {u.is_locked && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setAction({ kind: "unlock", user: u })}
-                                    aria-label={`Unlock ${u.full_name}`}
-                                  >
+                                  <Button size="sm" onClick={() => setAction({ kind: "unlock", user: u })} aria-label={`Unlock ${u.full_name}`}>
                                     <LockOpen className="size-3.5" /> Unlock
                                   </Button>
+                                )}
+                                {u.must_change_password && u.is_active && (
+                                  <ConfirmDialog
+                                    title={`${u.last_login_at ? "Send" : "Resend"} ${u.full_name} an invite?`}
+                                    consequence="A new one-time link goes to their WhatsApp number so they can choose a password. Any earlier link stops working."
+                                    confirmLabel={u.last_login_at ? "Send invite" : "Resend invite"}
+                                    onConfirm={() => invite.mutateAsync(u).then(() => undefined)}
+                                  >
+                                    <Button variant="outline" size="sm" aria-label={`${u.last_login_at ? "Send" : "Resend"} invite to ${u.full_name}`}>
+                                      <Send className="size-3.5" /> {u.last_login_at ? "Send invite" : "Resend invite"}
+                                    </Button>
+                                  </ConfirmDialog>
                                 )}
                                 <ConfirmDialog
                                   title={`Reset password for ${u.full_name}?`}
@@ -234,7 +265,8 @@ export function AdminUsers() {
           </QueryView>
         </Section>
         <Note>
-          Role changes, password resets and deactivation ask for your password again and are written to the audit log. Temporary access lasts at most 7 days.
+          Role changes, password resets, unlocking and deactivation ask for your password again and are written to the audit log. Temporary access lasts at most
+          7 days.
         </Note>
       </div>
 
@@ -316,8 +348,8 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         </Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Role" htmlFor="cu-role" error={errors.role_code?.message}>
-          <NativeSelect id="cu-role" options={STAFF_ROLES.map((r) => ({ value: r.value, label: r.label }))} {...form.register("role_code")} />
+        <Field label="Role" htmlFor="cu-role" error={errors.role_code?.message} hint={roleHint(roleCode)} className="sm:col-span-2">
+          <NativeSelect id="cu-role" options={roleOptions} {...form.register("role_code")} />
         </Field>
         <BranchSelect id="cu-branch" roleCode={roleCode} error={errors.branch_id?.message} {...form.register("branch_id")} />
       </div>
@@ -355,8 +387,8 @@ function AddRoleDialog({ user, onClose }: { user: StaffUser; onClose: () => void
       onSubmit={form.handleSubmit((v) => grant.mutate(v))}
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Role" htmlFor="ar-role" error={errors.role_code?.message}>
-          <NativeSelect id="ar-role" options={STAFF_ROLES.map((r) => ({ value: r.value, label: r.label }))} {...form.register("role_code")} />
+        <Field label="Role" htmlFor="ar-role" error={errors.role_code?.message} hint={roleHint(roleCode)} className="sm:col-span-2">
+          <NativeSelect id="ar-role" options={roleOptions} {...form.register("role_code")} />
         </Field>
         <BranchSelect id="ar-branch" roleCode={roleCode} error={errors.branch_id?.message} {...form.register("branch_id")} />
       </div>

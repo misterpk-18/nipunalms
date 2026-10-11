@@ -487,3 +487,15 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 |---|---|
 | `curriculum_versions.activate_on` (date) with the check `activate_on IS NULL OR status = 'Approved'` | The Founder can approve a version and pick the day it becomes the Active one. The date is kept on the Approved version; the `curriculum-activate` job (`services/curriculum.activate_due`) activates it that day and clears it. A version approved with today's date is activated in the same step and never holds a date; activating, returning or retiring a version clears it (the check refuses a date on any other status) |
 | Index `curriculum_versions_due_idx` (versions with an `activate_on`) | The job reads the versions whose day has come |
+
+## 115 — UX phase U17: Super Admin (Setup owners, cancelled closures, assigned issues)
+
+| Change | Why |
+|---|---|
+| `integrations.owner_user_id`, `security_controls.owner_user_id` (FK to `users`) | Setup & health picks the owner from staff. The text `owner` stays and holds the person's name (or the old role label until someone is picked; "Unassigned" when cleared) |
+| `calendar_closures.cancelled_by`, `cancelled_at`, `cancel_reason` with the check `(cancelled_at IS NULL) = (cancelled_by IS NULL)` | A calendar entry can be cancelled and stays in the list. `status` is not changed (the `approval_status` enum is shared by many tables); every reader of "approved closures" also checks `cancelled_at IS NULL` (`CalendarClosure.in_force()`, used by `services/working_days` and `services/batches`), and the API reports the status as `Cancelled` |
+| `exception_recovery_steps.assigned_to` (FK to `users`) | "Assign" on the Super Admin's Issues is a recovery step that names its new owner. The table stays append-only |
+| `exception_queue` view recreated (same columns as db/106) | The owner is `COALESCE(the record's own owner, assigned_to or author of the latest step)`, so the owner filter and the counts follow an assignment. The integration link now points at `/admin/setup` |
+
+Applied in place to `nipunalms-dev` (`psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/115_super_admin_setup_calendar_assign.sql`). Gap-fix phase 7 starts at `db/116`.
+

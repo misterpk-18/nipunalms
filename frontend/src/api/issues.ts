@@ -26,6 +26,8 @@ export type Issue = {
   last_step_at: DateTime | null;
   go_fix: { to: string; search: Record<string, unknown> | null };
   can_note: boolean;
+  /** A Super Admin may hand it to someone, unless its own screen already names the owner. */
+  can_assign: boolean;
 };
 
 export type IssueCounts = Record<IssueType | "all", number>;
@@ -37,5 +39,7 @@ export const issuesApi = {
   // client.list() passes the whole meta through, so the type counts arrive with the page.
   list: (query: Query) => list<Issue>("/issues", query) as unknown as Promise<IssuePage>,
   notes: (issue: Pick<Issue, "source" | "source_id">) => get<IssueNote[]>(`/exceptions/${issue.source}/${issue.source_id}/steps`),
+  assign: (issue: Pick<Issue, "source" | "source_id">, assignee_user_id: number, note?: string) =>
+    post<unknown>(`/exceptions/${issue.source}/${issue.source_id}/assign`, { assignee_user_id, ...(note ? { note } : {}) }),
   addNote: (issue: Pick<Issue, "source" | "source_id">, reason: string) => post<unknown>(`/exceptions/${issue.source}/${issue.source_id}/steps`, { reason }),
 };

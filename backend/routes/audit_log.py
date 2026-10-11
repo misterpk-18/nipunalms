@@ -18,3 +18,10 @@ def list_entries():
 @require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def facets():
     return audit_controller.facets()
+
+
+@audit_log_bp.get("/export")
+@login_required
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
+def export():
+    return audit_controller.export()

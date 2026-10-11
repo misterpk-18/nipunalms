@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { PASSWORD, USERS, login } from "./helpers";
 
 /**
- * Super Admin & security (slice S6): readiness registers, users & access, student accounts, CRM sync, audit log, and the
+ * Super Admin & security (slice S6, reshaped in U17): Setup & health, users & access, student accounts, CRM sync, audit log, and the
  * Founder / Branch Manager boundaries. Needs the API on the dev database seeded with `seed-dev` (staging users).
  */
 
@@ -19,46 +19,53 @@ async function noHorizontalScroll(page: Page) {
 }
 
 test.describe("Super Admin", () => {
-  test("integration readiness: statuses, update with evidence rules, audit", async ({ page }) => {
+  test("setup & health: one checklist with plain states, an evidence rule for Working and a staff owner", async ({ page }) => {
     await login(page, USERS.admin);
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Integration Readiness" }).click();
-    await expect(page.getByRole("heading", { name: "Integration Readiness" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Setup & health" }).click();
+    await expect(page.getByRole("heading", { name: "Setup & health", level: 1 })).toBeVisible();
 
-    const meet = page.getByRole("row", { name: /Google Meet organizer — Guntur/ });
-    await expect(meet).toContainText("Waiting for a check");
-    await expect(page.getByRole("row", { name: /WhatsApp/ }).first()).toContainText("Not set up");
-    await expect(page.getByText("nothing here is treated as live without evidence")).toBeVisible();
+    await expect(page.locator('[data-setup="MEET_ORGANIZER_GNT"]')).toContainText("Not set up");
+    await expect(page.locator('[data-setup="WHATSAPP"]')).toContainText("Not set up");
+    await expect(page.getByText("Integration Unavailable")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Meet and class checks" })).toBeVisible();
 
-    // A setup that is not Configured cannot be marked Verified
+    // Working needs a note of how it was checked
     await page.getByRole("button", { name: "Update WhatsApp" }).click();
-    await page.getByLabel("Operational verification").selectOption("Verified");
-    await page.getByLabel("Evidence").fill("Sent a test message");
+    await page.getByLabel("Where does it stand?").selectOption("Working");
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Only a Configured setup can be marked Verified").first()).toBeVisible();
+    await expect(page.getByText("Verification needs an evidence note").first()).toBeVisible();
     await page.getByRole("button", { name: "Cancel" }).click();
 
     const note = `Recording capability checked ${RUN}`;
     await page.getByRole("button", { name: "Update Google Drive recordings" }).click();
+    await page.getByLabel("Owner").selectOption({ label: "Super Admin (Super Admin)" });
     await page.getByLabel("Notes").fill(note);
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Google Drive recordings updated")).toBeVisible();
-    await expect(page.getByRole("row", { name: /Google Drive recordings/ })).toContainText(note);
+    const row = page.locator('[data-setup="GOOGLE_DRIVE_RECORDINGS"]');
+    await expect(row).toContainText(note);
+    await expect(row).toContainText("Owner: Super Admin");
+
+    // The old addresses land here
+    await page.goto("/admin/integrations");
+    await expect(page).toHaveURL(/\/admin\/setup/);
+    await page.goto("/admin/security");
+    await expect(page).toHaveURL(/\/admin\/setup/);
   });
 
-  test("security readiness: a control is verified with evidence", async ({ page }) => {
+  test("setup & health: a security setting is marked Working with evidence", async ({ page }) => {
     await login(page, USERS.admin);
-    await page.goto("/admin/security");
-    await expect(page.getByRole("heading", { name: "Security Readiness" })).toBeVisible();
-    await expect(page.getByRole("row", { name: /Server-side scope enforcement/ })).toContainText("Set up");
+    await page.goto("/admin/setup");
+    await expect(page.locator('[data-setup="SCOPE_ENFORCEMENT"]')).toContainText("Set up");
 
     const evidence = `Stale token refused after re-login ${RUN}`;
     await page.getByRole("button", { name: "Update Re-authentication for sensitive actions" }).click();
-    await page.getByLabel("Operational verification").selectOption("Verified");
-    await page.getByLabel("Evidence").fill(evidence);
+    await page.getByLabel("Where does it stand?").selectOption("Working");
+    await page.getByLabel("How you checked it").fill(evidence);
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Re-authentication for sensitive actions updated")).toBeVisible();
-    const row = page.getByRole("row", { name: /Re-authentication for sensitive actions/ });
-    await expect(row).toContainText("Verified");
+    const row = page.locator('[data-setup="FRESH_AUTH"]');
+    await expect(row).toContainText("Working");
     await expect(row).toContainText(evidence);
   });
 
@@ -66,7 +73,7 @@ test.describe("Super Admin", () => {
     const email = `trainer.e2e.${RUN}@nipuna.test`;
     await login(page, USERS.admin);
     await page.goto("/admin/users");
-    await expect(page.getByRole("heading", { name: "Users & Access" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Users & access" })).toBeVisible();
     await expect(page.getByRole("row", { name: /Trainer R\. Sample/ })).toContainText("Trainer · NIT-GNT");
 
     await page.getByRole("button", { name: "Add staff user" }).click();
@@ -74,6 +81,7 @@ test.describe("Super Admin", () => {
     await create.getByLabel("Full name").fill(`Trainer E2E ${RUN}`);
     await create.getByLabel("Email", { exact: true }).fill(email);
     await create.getByLabel("Role", { exact: true }).selectOption("TRAINER");
+    await expect(create.getByText("Runs classes, marks attendance and grades work for their batches.", { exact: true })).toBeVisible();
     await create.getByLabel("Branch", { exact: true }).selectOption({ label: "Guntur (NIT-GNT)" });
     await create.getByRole("button", { name: "Create user" }).click();
 
@@ -84,6 +92,7 @@ test.describe("Super Admin", () => {
     await page.getByLabel("Search name or email").fill(email);
     const row = page.getByRole("row", { name: new RegExp(email) });
     await expect(row).toContainText("Must change password");
+    await expect(page.getByRole("button", { name: `Resend invite to Trainer E2E ${RUN}` })).toBeVisible();
 
     // The new trainer signs in with the temporary password and is sent to change it
     const other = await page
@@ -122,33 +131,38 @@ test.describe("Super Admin", () => {
     await blocked.close();
   });
 
-  test("student accounts: activation link shown once, suspend blocks sign-in, reactivate restores it", async ({ page, baseURL }) => {
+  test("student accounts: the student's page, send a new link, suspend blocks sign-in, reactivate restores it", async ({ page, baseURL }) => {
     await login(page, USERS.admin);
     await page.goto("/admin/students");
-    await expect(page.getByRole("heading", { name: "Student Accounts" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Student accounts", level: 1 })).toBeVisible();
 
-    // Assisted activation for the learner still in Activation Pending
-    await page.getByLabel("Name, mobile, admission number, Student ID or email").fill("Sample Learner J.");
+    // Assisted activation for the learner still in Activation Pending: the student opens as a page, not a modal
+    await page.getByLabel("Student ID, name, mobile, admission number or email").fill("Sample Learner J.");
     await expect(page.getByRole("row", { name: /Sample Learner J\./ })).toContainText("Waiting to activate");
-    await page.getByRole("button", { name: "Open Sample Learner J." }).click();
-    await page.getByRole("button", { name: /Send new link|Send activation link/ }).click();
+    await page.getByRole("link", { name: "Open Sample Learner J." }).click();
+    await expect(page).toHaveURL(/\/admin\/students\/\d+$/);
+    await expect(page.getByRole("region", { name: "Suggested next step" })).toBeVisible();
+    await page
+      .getByRole("region", { name: "Suggested next step" })
+      .getByRole("button", { name: /Send new link|Send activation link/ })
+      .click();
     const link = await page.getByRole("textbox", { name: "Activation link" }).inputValue();
     expect(link).toContain("/activate?token=");
     await page.getByRole("button", { name: "Done" }).click();
-    await page.keyboard.press("Escape");
 
     // Suspend an activated learner
-    await page.getByLabel("Name, mobile, admission number, Student ID or email").fill("Sample Learner C.");
+    await page.goto("/admin/students");
+    await page.getByLabel("Student ID, name, mobile, admission number or email").fill("Sample Learner C.");
     const row = page.getByRole("row", { name: /Sample Learner C\./ });
     await expect(row).toContainText("Activated");
     const code = (await row.locator(".font-mono").first().innerText()).trim();
-    await page.getByRole("button", { name: "Open Sample Learner C." }).click();
+    await page.getByRole("link", { name: "Open Sample Learner C." }).click();
     await page.getByRole("button", { name: "Suspend account" }).click();
     const suspend = page.getByRole("dialog", { name: "Suspend account" });
     await suspend.getByLabel("Reason").fill("E2E suspension check");
     await suspend.getByRole("button", { name: "Suspend", exact: true }).click();
     await expect(page.getByText("Account suspended", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("E2E suspension check").first()).toBeVisible();
+    await expect(page.getByText(/suspended the account of Sample Learner C\./).first()).toBeVisible();
 
     const student = await page.context().browser()!.newPage({ baseURL });
     await student.goto("/login");
@@ -157,51 +171,60 @@ test.describe("Super Admin", () => {
     await student.getByRole("button", { name: "Sign in" }).click();
     await expect(student.getByText("Invalid login or password")).toBeVisible();
 
-    await page.getByRole("button", { name: "Reactivate account" }).click();
+    await page.getByRole("region", { name: "Suggested next step" }).getByRole("button", { name: "Reactivate account" }).click();
     await expect(page.getByText("Account reactivated")).toBeVisible();
     await login(student, code);
     await expect(student).toHaveURL(/\/dashboard/);
 
-    // Revoke sessions signs the student out everywhere
-    await page.getByRole("button", { name: "Revoke sessions" }).click();
-    await page.getByRole("button", { name: "Revoke sessions" }).last().click();
+    // Signing out everywhere ends the student's session
+    await page.getByRole("button", { name: "Sign out everywhere" }).click();
+    await page.getByRole("button", { name: "Sign out everywhere" }).last().click();
     await expect(page.getByText(/session(s)? ended/)).toBeVisible();
     await student.goto("/schedule");
     await expect(student).toHaveURL(/\/login/);
     await student.close();
   });
 
-  test("CRM sync: failed event with payload, retry keeps the error until the cause is fixed", async ({ page }) => {
+  test("CRM sync: opens on what needs attention with a plain cause; retry keeps the reason until the cause is fixed", async ({ page }) => {
     await login(page, USERS.admin);
     await page.goto("/admin/crm-sync");
-    await expect(page.getByRole("heading", { name: "CRM Sync" })).toBeVisible();
-    await expect(page.getByText("Failed events", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "CRM sync", level: 1 })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Needs attention/ })).toHaveAttribute("aria-selected", "true");
 
-    await page.getByLabel("Event status").selectOption("Failed");
-    const failed = page.getByRole("row", { name: /AdmissionQualified/ }).first();
-    await expect(failed).toContainText("Unknown course");
-    await failed.getByRole("button", { name: /^View / }).click();
-    await expect(page.getByRole("dialog").getByText("NIT-CRS-999").first()).toBeVisible();
+    const failed = page.getByRole("listitem").filter({ hasText: "NIT-CRS-999" }).first();
+    await expect(failed).toContainText("has not reached the LMS yet");
+    await failed.getByRole("button", { name: /^Details/ }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("A student's admission was confirmed", { exact: false }).first()).toBeVisible();
+    await expect(dialog.getByText("NIT-CRS-999", { exact: false }).first()).toBeVisible();
+    await dialog.getByRole("button", { name: "Technical details" }).click();
+    await expect(dialog.getByRole("heading", { name: "What the CRM sent" })).toBeVisible();
     await page.keyboard.press("Escape");
 
-    await failed.getByRole("button", { name: /^Retry / }).click();
-    await expect(page.getByText(/Unknown course 'NIT-CRS-999'/).first()).toBeVisible();
+    await failed.getByRole("button", { name: /^Retry/ }).click();
+    await expect(page.getByRole("listitem").filter({ hasText: "NIT-CRS-999" }).first()).toContainText("has not reached the LMS yet");
 
     await page.getByRole("tab", { name: /Sent to the CRM/ }).click();
     await expect(page.getByRole("row", { name: /LmsAccountProvisioned/ }).first()).toContainText("Waiting");
   });
 
-  test("audit log shows the account actions with the actor and filters by action", async ({ page }) => {
+  test("audit log reads as sentences, with presets, a last-7-days range and a CSV", async ({ page }) => {
     await login(page, USERS.admin);
     await page.goto("/admin/audit");
-    await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Audit log", level: 1 })).toBeVisible();
 
-    await page.getByLabel("Action", { exact: true }).selectOption("STUDENT_SUSPENDED");
-    const row = page.getByRole("row", { name: /STUDENT_SUSPENDED/ }).first();
-    await expect(row).toContainText("Super Admin");
-    await expect(row).toContainText("activation_status");
-    await expect(row).toContainText(/E2E suspension check|Duplicate enrolment under review/);
-    await expect(page.getByRole("row", { name: /LOGIN/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Accounts", exact: true }).click();
+    const first = page.getByRole("list", { name: "Audit entries" }).getByRole("listitem").first();
+    await expect(first).toContainText(/account|password|invite|link|signed|activated/i);
+    await expect(page.getByRole("list", { name: "Audit entries" }).getByText("signed in")).toHaveCount(0);
+    await first.getByText("Details").click();
+    await expect(first.getByText(/Reason given|Record|·/).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Last 7 days" }).click();
+    await expect(page.getByRole("button", { name: "Last 7 days" })).toHaveAttribute("aria-pressed", "true");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download CSV" }).click();
+    expect((await download).suggestedFilename()).toBe("audit-log.csv");
   });
 });
 
@@ -209,14 +232,14 @@ test.describe("boundaries", () => {
   test("the Founder reads but cannot change; a Branch Manager cannot open the admin screens", async ({ page }) => {
     await login(page, USERS.founder);
     await page.goto("/admin/users");
-    await expect(page.getByRole("heading", { name: "Users & Access" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Users & access" })).toBeVisible();
     await expect(page.getByRole("row", { name: /Super Admin/ }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Add staff user" })).toHaveCount(0);
-    await page.goto("/admin/integrations");
-    await expect(page.getByRole("row", { name: /Google Meet organizer — Guntur/ })).toBeVisible();
+    await page.goto("/admin/setup");
+    await expect(page.locator('[data-setup="MEET_ORGANIZER_GNT"]')).toBeVisible();
     await expect(page.getByRole("button", { name: /^Update / })).toHaveCount(0);
     await page.goto("/admin/audit");
-    await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Audit log", level: 1 })).toBeVisible();
     await signOut(page);
 
     await login(page, USERS.bmGnt);
@@ -231,7 +254,18 @@ test.describe("phone layout @mobile", () => {
   test("admin screens fit the phone @mobile", async ({ page }, info) => {
     test.skip(info.project.name !== "mobile", "phone layout only");
     await login(page, USERS.admin);
-    for (const path of ["/admin/integrations", "/admin/security", "/admin/users", "/admin/students", "/admin/crm-sync", "/admin/audit"]) {
+    for (const path of [
+      "/admin",
+      "/admin/setup",
+      "/admin/ai-controls",
+      "/admin/users",
+      "/admin/students",
+      "/admin/crm-sync",
+      "/admin/calendar",
+      "/admin/calendar?view=list",
+      "/admin/issues",
+      "/admin/audit",
+    ]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expect(page.getByText("Loading…")).toHaveCount(0);

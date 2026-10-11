@@ -69,6 +69,7 @@ class Integration(db.Model):
     configuration_status: Mapped[str] = mapped_column(IntegrationConfigurationStatus)
     verification_status: Mapped[str] = mapped_column(IntegrationVerificationStatus)
     owner: Mapped[str] = mapped_column(String(100))
+    owner_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
@@ -85,6 +86,7 @@ class Integration(db.Model):
             "configuration_status": self.configuration_status,
             "verification_status": self.verification_status,
             "owner": self.owner,
+            "owner_user_id": self.owner_user_id,
             "last_checked_at": self.last_checked_at,
             "notes": self.notes,
             "verified_by": self.verified_by,

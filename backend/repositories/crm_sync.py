@@ -1,7 +1,7 @@
 """CRM sync monitor: inbox / outbox listings and counts (the intake queries live in repositories/crm.py)."""
 from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, case, func, select
 
 from config.database import db
 from models import CrmEvent, CrmOutbox
@@ -9,6 +9,10 @@ from models import CrmEvent, CrmOutbox
 
 def events_stmt(filters: dict) -> Select:
     stmt = select(CrmEvent).order_by(CrmEvent.crm_event_id.desc())
+    if filters.get("attention"):
+        # Needs attention: failed events first, then the ones received but never finished
+        stmt = (stmt.where(CrmEvent.status.in_(("Failed", "Received")))
+                .order_by(None).order_by(case((CrmEvent.status == "Failed", 0), else_=1), CrmEvent.crm_event_id.desc()))
     if filters.get("status"):
         stmt = stmt.where(CrmEvent.status == filters["status"])
     if filters.get("event_type"):

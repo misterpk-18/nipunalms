@@ -19,6 +19,8 @@ def list_stmt(filters: dict) -> Select:
         stmt = stmt.where(or_(User.full_name.ilike(pattern), User.email.ilike(pattern)))
     if filters.get("is_active") is not None:
         stmt = stmt.where(User.is_active.is_(filters["is_active"]))
+    if filters.get("locked"):
+        stmt = stmt.where(User.is_active, User.locked_until > func.now())
     scope_conditions = []
     if filters.get("role_code"):
         scope_conditions.append(Role.role_code == filters["role_code"])
@@ -52,3 +54,10 @@ def active_holder_ids(role_code: str) -> set[int]:
         .where(User.is_active, Role.role_code == role_code, _active_scope_condition())
     )
     return set(db.session.execute(stmt).scalars())
+
+
+def active_staff() -> list[User]:
+    """Every active staff login (for a "who" picker), by name."""
+    stmt = (select(User).options(selectinload(User.scopes)).where(User.student_id.is_(None), User.is_active)
+            .order_by(User.full_name, User.user_id))
+    return list(db.session.execute(stmt).scalars().unique())

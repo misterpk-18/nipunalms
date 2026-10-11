@@ -13,6 +13,13 @@ def list_controls():
     return ai_controls_controller.list_controls()
 
 
+@ai_controls_bp.get("/status")
+@login_required
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
+def status():
+    return ai_controls_controller.status()
+
+
 @ai_controls_bp.post("")
 @login_required
 @require_roles("SUPER_ADMIN", "FOUNDER_CEO")

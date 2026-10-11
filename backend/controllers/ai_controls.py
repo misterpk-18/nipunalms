@@ -12,6 +12,10 @@ def list_controls():
     return paginated([c.to_dict() for c in items], meta)
 
 
+def status():
+    return ok(ai_controls_service.status())
+
+
 def disable():
     v = Validator(json_body())
     v.choice("audience", ("All", "Student", "Staff"), required=True)

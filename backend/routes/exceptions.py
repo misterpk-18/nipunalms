@@ -29,3 +29,11 @@ def list_steps(source: str, source_id: int):
 @require_roles(*LOGGERS)
 def log_step(source: str, source_id: int):
     return exceptions_controller.log_step(source.upper(), source_id)
+
+
+@exceptions_bp.post("/<string:source>/<int:source_id>/assign")
+@login_required
+@require_roles("SUPER_ADMIN")
+def assign(source: str, source_id: int):
+    """Hand an issue to a member of staff (a recovery step that names its new owner)."""
+    return exceptions_controller.assign(source.upper(), source_id)

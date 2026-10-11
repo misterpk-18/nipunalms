@@ -38,8 +38,8 @@ def steps_of(source: str, source_id: int) -> list[ExceptionRecoveryStep]:
     return list(db.session.execute(stmt).scalars())
 
 
-def add_step(source: str, source_id: int, branch_id: int | None, reason: str, logged_by: int) -> ExceptionRecoveryStep:
-    step = ExceptionRecoveryStep(source=source, source_id=source_id, branch_id=branch_id, reason=reason, logged_by=logged_by)
+def add_step(source: str, source_id: int, branch_id: int | None, reason: str, logged_by: int, assigned_to: int | None = None) -> ExceptionRecoveryStep:
+    step = ExceptionRecoveryStep(source=source, source_id=source_id, branch_id=branch_id, reason=reason, logged_by=logged_by, assigned_to=assigned_to)
     db.session.add(step)
     db.session.flush()
     db.session.refresh(step)

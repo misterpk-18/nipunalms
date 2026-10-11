@@ -13,8 +13,8 @@ const RECORD_GROUPS: Record<SearchRecord["kind"], string> = { student: "Students
 
 /** The screen a found record opens: the list that holds it in the workspace the person is in (record pages arrive with their screens). */
 function recordTarget(kind: SearchRecord["kind"], workspace: Workspace, id: number): string {
-  // The trainer's student and batch pages are record pages (U13); the other workspaces open the list until their phases build them
-  if (kind === "student") return workspace === "trainer" ? `/trainer/students/${id}` : workspace === "branch" ? "/branch/progress" : "/admin/students";
+  // The trainer's and the admin's student pages and the batch pages are record pages; the Branch Manager's student view opens the list
+  if (kind === "student") return workspace === "trainer" ? `/trainer/students/${id}` : workspace === "branch" ? "/branch/progress" : `/admin/students/${id}`;
   if (kind === "batch") return workspace === "trainer" ? `/trainer/batches/${id}` : `/branch/batches/${id}`;
   return workspace === "founder" ? "/founder/certificates" : "/branch/completion";
 }

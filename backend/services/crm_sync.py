@@ -21,6 +21,7 @@ def summary() -> dict:
         "events": events,
         "outbox": outbox,
         "failed_events": events.get("Failed", 0),
+        "needs_attention": events.get("Failed", 0) + events.get("Received", 0),
         "pending_outbox": outbox.get("Pending", 0),
         "last_event_received_at": sync_repo.last_received_at(),
         "last_outbox_delivered_at": sync_repo.last_delivered_at(),

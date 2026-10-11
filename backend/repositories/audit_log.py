@@ -15,6 +15,8 @@ def list_stmt(filters: dict) -> Select:
     for column in ("actor_user_id", "entity_type", "entity_id", "action", "branch_id"):
         if filters.get(column) is not None:
             stmt = stmt.where(getattr(AuditLog, column) == filters[column])
+    if filters.get("actions"):
+        stmt = stmt.where(AuditLog.action.in_(filters["actions"]))
     if filters.get("occurred_from"):
         stmt = stmt.where(AuditLog.occurred_at >= filters["occurred_from"])
     if filters.get("occurred_before"):
@@ -40,6 +42,13 @@ def latest_for_entity(entity_type: str, entity_id: str, action: str) -> AuditLog
         .limit(1)
     )
     return db.session.execute(stmt).scalar_one_or_none()
+
+
+def actors() -> list[tuple[int, str, str | None]]:
+    """Everyone who has an entry in the log, by name (not just the first page of staff)."""
+    stmt = (select(User.user_id, User.full_name, User.email).where(User.user_id.in_(select(AuditLog.actor_user_id).distinct()))
+            .order_by(User.full_name, User.user_id))
+    return [tuple(row) for row in db.session.execute(stmt).all()]
 
 
 def facets() -> dict:

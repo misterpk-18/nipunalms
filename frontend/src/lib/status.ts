@@ -251,6 +251,13 @@ export const STATUS = {
     Off: s("Off", "neutral", "Switched off."),
     On: s("On", "success", "Switched on."),
   },
+  /** Where a connection or a security setting stands on Setup & health (the API works it out from the two registers). */
+  setup: {
+    "Not set up": s("Not set up", "neutral", "Nothing is connected yet. Set it up, then record that it works."),
+    "Set up": s("Set up", "info", "Set up, but nobody has seen it working yet. Check it and mark it Working with a note of how."),
+    Working: s("Working", "success", "Someone saw it working and wrote down how."),
+    Broken: s("Broken", "danger", "A check failed or it is set up wrongly. Fix it, then check it again."),
+  },
   /** CRM events received, and what the LMS sends back. */
   crmEvent: {
     Received: s("Received", "info", "Received and waiting to be applied."),
@@ -287,6 +294,7 @@ export const STATUS = {
     Matched: s("Matched", "success", "Matched to a person."),
     Unmatched: s("Not matched", "warning", "No person matched. Review it."),
     Dismissed: s("Dismissed", "neutral", "Dismissed."),
+    Cancelled: s("Cancelled", "neutral", "Cancelled. It no longer applies."),
   },
   /** The exception / recovery queue and recovery steps. */
   exception: {

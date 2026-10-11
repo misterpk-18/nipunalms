@@ -52,13 +52,14 @@ test("a branch manager's correction request is approved by the super admin", asy
   await expect(page.getByRole("listitem").filter({ hasText: "NIT-CERT-2026-000001" })).toContainText("version");
 });
 
-test("the super admin sees the AI controls", async ({ page }, info) => {
+test("the super admin sees AI controls as ON or OFF per audience", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.admin);
   await page.goto("/admin/security");
-  await expect(page.getByRole("heading", { name: "AI controls" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Switch AI off" })).toBeVisible();
-  await expect(page.getByText("AI has not been switched off.")).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/setup/);
+  await page.goto("/admin/ai-controls");
+  await expect(page.getByRole("heading", { name: "AI controls", level: 1 })).toBeVisible();
+  for (const key of ["Student", "Staff", "All"]) await expect(page.locator(`[data-ai="${key}"]`)).toBeVisible();
 });
 
 test("public verification needs no sign-in @mobile", async ({ page }) => {

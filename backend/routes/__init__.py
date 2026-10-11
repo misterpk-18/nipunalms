@@ -138,3 +138,8 @@ BLUEPRINTS += [issues_bp]
 from routes.founder import founder_bp  # noqa: E402
 
 BLUEPRINTS += [founder_bp]
+
+# UX plan U17: the Super Admin's overview (Needs action, Setup & health, staff options)
+from routes.admin_overview import admin_overview_bp  # noqa: E402
+
+BLUEPRINTS += [admin_overview_bp]

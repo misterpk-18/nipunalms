@@ -3,16 +3,17 @@
 Activation links are issued through `POST /students/{id}/activation` (services/activation.py), which a Super Admin,
 Branch Manager may use. Students themselves are created only by the CRM.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from models import Student, User
+from models import Student, StudentActivation, User, WhatsappMessage
 from repositories import admin_students as students_repo
 from repositories import audit_log as audit_repo
 from repositories import sessions as sessions_repo
 from repositories import students as students_read_repo
 from repositories.common import paginate_rows
 from services import audit
+from services.student_next_step import NextStep, next_step
 from services.errors import BusinessRule, NotFound
 
 
@@ -22,16 +23,31 @@ class StudentAccount:
     user: User | None
     enrolment_counts: dict[str, int]
     active_sessions: int
+    activation: StudentActivation | None = None
+    message: WhatsappMessage | None = None
+    step: NextStep | None = field(default=None)
+
+
+def _with_step(accounts: list["StudentAccount"]) -> list["StudentAccount"]:
+    """Attach the outstanding activation link, the WhatsApp message that carried it and the suggested next step."""
+    now = datetime.now(timezone.utc)
+    activations = students_repo.outstanding_activations([a.student.student_id for a in accounts])
+    messages = students_repo.activation_messages([x.activation_id for x in activations.values()])
+    for account in accounts:
+        account.activation = activations.get(account.student.student_id)
+        account.message = messages.get(account.activation.activation_id) if account.activation else None
+        account.step = next_step(account.student, account.user, account.activation, account.message, account.enrolment_counts, now)
+    return accounts
 
 
 def search(filters: dict, page: int, per_page: int) -> tuple[list[StudentAccount], dict]:
     rows, meta = paginate_rows(students_repo.search_stmt(filters), page, per_page)
     counts = students_repo.enrolment_status_counts([student.student_id for student, _ in rows])
     sessions = students_repo.active_session_counts([user.user_id for _, user in rows if user is not None])
-    return [
+    return _with_step([
         StudentAccount(student, user, counts.get(student.student_id, {}), sessions.get(user.user_id, 0) if user else 0)
         for student, user in rows
-    ], meta
+    ]), meta
 
 
 def get_account(student_id: int) -> StudentAccount:
@@ -40,8 +56,8 @@ def get_account(student_id: int) -> StudentAccount:
         raise NotFound("Student not found")
     student, user = found
     sessions = students_repo.active_session_counts([user.user_id]) if user else {}
-    return StudentAccount(student, user, students_repo.enrolment_status_counts([student_id]).get(student_id, {}),
-                          sessions.get(user.user_id, 0) if user else 0)
+    return _with_step([StudentAccount(student, user, students_repo.enrolment_status_counts([student_id]).get(student_id, {}),
+                                      sessions.get(user.user_id, 0) if user else 0)])[0]
 
 
 def detail(student_id: int) -> dict:

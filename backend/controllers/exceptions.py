@@ -27,3 +27,11 @@ def log_step(source: str, source_id: int):
     v.string("reason", required=True, min_length=3, max_length=1000)
     step, item = exceptions_service.log_step(source, source_id, v.validate()["reason"])
     return created({"step": step.to_dict(), "exception": item})
+
+
+def assign(source: str, source_id: int):
+    v = Validator(json_body())
+    v.integer("assignee_user_id", required=True, min_value=1)
+    v.string("note", nullable=True, max_length=1000)
+    data = v.validate()
+    return ok(exceptions_service.assign(source, source_id, data["assignee_user_id"], data.get("note")))

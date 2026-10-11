@@ -27,9 +27,10 @@ test("a branch manager records a branch closure and it is approved as recorded",
 test("the super admin sees the academic calendar and the allocation deadlines", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.admin);
-  await page.getByRole("link", { name: "Academic Calendar" }).click();
-  await expect(page.getByRole("heading", { name: "Academic Calendar" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /Branch maintenance/ }).first()).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Academic calendar" }).click();
+  await expect(page.getByRole("heading", { name: "Academic calendar", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "List" }).click();
+  await expect(page.getByRole("listitem").filter({ hasText: "Branch maintenance" }).first()).toBeVisible();
   await page.goto("/branch/waiting");
   await expect(page.getByText(/Allocate by/).first()).toBeVisible();
 });

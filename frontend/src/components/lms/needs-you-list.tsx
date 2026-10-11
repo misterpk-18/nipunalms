@@ -18,6 +18,8 @@ export type NeedsYouItem = {
   search?: Record<string, unknown>;
   /** The button's label ("Allocate"). */
   action: string;
+  /** Another control beside the button (for example Retry), when the main action is only to look. */
+  extra?: ReactNode;
 };
 
 /** A home screen's first block: what needs this person now, one row and one button each. */
@@ -49,11 +51,14 @@ export function NeedsYouList({
                   </p>
                 )}
               </div>
-              <Button asChild size="sm">
-                <Link to={item.to} {...(item.search ? { search: item.search as never } : {})}>
-                  {item.action}
-                </Link>
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {item.extra}
+                <Button asChild size="sm" variant={item.extra ? "outline" : "default"}>
+                  <Link to={item.to} {...(item.search ? { search: item.search as never } : {})}>
+                    {item.action}
+                  </Link>
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

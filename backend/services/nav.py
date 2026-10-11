@@ -7,11 +7,13 @@ card lives in the browser, not here.
 """
 from datetime import datetime, timedelta, timezone
 
+from config.timezone import today_ist
+from repositories import admin_students as admin_students_repo
 from repositories import dashboards as dash_repo
 from repositories import access_extensions as extensions_repo
 from repositories import nav as nav_repo
 from repositories import questions as questions_repo
-from services import founder_inbox, scope, student_work, trainer_todo
+from services import founder_inbox, scope, setup_health, student_work, trainer_todo
 from services import exceptions as exceptions_service
 from services import crm_sync
 from services.auth import workspaces_for
@@ -90,11 +92,15 @@ def _branch_counts(branch_id: int | None) -> dict[str, int]:
 
 def _admin_counts() -> dict[str, int]:
     now = datetime.now(timezone.utc)
-    return {
-        "crm_sync": crm_sync.summary()["failed_events"],
+    counts = {
+        "crm_sync": crm_sync.summary()["needs_attention"],
         "issues": exceptions_service.counts(None)["awaiting_owner"],
         "users": nav_repo.locked_users(now),
+        "student_accounts": admin_students_repo.needs_attention_count(),
+        "calendar": nav_repo.pending_closures(today_ist()),
+        "setup": setup_health.broken_count(),
     }
+    return {**counts, "home": sum(counts.values())}  # Home: everything the other items count
 
 
 def _founder_counts() -> dict[str, int]:
@@ -153,7 +159,7 @@ def _branch_steps(branch_id: int | None) -> list[dict]:
 def _admin_steps() -> list[dict]:
     return [
         _step("staff", "Add a staff user", nav_repo.user_added_staff(current_user().user_id), "/admin/users"),
-        _step("setup", "Review setup and health", nav_repo.setup_reviewed(), "/admin/integrations"),
+        _step("setup", "Review setup and health", nav_repo.setup_reviewed(), "/admin/setup"),
     ]
 
 

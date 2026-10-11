@@ -102,46 +102,33 @@ test.describe("Branch dashboard", () => {
   });
 });
 
-test.describe("Super Admin overview and exception queues", () => {
-  test("overview: tiles, sync status, AI status", async ({ page }) => {
+test.describe("Super Admin home and issues", () => {
+  test("home: Needs action, quick actions and the Setup checklist", async ({ page }) => {
     await login(page, USERS.admin);
-    await expect(page.getByRole("heading", { name: "Super Admin — all authorised branches" })).toBeVisible();
-    await expect(tile(page, "Critical integration failures")).toBeVisible();
-    await expect(tile(page, "Work awaiting named ownership/cover")).toContainText("Open exceptions with no named owner");
-    await expect(tile(page, "Overdue payment verifications")).toContainText("Unavailable");
-    await expect(tile(page, "Overdue payment verifications")).toContainText("Not connected");
-    await expect(tile(page, "Integrations operationally verified")).toContainText("0 /");
-    await expect(tile(page, "Failed provisioning")).toBeVisible();
-    await expect(tile(page, "Open exceptions (all queues)")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "CRM / LMS sync status" })).toBeVisible();
-    await expect(page.getByRole("row", { name: /CRM → LMS events/ })).toContainText("1 failed event(s)");
-    await expect(page.getByRole("row", { name: /LMS → CRM status outbox/ })).toContainText("Not connected");
-    await expect(page.getByRole("heading", { name: "Provisioning exceptions" })).toBeVisible();
-    await expect(page.getByText("monthly rupee ceiling not yet approved")).toBeVisible();
-    await expect(page.locator("#main").getByRole("link", { name: "Exception queues" })).toBeVisible();
-    await expect(page.locator("#main").getByRole("link", { name: "Integration readiness" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Super Admin home", level: 1 })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Needs action" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Setup checklist" })).toContainText("are working");
+    await expect(page.getByRole("region", { name: "Quick actions" }).getByRole("link", { name: "Add staff user" })).toBeVisible();
+    await expect(page.getByText("Integration Unavailable")).toHaveCount(0);
+    await expect(page.getByText("Critical integration failures")).toHaveCount(0);
   });
 
-  test("Exception Queues — all branches: grouped by queue with a branch column", async ({ page }) => {
+  test("Issues: every branch in one paged list the Super Admin can assign from", async ({ page }) => {
     await login(page, USERS.admin);
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Exception Queues" }).click();
-    await expect(page.getByRole("heading", { name: "Exception Queues — all branches" })).toBeVisible();
-    for (const queue of ["Curriculum / allocation", "Meet / recording", "CRM/LMS sync", "Access / recovery", "Support"]) {
-      await expect(page.getByRole("heading", { name: new RegExp(`^${queue.replace("/", "\\/")} \\(`) })).toBeVisible();
-    }
-    const recording = page.getByRole("row", { name: /RX-0014/ });
-    await expect(recording).toContainText("Vijayawada");
-    await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("Guntur");
-    await expect(page.getByRole("row", { name: /seed-/ })).toContainText("All branches");
-    await expect(page.getByRole("row", { name: /EXT-033/ })).toContainText("Waiting for a decision");
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Issues", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Issues", level: 1 })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Assign / }).first()).toBeVisible();
+    await expect(page.getByText("Guntur").first()).toBeVisible();
+    await expect(page.getByText("Vijayawada").first()).toBeVisible();
   });
 
-  test("the Founder reads the queues but cannot log steps", async ({ page }) => {
+  test("the Founder reads the issues but cannot assign or log notes", async ({ page }) => {
     await login(page, USERS.founder);
     await page.goto("/admin/exceptions");
-    await expect(page.getByRole("heading", { name: "Exception Queues — all branches" })).toBeVisible();
-    await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("Read only");
-    await expect(page.getByRole("button", { name: /^Update / })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/admin\/issues/);
+    await expect(page.getByRole("heading", { name: "Issues", level: 1 })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Assign / })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add note" })).toHaveCount(0);
   });
 });
 
@@ -184,8 +171,8 @@ test.describe("@mobile staff dashboards", () => {
     await login(page, USERS.founder);
     await expect(page.getByRole("heading", { name: "Founder / CEO home" })).toBeVisible();
     await noHorizontalScroll(page);
-    await page.goto("/admin/exceptions");
-    await expect(page.getByRole("heading", { name: "Exception Queues — all branches" })).toBeVisible();
+    await page.goto("/admin/issues");
+    await expect(page.getByRole("heading", { name: "Issues", level: 1 })).toBeVisible();
     await noHorizontalScroll(page);
   });
 });

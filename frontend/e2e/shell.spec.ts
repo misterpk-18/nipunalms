@@ -57,14 +57,14 @@ const ROLES = [
     name: "super admin",
     user: USERS.admin,
     home: "/admin",
-    nav: ["Super Admin", "Users & Access", "Integration Readiness", "Security Readiness"],
+    nav: ["Home", "Users & access", "Student accounts", "Issues", "Academic calendar", "CRM sync", "Setup & health", "AI controls", "Audit log"],
     other: "/founder",
   },
   {
     name: "founder",
     user: USERS.founder,
     home: "/founder",
-    nav: ["Home", "Curriculum approvals", "Certificate decisions", "Access extensions"],
+    nav: ["Home", "Curriculum approvals", "Certificate decisions", "Access extensions", "AI controls"],
     other: "/trainer",
   },
 ];

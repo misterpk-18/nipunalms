@@ -3,9 +3,10 @@ from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
+from models.access import User
 
 
 # An answer that says it has nothing to go on: the screen then offers to hand the question to a person
@@ -75,6 +76,9 @@ class AiFeatureControl(db.Model):
     restored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     restoration_note: Mapped[str | None] = mapped_column(Text)
 
+    disabler: Mapped[User] = relationship(foreign_keys=[disabled_by], lazy="joined")
+    restorer: Mapped[User | None] = relationship(foreign_keys=[restored_by], lazy="joined")
+
     def to_dict(self) -> dict:
         return {
             "control_id": self.control_id,
@@ -83,8 +87,10 @@ class AiFeatureControl(db.Model):
             "reason": self.reason,
             "remediation": self.remediation,
             "disabled_by": self.disabled_by,
+            "disabled_by_name": self.disabler.full_name,
             "disabled_at": self.disabled_at,
             "restored_by": self.restored_by,
+            "restored_by_name": self.restorer.full_name if self.restorer else None,
             "restored_at": self.restored_at,
             "restoration_note": self.restoration_note,
             "active": self.restored_at is None,

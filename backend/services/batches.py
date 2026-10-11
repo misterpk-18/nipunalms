@@ -296,7 +296,7 @@ def _conflicts_item(batch: Batch) -> dict:
             notes.append("allocated students also attend " + ", ".join(b.batch_code for b in theirs) + " at these times")
     if batch.planned_start and batch.planned_end:
         closures = db.session.execute(select(func.count()).select_from(CalendarClosure).where(
-            CalendarClosure.status == "Approved", CalendarClosure.starts_on <= batch.planned_end, CalendarClosure.ends_on >= batch.planned_start,
+            CalendarClosure.in_force(), CalendarClosure.starts_on <= batch.planned_end, CalendarClosure.ends_on >= batch.planned_start,
             (CalendarClosure.branch_id.is_(None)) | (CalendarClosure.branch_id == batch.branch_id))).scalar_one()
         notes.append(f"{closures} approved closure(s) in the planned dates" if closures else "no approved closures in the planned dates")
     return _item("conflicts", label, status, "; ".join(notes) or "No conflicts found")

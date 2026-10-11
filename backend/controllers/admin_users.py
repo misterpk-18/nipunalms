@@ -29,6 +29,7 @@ def list_users():
     v.choice("role_code", STAFF_ROLE_CODES)
     v.integer("branch_id", min_value=1)
     v.boolean("is_active")
+    v.boolean("locked")
     filters = v.validate()
 
     page, per_page = get_page_params()

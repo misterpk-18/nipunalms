@@ -226,11 +226,10 @@ class TestLimitsAndSwitches:
         ask(client, world, world.students.s1, "When is my next class?", expect=422)
 
     def test_ai_controls_record_scope_reason_and_restoration(self, client, world):
-        """Module 24 §11: the Super Admin switches one assistant off, the Founder / CEO can switch all AI off company-wide."""
+        """Module 24 §11 (and U17): the Super Admin and the Founder / CEO can each switch an assistant, or all AI, off company-wide and restore it."""
         controls = "/api/v1/ai-controls"
         admin, founder = world.h(world.people.admin), world.h(world.people.founder)
         assert client.post(controls, headers=world.h(world.people.ac), json={"audience": "Student", "reason": "x"}).status_code == 403
-        assert client.post(controls, headers=admin, json={"audience": "All", "reason": "Data leak suspected"}).status_code == 403
         off = client.post(controls, headers=admin, json={"audience": "Student", "branch_id": 1, "reason": "Wrong fee answers",
                                                          "remediation": "Checking the fee source"})
         assert off.status_code == 201, off.get_json()
@@ -248,10 +247,15 @@ class TestLimitsAndSwitches:
         everything = client.post(controls, headers=founder, json={"audience": "All", "reason": "Provider incident"})
         assert everything.status_code == 201
         assert client.get(f"{API}/status", headers=world.h(world.people.ac)).get_json()["data"]["status"] == "Disabled"
-        assert client.post(f"{controls}/{everything.get_json()['data']['control_id']}/restore", headers=admin,
-                           json={"restoration_note": "x"}).status_code == 403                  # only the Founder restores all-AI
         listed = client.get(f"{controls}?active=true", headers=admin).get_json()["data"]
         assert [c["audience"] for c in listed] == ["All"]
+        # the Super Admin can restore what the Founder switched off, and switch all AI off themselves
+        assert client.post(f"{controls}/{everything.get_json()['data']['control_id']}/restore", headers=admin,
+                           json={"restoration_note": "Provider confirmed the incident is over"}).status_code == 200
+        by_admin = client.post(controls, headers=admin, json={"audience": "All", "reason": "Data leak suspected"})
+        assert by_admin.status_code == 201
+        assert client.post(f"{controls}/{by_admin.get_json()['data']['control_id']}/restore", headers=founder,
+                           json={"restoration_note": "Leak ruled out"}).status_code == 200
 
     def test_input_is_validated(self, client, world):
         for body in ({}, {"question": ""}, {"question": "x" * 2001}):

@@ -20,7 +20,7 @@ def _weekdays() -> set[int]:
 def closed_days(start: date, end: date, branch_id: int | None) -> set[date]:
     """Dates between start and end (inclusive) covered by an approved company holiday or a closure at this branch."""
     stmt = select(CalendarClosure.starts_on, CalendarClosure.ends_on).where(
-        CalendarClosure.status == "Approved", CalendarClosure.starts_on <= end, CalendarClosure.ends_on >= start,
+        CalendarClosure.in_force(), CalendarClosure.starts_on <= end, CalendarClosure.ends_on >= start,
         or_(CalendarClosure.branch_id.is_(None), CalendarClosure.branch_id == branch_id) if branch_id is not None
         else CalendarClosure.branch_id.is_(None),
     )
@@ -66,7 +66,7 @@ def working_days_between(start: date, end: date, branch_id: int | None = None) -
 def closure_reasons(start: date, end: date, branch_id: int | None) -> dict[date, str]:
     """Each closed date between start and end with why: "Holiday: Dussehra" (company holiday) or "Closed: <title>" (this branch)."""
     stmt = select(CalendarClosure).where(
-        CalendarClosure.status == "Approved", CalendarClosure.starts_on <= end, CalendarClosure.ends_on >= start,
+        CalendarClosure.in_force(), CalendarClosure.starts_on <= end, CalendarClosure.ends_on >= start,
         or_(CalendarClosure.branch_id.is_(None), CalendarClosure.branch_id == branch_id) if branch_id is not None
         else CalendarClosure.branch_id.is_(None),
     ).order_by(CalendarClosure.closure_id)

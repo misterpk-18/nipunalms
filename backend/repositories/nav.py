@@ -6,7 +6,7 @@ from sqlalchemy import Select, exists, func, select
 
 from config.database import db
 from models import (
-    AssignmentSubmission, AttendanceCorrection, AttendanceRecord, AttendanceRecovery, AuditLog, Batch, BatchAllocation, ClassSession,
+    AssignmentSubmission, AttendanceCorrection, CalendarClosure, AttendanceRecord, AttendanceRecovery, AuditLog, Batch, BatchAllocation, ClassSession,
     CurriculumVersion, Enrolment, Integration, SubmissionReview, SupportRequest, User,
 )
 
@@ -60,6 +60,12 @@ def pending_corrections(branch_ids: set[int] | None) -> int:
 
 def curriculum_awaiting_approval() -> int:
     return _count(select(func.count()).select_from(CurriculumVersion).where(CurriculumVersion.status == "Under Review"))
+
+
+def pending_closures(today) -> int:
+    """Branch closures proposed and not decided yet that are not over (the Calendar badge)."""
+    return _count(select(func.count()).select_from(CalendarClosure).where(
+        CalendarClosure.status == "Pending", CalendarClosure.cancelled_at.is_(None), CalendarClosure.ends_on >= today))
 
 
 def locked_users(now: datetime) -> int:

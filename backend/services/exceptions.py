@@ -17,7 +17,7 @@ from repositories import exceptions as exceptions_repo
 from repositories.common import paginate
 from services import audit, scope
 from services.context import current_user
-from services.errors import Forbidden, NotFound
+from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 
 STEP_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
 
@@ -71,3 +71,40 @@ def log_step(source: str, source_id: int, reason: str) -> tuple[ExceptionRecover
     # The view is derived: read the row again so state, owner and step count reflect the new step
     db.session.expire(item)
     return step, exceptions_repo.get_item(item.source, item.source_id).to_dict(_now())
+
+
+# Sources whose own record carries an owner (set where the item is handled): an issue step cannot override it
+OWN_OWNER_SOURCES = ("SUPPORT", "RECORDING", "DISRUPTION")
+
+
+def can_assign(source: str, owner_user_id: int | None) -> bool:
+    """A Super Admin may assign an issue unless its own screen already names its owner."""
+    return current_user().has_role("SUPER_ADMIN") and (source not in OWN_OWNER_SOURCES or owner_user_id is None)
+
+
+def assign(source: str, source_id: int, assignee_user_id: int, note: str | None) -> dict:
+    """Super Admin: hand an issue to a member of staff (UX phase U17). It is a recovery step that names its new owner, so the
+    list, the owner filter and the counts follow; the person is told. Returns the exception as it now reads."""
+    from repositories import admin_users as users_repo
+    from services.notifications import notify
+
+    user = current_user()
+    if not user.has_role("SUPER_ADMIN"):
+        raise Forbidden("Only a Super Admin assigns issues")
+    item = _visible_item(source, source_id)
+    if not can_assign(item.source, item.owner_user_id):
+        raise BusinessRule("This issue's owner is set on the screen that handles it (for example Student support); change it there")
+    assignee = users_repo.get_staff_user(assignee_user_id)
+    if assignee is None or not assignee.is_active:
+        raise ValidationError("Invalid request data", {"assignee_user_id": ["Pick an active staff user"]})
+    reason = f"Assigned to {assignee.full_name}" + (f": {note}" if note else "")
+    step = exceptions_repo.add_step(item.source, item.source_id, item.branch_id, reason, user.user_id, assigned_to=assignee.user_id)
+    audit.record("EXCEPTION_ASSIGNED", "exception", f"{item.source}:{item.source_id}",
+                 old={"owner_user_id": item.owner_user_id}, new={"reference": item.reference, "title": item.title, "assigned_to": assignee.user_id,
+                                                                  "step_id": step.step_id}, reason=note, branch_id=item.branch_id)
+    if assignee.user_id != user.user_id:
+        home = "/admin/issues" if "SUPER_ADMIN" in {s.role.role_code for s in assignee.scopes if s.revoked_at is None} else "/branch/issues"
+        notify(category="Issues", title=f"An issue was assigned to you: {item.title}", body=note or item.detail, link=home,
+               recipient_user_ids=[assignee.user_id], event_key=f"issue-assigned:{item.source}:{item.source_id}:{step.step_id}", action_required=True)
+    db.session.expire(item)
+    return exceptions_repo.get_item(item.source, item.source_id).to_dict(_now())

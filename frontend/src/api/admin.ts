@@ -1,5 +1,5 @@
-/** Super Admin API: integration / security readiness, users & access, student accounts, CRM sync monitor, audit log. */
-import { get, list, patch, post, type Page } from "./client";
+/** Super Admin API: Setup & health, users & access, student accounts, CRM sync, audit log, AI controls, calendar, Needs action. */
+import { download, get, list, patch, post, type Page, type Query } from "./client";
 import type { BranchRef, DateTime, DateOnly, RoleCode } from "./types";
 
 // ---------------------------------------------------------------- readiness registers
@@ -25,7 +25,54 @@ export type ReadinessFields = {
 export type Integration = ReadinessFields & { integration_id: number; integration_code: string; integration_name: string };
 export type SecurityControl = ReadinessFields & { control_id: number; control_code: string; category: string; title: string };
 
-export type ReadinessUpdate = Partial<Pick<ReadinessFields, "configuration_status" | "verification_status" | "owner" | "evidence" | "notes">>;
+export type ReadinessUpdate = Partial<Pick<ReadinessFields, "configuration_status" | "verification_status" | "owner" | "evidence" | "notes">> & {
+  state?: SetupState;
+  owner_user_id?: number | null;
+};
+
+// ---------------------------------------------------------------- setup & health (the two registers as one checklist)
+
+export const SETUP_STATES = ["Not set up", "Set up", "Working", "Broken"] as const;
+export type SetupState = (typeof SETUP_STATES)[number];
+
+export type SetupItem = {
+  key: string;
+  kind: "integration" | "security";
+  id: number;
+  code: string;
+  name: string;
+  group: string;
+  requirement: string;
+  state: SetupState;
+  owner: { user_id: number | null; full_name: string | null; label: string };
+  evidence: string | null;
+  notes: string | null;
+  verified_at: DateTime | null;
+  last_checked_at: DateTime | null;
+};
+export type SetupSummary = { counts: Record<SetupState, number>; total: number; open: number; done: boolean };
+export type SetupChecklist = { items: SetupItem[]; summary: SetupSummary; help: Record<SetupState, string> };
+export type StaffOption = { user_id: number; full_name: string; email: string | null; roles: string[] };
+
+// ---------------------------------------------------------------- home: Needs action
+
+export type NeedsActionRow = {
+  key: string;
+  kind: string;
+  count: number;
+  what: string;
+  where: string | null;
+  age_days: number | null;
+  to: string;
+  search: Record<string, unknown>;
+  action: string;
+  retry?: { crm_event_id: number } | null;
+};
+export type NeedsAction = {
+  rows: NeedsActionRow[];
+  total: number;
+  setup: SetupSummary & { items: { key: string; name: string; group: string; state: SetupState; owner: string }[] };
+};
 
 // ---------------------------------------------------------------- users & access
 
@@ -49,6 +96,7 @@ export type StaffUser = {
   is_active: boolean;
   must_change_password: boolean;
   is_locked: boolean;
+  locked_until: DateTime | null;
   last_login_at: DateTime | null;
   password_changed_at: DateTime | null;
   created_at: DateTime;
@@ -67,9 +115,18 @@ export type StaffUserWithPassword = StaffUser & {
 };
 
 export type ScopeInput = { role_code: RoleCode; branch_id?: number | null; expires_at?: DateTime | null };
-export type UserFilters = { q?: string; role_code?: string; branch_id?: string; is_active?: string; page?: number };
+export type UserFilters = { q?: string; role_code?: string; branch_id?: string; is_active?: string; locked?: string; page?: number };
 
 // ---------------------------------------------------------------- student accounts
+
+export type SuggestedStep = {
+  code: string;
+  label: string;
+  detail: string;
+  action: "send_link" | "reactivate" | "open" | "issues" | null;
+  action_label: string | null;
+  attention: boolean;
+};
 
 export type StudentAccount = {
   student_id: number;
@@ -88,10 +145,19 @@ export type StudentAccount = {
   active_sessions: number;
   enrolment_counts: Record<string, number>;
   enrolment_total: number;
+  suggested_step: SuggestedStep;
+  needs_attention: boolean;
 };
+
+/** Where a record opens, for the router: `to` with its `search` or `params`. */
+export type RecordLink = { to: string; search?: Record<string, unknown>; params?: Record<string, unknown> };
 
 export type AuditEntry = {
   audit_id: number;
+  /** One plain sentence about what happened, and the name and link of the record it is about (null when there is none). */
+  sentence: string;
+  target: string | null;
+  link: RecordLink | null;
   occurred_at: DateTime;
   actor_user_id: number | null;
   actor?: { user_id: number; full_name: string; email: string | null } | null;
@@ -115,7 +181,13 @@ export type StudentAccountDetail = StudentAccount & {
     service_branch_id: number;
     joining_date: DateOnly | null;
   }[];
-  activation: { status: "valid" | "expired" | "used" | "revoked"; expires_at: DateTime; issued_at: DateTime; channel: string } | null;
+  activation: {
+    status: "valid" | "expired" | "used" | "revoked";
+    expires_at: DateTime;
+    issued_at: DateTime;
+    channel: string;
+    whatsapp: WhatsappOutcome | null;
+  } | null;
   suspension: { suspended_at: DateTime; reason: string | null } | null;
   audit: AuditEntry[];
 };
@@ -129,7 +201,14 @@ export type ActivationIssued = {
   activation_status: string;
   whatsapp: WhatsappOutcome;
 };
-export type StudentFilters = { q?: string; activation_status?: string; activation_channel?: string; branch_id?: string; page?: number };
+export type StudentFilters = {
+  q?: string;
+  activation_status?: string;
+  activation_channel?: string;
+  branch_id?: string;
+  needs_attention?: string;
+  page?: number;
+};
 
 // ---------------------------------------------------------------- CRM sync
 
@@ -149,6 +228,11 @@ export type CrmEvent = {
   processed_at: DateTime | null;
   payload?: unknown;
   result?: unknown;
+  /** Plain words: what the event is, what it is about, and for a failed one why it failed and whether Retry can work. */
+  label: string;
+  summary: string;
+  plain_cause: string | null;
+  can_retry: boolean;
 };
 
 export type CrmOutboxRow = {
@@ -167,6 +251,7 @@ export type CrmSyncSummary = {
   events: Record<string, number>;
   outbox: Record<string, number>;
   failed_events: number;
+  needs_attention: number;
   pending_outbox: number;
   last_event_received_at: DateTime | null;
   last_outbox_delivered_at: DateTime | null;
@@ -174,10 +259,48 @@ export type CrmSyncSummary = {
   event_types: string[];
   outbox_event_types: string[];
 };
-export type EventFilters = { status?: string; event_type?: string; q?: string; from?: string; to?: string; page?: number };
+export type EventFilters = { status?: string; event_type?: string; q?: string; attention?: string; from?: string; to?: string; page?: number };
 export type OutboxFilters = { status?: string; event_type?: string; page?: number };
 
-export type AuditFilters = { actor_user_id?: string; entity_type?: string; entity_id?: string; action?: string; from?: string; to?: string; page?: number };
+export type AuditFilters = {
+  actor_user_id?: string;
+  entity_type?: string;
+  entity_id?: string;
+  action?: string;
+  preset?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+};
+export type AuditFacets = {
+  actions: string[];
+  entity_types: string[];
+  actors: { user_id: number; full_name: string; email: string | null }[];
+  presets: { key: string; label: string }[];
+};
+
+// ---------------------------------------------------------------- AI controls
+
+export type AiAudience = "All" | "Student" | "Staff";
+export type AiControl = {
+  control_id: number;
+  audience: AiAudience;
+  branch_id: number | null;
+  reason: string;
+  remediation: string | null;
+  disabled_by_name: string;
+  disabled_at: DateTime;
+  restored_by_name: string | null;
+  restored_at: DateTime | null;
+  restoration_note: string | null;
+  active: boolean;
+};
+export type AiStatus = {
+  audiences: { audience: "Student" | "Staff"; label: string; state: "On" | "Off"; control: AiControl | null; via_all: boolean }[];
+  all: { state: "On" | "Off"; control: AiControl | null };
+  branches: AiControl[];
+  can_switch: boolean;
+};
 
 // ---------------------------------------------------------------- calls
 
@@ -196,6 +319,10 @@ export const adminKeys = {
   syncAll: ["admin", "crm-sync"] as const,
   audit: (filters: AuditFilters) => ["admin", "audit", filters] as const,
   auditFacets: ["admin", "audit", "facets"] as const,
+  setup: ["admin", "setup"] as const,
+  needsAction: ["admin", "needs-action"] as const,
+  staffOptions: ["admin", "staff-options"] as const,
+  aiStatus: ["admin", "ai-status"] as const,
 };
 
 export const adminApi = {
@@ -229,6 +356,14 @@ export const adminApi = {
   syncOutbox: (filters: OutboxFilters): Promise<Page<CrmOutboxRow>> => list<CrmOutboxRow>("/admin/crm-sync/outbox", { ...filters, per_page: 25 }),
 
   audit: (filters: AuditFilters): Promise<Page<AuditEntry>> => list<AuditEntry>("/audit-log", { ...filters, per_page: 25 }),
-  auditFacets: () => get<{ actions: string[]; entity_types: string[] }>("/audit-log/facets"),
+  auditFacets: () => get<AuditFacets>("/audit-log/facets"),
+  exportAudit: (filters: AuditFilters) => download("/audit-log/export", { ...filters, page: undefined } as Query, "audit-log.csv"),
+
+  setup: () => get<SetupChecklist>("/admin/setup"),
+  needsAction: () => get<NeedsAction>("/admin/needs-action"),
+  staffOptions: () => get<StaffOption[]>("/admin/staff-options"),
+  aiStatus: () => get<AiStatus>("/ai-controls/status"),
+  switchAiOff: (body: { audience: AiAudience; branch_id: number | null; reason: string; remediation?: string }) => post<AiControl>("/ai-controls", body),
+  restoreAi: (id: number, restoration_note: string) => post<AiControl>(`/ai-controls/${id}/restore`, { restoration_note }),
   branches: () => get<(BranchRef & { is_active?: boolean })[]>("/reference/branches"),
 };

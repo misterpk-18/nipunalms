@@ -21,6 +21,7 @@ class SecurityControl(db.Model):
     configuration_status: Mapped[str] = mapped_column(IntegrationConfigurationStatus)
     verification_status: Mapped[str] = mapped_column(IntegrationVerificationStatus)
     owner: Mapped[str] = mapped_column(String(100))
+    owner_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     evidence: Mapped[str | None] = mapped_column(Text)
     verified_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -38,6 +39,7 @@ class SecurityControl(db.Model):
             "configuration_status": self.configuration_status,
             "verification_status": self.verification_status,
             "owner": self.owner,
+            "owner_user_id": self.owner_user_id,
             "evidence": self.evidence,
             "verified_by": self.verified_by,
             "verified_at": self.verified_at,

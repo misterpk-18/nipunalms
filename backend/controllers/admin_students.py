@@ -5,6 +5,7 @@ from flask import request
 from controllers.common import Validator, get_page_params, json_body, ok, paginated
 from models.enums import ACTIVATION_CHANNELS, ACTIVATION_STATUSES
 from services import admin_students as students_service
+from services import audit_sentences
 
 
 def _row(account: students_service.StudentAccount) -> dict:
@@ -25,6 +26,8 @@ def _row(account: students_service.StudentAccount) -> dict:
         "active_sessions": account.active_sessions,
         "enrolment_counts": account.enrolment_counts,
         "enrolment_total": sum(account.enrolment_counts.values()),
+        "suggested_step": account.step.to_dict() if account.step else None,
+        "needs_attention": bool(account.step and account.step.attention),
     }
 
 
@@ -34,6 +37,7 @@ def search():
     v.choice("activation_status", ACTIVATION_STATUSES)
     v.choice("activation_channel", ACTIVATION_CHANNELS)
     v.integer("branch_id", min_value=1)
+    v.boolean("needs_attention")
     filters = v.validate()
 
     page, per_page = get_page_params()
@@ -61,9 +65,11 @@ def get_student(student_id: int):
             for e, c in detail["enrolments"]
         ],
         "activation": {"status": activation.status(datetime.now(timezone.utc)), "expires_at": activation.expires_at, "issued_at": activation.created_at,
-                       "channel": activation.channel} if activation else None,
+                       "channel": activation.channel,
+                       "whatsapp": {"state": detail["account"].message.status, "note": detail["account"].message.status_note}
+                       if detail["account"].message else None} if activation else None,
         "suspension": {"suspended_at": suspension.occurred_at, "reason": suspension.reason} if suspension else None,
-        "audit": [a.to_dict() for a in detail["audit"]],
+        "audit": audit_sentences.annotate_loaded(detail["audit"]),
     })
 
 

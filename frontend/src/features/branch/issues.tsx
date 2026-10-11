@@ -14,6 +14,7 @@ import { fmtDate, ageText } from "@/features/shared/format";
 import { ReasonDialog } from "@/features/shared/reason-dialog";
 import { useApiMutation } from "@/lib/mutation";
 import { cn } from "@/lib/utils";
+import { AssignDialog } from "@/features/admin/issue-assign";
 import { BranchPicker } from "./my-work";
 
 const PER_PAGE = 20;
@@ -96,9 +97,10 @@ function Notes({ issue }: { issue: Issue }) {
   );
 }
 
-function IssueRow({ issue, canNote }: { issue: Issue; canNote: boolean }) {
+function IssueRow({ issue, canNote, canAssign }: { issue: Issue; canNote: boolean; canAssign: boolean }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const note = useApiMutation((text: string) => issuesApi.addNote(issue, text), {
     success: "Note added. You now own this issue.",
     invalidate: [["issues"]],
@@ -124,6 +126,11 @@ function IssueRow({ issue, canNote }: { issue: Issue; canNote: boolean }) {
           <Button size="sm" onClick={fix}>
             Go fix it
           </Button>
+          {canAssign && issue.can_assign && (
+            <Button size="sm" variant="outline" onClick={() => setAssigning(true)} aria-label={`Assign ${issue.title}`}>
+              Assign
+            </Button>
+          )}
           {canNote && issue.can_note && (
             <ReasonDialog
               trigger={
@@ -141,6 +148,7 @@ function IssueRow({ issue, canNote }: { issue: Issue; canNote: boolean }) {
           )}
         </div>
       </div>
+      {assigning && <AssignDialog issue={issue} onClose={() => setAssigning(false)} />}
       {issue.step_count > 0 && (
         <div className="mt-3">
           <button
@@ -163,10 +171,11 @@ function IssueRow({ issue, canNote }: { issue: Issue; canNote: boolean }) {
   );
 }
 
-/** The list with its filters and paging. The Super Admin's read-and-assign view reuses it with `canNote` as needed. */
-export function IssuesList({ canNote = true }: { canNote?: boolean }) {
+/** The list with its filters and paging. The Super Admin's view reuses it with `canAssign` (hand an issue to someone) and no branch pick. */
+export function IssuesList({ canNote = true, canAssign = false, branchScoped = true }: { canNote?: boolean; canAssign?: boolean; branchScoped?: boolean }) {
   const { params, set } = useIssueParams();
-  const { branchId } = useActing("branch");
+  const acting = useActing("branch");
+  const branchId = branchScoped ? acting.branchId : null;
   const page = params.page ?? 1;
   const query = useQuery({
     queryKey: ["issues", "list", params, branchId],
@@ -245,7 +254,7 @@ export function IssuesList({ canNote = true }: { canNote?: boolean }) {
               ) : (
                 <ul className="space-y-3" aria-label="Issues">
                   {result.data.map((issue) => (
-                    <IssueRow key={issue.id} issue={issue} canNote={canNote} />
+                    <IssueRow key={issue.id} issue={issue} canNote={canNote} canAssign={canAssign} />
                   ))}
                 </ul>
               )}

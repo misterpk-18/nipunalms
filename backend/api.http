@@ -127,6 +127,19 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ admin_overview
+### admin_overview.needs_action
+GET {{base}}/api/v1/admin/needs-action
+Authorization: Bearer {{token}}
+
+### admin_overview.setup
+GET {{base}}/api/v1/admin/setup
+Authorization: Bearer {{token}}
+
+### admin_overview.staff_options
+GET {{base}}/api/v1/admin/staff-options
+Authorization: Bearer {{token}}
+
 # ================================================================ admin_students
 ### admin_students.get_student
 GET {{base}}/api/v1/admin/students/1
@@ -247,6 +260,10 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+### ai_controls.status
+GET {{base}}/api/v1/ai-controls/status
+Authorization: Bearer {{token}}
 
 # ================================================================ ask_nipuna
 ### ask_nipuna.ask
@@ -413,6 +430,10 @@ Content-Type: application/json
 {}
 
 # ================================================================ audit_log
+### audit_log.export
+GET {{base}}/api/v1/audit-log/export
+Authorization: Bearer {{token}}
+
 ### audit_log.facets
 GET {{base}}/api/v1/audit-log/facets
 Authorization: Bearer {{token}}
@@ -779,6 +800,13 @@ GET {{base}}/api/v1/batches/1/waiting
 Authorization: Bearer {{token}}
 
 # ================================================================ calendar
+### calendar.cancel_closure
+POST {{base}}/api/v1/calendar/closures/1/cancel
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### calendar.create_closure
 POST {{base}}/api/v1/calendar/closures
 Authorization: Bearer {{token}}
@@ -800,6 +828,13 @@ Authorization: Bearer {{token}}
 ### calendar.list_closures
 GET {{base}}/api/v1/calendar/closures
 Authorization: Bearer {{token}}
+
+### calendar.update_closure
+PATCH {{base}}/api/v1/calendar/closures/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
 
 # ================================================================ career
 ### career.apply
@@ -1508,6 +1543,13 @@ GET {{base}}/api/v1/enrolments
 Authorization: Bearer {{token}}
 
 # ================================================================ exceptions
+### exceptions.assign
+POST {{base}}/api/v1/exceptions/1/1/assign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### exceptions.list_exceptions
 GET {{base}}/api/v1/exceptions
 Authorization: Bearer {{token}}

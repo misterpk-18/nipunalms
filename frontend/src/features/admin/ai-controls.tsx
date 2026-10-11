@@ -1,116 +1,248 @@
-/** AI controls (Module 24 §11): switch an assistant off with scope and reason, and restore it once the checks pass. */
-import { useQuery } from "@tanstack/react-query";
-import { adminApi } from "@/api/admin";
-import { list, post } from "@/api/client";
-import type { DateTime } from "@/api/types";
-import { useAuth } from "@/auth/auth";
-import { DataTable, QueryView, StatusBadge } from "@/components/lms/ui";
+/** AI controls: Ask Nipuna ON or OFF for students, staff and everyone. The Super Admin and the Founder can both switch it off and bring it back. */
+import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Power } from "lucide-react";
+import { adminApi, adminKeys, type AiAudience, type AiControl, type AiStatus } from "@/api/admin";
+import { list } from "@/api/client";
+import { Field, NativeSelect } from "@/components/lms/forms";
+import { HowThisWorks } from "@/components/lms/how-this-works";
+import { DataTable, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { FormDialog } from "@/features/shared/attendance-parts";
 import { fmtDateTime } from "@/features/shared/format";
-import { useApiMutation } from "@/lib/mutation";
+import { cn } from "@/lib/utils";
+import { audienceName, RestoreDialog, SwitchOffDialog } from "./ai-switch-dialogs";
+import { FormDialog, Pager } from "./shared";
 
-type AiControl = {
-  control_id: number;
-  audience: "All" | "Student" | "Staff";
-  branch_id: number | null;
-  reason: string;
-  remediation: string | null;
-  disabled_at: DateTime;
-  restored_at: DateTime | null;
-  restoration_note: string | null;
-  active: boolean;
-};
+type Card = { key: string; audience: AiAudience; title: string; state: "On" | "Off"; control: AiControl | null; via: string | null };
+type Dialog =
+  | { kind: "off"; audience: AiAudience; branch?: { branch_id: number; branch_name: string } }
+  | { kind: "restore"; control: AiControl; label: string }
+  | { kind: "branch" };
 
-const aiControlsApi = {
-  list: () => list<AiControl>("/ai-controls", { per_page: 50 }),
-  disable: (body: { audience: string; branch_id: number | null; reason: string; remediation?: string }) => post<AiControl>("/ai-controls", body),
-  restore: (id: number, restoration_note: string) => post<AiControl>(`/ai-controls/${id}/restore`, { restoration_note }),
-};
+const cardsOf = (status: AiStatus): Card[] => [
+  ...status.audiences.map((a) => ({
+    key: a.audience,
+    audience: a.audience,
+    title: a.label,
+    state: a.state,
+    control: a.control,
+    via: a.via_all ? "Off because all AI is off" : null,
+  })),
+  { key: "All", audience: "All" as const, title: "All AI", state: status.all.state, control: status.all.control, via: null },
+];
 
-const KEY = ["ai-controls"];
-
-export function AiControls() {
-  const { hasRole } = useAuth();
-  const founder = hasRole("FOUNDER_CEO");
-  const controls = useQuery({ queryKey: KEY, queryFn: aiControlsApi.list });
-  const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches });
-  const branchName = (id: number | null) => (id === null ? "Company-wide" : (branches.data?.find((b) => b.branch_id === id)?.branch_name ?? `Branch ${id}`));
-  const disable = useApiMutation(aiControlsApi.disable, { invalidate: [KEY], success: "AI switched off for that scope." });
-  const restore = useApiMutation((v: { id: number; note: string }) => aiControlsApi.restore(v.id, v.note), { invalidate: [KEY], success: "AI restored." });
-  const audiences = founder ? ["Student", "Staff", "All"] : ["Student", "Staff"];
-  const branchOptions = ["Company-wide", ...(branches.data ?? []).map((b) => b.branch_name)];
-
+function StateCard({ card, canSwitch, onOff, onRestore }: { card: Card; canSwitch: boolean; onOff: () => void; onRestore: () => void }) {
+  const off = card.state === "Off";
   return (
-    <div className="space-y-3">
-      <FormDialog
-        trigger={<Button variant="destructive">Switch AI off</Button>}
-        title="Switch Ask Nipuna off"
-        description={
-          founder
-            ? "Choose who it is switched off for. All switches every assistant off company-wide."
-            : "Switch the student or staff assistant off, company-wide or at one branch. Only the Founder / CEO can switch all AI off."
-        }
-        submitLabel="Switch off"
-        destructive
-        fields={[
-          { name: "audience", label: "Assistant", kind: "select", options: audiences, required: true, initial: "Student" },
-          { name: "branch", label: "Scope", kind: "select", options: branchOptions, required: true, initial: "Company-wide" },
-          { name: "reason", label: "Reason", kind: "textarea", required: true },
-          { name: "remediation", label: "What is being done about it", kind: "textarea" },
-        ]}
-        onSubmit={(v) =>
-          disable.mutateAsync({
-            audience: v["audience"]!,
-            branch_id: v["branch"] === "Company-wide" ? null : (branches.data?.find((b) => b.branch_name === v["branch"])?.branch_id ?? null),
-            reason: v["reason"]!,
-            remediation: v["remediation"] || undefined,
-          })
-        }
-      />
-      <QueryView query={controls} isEmpty={(p) => p.data.length === 0} empty="AI has not been switched off.">
-        {(page) => (
-          <DataTable
-            caption="AI controls"
-            rows={page.data}
-            getKey={(c) => c.control_id}
-            cols={[
-              { h: "Assistant", c: (c) => (c.audience === "All" ? "All AI" : `${c.audience} assistant`) },
-              { h: "Scope", c: (c) => branchName(c.branch_id) },
-              { h: "Reason", c: (c) => [c.reason, c.remediation && `Remediation: ${c.remediation}`].filter(Boolean).join(" · ") },
-              { h: "Switched off", c: (c) => fmtDateTime(c.disabled_at) },
-              {
-                h: "State",
-                c: (c) =>
-                  c.active ? (
-                    <StatusBadge domain="integration" code="Off" />
-                  ) : (
-                    `Restored ${fmtDateTime(c.restored_at)} — ${c.restoration_note ?? ""}`
-                  ),
-              },
-              {
-                h: "",
-                c: (c) =>
-                  c.active && (c.audience !== "All" || founder) ? (
-                    <FormDialog
-                      trigger={
-                        <Button size="sm" variant="outline">
-                          Restore
-                        </Button>
-                      }
-                      title="Restore AI"
-                      description="Restore only after the checks pass; record which."
-                      submitLabel="Restore"
-                      fields={[{ name: "note", label: "Checks that passed", kind: "textarea", required: true }]}
-                      onSubmit={(v) => restore.mutateAsync({ id: c.control_id, note: v["note"]! })}
-                    />
-                  ) : null,
-              },
-            ]}
-          />
+    <div className={cn("rounded-xl border bg-card p-4 shadow-sm", off && "border-danger/40")} data-ai={card.key}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">{card.title}</h3>
+          <p className="text-xs text-muted-foreground">{card.audience === "All" ? "Every assistant, company-wide" : "Company-wide"}</p>
+        </div>
+        <span
+          className={cn("rounded-full px-3 py-1 text-sm font-bold", off ? "bg-danger-soft text-danger" : "bg-success-soft text-success")}
+          aria-label={`${card.title} is ${card.state}`}
+        >
+          {off ? "OFF" : "ON"}
+        </span>
+      </div>
+      {off && card.control && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {card.via ?? card.control.reason}
+          <span className="block text-xs">
+            Switched off by {card.control.disabled_by_name} on {fmtDateTime(card.control.disabled_at)}
+            {card.via ? `: ${card.control.reason}` : ""}
+          </span>
+        </p>
+      )}
+      <div className="mt-3">
+        {!canSwitch ? null : off ? (
+          card.control && !card.via ? (
+            <Button size="sm" onClick={onRestore}>
+              <Power className="size-3.5" aria-hidden /> Switch back on
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground">Switch All AI back on to bring this one back.</p>
+          )
+        ) : (
+          <Button size="sm" variant="destructive" onClick={onOff}>
+            <Power className="size-3.5" aria-hidden /> Switch off
+          </Button>
         )}
-      </QueryView>
+      </div>
     </div>
   );
 }
 
+function History() {
+  const [page, setPage] = useState(1);
+  const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches, staleTime: 5 * 60_000 });
+  const query = useQuery({
+    queryKey: ["admin", "ai-history", page],
+    queryFn: () => list<AiControl>("/ai-controls", { page, per_page: 10 }),
+    placeholderData: keepPreviousData,
+  });
+  const branchName = (id: number | null) => (id === null ? "Company-wide" : (branches.data?.find((b) => b.branch_id === id)?.branch_name ?? `Branch ${id}`));
+  return (
+    <Section title="History">
+      <QueryView query={query} isEmpty={(p) => p.data.length === 0} empty="AI has never been switched off.">
+        {(result) => (
+          <>
+            <DataTable
+              caption="AI switch history"
+              rows={result.data}
+              getKey={(c) => c.control_id}
+              cols={[
+                { h: "What", c: (c) => audienceName(c.audience).replace(/^./, (x) => x.toUpperCase()) },
+                { h: "Where", c: (c) => branchName(c.branch_id) },
+                { h: "Why", c: (c) => [c.reason, c.remediation && `Being done: ${c.remediation}`].filter(Boolean).join(" · ") },
+                { h: "Switched off", c: (c) => `${c.disabled_by_name}, ${fmtDateTime(c.disabled_at)}` },
+                {
+                  h: "Now",
+                  c: (c) =>
+                    c.active ? (
+                      <StatusBadge domain="integration" code="Off" />
+                    ) : (
+                      <span className="text-sm">
+                        Back on {fmtDateTime(c.restored_at)} by {c.restored_by_name}
+                        {c.restoration_note ? `: ${c.restoration_note}` : ""}
+                      </span>
+                    ),
+                },
+              ]}
+            />
+            <Pager meta={result.meta} onPage={setPage} />
+          </>
+        )}
+      </QueryView>
+    </Section>
+  );
+}
+
+/** "Only one branch": pick the assistant and the branch, then the usual reason dialog. */
+function BranchPicker({
+  onPick,
+  onClose,
+}: {
+  onPick: (audience: AiAudience, branch: { branch_id: number; branch_name: string }) => void;
+  onClose: () => void;
+}) {
+  const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches, staleTime: 5 * 60_000 });
+  const [audience, setAudience] = useState<AiAudience>("Student");
+  const [branchId, setBranchId] = useState("");
+  const branch = branches.data?.find((b) => String(b.branch_id) === branchId);
+  return (
+    <FormDialog
+      title="Switch off at one branch"
+      description="Only the people at that branch lose it. The rest of the company keeps it."
+      submitLabel="Next"
+      busy={!branch}
+      onClose={onClose}
+      onSubmit={() => branch && onPick(audience, { branch_id: branch.branch_id, branch_name: branch.branch_name })}
+    >
+      <Field label="Which assistant" htmlFor="ai-branch-audience">
+        <NativeSelect
+          id="ai-branch-audience"
+          value={audience}
+          onChange={(e) => setAudience(e.target.value as AiAudience)}
+          options={[
+            { value: "Student", label: "Student assistant" },
+            { value: "Staff", label: "Staff assistant" },
+          ]}
+        />
+      </Field>
+      <Field label="Which branch" htmlFor="ai-branch">
+        <NativeSelect
+          id="ai-branch"
+          placeholder="Pick a branch"
+          value={branchId}
+          onChange={(e) => setBranchId(e.target.value)}
+          options={(branches.data ?? []).map((b) => ({ value: b.branch_id, label: b.branch_name }))}
+        />
+      </Field>
+    </FormDialog>
+  );
+}
+
+export function AiControlsPage() {
+  const query = useQuery({ queryKey: adminKeys.aiStatus, queryFn: adminApi.aiStatus });
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  return (
+    <div className="mx-auto max-w-5xl space-y-5">
+      <PageHead title="AI controls" description="Switch Ask Nipuna off for students, staff or everyone, and bring it back once it is safe." />
+      <QueryView query={query} skeleton="cards">
+        {(status) => (
+          <>
+            <div className="grid gap-4 md:grid-cols-3">
+              {cardsOf(status).map((card) => (
+                <StateCard
+                  key={card.key}
+                  card={card}
+                  canSwitch={status.can_switch}
+                  onOff={() => setDialog({ kind: "off", audience: card.audience })}
+                  onRestore={() => card.control && setDialog({ kind: "restore", control: card.control, label: card.title.toLowerCase() })}
+                />
+              ))}
+            </div>
+            <Section
+              title="Only at one branch"
+              actions={
+                status.can_switch ? (
+                  <Button size="sm" variant="outline" onClick={() => setDialog({ kind: "branch" })}>
+                    Switch off at a branch
+                  </Button>
+                ) : undefined
+              }
+            >
+              {status.branches.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No branch has its own switch. Everything above applies to every branch.</p>
+              ) : (
+                <ul className="divide-y">
+                  {status.branches.map((c) => (
+                    <li key={c.control_id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                      <div className="text-sm">
+                        <span className="font-medium">{audienceName(c.audience).replace(/^./, (x) => x.toUpperCase())}</span> is off at{" "}
+                        <BranchName id={c.branch_id} />
+                        <span className="block text-xs text-muted-foreground">
+                          {c.reason} · {c.disabled_by_name}, {fmtDateTime(c.disabled_at)}
+                        </span>
+                      </div>
+                      {status.can_switch && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDialog({ kind: "restore", control: c, label: `${audienceName(c.audience)} at this branch` })}
+                        >
+                          Switch back on
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+          </>
+        )}
+      </QueryView>
+      <History />
+      <HowThisWorks>
+        <p>Switching AI off takes effect straight away. People it covers see that Ask Nipuna is unavailable; nothing else in the LMS changes.</p>
+        <p>The Super Admin and the Founder can each switch it off and bring it back. Every switch is written to the audit log with the reason.</p>
+        <p>Switching all AI off is company-wide, so it asks you to type a confirmation first.</p>
+      </HowThisWorks>
+      {dialog?.kind === "off" && (
+        <SwitchOffDialog audience={dialog.audience} {...(dialog.branch ? { branch: dialog.branch } : {})} onClose={() => setDialog(null)} />
+      )}
+      {dialog?.kind === "restore" && <RestoreDialog control={dialog.control} label={dialog.label} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "branch" && (
+        <BranchPicker onClose={() => setDialog(null)} onPick={(audience, branch) => setDialog({ kind: "off", audience, branch })} />
+      )}
+    </div>
+  );
+}
+
+function BranchName({ id }: { id: number | null }) {
+  const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches, staleTime: 5 * 60_000 });
+  return <span className="font-medium">{id === null ? "every branch" : (branches.data?.find((b) => b.branch_id === id)?.branch_name ?? `branch ${id}`)}</span>;
+}

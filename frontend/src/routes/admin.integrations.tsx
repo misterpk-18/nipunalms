@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AdminIntegrations } from "@/features/admin/integrations";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/admin/integrations")({ component: AdminIntegrations });
+/** Moved (UX phase U17): the old address keeps working and lands on its new screen. */
+export const Route = createFileRoute("/admin/integrations")({
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: `/admin/setup${location.searchStr}`, replace: true });
+  },
+});
