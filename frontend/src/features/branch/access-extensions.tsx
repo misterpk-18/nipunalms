@@ -54,7 +54,15 @@ export function AccessExtensions() {
                   </>
                 ),
               },
-              { h: "State", c: (r) => r.needs_exception && r.status === "Pending" ? <Tag tone="danger">{stateText(r)}</Tag> : <StatusBadge domain="approval" code={r.status} label={stateText(r)} /> },
+              {
+                h: "State",
+                c: (r) =>
+                  r.needs_exception && r.status === "Pending" ? (
+                    <Tag tone="danger">{stateText(r)}</Tag>
+                  ) : (
+                    <StatusBadge domain="approval" code={r.status} label={stateText(r)} />
+                  ),
+              },
               {
                 h: "Action",
                 c: (r) =>

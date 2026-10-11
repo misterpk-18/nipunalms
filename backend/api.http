@@ -667,6 +667,13 @@ Content-Type: application/json
 
 {}
 
+### batches.confirm_batch
+POST {{base}}/api/v1/batches/1/confirm
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### batches.create_batch
 POST {{base}}/api/v1/batches
 Authorization: Bearer {{token}}
@@ -685,8 +692,19 @@ Content-Type: application/json
 DELETE {{base}}/api/v1/batches/1/trainers/1
 Authorization: Bearer {{token}}
 
+### batches.generate_sessions
+POST {{base}}/api/v1/batches/1/generate-sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### batches.get_batch
 GET {{base}}/api/v1/batches/1
+Authorization: Bearer {{token}}
+
+### batches.get_progress
+GET {{base}}/api/v1/batches/1/progress
 Authorization: Bearer {{token}}
 
 ### batches.get_readiness
@@ -731,6 +749,19 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+# ================================================================ branch
+### branch.my_work
+GET {{base}}/api/v1/branch/my-work
+Authorization: Bearer {{token}}
+
+### branch.waiting
+GET {{base}}/api/v1/branch/waiting
+Authorization: Bearer {{token}}
+
+### branch.waiting_for_batch
+GET {{base}}/api/v1/batches/1/waiting
+Authorization: Bearer {{token}}
 
 # ================================================================ calendar
 ### calendar.create_closure
@@ -1467,6 +1498,10 @@ Content-Type: application/json
 {}
 
 # ================================================================ finance
+### finance.get_payment_instructions
+GET {{base}}/api/v1/branches/1/payment-instructions
+Authorization: Bearer {{token}}
+
 ### finance.get_summary
 GET {{base}}/api/v1/finance-summaries/1
 Authorization: Bearer {{token}}

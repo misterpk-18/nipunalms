@@ -13,18 +13,17 @@ test("a coordinator sees state labels and the 7-point readiness record on a batc
   await login(page, USERS.coordGnt);
   await page.goto("/branch/batches");
 
-  // The list names states the way the people who run batches do
+  // The list names states the way the people who run batches do, and says what each batch needs next
   const running = page.getByRole("row", { name: /NIT-GNT-BAT-2026-000001/ });
   await expect(running).toContainText("In progress");
   await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ }).first()).toContainText("Draft");
-  await expect(page.getByLabel("Filter by state")).toContainText("Confirmed");
-  await expect(page.getByLabel("Filter by state")).toContainText("On Hold");
-  await expect(page.getByLabel("Filter by state")).toContainText("Archived");
+  await expect(page.getByLabel("Show")).toContainText("Finished or cancelled");
 
-  await running.getByRole("button", { name: "Manage" }).click();
+  await running.getByRole("link", { name: /^Open / }).click();
+  await expect(page.getByRole("list", { name: "Steps" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Requests" })).toBeVisible();
-  await page.getByRole("tab", { name: "Readiness" }).click();
-  await expect(page.getByRole("heading", { name: "Readiness record (7 points)" })).toBeVisible();
+  await page.getByRole("tab", { name: "Checks" }).click();
+  await expect(page.getByRole("heading", { name: "Checklist before confirming (7 points)" })).toBeVisible();
   await expect(page.getByText("1. Course and curriculum version")).toBeVisible();
   await expect(page.getByText(/^[1-7]\. /)).toHaveCount(7);
 
@@ -36,23 +35,18 @@ test("a coordinator sees state labels and the 7-point readiness record on a batc
   await expect(page.getByRole("heading", { name: "Merge and split" })).toBeVisible();
 });
 
-test("the Meet Operations page loads with its sections", async ({ page }, info) => {
+test("the Class day page loads with its sections", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.getByRole("link", { name: "Meet Operations" }).first().click();
-  await expect(page).toHaveURL(/\/branch\/meet-operations/);
-  await expect(page.getByRole("heading", { name: "Meet Operations", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Class day" }).first().click();
+  await expect(page).toHaveURL(/\/branch\/class-day/);
+  await expect(page.getByRole("heading", { name: "Class day", level: 1 })).toBeVisible();
   await expect(page.getByLabel("Date")).toBeVisible();
-  for (const section of [
-    "Open disruptions",
-    "Replacements owed",
-    "Classes awaiting approval",
-    "Missing class logs",
-    "Meet integration",
-    "Last background checks",
-  ]) {
+  for (const section of ["Open disruptions", "Replacements owed", "Classes waiting for approval", "Class logs not written"]) {
     await expect(page.getByRole("heading", { name: section })).toBeVisible();
   }
+  // the Meet connection and the background checks are the Super Admin's, on the integration screen
+  for (const gone of ["Meet integration", "Last background checks"]) await expect(page.getByRole("heading", { name: gone })).toHaveCount(0);
 });
 
 test("a student sees the preferred-slot card and the changes card", async ({ page }, info) => {
@@ -73,9 +67,12 @@ test("the branch manager confirms the proposed weekend batch", async ({ page }, 
   await page.goto("/branch/batches");
   const proposed = page.getByRole("row", { name: /NIT-GNT-BAT-2026-000004/ });
   await expect(proposed).toContainText("Proposed");
-  await proposed.getByRole("button", { name: "Manage" }).click();
+  await proposed.getByRole("link", { name: /^Open / }).click();
   await page.getByRole("button", { name: "Confirm batch" }).click();
-  await page.getByRole("dialog").last().getByRole("button", { name: "Confirm" }).click();
+  const confirm = page.getByRole("dialog");
+  const reason = confirm.getByLabel("Why this is acceptable *");
+  if (await reason.count()) await reason.fill("Checked with the trainer");
+  await confirm.getByRole("button", { name: "Confirm batch" }).click();
   await page.goto("/branch/batches");
   await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000004/ })).toContainText("Confirmed");
 });

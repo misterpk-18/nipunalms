@@ -413,7 +413,10 @@ export type FounderSummary = {
   };
 };
 
-export const useAcademicSummary = () => useQuery({ queryKey: dashboardKeys.academic, queryFn: () => get<AcademicSummary>("/academic/summary") });
-export const useBranchDashboard = () => useQuery({ queryKey: dashboardKeys.branch, queryFn: () => get<BranchSummary>("/branch/summary") });
+/** `branchId`: the branch picked in the "Acting as" menu (null = every branch the person sees). */
+export const useAcademicSummary = (branchId: number | null = null) =>
+  useQuery({ queryKey: [...dashboardKeys.academic, branchId], queryFn: () => get<AcademicSummary>("/academic/summary", { branch_id: branchId }) });
+export const useBranchDashboard = (branchId: number | null = null) =>
+  useQuery({ queryKey: [...dashboardKeys.branch, branchId], queryFn: () => get<BranchSummary>("/branch/summary", { branch_id: branchId }) });
 export const useAdminSummary = () => useQuery({ queryKey: dashboardKeys.admin, queryFn: () => get<AdminSummary>("/admin/summary") });
 export const useFounderSummary = () => useQuery({ queryKey: dashboardKeys.founder, queryFn: () => get<FounderSummary>("/founder/summary") });

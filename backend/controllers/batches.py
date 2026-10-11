@@ -6,6 +6,7 @@ from models.enums import BATCH_READINESS, BATCH_STATES, BATCH_TRAINER_ROLES, DEL
 BATCH_TYPES = ("Group", "Individual", "Corporate")
 SCHEDULE_PATTERNS = ("Regular", "Weekend", "Fast-track")
 RECORDING_PROVISIONS = ("Included", "Not Included", "Limited")
+from services import batch_steps, session_plan
 from services import batches as batches_service
 
 
@@ -158,3 +159,27 @@ def change_trainer_role(batch_id: int, batch_trainer_id: int):
 
 def end_trainer(batch_id: int, batch_trainer_id: int):
     return ok(batches_service.end_trainer(batch_id, batch_trainer_id).to_dict())
+
+
+def get_progress(batch_id: int):
+    return ok(batch_steps.progress(batch_id))
+
+
+def confirm_batch(batch_id: int):
+    v = Validator(json_body())
+    v.string("note", nullable=True, max_length=1000)
+    v.string("override_reason", nullable=True, max_length=1000)
+    data = v.validate()
+    batch = batches_service.confirm_batch(batch_id, data.get("note"), data.get("override_reason"))
+    return ok(batch.to_dict(allocated_count=batches_service.get_batch(batch_id)[1]))
+
+
+def generate_sessions(batch_id: int):
+    v = Validator(json_body())
+    v.boolean("preview", default=False)
+    v.date("from_date", nullable=True)
+    v.date("until", nullable=True)
+    v.string("override_reason", nullable=True, max_length=500)
+    data = v.validate()
+    result = session_plan.generate(batch_id, data)
+    return (created if result["created"] else ok)(result)

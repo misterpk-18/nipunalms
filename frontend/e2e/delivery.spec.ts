@@ -94,54 +94,60 @@ test("learner schedule groups upcoming classes by day and has a Past tab", async
   await expect(page.getByRole("listitem").filter({ hasText: "Window functions lab" })).toContainText("Present");
 });
 
-test("coordinator creates a batch and allocates a waiting student after the review", async ({ page }) => {
+// Test debt (UX phase U14): this needs the freshly seeded database, where Sample Learner K. still waits for a Power BI batch. The Branch Manager's
+// batch and waiting-list flows are covered against any database by branch-u14.spec.ts.
+test("coordinator creates a batch with the wizard and allocates a waiting student in one click", async ({ page }) => {
   await login(page, USERS.coordGnt);
-  await page.goto("/branch/batches");
-  await expect(page.getByRole("heading", { name: "Batch Management" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ })).toContainText("No approved curriculum yet");
-  await expect(page.getByRole("row", { name: /Sample Learner K\./ })).toContainText("None"); // no open Power BI batch yet
+  await page.goto("/branch/waiting");
+  await expect(page.getByRole("heading", { level: 1, name: "Waiting for a batch" })).toBeVisible();
+  const learner = page.getByRole("listitem").filter({ hasText: "Sample Learner K." }).first();
+  await expect(learner).toContainText("No open batch of NIT-CRS-019"); // no open Power BI batch yet
 
-  await page.getByRole("button", { name: "New batch" }).click();
-  await choose(dialog(page).getByLabel("Course"), /NIT-CRS-019/);
-  await dialog(page).getByLabel("Capacity").fill("20");
+  await page.goto("/branch/batches");
+  await expect(page.getByRole("heading", { level: 1, name: "Batches" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /NIT-GNT-BAT-2026-000003/ })).toContainText("Draft");
+  await page.getByRole("button", { name: "New batch" }).first().click();
+  await choose(dialog(page).getByLabel("Course *"), /NIT-CRS-019/);
+  await dialog(page).getByLabel("Seats *").fill("20");
+  await dialog(page).getByRole("button", { name: "Next" }).click();
+  await dialog(page).getByRole("button", { name: "Next" }).click();
   await dialog(page).getByRole("button", { name: "Create batch" }).click();
   await expect(page.getByText("Batch created")).toBeVisible();
+  await expect(page).toHaveURL(/\/branch\/batches\/\d+$/);
 
-  const learner = page.getByRole("row", { name: /Sample Learner K\./ });
-  await expect(learner).toContainText("NIT-GNT-BAT-2026-");
-  await learner.getByRole("button", { name: "Review & allocate" }).click();
-  await expect(dialog(page).getByText("Batch allocation review")).toBeVisible();
-  await expect(dialog(page).getByText("Ready to allocate")).toBeVisible();
-  await dialog(page).getByRole("button", { name: "Allocate", exact: true }).click();
-  await expect(page.getByText("Student allocated")).toBeVisible();
-  await expect(page.getByRole("row", { name: /Sample Learner K\./ })).toHaveCount(0);
+  await page.goto("/branch/waiting");
+  const waiting = page.getByRole("listitem").filter({ hasText: "Sample Learner K." }).first();
+  await expect(waiting).toContainText("NIT-GNT-BAT-2026-");
+  await waiting.getByRole("button", { name: "Allocate" }).first().click();
+  await expect(page.getByText(/Sample Learner K\. is in/)).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Sample Learner K." })).toHaveCount(0);
 });
 
 test("coordinator schedules classes; trainer starts and delivers one and asks to move another", async ({ page }) => {
   await login(page, USERS.coordGnt);
-  await page.goto("/branch/schedule");
-  await page.getByRole("button", { name: "New class session" }).click();
-  await choose(dialog(page).getByLabel("Batch"), /NIT-GNT-BAT-2026-000001/);
-  await dialog(page).getByLabel("Title").fill("E2E live class");
-  await dialog(page).getByLabel("Starts (IST)").fill(istInput(15));
-  await dialog(page).getByLabel("Ends (IST)").fill(istInput(75));
-  await dialog(page).getByRole("button", { name: "Schedule" }).click();
-  await expect(page.getByText("Session(s) scheduled")).toBeVisible();
+  await page.goto("/branch/schedule?view=list");
+  await page.getByRole("button", { name: "New class" }).click();
+  await choose(dialog(page).getByLabel("Batch"), /Data Science/);
+  await dialog(page).getByLabel("Title *").fill("E2E live class");
+  await dialog(page).getByLabel("Starts (IST) *").fill(istInput(15));
+  await dialog(page).getByLabel("Ends (IST) *").fill(istInput(75));
+  await dialog(page).getByRole("button", { name: "Schedule class" }).click();
+  await expect(page.getByText("Class scheduled")).toBeVisible();
   await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Planned");
 
   // A weekly series for a later day
-  await page.getByRole("button", { name: "New class session" }).click();
-  await choose(dialog(page).getByLabel("Batch"), /NIT-GNT-BAT-2026-000001/);
-  await dialog(page).getByLabel("Title").fill("E2E weekly revision");
+  await page.getByRole("button", { name: "New class" }).click();
+  await choose(dialog(page).getByLabel("Batch"), /Data Science/);
+  await dialog(page).getByLabel("Title *").fill("E2E weekly revision");
   await dialog(page)
-    .getByLabel("Starts (IST)")
+    .getByLabel("Starts (IST) *")
     .fill(istInput(60 * 24 * 40).slice(0, 11) + "16:00");
   await dialog(page)
-    .getByLabel("Ends (IST)")
+    .getByLabel("Ends (IST) *")
     .fill(istInput(60 * 24 * 40).slice(0, 11) + "17:00");
   await dialog(page).getByLabel("Repeat").selectOption("weekly");
-  await dialog(page).getByLabel("Number of weekly sessions").fill("3");
-  await dialog(page).getByRole("button", { name: "Schedule" }).click();
+  await dialog(page).getByLabel("Number of weekly classes").fill("3");
+  await dialog(page).getByRole("button", { name: "Schedule class" }).click();
   await expect(page.getByRole("row", { name: /E2E weekly revision/ })).toHaveCount(3);
 });
 
@@ -176,10 +182,11 @@ test("trainer runs the class from Today's flow, and requests a reschedule", asyn
 
 test("coordinator approves the request; the session is rescheduled with history", async ({ page }) => {
   await login(page, USERS.coordGnt);
-  await page.goto("/branch/schedule");
-  const request = page.getByRole("row", { name: /PCA lab.*Lab clash with an exam/ });
-  await request.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText("Approved — the session moved")).toBeVisible();
+  await page.goto("/branch/schedule?view=list");
+  const request = page.getByRole("region", { name: "Needs decision" }).getByRole("listitem").filter({ hasText: /PCA lab.*Lab clash with an exam/ });
+  await request.getByRole("button", { name: "Approve", exact: true }).click();
+  await dialog(page).getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByText("Approved. The class moved")).toBeVisible();
   await expect(page.getByRole("row", { name: /PCA lab/ }).first()).toContainText("Moved");
 });
 
@@ -204,15 +211,14 @@ test("super admin approves and activates the curriculum; the batch and its stude
   await expect(page.getByText("Your course is confirmed. Your branch will allocate you to a batch before your first class.").first()).toBeVisible();
 });
 
-test("branch manager sees batches, exceptions, trainers and students of the branch", async ({ page }) => {
+test("branch manager sees the batches and classes of the branch", async ({ page }) => {
   await login(page, USERS.bmVij);
-  await page.goto("/branch/operations");
-  await expect(page.getByRole("heading", { name: "Batches, schedule & people" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /NIT-VIJ-BAT-2026-000001/ }).first()).toContainText("Pending Verification");
+  await page.goto("/branch/batches");
+  await expect(page.getByRole("heading", { level: 1, name: "Batches" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /NIT-VIJ-BAT-2026-000001/ }).first()).toBeVisible();
+  await expect(page.getByRole("row", { name: /NIT-GNT-BAT/ })).toHaveCount(0);
+  await page.goto("/branch/schedule?view=list");
   await expect(page.getByRole("row", { name: /Capstone check-in/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Trainers" })).toBeVisible();
-  await page.getByLabel("Search students").fill("Sample Learner J");
-  await expect(page.getByRole("row", { name: /Sample Learner J\./ })).toBeVisible();
 });
 
 test("@mobile learner course list has no horizontal scroll", async ({ page }) => {

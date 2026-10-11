@@ -1,10 +1,11 @@
 import { useAcademicSummary } from "@/api/dashboards";
+import { useActing } from "@/auth/acting";
 import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 
 const LINKS = [
   ["/branch/curriculum", "Curriculum versions"],
-  ["/branch/batches", "Batch management"],
+  ["/branch/batches", "Batches"],
   ["/branch/schedule", "Schedule"],
   ["/branch/recording-exceptions", "Recording exceptions"],
   ["/branch/completion", "Completion review"],
@@ -13,7 +14,8 @@ const LINKS = [
 
 /** The branch's academic work. `embedded` puts it under the Branch Manager dashboard instead of on a page of its own. */
 export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) {
-  const query = useAcademicSummary();
+  const { branchId } = useActing("branch");
+  const query = useAcademicSummary(branchId);
   return (
     <div className={embedded ? "space-y-5" : "mx-auto max-w-6xl space-y-5"}>
       <QueryView query={query}>
@@ -25,12 +27,7 @@ export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) 
               <PageHead title="Academic dashboard" description={`${d.scope.label} · batches, classes and approvals that need you`} />
             )}
             <TileRow label="Priority tiles">
-              <Tile
-                rank={1}
-                label="Enrolments awaiting batch allocation"
-                value={d.allocation_queue.count}
-                to="/branch/batches"
-              />
+              <Tile rank={1} label="Enrolments awaiting batch allocation" value={d.allocation_queue.count} to="/branch/waiting" />
               <Tile
                 rank={2}
                 label="Academic results awaiting publication review"

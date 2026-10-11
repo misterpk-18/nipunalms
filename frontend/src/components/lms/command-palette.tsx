@@ -15,7 +15,7 @@ const RECORD_GROUPS: Record<SearchRecord["kind"], string> = { student: "Students
 function recordTarget(kind: SearchRecord["kind"], workspace: Workspace, id: number): string {
   // The trainer's student and batch pages are record pages (U13); the other workspaces open the list until their phases build them
   if (kind === "student") return workspace === "trainer" ? `/trainer/students/${id}` : workspace === "branch" ? "/branch/progress" : "/admin/students";
-  if (kind === "batch") return workspace === "trainer" ? `/trainer/batches/${id}` : "/branch/batches";
+  if (kind === "batch") return workspace === "trainer" ? `/trainer/batches/${id}` : `/branch/batches/${id}`;
   return workspace === "founder" ? "/founder/certificates" : "/branch/certificates";
 }
 

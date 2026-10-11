@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { MeetOperations } from "@/features/academic/meet-operations";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/branch/meet-operations")({ component: MeetOperations });
+/** Meet Operations became Class day (UX phase U14); old links and notifications still work. */
+export const Route = createFileRoute("/branch/meet-operations")({
+  beforeLoad: () => {
+    throw redirect({ to: "/branch/class-day", replace: true });
+  },
+});

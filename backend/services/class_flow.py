@@ -183,7 +183,7 @@ def ask_for_meet_link(session_id: int) -> dict:
         delivery_notices.notify_branch_managers(
             session.batch.branch_id, title=f"Meet link needed: {session.title}", category="Session", action_required=True,
             body=f"{session.batch.batch_code} · {slot}. {session.trainer.full_name} cannot find a link for this class.",
-            event_key=f"meet-link-requested-{event.event_id}", link="/branch/meet-operations")
+            event_key=f"meet-link-requested-{event.event_id}", link="/branch/class-day")
     return item(session)
 
 

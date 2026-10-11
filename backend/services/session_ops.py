@@ -109,7 +109,7 @@ def add_person(session_id: int, data: dict) -> SessionPerson:
     if role == "Guest":
         delivery_notices.notify_branch_managers(session.batch.branch_id, title=f"Approve a class guest: {session.title}", category="Session",
                                                 body=f"{person.guest_name} — {person.purpose}", action_required=True,
-                                                event_key=f"session-guest-{person.session_person_id}", link="/branch/meet-operations")
+                                                event_key=f"session-guest-{person.session_person_id}", link="/branch/class-day")
     else:
         delivery_notices.notify_users([person.user_id], title=f"You are the {role.lower()} for {session.title}", category="Session",
                                       body=_slot(session.starts_at, session.ends_at), event_key=f"session-person-{person.session_person_id}",
@@ -165,7 +165,7 @@ def report_incident(session_id: int, data: dict) -> MeetIncident:
     db.session.flush()
     delivery_notices.notify_branch_managers(session.batch.branch_id, title=f"Meet incident: {session.title}", category="Session",
                                             body=f"{data['kind']} — {data['description']}. Done: {data['actions_taken']}", action_required=True,
-                                            event_key=f"meet-incident-{incident.incident_id}", link="/branch/meet-operations")
+                                            event_key=f"meet-incident-{incident.incident_id}", link="/branch/class-day")
     incident.manager_alerted_at = _now()
     if incident.link_replaced:
         body = "The class link was replaced for security. Join from the LMS; do not use or share the old link."
@@ -252,7 +252,7 @@ def _alert_disruption(session: ClassSession, disruption: SessionDisruption) -> N
         session.batch.branch_id, title=f"Class disrupted: {session.title}", category="Session", action_required=True,
         body=f"{session.batch.batch_code} · {disruption.kind}" + (f" ({disruption.delay_minutes} min)" if disruption.delay_minutes else "")
         + ". Agree and communicate a recovery or replacement plan.",
-        event_key=f"session-disruption-{disruption.disruption_id}", link="/branch/meet-operations")
+        event_key=f"session-disruption-{disruption.disruption_id}", link="/branch/class-day")
 
 
 def check_delays(now: datetime | None = None) -> dict:
@@ -396,7 +396,7 @@ def request_cover(session_id: int, data: dict) -> SessionCoverRequest:
     delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", session.batch.branch_id), category="Session",
                                   action_required=True, title=f"Approve {data['cover_role'].lower()} cover: {session.title}",
                                   body=f"{_slot(session.starts_at, session.ends_at)}. {data['reason']}",
-                                  event_key=f"cover-request-{request.request_id}", link="/branch/meet-operations",
+                                  event_key=f"cover-request-{request.request_id}", link="/branch/class-day",
                                   branch_id=session.batch.branch_id)
     return request
 

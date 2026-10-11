@@ -20,6 +20,13 @@ def my_receipt_pdf(admission_id: int, receipt_number: str):
     return finance_controller.my_receipt_pdf(admission_id, receipt_number)
 
 
+@finance_bp.get("/branches/<int:branch_id>/payment-instructions")
+@login_required
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+def get_payment_instructions(branch_id: int):
+    return finance_controller.get_payment_instructions(branch_id)
+
+
 @finance_bp.put("/branches/<int:branch_id>/payment-instructions")
 @login_required
 @require_roles("BRANCH_MANAGER", "SUPER_ADMIN")

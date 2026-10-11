@@ -27,6 +27,9 @@ def _require_workspace(workspace: str) -> None:
         raise Forbidden("You don't have access to this workspace")
 
 
+require_workspace = _require_workspace
+
+
 def _branches(branch_id: int | None) -> set[int] | None:
     """The branches to count: the chosen one (404 outside the user's scope), else everything the user sees."""
     if branch_id is not None:
@@ -53,7 +56,11 @@ def _trainer_counts() -> dict[str, int]:
 
 
 def _branch_counts(branch_id: int | None) -> dict[str, int]:
+    from services import branch_work  # it reads this module's helpers
+
     branch_ids = _branches(branch_id)
+    work = branch_work.my_work(branch_id)
+    by_key = {row["key"]: row["count"] for row in work["rows"]}
     now = datetime.now(timezone.utc)
     enrolments = dash_repo.enrolment_counts(branch_ids)
     certificates = sum(dash_repo.certificates_in_status(CERTIFICATE_REVIEW, branch_ids).values())
@@ -69,6 +76,9 @@ def _branch_counts(branch_id: int | None) -> dict[str, int]:
         "recording_issues": dash_repo.unresolved_recording_exceptions(branch_ids),
         "support": nav_repo.support_due_by(branch_ids, now + SUPPORT_WARNING),
         "attendance": nav_repo.pending_recoveries(branch_ids) + nav_repo.pending_corrections(branch_ids),
+        "my_work": work["total"],
+        "schedule": by_key.get("decisions", 0),
+        "class_day": by_key.get("class_day", 0),
     }
 
 
@@ -133,7 +143,7 @@ def _branch_steps(branch_id: int | None) -> list[dict]:
     branch_ids = _branches(branch_id)
     return [
         _step("batch", "Create a batch", nav_repo.branch_has_batches(branch_ids), "/branch/batches"),
-        _step("allocate", "Allocate students", nav_repo.branch_has_allocations(branch_ids), "/branch/operations"),
+        _step("allocate", "Allocate students", nav_repo.branch_has_allocations(branch_ids), "/branch/waiting"),
         _step("classes", "Create classes", nav_repo.branch_has_classes(branch_ids), "/branch/schedule"),
     ]
 

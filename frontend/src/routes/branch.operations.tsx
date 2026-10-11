@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BranchOperations } from "@/features/branch/operations";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/branch/operations")({ component: BranchOperations });
+/** "Batches, Schedule & People" was split: batches, the waiting list and the schedule have their own screens (UX phase U14). */
+export const Route = createFileRoute("/branch/operations")({
+  beforeLoad: () => {
+    throw redirect({ to: "/branch/batches", replace: true });
+  },
+});

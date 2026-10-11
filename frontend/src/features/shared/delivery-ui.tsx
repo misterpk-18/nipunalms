@@ -81,6 +81,8 @@ export type DialogField = {
   showIf?: (values: Record<string, string>) => boolean;
   /** Shown only after the server answered with warnings (an override reason for the Branch Manager). */
   afterWarnings?: boolean;
+  /** Technical detail (an ID from another system): folded under "Advanced" at the end of the form. */
+  advanced?: boolean;
 };
 
 /** The server's list of blockers or advisory warnings carried by a 422 (`error.details.blocking` / `.warnings`). */
@@ -97,7 +99,10 @@ export function issuesOf(error: unknown): Issues | null {
 
 export function IssueList({ issues }: { issues: Issues }) {
   return (
-    <div role="alert" className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+    <div
+      role="alert"
+      className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
+    >
       {issues.blocking.length > 0 && (
         <div>
           <p className="font-medium">This cannot go ahead yet:</p>
@@ -128,6 +133,8 @@ export function IssueList({ issues }: { issues: Issues }) {
  */
 export function ActionDialog({
   trigger,
+  open: controlledOpen,
+  onOpenChange,
   title,
   description,
   fields,
@@ -136,7 +143,10 @@ export function ActionDialog({
   onFieldChange,
   children,
 }: {
-  trigger: ReactNode;
+  /** The button that opens it; leave out and pass `open` / `onOpenChange` to open it from a menu item. */
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: string;
   description?: ReactNode;
   fields: DialogField[];
@@ -146,7 +156,12 @@ export function ActionDialog({
   children?: ReactNode;
 }) {
   const initial = () => Object.fromEntries(fields.map((f) => [f.name, f.value ?? (f.type === "select" ? String(f.options?.[0]?.value ?? "") : "")]));
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlledOpen ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
   const [values, setValues] = useState<Record<string, string>>(initial);
   const [busy, setBusy] = useState(false);
   const [issues, setIssues] = useState<Issues | null>(null);
@@ -156,6 +171,50 @@ export function ActionDialog({
     onFieldChange?.(name, value);
   };
   const missing = fields.some((f) => shown(f) && f.required && f.type !== "checkbox" && !values[f.name]?.trim());
+
+  const renderField = (f: DialogField) => (
+    <Field key={f.name} label={f.label + (f.required ? " *" : "")} hint={f.type === "checkbox" ? undefined : f.hint} htmlFor={`f-${f.name}`}>
+      {f.type === "textarea" ? (
+        <Textarea id={`f-${f.name}`} rows={3} value={values[f.name] ?? ""} placeholder={f.placeholder} onChange={(e) => set(f.name, e.target.value)} />
+      ) : f.type === "select" ? (
+        <NativeSelect id={`f-${f.name}`} options={f.options ?? []} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
+      ) : f.type === "multiselect" ? (
+        <div id={`f-${f.name}`} role="group" className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+          {(f.options ?? []).length === 0 && <p className="text-sm text-muted-foreground">Nothing to choose from.</p>}
+          {(f.options ?? []).map((o) => {
+            const chosen = (values[f.name] ?? "").split(",").filter(Boolean);
+            const on = chosen.includes(String(o.value));
+            return (
+              <label key={o.value} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => set(f.name, (on ? chosen.filter((c) => c !== String(o.value)) : [...chosen, String(o.value)]).join(","))}
+                />
+                {o.label}
+              </label>
+            );
+          })}
+        </div>
+      ) : f.type === "days" ? (
+        <DayToggles id={`f-${f.name}`} value={values[f.name] ?? ""} onChange={(v) => set(f.name, v)} />
+      ) : f.type === "checkbox" ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input id={`f-${f.name}`} type="checkbox" checked={values[f.name] === "true"} onChange={(e) => set(f.name, e.target.checked ? "true" : "")} />
+          {f.hint}
+        </label>
+      ) : (
+        <Input
+          id={`f-${f.name}`}
+          type={f.type === "datetime" ? "datetime-local" : (f.type ?? "text")}
+          min={f.min}
+          value={values[f.name] ?? ""}
+          placeholder={f.placeholder}
+          onChange={(e) => set(f.name, e.target.value)}
+        />
+      )}
+    </Field>
+  );
 
   return (
     <Dialog
@@ -168,7 +227,7 @@ export function ActionDialog({
         setOpen(next);
       }}
     >
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -194,49 +253,21 @@ export function ActionDialog({
         >
           {children}
           {issues && <IssueList issues={issues} />}
-          {fields.filter(shown).map((f) => (
-            <Field key={f.name} label={f.label + (f.required ? " *" : "")} hint={f.type === "checkbox" ? undefined : f.hint} htmlFor={`f-${f.name}`}>
-              {f.type === "textarea" ? (
-                <Textarea id={`f-${f.name}`} rows={3} value={values[f.name] ?? ""} placeholder={f.placeholder} onChange={(e) => set(f.name, e.target.value)} />
-              ) : f.type === "select" ? (
-                <NativeSelect id={`f-${f.name}`} options={f.options ?? []} value={values[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)} />
-              ) : f.type === "multiselect" ? (
-                <div id={`f-${f.name}`} role="group" className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
-                  {(f.options ?? []).length === 0 && <p className="text-sm text-muted-foreground">Nothing to choose from.</p>}
-                  {(f.options ?? []).map((o) => {
-                    const chosen = (values[f.name] ?? "").split(",").filter(Boolean);
-                    const on = chosen.includes(String(o.value));
-                    return (
-                      <label key={o.value} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          onChange={() => set(f.name, (on ? chosen.filter((c) => c !== String(o.value)) : [...chosen, String(o.value)]).join(","))}
-                        />
-                        {o.label}
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : f.type === "days" ? (
-                <DayToggles id={`f-${f.name}`} value={values[f.name] ?? ""} onChange={(v) => set(f.name, v)} />
-              ) : f.type === "checkbox" ? (
-                <label className="flex items-center gap-2 text-sm">
-                  <input id={`f-${f.name}`} type="checkbox" checked={values[f.name] === "true"} onChange={(e) => set(f.name, e.target.checked ? "true" : "")} />
-                  {f.hint}
-                </label>
-              ) : (
-                <Input
-                  id={`f-${f.name}`}
-                  type={f.type === "datetime" ? "datetime-local" : (f.type ?? "text")}
-                  min={f.min}
-                  value={values[f.name] ?? ""}
-                  placeholder={f.placeholder}
-                  onChange={(e) => set(f.name, e.target.value)}
-                />
-              )}
-            </Field>
-          ))}
+          {fields
+            .filter(shown)
+            .filter((f) => !f.advanced)
+            .map(renderField)}
+          {fields.some((f) => f.advanced && shown(f)) && (
+            <details className="rounded-lg border px-3 py-2 text-sm">
+              <summary className="cursor-pointer font-medium">Advanced</summary>
+              <div className="mt-3 space-y-3">
+                {fields
+                  .filter(shown)
+                  .filter((f) => f.advanced)
+                  .map(renderField)}
+              </div>
+            </details>
+          )}
           <DialogFooter>
             <Button type="submit" disabled={busy || missing}>
               {submitLabel}
@@ -251,7 +282,7 @@ export function ActionDialog({
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 /** Seven day toggles for a "days" field; the value stays in week order. */
-function DayToggles({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
+export function DayToggles({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
   const chosen = new Set(value.split(",").filter(Boolean));
   const toggle = (day: string) => {
     const next = new Set(chosen);

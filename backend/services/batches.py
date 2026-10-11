@@ -564,6 +564,26 @@ def decide_confirmation(batch_id: int, decision: str, note: str | None, override
     return batch
 
 
+def confirm_batch(batch_id: int, note: str | None, override_reason: str | None) -> Batch:
+    """Propose and confirm in one step: the Branch Manager decides alone, so a Draft batch whose readiness record passes is
+    proposed (no notice: they are the one who would be asked) and confirmed together. A Proposed batch is just confirmed.
+    Advisory warnings need `override_reason`, which is audited with the confirmation."""
+    batch = load_managed_batch(batch_id)
+    _require_confirmer(batch)
+    if batch.state == "Forming":
+        blockers, _ = _checklist_blockers(confirmation_checklist(batch))
+        if blockers:
+            raise BusinessRule("The batch cannot be confirmed yet: " + "; ".join(blockers), {"blocking": blockers})
+        batch.proposed_by, batch.proposed_at, batch.proposal_note = actor_id(), datetime.now(timezone.utc), note
+        _set_state(batch, "Proposed", note, "Proposed")
+        db.session.expire(batch, ["proposer"])
+    # the stored readiness was worked out when the batch was created (no trainer yet, say): bring it up to date before the batch may start
+    suggestion = suggested_readiness(batch, readiness_checks(batch, batches_repo.allocated_counts([batch_id]).get(batch_id, 0)))
+    if suggestion["readiness"] != "Blocked":
+        apply_readiness(batch, suggestion["readiness"], suggestion["readiness_reason"], suggestion["recovery_owner"], note="Updated when the batch was confirmed")
+    return decide_confirmation(batch_id, "Confirmed", note, override_reason)
+
+
 def completion_blockers(batch: Batch) -> list[str]:
     """What still stands between the batch and Completed (Module 15 §19): replacements owed, open disruptions, pending
     requests, and students still owed teaching without a named owner, plan and destination."""

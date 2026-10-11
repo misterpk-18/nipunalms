@@ -20,8 +20,8 @@ test("a branch manager records a branch closure and it is approved as recorded",
   await dialog.getByLabel("Title").fill("Branch maintenance");
   await dialog.getByRole("button", { name: "Add" }).click();
   await expect(page.getByText("Added to the calendar.")).toBeVisible();
-  await page.goto("/branch/operations");
-  await expect(page.getByRole("row", { name: /Branch maintenance/ })).toContainText("Approved");
+  await page.reload();
+  await expect(page.getByRole("row", { name: /Branch maintenance/ }).first()).toContainText("Approved");
 });
 
 test("the super admin sees the academic calendar and the allocation deadlines", async ({ page }, info) => {
@@ -29,7 +29,7 @@ test("the super admin sees the academic calendar and the allocation deadlines", 
   await login(page, USERS.admin);
   await page.getByRole("link", { name: "Academic Calendar" }).click();
   await expect(page.getByRole("heading", { name: "Academic Calendar" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /Branch maintenance/ })).toBeVisible();
-  await page.goto("/branch/batches");
-  await expect(page.getByRole("columnheader", { name: "Allocate by" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Branch maintenance/ }).first()).toBeVisible();
+  await page.goto("/branch/waiting");
+  await expect(page.getByText(/Allocate by/).first()).toBeVisible();
 });

@@ -3,6 +3,7 @@
  * of one batch: capacity increases, student transfers, material changes with each student's agreement, merge / split
  * and completion handovers.
  */
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   CHANGE_KINDS,
@@ -43,7 +44,6 @@ export function LifecycleActions({ batch }: { batch: BatchDetail }) {
     (v: { state: Parameters<typeof deliveryApi.batchState>[1]["state"]; reason?: string }) => deliveryApi.batchState(batch.batch_id, v),
     "Batch state updated",
   );
-  const propose = useDelivery((note?: string) => deliveryApi.proposeBatch(batch.batch_id, note), "Proposed — confirm it when you are ready");
   const decide = useDelivery(
     (v: { decision: "Confirmed" | "Returned"; note?: string; override_reason?: string }) => deliveryApi.decideConfirmation(batch.batch_id, v),
     "Decision recorded",
@@ -61,29 +61,8 @@ export function LifecycleActions({ batch }: { batch: BatchDetail }) {
   if (!manager) return null;
   return (
     <div className="mt-4 flex flex-wrap gap-2">
-      {s === "Forming" && (
-        <ActionDialog
-          trigger={button("Propose batch", "default")}
-          title={`Propose ${batch.batch_code}`}
-          description="Proposes the batch for confirmation. The first six points of the readiness record must pass."
-          fields={[{ name: "note", label: "Note", type: "textarea" }]}
-          submitLabel="Propose"
-          onSubmit={(v) => propose.mutateAsync(v["note"] || undefined)}
-        />
-      )}
       {s === "Proposed" && approver && (
         <>
-          <ActionDialog
-            trigger={button("Confirm batch", "default")}
-            title={`Confirm ${batch.batch_code}`}
-            description="Confirmed batches can take seats. If the checks raise warnings you will be asked why they are acceptable."
-            fields={[
-              { name: "note", label: "Note", type: "textarea" },
-              { name: "override_reason", label: "Why the warnings are acceptable", type: "textarea", required: true, afterWarnings: true },
-            ]}
-            submitLabel="Confirm"
-            onSubmit={(v) => decide.mutateAsync({ decision: "Confirmed", note: v["note"] || undefined, override_reason: v["override_reason"] || undefined })}
-          />
           <ActionDialog
             trigger={button("Return to draft")}
             title={`Return ${batch.batch_code}`}
@@ -160,7 +139,7 @@ export function LifecycleActions({ batch }: { batch: BatchDetail }) {
 
 // ---------------------------------------------------------------- edit
 
-export function EditBatchDialog({ batch }: { batch: BatchDetail }) {
+export function EditBatchDialog({ batch, trigger }: { batch: BatchDetail; trigger?: ReactNode }) {
   const update = useDelivery((body: Record<string, unknown>) => deliveryApi.updateBatch(batch.batch_id, body), "Batch updated");
   const current: Record<string, unknown> = {
     display_name: batch.display_name,
@@ -186,17 +165,33 @@ export function EditBatchDialog({ batch }: { batch: BatchDetail }) {
   return (
     <ActionDialog
       trigger={
-        <Button size="sm" variant="outline">
-          Edit batch
-        </Button>
+        trigger ?? (
+          <Button size="sm" variant="outline">
+            Edit batch
+          </Button>
+        )
       }
       title={`Edit ${batch.batch_code}`}
       description="Only what you change is sent. Changing the start, mode, days, times or end of a confirmed batch with students is a material change: use the Requests tab."
       fields={[
         { name: "display_name", label: "Display name", value: batch.display_name ?? "" },
         { name: "batch_type", label: "Batch type", type: "select", options: opt(["Group", "Individual", "Corporate"]), value: batch.batch_type },
-        { name: "schedule_pattern", label: "Schedule pattern", type: "select", options: opt(["Regular", "Weekend", "Fast-track"]), value: batch.schedule_pattern },
-        { name: "capacity", label: "Capacity", type: "number", min: 1, required: true, value: String(batch.capacity), hint: "Raising it after Draft is a capacity request" },
+        {
+          name: "schedule_pattern",
+          label: "Schedule pattern",
+          type: "select",
+          options: opt(["Regular", "Weekend", "Fast-track"]),
+          value: batch.schedule_pattern,
+        },
+        {
+          name: "capacity",
+          label: "Capacity",
+          type: "number",
+          min: 1,
+          required: true,
+          value: String(batch.capacity),
+          hint: "Raising it after Draft is a capacity request",
+        },
         { name: "classroom_capacity", label: "Classroom capacity", type: "number", min: 0, value: batch.classroom_capacity?.toString() ?? "" },
         { name: "lab_capacity", label: "Lab capacity", type: "number", min: 0, value: batch.lab_capacity?.toString() ?? "" },
         { name: "online_capacity", label: "Online capacity", type: "number", min: 0, value: batch.online_capacity?.toString() ?? "" },
@@ -248,15 +243,7 @@ export function EditBatchDialog({ batch }: { batch: BatchDetail }) {
 
 // ---------------------------------------------------------------- transfers and handovers (roster row actions)
 
-export function RequestTransferDialog({
-  row,
-  enrolment,
-  targets,
-}: {
-  row: RosterRow;
-  enrolment: EnrolmentRow | undefined;
-  targets: Batch[];
-}) {
+export function RequestTransferDialog({ row, enrolment, targets }: { row: RosterRow; enrolment: EnrolmentRow | undefined; targets: Batch[] }) {
   const request = useDelivery(
     (v: { enrolmentId: number; body: Parameters<typeof deliveryApi.requestTransfer>[1] }) => deliveryApi.requestTransfer(v.enrolmentId, v.body),
     "Transfer requested — the Branch Manager decides",
@@ -277,7 +264,10 @@ export function RequestTransferDialog({
           label: "To batch",
           type: "select",
           required: true,
-          options: targets.map((b) => ({ value: b.batch_id, label: `${b.display_name ?? b.batch_code} · ${b.batch_code} (${b.allocated_count}/${b.capacity}, ${b.state_label}) · ${b.branch.branch_name}` })),
+          options: targets.map((b) => ({
+            value: b.batch_id,
+            label: `${b.display_name ?? b.batch_code} · ${b.batch_code} (${b.allocated_count}/${b.capacity}, ${b.state_label}) · ${b.branch.branch_name}`,
+          })),
         },
         ...(tracks.length > 0
           ? [
@@ -384,7 +374,10 @@ function DecisionButtons({
 }
 
 function CapacityRequests({ batch, manager, approver }: { batch: BatchDetail; manager: boolean; approver: boolean }) {
-  const query = useQuery({ queryKey: ["delivery", "capacity-requests", batch.batch_id], queryFn: () => deliveryApi.capacityRequests({ batch_id: batch.batch_id }) });
+  const query = useQuery({
+    queryKey: ["delivery", "capacity-requests", batch.batch_id],
+    queryFn: () => deliveryApi.capacityRequests({ batch_id: batch.batch_id }),
+  });
   const request = useDelivery((body: Record<string, unknown>) => deliveryApi.requestCapacity(batch.batch_id, body), "Capacity request sent");
   const decide = useDelivery(
     (v: { id: number; decision: "Approved" | "Rejected"; note?: string }) => deliveryApi.decideCapacity(v.id, { decision: v.decision, note: v.note }),
@@ -395,7 +388,11 @@ function CapacityRequests({ batch, manager, approver }: { batch: BatchDetail; ma
     {
       h: "Sides",
       c: (r: CapacityRequest) =>
-        [r.classroom_capacity != null && `classroom ${r.classroom_capacity}`, r.lab_capacity != null && `lab ${r.lab_capacity}`, r.online_capacity != null && `online ${r.online_capacity}`]
+        [
+          r.classroom_capacity != null && `classroom ${r.classroom_capacity}`,
+          r.lab_capacity != null && `lab ${r.lab_capacity}`,
+          r.online_capacity != null && `online ${r.online_capacity}`,
+        ]
           .filter(Boolean)
           .join(" · ") || "—",
     },
@@ -462,7 +459,13 @@ function CapacityRequests({ batch, manager, approver }: { batch: BatchDetail; ma
               { name: "classroom_capacity", label: "Classroom capacity", type: "number", min: 0, value: batch.classroom_capacity?.toString() ?? "" },
               { name: "lab_capacity", label: "Lab capacity", type: "number", min: 0, value: batch.lab_capacity?.toString() ?? "" },
               { name: "online_capacity", label: "Online capacity", type: "number", min: 0, value: batch.online_capacity?.toString() ?? "" },
-              { name: "resource_validation", label: "Resource validation", type: "textarea", required: true, hint: "Rooms, seats, devices or licences checked" },
+              {
+                name: "resource_validation",
+                label: "Resource validation",
+                type: "textarea",
+                required: true,
+                hint: "Rooms, seats, devices or licences checked",
+              },
               { name: "academic_review", label: "Academic review", type: "textarea", required: true, hint: "Why the larger group still works academically" },
             ]}
             submitLabel="Send request"
@@ -480,14 +483,19 @@ function CapacityRequests({ batch, manager, approver }: { batch: BatchDetail; ma
         )}
       </div>
       <QueryView query={query}>
-        {(page) => <DataTable caption="Capacity requests" rows={page.data} getKey={(r) => r.request_id} cols={cols} empty="No capacity requests for this batch." />}
+        {(page) => (
+          <DataTable caption="Capacity requests" rows={page.data} getKey={(r) => r.request_id} cols={cols} empty="No capacity requests for this batch." />
+        )}
       </QueryView>
     </div>
   );
 }
 
 function TransferRequests({ batch, manager, approver }: { batch: BatchDetail; manager: boolean; approver: boolean }) {
-  const query = useQuery({ queryKey: ["delivery", "transfer-requests", batch.batch_id], queryFn: () => deliveryApi.transferRequests({ batch_id: batch.batch_id }) });
+  const query = useQuery({
+    queryKey: ["delivery", "transfer-requests", batch.batch_id],
+    queryFn: () => deliveryApi.transferRequests({ batch_id: batch.batch_id }),
+  });
   const destination = useDelivery(
     (v: { id: number; decision: "Confirmed" | "Rejected"; note?: string }) => deliveryApi.confirmDestination(v.id, { decision: v.decision, note: v.note }),
     "Destination answer recorded",
@@ -598,9 +606,24 @@ function describeChanges(changes: Record<string, unknown> | null) {
   return entries.length ? entries.map(([k, v]) => `${k.replace(/_/g, " ")}: ${Array.isArray(v) ? v.join(", ") : String(v)}`).join(" · ") : null;
 }
 
-function MaterialChanges({ batch, manager, approver, roster, sameCourse }: { batch: BatchDetail; manager: boolean; approver: boolean; roster: RosterRow[]; sameCourse: Batch[] }) {
+function MaterialChanges({
+  batch,
+  manager,
+  approver,
+  roster,
+  sameCourse,
+}: {
+  batch: BatchDetail;
+  manager: boolean;
+  approver: boolean;
+  roster: RosterRow[];
+  sameCourse: Batch[];
+}) {
   const query = useQuery({ queryKey: ["delivery", "material-changes", batch.batch_id], queryFn: () => deliveryApi.changes({ batch_id: batch.batch_id }) });
-  const propose = useDelivery((body: Record<string, unknown>) => deliveryApi.proposeChange(batch.batch_id, body), "Material change proposed — the Branch Manager decides");
+  const propose = useDelivery(
+    (body: Record<string, unknown>) => deliveryApi.proposeChange(batch.batch_id, body),
+    "Material change proposed — the Branch Manager decides",
+  );
   const decide = useDelivery(
     (v: { id: number; decision: "Approved" | "Rejected"; note?: string }) => deliveryApi.decideChange(v.id, { decision: v.decision, note: v.note }),
     "Decision recorded",
@@ -637,7 +660,9 @@ function MaterialChanges({ batch, manager, approver, roster, sameCourse }: { bat
                 type: "select",
                 required: true,
                 showIf: is("Batch move"),
-                options: sameCourse.filter((b) => b.batch_id !== batch.batch_id).map((b) => ({ value: b.batch_id, label: `${b.batch_code} (${b.state_label})` })),
+                options: sameCourse
+                  .filter((b) => b.batch_id !== batch.batch_id)
+                  .map((b) => ({ value: b.batch_id, label: `${b.batch_code} (${b.state_label})` })),
               },
               { name: "proposed_plan", label: "Proposed plan", type: "textarea", required: true },
               { name: "reason", label: "Reason", type: "textarea", required: true },
@@ -746,7 +771,10 @@ function MaterialChanges({ batch, manager, approver, roster, sameCourse }: { bat
 /** A student's answer given outside the LMS (in person, by phone), recorded with its evidence. */
 function RecordAnswerDialog({ change, names }: { change: MaterialChange; names: Map<number, string> }) {
   const detail = useQuery({ queryKey: ["delivery", "material-change", change.change_id], queryFn: () => deliveryApi.change(change.change_id) });
-  const record = useDelivery((body: Parameters<typeof deliveryApi.recordChangeResponse>[1]) => deliveryApi.recordChangeResponse(change.change_id, body), "Answer recorded");
+  const record = useDelivery(
+    (body: Parameters<typeof deliveryApi.recordChangeResponse>[1]) => deliveryApi.recordChangeResponse(change.change_id, body),
+    "Answer recorded",
+  );
   const pending = (detail.data?.responses ?? []).filter((r) => r.response === "Pending");
   return (
     <ActionDialog
@@ -782,7 +810,19 @@ function RecordAnswerDialog({ change, names }: { change: MaterialChange; names: 
   );
 }
 
-function Successions({ batch, manager, approver, roster, sameCourse }: { batch: BatchDetail; manager: boolean; approver: boolean; roster: RosterRow[]; sameCourse: Batch[] }) {
+function Successions({
+  batch,
+  manager,
+  approver,
+  roster,
+  sameCourse,
+}: {
+  batch: BatchDetail;
+  manager: boolean;
+  approver: boolean;
+  roster: RosterRow[];
+  sameCourse: Batch[];
+}) {
   const request = useDelivery((body: Record<string, unknown>) => deliveryApi.requestSuccession(body), "Request sent — the Branch Manager decides");
   const decide = useDelivery(
     (v: { id: number; decision: "Approved" | "Rejected"; note?: string }) => deliveryApi.decideSuccession(v.id, { decision: v.decision, note: v.note }),
@@ -802,13 +842,23 @@ function Successions({ batch, manager, approver, roster, sameCourse }: { batch: 
             title={`Merge or split ${batch.batch_code}`}
             description="Merge moves every student of this batch into the other batch. Split moves the students you choose. Same branch, course or track and curriculum version; a different mode or timetable needs an applied Batch move material change first."
             fields={[
-              { name: "kind", label: "What to do", type: "select", options: [{ value: "Merge", label: "Merge into another batch" }, { value: "Split", label: "Split students out to another batch" }] },
+              {
+                name: "kind",
+                label: "What to do",
+                type: "select",
+                options: [
+                  { value: "Merge", label: "Merge into another batch" },
+                  { value: "Split", label: "Split students out to another batch" },
+                ],
+              },
               {
                 name: "to_batch_id",
                 label: "Other batch",
                 type: "select",
                 required: true,
-                options: sameCourse.filter((b) => b.batch_id !== batch.batch_id).map((b) => ({ value: b.batch_id, label: `${b.batch_code} (${b.allocated_count}/${b.capacity}, ${b.state_label})` })),
+                options: sameCourse
+                  .filter((b) => b.batch_id !== batch.batch_id)
+                  .map((b) => ({ value: b.batch_id, label: `${b.batch_code} (${b.allocated_count}/${b.capacity}, ${b.state_label})` })),
               },
               {
                 name: "enrolment_ids",
@@ -816,7 +866,9 @@ function Successions({ batch, manager, approver, roster, sameCourse }: { batch: 
                 type: "multiselect",
                 required: true,
                 showIf: (v) => v["kind"] === "Split",
-                options: roster.filter((r) => r.status === "Active").map((r) => ({ value: r.enrolment_id, label: `${r.student.full_name} (${r.enrolment.enrolment_code})` })),
+                options: roster
+                  .filter((r) => r.status === "Active")
+                  .map((r) => ({ value: r.enrolment_id, label: `${r.student.full_name} (${r.enrolment.enrolment_code})` })),
               },
               { name: "effective_from", label: "Effective from", type: "date", required: true },
               { name: "reason", label: "Reason", type: "textarea", required: true },

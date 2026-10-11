@@ -26,8 +26,8 @@ function tile(page: Page, label: string) {
 test.describe("Branch dashboard (academic work) and exception queue", () => {
   test("Guntur coordinator: tiles, batch risk note, quick links", async ({ page }) => {
     await login(page, USERS.coordGnt);
-    await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
-    await expect(page.getByText("Guntur · see what needs your attention")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "My work" })).toBeVisible();
+    await expect(page.getByText("Guntur · what needs you today")).toBeVisible();
     // Counts depend on what earlier specs resolved, so the tiles are checked for shape, not for the seed's exact numbers
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/\d/);
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
@@ -42,7 +42,7 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
 
   test("Vijayawada coordinator sees only Vijayawada", async ({ page }) => {
     await login(page, USERS.coordVij);
-    await expect(page.getByText("Vijayawada · see what needs your attention")).toBeVisible();
+    await expect(page.getByText("Vijayawada · what needs you today")).toBeVisible();
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText("0");
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
     await expect(page.getByText("NIT-GNT-BAT-2026-000003")).toHaveCount(0);
@@ -88,8 +88,8 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
 test.describe("Branch dashboard", () => {
   test("Branch Manager: CRM figures are Unavailable, never zero; locked to the branch", async ({ page }) => {
     await login(page, USERS.bmGnt);
-    await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
-    await expect(page.getByText("Guntur · see what needs your attention")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "My work" })).toBeVisible();
+    await expect(page.getByText("Guntur · what needs you today")).toBeVisible();
     for (const label of ["Branch verified collections against target", "Branch new paid Admissions", "Overdue branch follow-ups"]) {
       await expect(tile(page, label)).toContainText("Unavailable");
       await expect(tile(page, label)).toContainText("Not connected");
@@ -98,8 +98,8 @@ test.describe("Branch dashboard", () => {
     await expect(tile(page, "Running / starting batches")).toBeVisible();
     await expect(tile(page, "Schedule & recording exceptions")).toBeVisible();
     await expect(tile(page, "Open escalations & extension requests")).toContainText("Escalations 1");
-    for (const link of ["Batches, schedule & people", "Escalations & extensions", "Certificates & reports"]) {
-      await expect(page.locator("#main").getByRole("link", { name: link })).toBeVisible();
+    for (const link of ["Batches", "Escalations & extensions", "Certificates & reports"]) {
+      await expect(page.locator("#main").getByRole("link", { name: link }).first()).toBeVisible();
     }
     await expect(page.getByText("Finance and Admissions remain in the CRM. This view shows academic data for the locked branch only.")).toBeVisible();
     await expect(page.getByText("NIT-VIJ")).toHaveCount(0);
@@ -175,7 +175,7 @@ test.describe("Founder overview", () => {
 test.describe("@mobile staff dashboards", () => {
   test("@mobile coordinator dashboard and queue fit the screen", async ({ page }) => {
     await login(page, USERS.coordGnt);
-    await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "My work" })).toBeVisible();
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/\d/);
     await noHorizontalScroll(page);
     await page.goto("/branch/exceptions");

@@ -46,6 +46,9 @@ def _scope_block(branch_ids: set[int] | None) -> dict:
             "label": " · ".join(b.branch_name for b in branches) if branch_ids is not None else "All branches"}
 
 
+scope_block = _scope_block  # for the Branch Manager's My work list
+
+
 def not_configured(reason: str) -> dict:
     """A CRM-authoritative figure the LMS does not hold. Never a number, never 0."""
     return {"state": "Not Configured", "reason": reason, "refreshed_at": dash_repo.latest_finance_refresh()}

@@ -260,7 +260,7 @@ def escalate_unallocated() -> int:
                                  f"{admission.planned_start_date.isoformat()}",
                            body=f"{enrolment.enrolment_code} · {enrolment.course.course_code} · {enrolment.status}. "
                                 f"Record who is responsible, the blockage, the recovery and what the student is told.",
-                           link="/branch/batches" if role_code == "BRANCH_MANAGER" else "/admin/exceptions", role_code=role_code,
+                           link="/branch/waiting" if role_code == "BRANCH_MANAGER" else "/admin/exceptions", role_code=role_code,
                            branch_id=enrolment.service_branch_id, action_required=True)
         escalated += 1 if sent else 0
     return escalated

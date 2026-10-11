@@ -61,3 +61,19 @@ def working_days_between(start: date, end: date, branch_id: int | None = None) -
     weekdays, closed = _weekdays(), closed_days(start, end, branch_id)
     return sum(1 for n in range(1, (end - start).days + 1)
                if (d := start + timedelta(days=n)).isoweekday() in weekdays and d not in closed)
+
+
+def closure_reasons(start: date, end: date, branch_id: int | None) -> dict[date, str]:
+    """Each closed date between start and end with why: "Holiday: Dussehra" (company holiday) or "Closed: <title>" (this branch)."""
+    stmt = select(CalendarClosure).where(
+        CalendarClosure.status == "Approved", CalendarClosure.starts_on <= end, CalendarClosure.ends_on >= start,
+        or_(CalendarClosure.branch_id.is_(None), CalendarClosure.branch_id == branch_id) if branch_id is not None
+        else CalendarClosure.branch_id.is_(None),
+    ).order_by(CalendarClosure.closure_id)
+    reasons: dict[date, str] = {}
+    for closure in db.session.execute(stmt).scalars().unique():
+        day = max(closure.starts_on, start)
+        while day <= min(closure.ends_on, end):
+            reasons.setdefault(day, f"{'Holiday' if closure.branch_id is None else 'Closed'}: {closure.title}")
+            day += timedelta(days=1)
+    return reasons

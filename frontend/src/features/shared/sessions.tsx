@@ -9,9 +9,9 @@ import { useAuth } from "@/auth/auth";
 import { useApiMutation } from "@/lib/mutation";
 import { ActionDialog, MeetBadge, StateBadge, fmtDay, fmtRange, fromIstInput, mono, toIstInput, useIsManager } from "./delivery-ui";
 
-/** A mutation that refreshes every delivery query afterwards. */
+/** A mutation that refreshes every delivery query afterwards, and the Branch Manager's lists and the navigation counts built on them. */
 export function useDelivery<TVars, TResult>(fn: (vars: TVars) => Promise<TResult>, success: string) {
-  return useApiMutation(fn, { success, invalidate: [["delivery"]] });
+  return useApiMutation(fn, { success, invalidate: [["delivery"], ["branch"], ["nav"]] });
 }
 
 const START_OPENS_MS = 60 * 60 * 1000;

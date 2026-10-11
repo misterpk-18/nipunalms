@@ -1,16 +1,15 @@
-/** Everything a Branch Manager does to one batch: edit, state, readiness, trainers, students, history. */
+/** The parts of a batch page: overview, readiness checks, trainers and students (the page itself is `features/branch/batch-page`). */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type BatchDetail, type Check } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
-import { DataTable, KeyValue, Note, PillTabs, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
+import { DataTable, KeyValue, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { statusInfo } from "@/lib/status";
 import { ActionDialog, StateBadge, fmtDate, fmtDay, useCanManage } from "@/features/shared/delivery-ui";
 import { timetableLabel } from "@/features/academic/timetable";
-import { RosterDialog, useDelivery } from "@/features/shared/sessions";
-import { EditBatchDialog, HandoverDialog, LifecycleActions, RequestTransferDialog, RequestsTab } from "./batch-operations";
+import { useDelivery } from "@/features/shared/sessions";
+import { EditBatchDialog, HandoverDialog, LifecycleActions, RequestTransferDialog } from "./batch-operations";
 
-const TABS = ["Overview", "Readiness", "Trainers", "Students", "Requests", "History"] as const;
 const CHECK_TONE = { pass: "success", fail: "danger", pending: "neutral", warn: "warning" } as const;
 const CHECK_WORD = { pass: "Pass", fail: "Fail", pending: "Pending", warn: "Review" } as const;
 
@@ -30,7 +29,7 @@ export function CheckList({ checks }: { checks: Check[] }) {
   );
 }
 
-function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
   const closed = ["Completed", "Cancelled", "Archived"].includes(batch.state);
   const sides = [
     batch.classroom_capacity != null && `classroom ${batch.classroom_capacity}`,
@@ -67,9 +66,14 @@ function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) 
               {batch.state === "On Hold" && batch.held_from_state && <span className="text-xs text-muted-foreground">held from {batch.held_from_state}</span>}
             </span>,
           ],
-          ["Proposed", batch.proposed_by ? `${batch.proposed_by.full_name}, ${batch.proposed_at ? fmtDate(batch.proposed_at) : ""}${batch.proposal_note ? ` — ${batch.proposal_note}` : ""}` : "—"],
+          [
+            "Proposed",
+            batch.proposed_by
+              ? `${batch.proposed_by.full_name}, ${batch.proposed_at ? fmtDate(batch.proposed_at) : ""}${batch.proposal_note ? ` — ${batch.proposal_note}` : ""}`
+              : "—",
+          ],
           ["Confirmed", batch.confirmed_by ? `${batch.confirmed_by.full_name}, ${batch.confirmed_at ? fmtDate(batch.confirmed_at) : ""}` : "—"],
-          ["Readiness", <StatusBadge key="r" domain="readiness" code={batch.readiness} />],
+          ["Checks", <StatusBadge key="r" domain="readiness" code={batch.readiness} />],
         ]}
       />
       {manager && !closed && (
@@ -82,11 +86,11 @@ function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) 
   );
 }
 
-function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
   const query = useQuery({ queryKey: ["delivery", "readiness", batch.batch_id, batch.readiness], queryFn: () => deliveryApi.readiness(batch.batch_id) });
   const set = useDelivery(
     (body: { readiness: string; readiness_reason?: string | null; recovery_owner?: string | null }) => deliveryApi.setReadiness(batch.batch_id, body),
-    "Readiness updated",
+    "Batch status updated",
   );
   return (
     <QueryView query={query}>
@@ -98,8 +102,8 @@ function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean
             {r.recovery_owner && <span className="ml-2 text-muted-foreground">· Owner: {r.recovery_owner}</span>}
           </p>
           <CheckList checks={r.checks} />
-          <h3 className="pt-2 text-sm font-semibold">Readiness record (7 points)</h3>
-          <p className="text-sm text-muted-foreground">Points 1 to 6 must pass before the batch can be proposed; point 7 is advisory.</p>
+          <h3 className="pt-2 text-sm font-semibold">Checklist before confirming (7 points)</h3>
+          <p className="text-sm text-muted-foreground">Points 1 to 6 must pass before the batch can be confirmed; point 7 is the confirmation itself.</p>
           <CheckList checks={r.checklist} />
           <p className="text-sm">
             The checks suggest: <StatusBadge domain="readiness" code={r.suggested.readiness} />
@@ -111,7 +115,7 @@ function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean
                 disabled={r.suggested.readiness === r.readiness && r.suggested.readiness_reason === r.readiness_reason}
                 onClick={() => set.mutate(r.suggested)}
               >
-                Apply suggested readiness
+                Update the status from the checks
               </Button>
               <ActionDialog
                 trigger={
@@ -119,12 +123,12 @@ function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean
                     Set manually
                   </Button>
                 }
-                title="Set readiness"
+                title="Set the batch status"
                 description="Blocked needs a reason and an owner; Ready is only accepted when the required checks pass."
                 fields={[
                   {
                     name: "readiness",
-                    label: "Readiness",
+                    label: "Status",
                     type: "select",
                     options: ["Ready", "Blocked", "Pending Verification"].map((v) => ({ value: v, label: statusInfo("readiness", v).label })),
                     value: r.readiness,
@@ -142,7 +146,7 @@ function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean
   );
 }
 
-function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
   const staff = useQuery({
     queryKey: ["delivery", "trainers", batch.branch.branch_id],
     queryFn: () => deliveryApi.staff("TRAINER", batch.branch.branch_id),
@@ -219,7 +223,7 @@ function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
   );
 }
 
-function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
   const [history, setHistory] = useState(false);
   const roster = useQuery({
     queryKey: ["delivery", "roster", batch.batch_id, history],
@@ -275,11 +279,7 @@ function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
                       c: (r: (typeof page.data)[number]) =>
                         r.status === "Active" ? (
                           <div className="flex flex-wrap gap-1.5">
-                            <RequestTransferDialog
-                              row={r}
-                              targets={targets}
-                              enrolment={enrolments.data?.data.find((e) => e.enrolment_id === r.enrolment_id)}
-                            />
+                            <RequestTransferDialog row={r} targets={targets} enrolment={enrolments.data?.data.find((e) => e.enrolment_id === r.enrolment_id)} />
                             <HandoverDialog batch={batch} row={r} targets={targets} />
                             <ActionDialog
                               trigger={
@@ -304,47 +304,5 @@ function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean 
         )}
       </QueryView>
     </>
-  );
-}
-
-export function BatchPanel({ batchId }: { batchId: number }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Overview");
-  const manager = useCanManage();
-  const query = useQuery({ queryKey: ["delivery", "batch", batchId], queryFn: () => deliveryApi.batch(batchId) });
-  return (
-    <QueryView query={query}>
-      {(batch) => (
-        <Section title={`${batch.batch_code} — ${batch.display_name ?? batch.course.title}`} actions={<RosterDialog batch={batch} />}>
-          {batch.readiness !== "Ready" && (
-            <p className="mb-3 text-sm">
-              <StatusBadge domain="readiness" code={batch.readiness} /> {batch.readiness_reason} {batch.recovery_owner && `· Owner: ${batch.recovery_owner}`}
-            </p>
-          )}
-          <PillTabs label="Batch sections" tabs={TABS} value={tab} onChange={setTab} />
-          {tab === "Overview" && <Overview batch={batch} manager={manager} />}
-          {tab === "Readiness" && <ReadinessTab batch={batch} manager={manager} />}
-          {tab === "Trainers" && <TrainersTab batch={batch} manager={manager} />}
-          {tab === "Students" && <StudentsTab batch={batch} manager={manager} />}
-          {tab === "Requests" && <RequestsTab batch={batch} />}
-          {tab === "History" && (
-            <>
-              <ul className="space-y-1 text-sm">
-                {batch.history.map((e) => (
-                  <li key={e.event_id}>
-                    {fmtDate(e.created_at)} · <strong>{e.event_type}</strong>
-                    {e.from_value || e.to_value ? ` (${e.from_value ?? "—"} → ${e.to_value ?? "—"})` : ""} by {e.actor?.full_name ?? "system"}
-                    {e.reason ? ` — ${e.reason}` : ""}
-                  </li>
-                ))}
-                {batch.history.length === 0 && <li className="text-muted-foreground">No changes recorded.</li>}
-              </ul>
-              <div className="mt-3">
-                <Note>State, readiness, trainer and curriculum changes are logged with who made them and why.</Note>
-              </div>
-            </>
-          )}
-        </Section>
-      )}
-    </QueryView>
   );
 }

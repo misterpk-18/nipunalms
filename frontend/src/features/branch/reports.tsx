@@ -22,10 +22,7 @@ export function BranchReports() {
   const summary = useBranchSummary({});
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <PageHead
-        title="Branch certificates & reports"
-        description="Review certificates for the branch and see attendance, progress and completion summaries."
-      />
+      <PageHead title="Branch certificates & reports" description="Review certificates for the branch and see attendance, progress and completion summaries." />
       <Section title="Certificate Register">
         <CertificateRegister />
       </Section>

@@ -36,7 +36,7 @@ const ROLES = [
     name: "branch manager",
     user: USERS.bmGnt,
     home: "/branch",
-    nav: ["Dashboard", "Batches", "Batches, Schedule & People", "Curriculum", "Recording Exceptions", "Certificates & Reports"],
+    nav: ["My work", "Class day", "Batches", "Waiting for a batch", "Schedule & calendar", "Curriculum", "Recording Exceptions", "Certificates & Reports"],
     other: "/admin",
   },
   {
@@ -183,5 +183,5 @@ test("old /academic links land on the matching Branch Manager screen", async ({ 
   await expect(page).toHaveURL(/\/branch\/academic-reports$/);
   await page.goto("/academic");
   await expect(page).toHaveURL(/\/branch$/);
-  await expect(page.getByRole("heading", { name: "Branch dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "My work" })).toBeVisible();
 });

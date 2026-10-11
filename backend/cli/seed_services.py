@@ -120,7 +120,7 @@ def _notifications(ctx: "SeedContext") -> None:
         ("bm_gnt", "Review", "Two completion reviews are waiting for a decision", "/branch/completion", True),
         ("bm_gnt", "Support", "A student support request was escalated to Academic", "/branch/support", False),
         ("bm_gnt", "Certificate", "A certificate is waiting for your approval", "/branch/reports", True),
-        ("bm_gnt", "Session", "Batch schedule for next week is published", "/branch/operations", False),
+        ("bm_gnt", "Session", "Batch schedule for next week is published", "/branch/schedule", False),
         ("admin", "Integration", "CRM sync finished with no failures", "/admin/crm-sync", False),
         ("admin", "Security", "Review the security readiness checklist", "/admin/security", True),
     )

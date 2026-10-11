@@ -50,6 +50,11 @@ def my_receipt_pdf(admission_id: int, receipt_number: str):
                                                                   "Cache-Control": "private, no-store"})
 
 
+def get_payment_instructions(branch_id: int):
+    branch = finance_service.get_payment_instructions(branch_id)
+    return ok({**branch.to_summary(), "payment_instructions": branch.payment_instructions})
+
+
 def set_payment_instructions(branch_id: int):
     v = Validator(json_body())
     v.string("payment_instructions", nullable=True, max_length=1500)

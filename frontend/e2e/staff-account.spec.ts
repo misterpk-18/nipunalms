@@ -38,7 +38,7 @@ test("a staff user opens their profile from the account menu and keeps their own
   await expect(page.getByText("Branch Manager").first()).toBeVisible();
   await expect(page.getByText("Last sign-in")).toBeVisible();
   await expect(page.getByRole("link", { name: "Change password" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "My work", exact: true })).toBeVisible();
 });
 
 test("staff notifications and profile fit a phone without sideways scroll @mobile", async ({ page }, info) => {

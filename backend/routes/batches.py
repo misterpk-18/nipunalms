@@ -95,3 +95,24 @@ def decide_confirmation(batch_id: int):
 @require_roles(*MANAGE_ROLES)
 def record_handover(batch_id: int):
     return batches_controller.record_handover(batch_id)
+
+
+@batches_bp.get("/<int:batch_id>/progress")
+@login_required
+@require_roles(*STAFF_ROLES)
+def get_progress(batch_id: int):
+    return batches_controller.get_progress(batch_id)
+
+
+@batches_bp.post("/<int:batch_id>/confirm")
+@login_required
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+def confirm_batch(batch_id: int):
+    return batches_controller.confirm_batch(batch_id)
+
+
+@batches_bp.post("/<int:batch_id>/generate-sessions")
+@login_required
+@require_roles(*MANAGE_ROLES)
+def generate_sessions(batch_id: int):
+    return batches_controller.generate_sessions(batch_id)

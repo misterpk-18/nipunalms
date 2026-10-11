@@ -106,7 +106,7 @@ def create_closure(data: dict) -> CalendarClosure:
     else:
         notify(category="Calendar", title=f"Branch closure to approve: {closure.title}",
                body=f"{closure.starts_on:%d %b} – {closure.ends_on:%d %b %Y}. {closure.reason or ''}".strip(),
-               link="/branch/operations", role_code="BRANCH_MANAGER", branch_id=branch_id,
+               link="/branch/schedule", role_code="BRANCH_MANAGER", branch_id=branch_id,
                event_key=f"closure-proposed:{closure.closure_id}", action_required=True)
     return closure
 

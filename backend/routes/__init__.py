@@ -3,6 +3,7 @@ from flask import Flask
 
 from routes.auth import auth_bp
 from routes.batches import batches_bp
+from routes.branch import branch_bp
 from routes.class_sessions import class_sessions_bp
 from routes.crm import crm_bp
 from routes.health import health_bp
@@ -37,6 +38,7 @@ BLUEPRINTS = [
     reference_bp,
     students_bp,
     batches_bp,
+    branch_bp,
     class_sessions_bp,
     crm_bp,
     integrations_bp,

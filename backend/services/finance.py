@@ -182,12 +182,18 @@ def receipt_pdf(admission_id: int, receipt_number: str) -> tuple[bytes, str]:
 
 # ---------------------------------------------------------------- branch setting
 
-def set_payment_instructions(branch_id: int, instructions: str | None) -> Branch:
-    """How and where students pay at this branch. A Branch Manager sets it for their own branches; a Super Admin for any."""
+def get_payment_instructions(branch_id: int) -> Branch:
+    """The branch whose payment instructions are being read or set: 404 outside the user's branches."""
     branch = branches_repo.get_by_id(branch_id)
     visible = scope.visible_branch_ids(current_user())
     if branch is None or (visible is not None and branch_id not in visible):
         raise NotFound("Branch not found")
+    return branch
+
+
+def set_payment_instructions(branch_id: int, instructions: str | None) -> Branch:
+    """How and where students pay at this branch. A Branch Manager sets it for their own branches; a Super Admin for any."""
+    branch = get_payment_instructions(branch_id)
     old = branch.payment_instructions
     branch.payment_instructions = instructions or None
     audit.record("BRANCH_PAYMENT_INSTRUCTIONS_CHANGED", "branch", branch.branch_code, old={"payment_instructions": old},

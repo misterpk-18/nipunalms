@@ -289,12 +289,36 @@ def create_sessions(data: dict) -> list[ClassSession]:
     slots = _occurrences(data["starts_at"], data["ends_at"], data.get("recurrence"))
     if len(slots) > MAX_SESSIONS_PER_REQUEST:
         raise ValidationError("Too many sessions", {"recurrence": [f"At most {MAX_SESSIONS_PER_REQUEST} sessions at a time"]})
+    return create_series(batch, trainer_id, [(begin, finish, data["title"], data.get("topic_id")) for begin, finish in slots], data)
+
+
+def conflicts_for(batch: Batch, trainer_user_id: int, starts_at: datetime, ends_at: datetime, room: str | None) -> tuple[str | None, list[str]]:
+    """What a class at this time would run into, without raising: the reason it cannot be scheduled at all (the trainer already
+    teaches then), and the advisory warnings a Branch Manager may override (the room is booked, students have another class)."""
+    clash = sessions_repo.trainer_conflict(trainer_user_id, starts_at, ends_at)
+    if clash is not None:
+        return f"The trainer already teaches {clash.session_code} ({clash.title}) on {_slot(clash.starts_at, clash.ends_at)}", []
+    warnings = []
+    if room:
+        booked = sessions_repo.room_conflict(batch.branch_id, room, starts_at, ends_at)
+        if booked is not None:
+            warnings.append(f"{room} is already used by {booked.session_code} ({booked.title}) on {_slot(booked.starts_at, booked.ends_at)}")
+    others = sessions_repo.student_conflicts([batch.batch_id], starts_at, ends_at)
+    if others:
+        warnings.append("Students of this class also attend " + ", ".join(f"{o.session_code} ({o.batch.batch_code})" for o in others))
+    return None, warnings
+
+
+def create_series(batch: Batch, trainer_id: int, items: list[tuple[datetime, datetime, str, int | None]], data: dict) -> list[ClassSession]:
+    """Add the classes `(starts_at, ends_at, title, topic_id)` in one go (all or nothing), then tell the students and the trainer.
+    `data` carries what they share: mode, room, notes, purpose and its references, owner, deadline, Meet ids, override reason."""
+    purpose = data.get("purpose", "Regular")
     mode = data.get("mode") or batch.mode
     created = []
     pending = purpose != "Regular"
-    for begin, finish in slots:
+    for begin, finish, title, topic_id in items:
         overridden = _check_conflicts(batch, trainer_id, begin, finish, data.get("room"), override_reason=data.get("override_reason"))
-        session = ClassSession(batch_id=batch.batch_id, topic_id=data.get("topic_id"), title=data["title"], starts_at=begin, ends_at=finish,
+        session = ClassSession(batch_id=batch.batch_id, topic_id=topic_id, title=title, starts_at=begin, ends_at=finish,
                                mode=mode, trainer_user_id=trainer_id, room=data.get("room"), notes=data.get("notes"),
                                meet_status=meet.initial_status(mode), purpose=purpose, replaces_session_id=data.get("replaces_session_id"),
                                purpose_reference=data.get("purpose_reference"), owner_user_id=data.get("owner_user_id"),

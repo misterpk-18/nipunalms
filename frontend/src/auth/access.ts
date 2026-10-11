@@ -6,7 +6,6 @@ import {
   Award,
   BookOpen,
   Briefcase,
-  Building2,
   CalendarCheck,
   CalendarDays,
   CircleCheck,
@@ -16,6 +15,7 @@ import {
   FileQuestion,
   FolderOpen,
   GraduationCap,
+  Hourglass,
   House,
   Library,
   LifeBuoy,
@@ -131,12 +131,12 @@ const TRAINER_NAV: NavItem[] = [
 ];
 
 const BRANCH_NAV: NavItem[] = [
-  { to: "/branch", label: "Dashboard", icon: House, group: "Today" },
-  { to: "/branch/meet-operations", label: "Meet Operations", icon: Video, group: "Today" },
+  { to: "/branch", label: "My work", icon: House, group: "Today", badgeKey: "my_work" },
+  { to: "/branch/class-day", label: "Class day", icon: Video, group: "Today", badgeKey: "class_day" },
   { to: "/branch/batches", label: "Batches", icon: Users, group: "Batches & students" },
-  { to: "/branch/operations", label: "Batches, Schedule & People", icon: Building2, group: "Batches & students", badgeKey: "waiting" },
-  { to: "/branch/schedule", label: "Schedule", icon: CalendarDays, group: "Batches & students" },
-  { to: "/branch/progress", label: "Attendance & Progress", icon: TrendingUp, group: "Batches & students", badgeKey: "attendance" },
+  { to: "/branch/waiting", label: "Waiting for a batch", icon: Hourglass, group: "Batches & students", badgeKey: "waiting" },
+  { to: "/branch/schedule", label: "Schedule & calendar", icon: CalendarDays, group: "Batches & students", badgeKey: "schedule" },
+  { to: "/branch/progress", label: "Attendance & progress", icon: TrendingUp, group: "Batches & students", badgeKey: "attendance" },
   { to: "/branch/curriculum", label: "Curriculum", icon: Library, group: "Teaching" },
   { to: "/branch/content-review", label: "Content Review", icon: FolderOpen, group: "Teaching", badgeKey: "content_review" },
   { to: "/branch/assessments", label: "Reviews", icon: ClipboardCheck, group: "Teaching", badgeKey: "marks" },
@@ -180,7 +180,7 @@ export const NAV: Record<Workspace, NavItem[]> = {
 const MOBILE_BAR: Partial<Record<Workspace, string[]>> = {
   student: ["/dashboard", "/my-courses", "/schedule", "/tasks"],
   trainer: ["/trainer", "/trainer/sessions", "/trainer/to-grade", "/trainer/students"],
-  branch: ["/branch", "/branch/batches", "/branch/assessments", "/branch/exceptions"],
+  branch: ["/branch", "/branch/class-day", "/branch/batches", "/branch/schedule"],
 };
 
 export function mobileBarItems(workspace: Workspace): NavItem[] {

@@ -4,6 +4,7 @@ import { adminApi, adminKeys, type Integration } from "@/api/admin";
 import { Note, PageHead, QueryView, Section } from "@/components/lms/ui";
 import { ReadinessDialog, ReadinessTable, type ReadinessRow } from "./readiness-table";
 import { useCanAdminister } from "./format";
+import { MeetHealth } from "./meet-health";
 
 function toRow(i: Integration): ReadinessRow {
   return {
@@ -51,9 +52,10 @@ export function AdminIntegrations() {
             )}
           </QueryView>
         </Section>
+        <MeetHealth />
         <Note>
-          Configuration and operational verification are separate: a connection counts as Working only with an evidence note from a successful check. Until then the
-          LMS shows it as waiting for a check or not connected instead of calling the service — nothing here is treated as live without evidence.
+          Configuration and operational verification are separate: a connection counts as Working only with an evidence note from a successful check. Until then
+          the LMS shows it as waiting for a check or not connected instead of calling the service — nothing here is treated as live without evidence.
         </Note>
       </div>
     </>
