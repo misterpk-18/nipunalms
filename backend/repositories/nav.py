@@ -39,6 +39,12 @@ def support_due_by(branch_ids: set[int] | None, due_by: datetime) -> int:
     return _count(_branch(stmt, SupportRequest.branch_id, branch_ids))
 
 
+def support_needing_attention(branch_ids: set[int] | None, due_by: datetime) -> int:
+    """Open requests near or past their reply deadline, or where the student wrote last (the Student support badge)."""
+    from repositories import support as support_repo
+    return support_repo.needing_attention(branch_ids, due_by)
+
+
 def pending_recoveries(branch_ids: set[int] | None) -> int:
     stmt = (select(func.count()).select_from(AttendanceRecovery).join(AttendanceRecord, AttendanceRecord.attendance_id == AttendanceRecovery.attendance_id)
             .join(ClassSession, ClassSession.session_id == AttendanceRecord.session_id).join(Batch, Batch.batch_id == ClassSession.batch_id)

@@ -26,3 +26,12 @@ def list_stmt(filters: dict, branch_ids: set[int] | None, taught: set[tuple[int,
         pattern = f"%{filters['q']}%"
         stmt = stmt.where(or_(Question.stem.ilike(pattern), Question.question_code.ilike(pattern), Question.tags.contains([filters["q"].lower()])))
     return stmt
+
+
+def count_drafts(branch_ids: set[int] | None) -> int:
+    """Questions waiting for approval at the branches (None = all)."""
+    from sqlalchemy import func
+    stmt = select(func.count()).select_from(Question).where(Question.status == "Draft")
+    if branch_ids is not None:
+        stmt = stmt.where(Question.branch_id.in_(branch_ids))
+    return db.session.execute(stmt).scalar_one()

@@ -11,7 +11,7 @@ def create_request():
     v.choice("scope", EXTENSION_SCOPES, required=True)
     v.string("reason", required=True, max_length=1000)
     data = v.validate()
-    return created(extensions_service.create_request(data["enrolment_id"], data["scope"], data["reason"]).to_dict())
+    return created(extensions_service.present(extensions_service.create_request(data["enrolment_id"], data["scope"], data["reason"])))
 
 
 def list_requests():
@@ -25,11 +25,11 @@ def list_requests():
 
     page, per_page = get_page_params()
     rows, meta = extensions_service.list_requests(filters, page, per_page)
-    return paginated([r.to_dict() for r in rows], meta)
+    return paginated([extensions_service.present(r) for r in rows], meta)
 
 
 def get_request(request_id: int):
-    return ok(extensions_service.get_request(request_id).to_dict())
+    return ok(extensions_service.present(extensions_service.get_request(request_id)))
 
 
 def decide(request_id: int):
@@ -38,4 +38,13 @@ def decide(request_id: int):
     v.string("note", nullable=True, max_length=1000)
     v.date("new_expiry", nullable=True)
     data = v.validate()
-    return ok(extensions_service.decide(request_id, data["decision"], data.get("note"), data.get("new_expiry")).to_dict())
+    return ok(extensions_service.present(extensions_service.decide(request_id, data["decision"], data.get("note"), data.get("new_expiry"))))
+
+
+def recommend(request_id: int):
+    v = Validator(json_body())
+    v.choice("decision", ("approve", "reject"), required=True)
+    v.string("note", required=True, max_length=1000)
+    v.date("expiry", nullable=True)
+    data = v.validate()
+    return ok(extensions_service.present(extensions_service.recommend(request_id, data["decision"], data["note"], data.get("expiry"))))

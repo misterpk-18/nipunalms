@@ -52,7 +52,17 @@ def progress_stmt(filters: dict, scope_condition) -> Select:
     if filters.get("q"):
         pattern = f"%{filters['q']}%"
         stmt = stmt.where(or_(Student.full_name.ilike(pattern), Student.student_code.ilike(pattern)))
+    if filters.get("sort") == "risk":
+        # Students below the attendance alert first, lowest attendance first, then the rest by name
+        stmt = stmt.order_by(None).order_by(EnrolmentProgress.attendance_alert.desc().nulls_last(), EnrolmentProgress.attendance_pct.asc().nulls_last(),
+                                            Student.full_name, Enrolment.enrolment_id)
     return stmt
+
+
+def alert_count(filters: dict, scope_condition) -> int:
+    """Students (enrolments) below the attendance alert."""
+    stmt = progress_stmt({**filters, "alert": True}, scope_condition).order_by(None).subquery()
+    return db.session.execute(select(func.count()).select_from(stmt)).scalar_one()
 
 
 def batch_summaries(scope_condition, branch_id: int | None) -> list[dict]:

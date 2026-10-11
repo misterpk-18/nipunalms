@@ -105,7 +105,26 @@ def to_detail(request: SupportRequest) -> dict:
 
 def to_summaries(requests: list[SupportRequest]) -> list[dict]:
     now = _now()
-    return [r.to_summary(now) for r in requests]
+    rows = [r.to_summary(now) for r in requests]
+    if not _is_student(current_user()):
+        marks = support_repo.reply_marks([r.support_request_id for r in requests if r.status in SUPPORT_OPEN_STATUSES])
+        for row in rows:
+            row["reply_mark"] = marks.get(row["support_request_id"])
+    return rows
+
+
+def view_counts(filters: dict) -> dict[str, int]:
+    """How many requests each staff view holds, for the tabs (same scope and filters as the list)."""
+    user = current_user()
+    if _is_student(user):
+        raise Forbidden("This is a staff view")
+    branch_ids = scope.visible_branch_ids(user)
+    counts = {}
+    for view in support_repo.VIEWS:
+        stmt = support_repo.list_stmt({**filters, "view": view, "status": None}, student_id=None, branch_ids=branch_ids, user_id=user.user_id,
+                                      all_branches=branch_ids is None, trainer=user.has_role("TRAINER"))
+        counts[view] = support_repo.count_stmt(stmt)
+    return counts
 
 
 # ---------------------------------------------------------------- listing
@@ -371,7 +390,7 @@ def _escalate(request: SupportRequest, reason: str, *, actor_user_id: int | None
     key = f"escalated:{request.escalation_level}"
     if request.escalation_level == "Branch Manager":
         notify(category="Support", title=f"Escalated: {request.request_code} needs the Branch Manager",
-               body=f"{request.subject}. {reason}", link="/branch/requests", event_key=f"support:{request.support_request_id}:{key}",
+               body=f"{request.subject}. {reason}", link="/branch/support", event_key=f"support:{request.support_request_id}:{key}",
                role_code="BRANCH_MANAGER", branch_id=request.branch_id, action_required=True)
     else:
         _notify_owner(request, f"Escalated to you: {request.request_code}", f"{request.subject}. {reason}", key)

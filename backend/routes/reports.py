@@ -19,3 +19,17 @@ def trainer_reports():
 @require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 def academic_reports():
     return reports_controller.academic_reports_view()
+
+
+@reports_bp.get("/branch/reports")
+@login_required
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+def branch_report():
+    return reports_controller.branch_report()
+
+
+@reports_bp.get("/branch/reports/export")
+@login_required
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+def branch_report_export():
+    return reports_controller.branch_report_export()

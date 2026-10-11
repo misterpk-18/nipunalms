@@ -133,6 +133,8 @@ export const STATUS = {
     Provisional: s("Provisional", "warning", "Marks are not final until the Branch Manager publishes them."),
     Moderated: s("Moderated", "info", "Checked and waiting to be published."),
     Published: s("Published", "success", "Final marks are visible to students."),
+    "Awaiting moderation": s("To review", "warning", "The trainer's marks are in. Check them, then publish."),
+    "Moderated — publish pending": s("Ready to publish", "info", "Checked. Publish when you are ready for students to see the marks."),
     Pass: s("Pass", "success", "Passed."),
     Fail: s("Not passed", "danger", "Below the pass mark."),
     "Not attempted": s("Not attempted", "neutral", "No attempt yet."),

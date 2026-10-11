@@ -126,6 +126,22 @@ export type Recording = {
   released_at: DateTime | null;
   hold_reason: string | null;
   partial_note: string | null;
+  /** The recording's problem in plain terms, or null when it has none. */
+  problem: { reason: ProblemReason; label: string; note: string | null } | null;
+};
+
+export type ProblemReason = "processing" | "partial" | "unavailable" | "on_hold";
+
+/** One class with the recordings it has (Recordings screen, picked by date and batch). */
+export type RecordingClass = {
+  session_id: number;
+  session_code: string;
+  title: string;
+  starts_at: DateTime;
+  ends_at: DateTime;
+  state: string;
+  batch: BatchRef & { display_name?: string | null };
+  recordings: Recording[];
 };
 
 export type StudentRecording = {
@@ -188,6 +204,18 @@ export type ExtensionRequest = {
   decision_note: string | null;
 };
 
+/** What the staff screens add to a request: what it would change, who may act, and the Branch Manager's recommendation. */
+export type ExtensionRecommendation = { decision: "approve" | "reject"; note: string | null; expiry: DateOnly | null; by: UserRef | null; at: DateTime | null };
+export type StaffExtensionRequest = ExtensionRequest & {
+  limit: "within" | "beyond";
+  current_end_date: DateOnly | null;
+  new_end_date: DateOnly | null;
+  can_decide: boolean;
+  can_recommend: boolean;
+  recommendation: ExtensionRecommendation | null;
+  with_founder: boolean;
+};
+
 export type AccessOverview = {
   enrolment: { enrolment_id: number; enrolment_code: string; course: CourseRef };
   joining_date: DateOnly | null;
@@ -226,6 +254,9 @@ export const contentApi = {
   updateRecording: (id: number, body: Record<string, unknown>) => patch<Recording>(`/recordings/${id}`, body),
   recordingAction: (id: number, action: "release" | "hold" | "partial" | "unavailable", body: Record<string, unknown> = {}) =>
     post<Recording>(`/recordings/${id}/${action}`, body),
+  recordingClasses: (query: Query) => get<RecordingClass[]>("/recordings/classes", query),
+  reportProblem: (id: number, body: { reason: ProblemReason; note?: string }) => post<Recording>(`/recordings/${id}/problem`, body),
+  exception: (id: number) => get<RecordingException>(`/recording-exceptions/${id}`),
   exceptions: (query?: Query): Promise<Page<RecordingException>> => list<RecordingException>("/recording-exceptions", query),
   startException: (id: number) => post<RecordingException>(`/recording-exceptions/${id}/start`),
   resolveException: (id: number, resolution_note: string) => post<RecordingException>(`/recording-exceptions/${id}/resolve`, { resolution_note }),
@@ -234,6 +265,9 @@ export const contentApi = {
   requestExtension: (body: { enrolment_id: number; scope: string; reason: string }) => post<ExtensionRequest>("/access-extension-requests", body),
   decide: (id: number, body: { decision: "approve" | "reject"; note?: string; new_expiry?: string }) =>
     post<ExtensionRequest>(`/access-extension-requests/${id}/decision`, body),
+  staffRequests: (query?: Query): Promise<Page<StaffExtensionRequest>> => list<StaffExtensionRequest>("/access-extension-requests", query),
+  recommend: (id: number, body: { decision: "approve" | "reject"; note: string; expiry?: string }) =>
+    post<StaffExtensionRequest>(`/access-extension-requests/${id}/recommendation`, body),
 };
 
 /** Fetch a content file with the session token and hand it to the browser (new tab to view, or save as a download). */
@@ -279,3 +313,21 @@ export function accessText(access: AccessState): string {
   const until = `Until ${formatDate(access.expiry)}`;
   return access.state === "Expired" ? `Expired ${formatDate(access.expiry)}` : until;
 }
+
+// ---------------------------------------------------------------- Content & questions (Branch Manager review)
+
+/** A row of the review lists: the content item plus who has its review open, when somebody does. */
+export type ReviewListItem = ContentItem & { claimed_by?: { user_id: number; full_name: string } | null };
+
+/** Counts for the tabs of Content & questions. */
+export type ReviewSummary = { awaiting: number; ready: number; changes: number; released: number; questions: number };
+
+/** What opening an item for review returns: who has it, and whether this person may decide. */
+export type ClaimResult = { claimed_by: { user_id: number; full_name: string } | null; claimed_by_me: boolean; can_decide: boolean; reason: string | null };
+
+export const contentReviewApi = {
+  summary: () => get<ReviewSummary>("/content-items/review-summary"),
+  /** `status` is comma separated: "Submitted,Under Review". */
+  list: (query?: Query): Promise<Page<ReviewListItem>> => list<ReviewListItem>("/content-items", query),
+  claim: (id: number) => post<ClaimResult>(`/content-items/${id}/claim`),
+};

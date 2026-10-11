@@ -319,7 +319,7 @@ def submit(content_item_id: int) -> ContentItem:
     audit.record("CONTENT_SUBMITTED", "content_item", item.item_code, new={"version": version.version_no}, branch_id=item.branch_id)
     notify(category="Content", title=f"Content submitted for review: {item.title}",
            body=f"{current_user().full_name} submitted version {version.version_no} of {item.item_code}.",
-           link="/branch/content-review", role_code="BRANCH_MANAGER", branch_id=item.branch_id,
+           link="/branch/content", role_code="BRANCH_MANAGER", branch_id=item.branch_id,
            event_key=f"content-submitted-{version.content_version_id}", action_required=True)
     return item
 
@@ -365,6 +365,40 @@ def review(content_item_id: int, decision: str, comment: str | None, release_now
     if decision == "approve" and release_now:
         release(content_item_id)
     return item
+
+
+def claim(content_item_id: int) -> dict:
+    """Opening an item for review takes it: a Submitted version moves to Under Review under this reviewer, so two people do not
+    review the same upload. Idempotent. Returns who has it and whether this person may decide (never on their own upload)."""
+    item = _get_staff_item(content_item_id)
+    if not _is_reviewer(item):
+        raise Forbidden("Only the Branch Manager of this branch reviews content")
+    version = item.latest_version
+    me = current_user()
+    own = version.uploaded_by == me.user_id
+    if version.status == "Submitted" and not own and item.retired_at is None:
+        review(content_item_id, "start", None)
+        version = item.latest_version
+    entry = content_repo.claims([item.content_item_id]).get(item.content_item_id) if version.status == "Under Review" else None
+    claimer = entry.actor if entry is not None else None
+    reviewable = version.status in REVIEWABLE and item.retired_at is None
+    reason = ("You uploaded this version, so someone else reviews it" if own and reviewable
+              else f"{claimer.full_name} is reviewing this" if claimer is not None and claimer.user_id != me.user_id and reviewable
+              else None if reviewable else f"It is {version.status.lower()} and does not need a decision")
+    return {"claimed_by": {"user_id": claimer.user_id, "full_name": claimer.full_name} if claimer else None,
+            "claimed_by_me": claimer is not None and claimer.user_id == me.user_id,
+            "can_decide": reviewable and not own, "reason": reason}
+
+
+def review_summary() -> dict:
+    """Counts for the tabs of Content & questions: what waits for review, what is approved but not released, what came back to the
+    author, what is released, and the questions waiting for approval."""
+    from repositories import questions as questions_repo
+    branch_ids = scope.visible_branch_ids()
+    by_status = content_repo.count_by_status(branch_ids)
+    return {"awaiting": by_status.get("Submitted", 0) + by_status.get("Under Review", 0), "ready": by_status.get("Approved", 0),
+            "changes": by_status.get("Changes Requested", 0) + by_status.get("Rejected", 0), "released": by_status.get("Released", 0),
+            "questions": questions_repo.count_drafts(branch_ids)}
 
 
 def release(content_item_id: int) -> ContentItem:
@@ -422,6 +456,12 @@ def list_items(filters: dict, page: int, per_page: int) -> tuple[list[ContentIte
     user = current_user()
     stmt = content_repo.list_stmt(filters, scope.visible_branch_ids(user), user.user_id, scope.trainer_batch_ids(user))
     return paginate(stmt, page, per_page)
+
+
+def claimers(items: list[ContentItem]) -> dict[int, dict]:
+    """For items under review: who has the review open."""
+    entries = content_repo.claims([i.content_item_id for i in items if i.status == "Under Review"])
+    return {item_id: {"user_id": e.actor_user_id, "full_name": e.actor.full_name} for item_id, e in entries.items()}
 
 
 def review_comments(items: list[ContentItem]) -> dict[int, dict]:

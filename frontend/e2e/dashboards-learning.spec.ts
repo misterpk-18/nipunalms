@@ -111,22 +111,21 @@ test("trainer reports: students at risk per batch with where to act, then a shor
 test("academic reports: the coordinator sees only their own branch", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/branch/academic-reports");
-  await expect(page.getByRole("heading", { level: 1, name: "Academic Reports" })).toBeVisible();
-  for (const title of ["Curriculum delivered (branch)", "Attendance / approved recovery", "Completion reviews closed", "Certificate issue lead time"]) {
+  await page.goto("/branch/reports");
+  await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
+  for (const title of ["Classes and attendance", "Completion and certificates", "Support and issues", "Progress by batch", "Last six months"]) {
     await expect(page.getByRole("heading", { level: 2, name: title, exact: true })).toBeVisible();
   }
-  await expect(page.getByText(/Approved recovery: \d+/)).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "By batch" })).toBeVisible();
-  await expect(page.getByText(/NIT-GNT-BAT-2026-000001/).first()).toBeVisible();
+  await expect(page.getByText("Classes held").first()).toBeVisible();
+  await expect(page.getByText(/Data Science . Guntur/).first()).toBeVisible();
   await expect(page.getByText(/NIT-VIJ-BAT/)).toHaveCount(0);
 });
 
 test("academic reports: Vijayawada's coordinator gets Vijayawada figures, never Guntur's", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordVij);
-  await page.goto("/branch/academic-reports");
-  await expect(page.getByRole("heading", { level: 2, name: "Curriculum delivered (branch)" })).toBeVisible();
+  await page.goto("/branch/reports");
+  await expect(page.getByRole("heading", { level: 2, name: "Classes and attendance" })).toBeVisible();
   await expect(page.getByText(/NIT-GNT-BAT/)).toHaveCount(0);
-  await expect(page.getByRole("heading", { level: 2, name: "Certificate issue lead time" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Completion and certificates" })).toBeVisible();
 });

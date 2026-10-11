@@ -4,6 +4,7 @@ from controllers.common import Validator, created, get_page_params, json_body, o
 from models.enums import DELIVERY_MODES, MEET_STATUSES, RESCHEDULE_REQUEST_STATUSES, SESSION_STATES
 from models.attendance_enums import ATTENDANCE_STATUSES
 from services import class_flow as class_flow_service
+from services import approvals
 from services import class_sessions as class_sessions_service
 from services import delivery_access
 from services.errors import ValidationError
@@ -241,7 +242,7 @@ def list_requests():
     v.integer("branch_id", min_value=1)
     page, per_page = get_page_params()
     rows, meta = class_sessions_service.list_requests(v.validate(), page, per_page)
-    return paginated([r.to_dict() for r in rows], meta)
+    return paginated([r.to_dict() | {"can_decide": r.status == "Open" and approvals.can_decide(r.requested_by)} for r in rows], meta)
 
 
 def request_reschedule(session_id: int):

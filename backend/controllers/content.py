@@ -31,7 +31,8 @@ def list_items():
     page, per_page = get_page_params()
     items, meta = content_service.list_items(filters, page, per_page)
     comments = content_service.review_comments(items)
-    return paginated([i.to_dict() | {"last_decision": comments.get(i.content_item_id)} for i in items], meta)
+    claimers = content_service.claimers(items)
+    return paginated([i.to_dict() | {"last_decision": comments.get(i.content_item_id), "claimed_by": claimers.get(i.content_item_id)} for i in items], meta)
 
 
 def _payload() -> tuple[dict, object | None]:
@@ -130,3 +131,11 @@ def get_file(content_item_id: int):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Cache-Control"] = "private, no-store"
     return response
+
+
+def claim(content_item_id: int):
+    return ok(content_service.claim(content_item_id))
+
+
+def review_summary():
+    return ok(content_service.review_summary())

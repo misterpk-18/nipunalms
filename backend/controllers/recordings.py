@@ -4,6 +4,7 @@ from controllers.common import Validator, created, get_page_params, json_body, o
 from models.content import (
     RECORDING_EXCEPTION_STATUSES, RECORDING_ISSUE_TYPES, RECORDING_SOURCES, RECORDING_STATUSES,
 )
+from config.timezone import today_ist
 from services import recordings as recordings_service
 
 
@@ -64,6 +65,22 @@ def partial_recording(recording_id: int):
 
 def unavailable_recording(recording_id: int):
     return ok(recordings_service.mark_unavailable(recording_id, _required_text("reason")).to_dict())
+
+
+def report_problem(recording_id: int):
+    v = Validator(json_body())
+    v.choice("reason", ("processing", "partial", "unavailable", "on_hold"), required=True)
+    v.string("note", nullable=True, max_length=1000)
+    data = v.validate()
+    return ok(recordings_service.report_problem(recording_id, data["reason"], data.get("note")).to_dict())
+
+
+def classes_for_picker():
+    v = Validator(request.args.to_dict())
+    v.date("date")
+    v.integer("batch_id", min_value=1)
+    data = v.validate()
+    return ok(recordings_service.classes_for_picker(data.get("date") or today_ist(), data.get("batch_id")))
 
 
 def watch_recording(recording_id: int):

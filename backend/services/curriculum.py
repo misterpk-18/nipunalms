@@ -127,6 +127,59 @@ def _blockers(version: CurriculumVersion, counts: dict[str, int]) -> list[str]:
     return problems
 
 
+def _incomplete_topics(version: CurriculumVersion) -> list[dict]:
+    """Required topics that still lack what a submission needs, with the plain names of what is missing."""
+    checks = (("outcome", lambda t: not (t.outcome or "").strip()), ("estimated minutes", lambda t: t.instructional_minutes is None),
+              ("progress weight", lambda t: not t.weight), ("evidence of completion", lambda t: not (t.evidence or "").strip()))
+    rows = []
+    for module in version.modules:
+        for topic in module.topics:
+            if topic.topic_class != "Required":
+                continue
+            missing = [label for label, test in checks if test(topic)]
+            if missing:
+                rows.append({"topic_id": topic.topic_id, "module_id": module.module_id, "title": topic.title, "module_title": module.title,
+                             "missing": missing})
+    return rows
+
+
+def checklist(version: CurriculumVersion, counts: dict[str, int]) -> dict:
+    """The submit checklist of a draft, in the order a person works through it: modules, topic details, hours, completion rules,
+    required assessments, then submit. Incomplete topics are listed by name so the screen can mark them."""
+    combo_parent = is_combo_parent(version)
+    empty_modules = [m.title for m in version.modules if not m.topics]
+    incomplete = _incomplete_topics(version)
+    profile = version.completion_profile or {}
+    profile_missing = [key for key in PROFILE_KEYS if profile.get(key) in (None, "")]
+    requirements = catalog_repo.assessment_requirements(version.curriculum_version_id)
+    steps = [
+        {"key": "modules", "label": "Modules", "required": not combo_parent,
+         "done": combo_parent or (counts["modules"] > 0 and not empty_modules),
+         "hint": "Add at least one module, each with topics." if not empty_modules else "These modules have no topics yet: " + ", ".join(empty_modules),
+         "items": [{"title": t} for t in empty_modules]},
+        {"key": "topics", "label": "Topic details", "required": True,
+         "done": counts["required_topics"] > 0 and not incomplete,
+         "hint": ("Mark at least one topic as required." if not counts["required_topics"]
+                  else "Every required topic needs an outcome, estimated minutes, a weight and evidence of completion."),
+         "items": incomplete},
+        {"key": "hours", "label": "Hours", "required": True, "done": version.hours_verified_at is not None or not counts["modules"],
+         "hint": "Check the standard teaching hours from the topic minutes, then confirm them.", "items": []},
+        {"key": "rules", "label": "Completion rules", "required": True, "done": not profile_missing,
+         "hint": "Set the attendance minimum, pass mark and the recovery and reassessment rules.", "items": []},
+        {"key": "assessments", "label": "Required assessments", "required": False, "done": bool(requirements),
+         "hint": "List the tests or assignments a student must pass to complete the course (recommended).", "items": []},
+    ]
+    if combo_parent:
+        course = catalog_repo.get_course(version.course_id)
+        pinned = {p.component_id for p in catalog_repo.version_components(version.curriculum_version_id)}
+        unpinned = [c.track_code for c in course.components if c.component_id not in pinned]
+        steps.insert(0, {"key": "tracks", "label": "Tracks and booster", "required": True, "done": not unpinned,
+                         "hint": "Pin a version for every track and the booster.", "items": [{"title": t} for t in unpinned]})
+    blockers = _blockers(version, counts)
+    next_step = next((s["key"] for s in steps if s["required"] and not s["done"]), None)
+    return {"steps": steps, "ready": not blockers, "next": next_step}
+
+
 def get_version_detail(curriculum_version_id: int) -> VersionDetail:
     version = _version(curriculum_version_id)
     counts = catalog_repo.content_counts([version.curriculum_version_id]).get(version.curriculum_version_id,
@@ -198,8 +251,33 @@ def _editable(version: CurriculumVersion) -> None:
         raise BusinessRule(f"Curriculum version {version.version_label} is {version.status} and can no longer be edited; create a new draft version")
 
 
+def next_label(course_id: int, component_id: int | None) -> str:
+    """The name of the next draft: the newest version's name with its last number raised (CV 1.3 -> CV 1.4), else "Version 1"."""
+    import re
+    versions = [v for v in catalog_repo.list_versions({"course_id": course_id}) if v.component_id == component_id]
+    taken = {v.version_label for v in versions}
+    base = next((v for v in versions if v.status == "Active"), None) or (max(versions, key=lambda v: v.curriculum_version_id) if versions else None)
+    if base is None:
+        return "Version 1"
+    match = re.match(r"^(.*?)(\d+)$", base.version_label.strip())
+    if match is None:
+        number = 2
+        while f"{base.version_label} ({number})" in taken:
+            number += 1
+        return f"{base.version_label} ({number})"
+    prefix, number = match.group(1), int(match.group(2))
+    while f"{prefix}{number + 1}" in taken:
+        number += 1
+    return f"{prefix}{number + 1}"
+
+
+def active_version_of(course_id: int, component_id: int | None) -> CurriculumVersion | None:
+    return next((v for v in catalog_repo.list_versions({"course_id": course_id}) if v.component_id == component_id and v.status == "Active"), None)
+
+
 def create_version(data: dict) -> CurriculumVersion:
-    """A new Draft for a course (or one track of a combo), empty or copied from an existing version of the same slot."""
+    """A new Draft for a course (or one track of a combo). The name is made for you unless given. It copies the Active version of
+    the same slot unless `copy_from_version_id` names another one or `blank` is set (U15)."""
     course = catalog_repo.get_course(data["course_id"])
     if course is None:
         raise ValidationError("Unknown course", {"course_id": ["Not a course"]})
@@ -210,10 +288,15 @@ def create_version(data: dict) -> CurriculumVersion:
                    if v.component_id == component_id and v.status in ("Draft", "Under Review")]
     if in_progress:
         raise Conflict(f"{in_progress[0].version_label} is already {in_progress[0].status}; finish or return it before starting another draft")
-    if any(v.version_label == data["version_label"] and v.component_id == component_id for v in catalog_repo.list_versions({"course_id": course.course_id})):
+    label = (data.get("version_label") or "").strip() or next_label(course.course_id, component_id)
+    if any(v.version_label == label and v.component_id == component_id for v in catalog_repo.list_versions({"course_id": course.course_id})):
         raise Conflict("A version with this label already exists", {"version_label": ["Already used for this course"]})
+    if not data.get("copy_from_version_id") and not data.get("blank"):
+        active = active_version_of(course.course_id, component_id)
+        if active is not None:
+            data = {**data, "copy_from_version_id": active.curriculum_version_id}
 
-    version = CurriculumVersion(course_id=course.course_id, component_id=component_id, version_label=data["version_label"], status="Draft")
+    version = CurriculumVersion(course_id=course.course_id, component_id=component_id, version_label=label, status="Draft")
     db.session.add(version)
     db.session.flush()
     source = None

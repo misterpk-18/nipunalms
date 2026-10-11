@@ -42,13 +42,17 @@ export function FounderDashboard() {
                 <ul className="space-y-2 text-sm">
                   <li className="flex flex-wrap justify-between gap-2">
                     <span>Approve monthly AI rupee ceiling (after developer estimate)</span>
-                    <StatusBadge domain="figure" code={ceiling.state} label={ceiling.state === "Configured" ? `Set — ₹${ceiling.amount_inr.toLocaleString("en-IN")}` : undefined} />
+                    <StatusBadge
+                      domain="figure"
+                      code={ceiling.state}
+                      label={ceiling.state === "Configured" ? `Set — ₹${ceiling.amount_inr.toLocaleString("en-IN")}` : undefined}
+                    />
                   </li>
                   {access.items.map((item) => (
                     <li key={item.request_id} className="flex flex-wrap justify-between gap-2">
                       <span>
                         Recording access exception after 2nd anniversary — {item.student_name} ({item.request_code}, asked {fmtDate(item.requested_at)}){" "}
-                        <Link to="/branch/requests" className="underline">
+                        <Link to="/branch/support" search={{ tab: "extensions" }} className="underline">
                           Decide
                         </Link>
                       </span>

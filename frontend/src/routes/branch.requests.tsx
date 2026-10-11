@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BranchRequests } from "@/features/branch/requests";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/branch/requests")({ component: BranchRequests });
+/** Escalations & Extensions became a tab of Student support (UX phase U15). */
+export const Route = createFileRoute("/branch/requests")({
+  beforeLoad: () => {
+    throw redirect({ href: "/branch/support?tab=extensions", replace: true });
+  },
+});

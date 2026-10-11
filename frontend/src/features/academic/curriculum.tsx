@@ -1,192 +1,107 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { deliveryApi, type CurriculumRow, type CurriculumVersion, type ModuleContent, type TopicClass, type TopicRow } from "@/api/delivery";
+import { curriculumApi, type ChecklistStepKey, type ChecklistTopicItem } from "@/api/curriculum";
+import { deliveryApi, type CurriculumRow, type CurriculumVersion } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
-import { Button } from "@/components/ui/button";
-import { DataTable, Note, PageHead, QueryView, Section, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { EmptyState } from "@/components/lms/empty-state";
+import { DataTable, PageHead, QueryView, Section, StatusBadge, StatusNote } from "@/components/lms/ui";
+import { Button } from "@/components/ui/button";
+import { SubmitChecklist, scrollToId, STEP_TARGET, topicDomId } from "@/features/branch/curriculum-checklist";
+import { NewDraftDialog } from "@/features/branch/curriculum-new-draft";
+import { useCurriculumMutation } from "@/features/branch/curriculum-pickers";
+import { ModuleTree } from "@/features/branch/curriculum-tree";
 import { ActionDialog, fmtDate, mono } from "@/features/shared/delivery-ui";
-import { useDelivery } from "@/features/shared/sessions";
-import {
-  ComboPins,
-  CurriculumDecisions,
-  CurriculumModelNote,
-  EquivalenceReview,
-  RecordVariation,
-  SaveToLibrary,
-  TopicDetails,
-  VersionPlanning,
-  topicSummary,
-} from "./curriculum-model";
+import { ComboPins, CurriculumDecisions, CurriculumHowItWorks, EquivalenceReview, RecordVariation, VersionPlanning } from "./curriculum-model";
 
 type Slot = { course_id: number; component_id: number | null; label: string };
 
 const slotOf = (row: CurriculumRow): Slot => ({
   course_id: row.course.course_id,
   component_id: row.component?.component_id ?? null,
-  label: row.component ? `${row.component.track_code} — ${row.component.track_name}` : `${row.course.course_code} — ${row.course.title}`,
+  label: row.component ? `${row.component.track_name} (${row.component.track_code})` : `${row.course.title} (${row.course.course_code})`,
 });
 
-function ModuleEditor({ module, editable, author, versionTopics }: { module: ModuleContent; editable: boolean; author: boolean; versionTopics: TopicRow[] }) {
-  const updateModule = useDelivery(
-    (v: { id: number; body: { title?: string; position?: number } }) => deliveryApi.updateModule(v.id, v.body),
-    "Module updated",
-  );
-  const deleteModule = useDelivery((id: number) => deliveryApi.deleteModule(id), "Module removed");
-  const addTopic = useDelivery(
-    (v: { id: number; title: string; topic_class: TopicClass }) => deliveryApi.addTopic(v.id, { title: v.title, topic_class: v.topic_class }),
-    "Topic added",
-  );
-  const updateTopic = useDelivery(
-    (v: { id: number; body: { title?: string; position?: number } }) => deliveryApi.updateTopic(v.id, v.body),
-    "Topic updated",
-  );
-  const deleteTopic = useDelivery((id: number) => deliveryApi.deleteTopic(id), "Topic removed");
-  return (
-    <li className="rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold">
-          {module.sort_order}. {module.title}
-          {module.library_version_id && <span className="ml-2 text-xs font-normal text-muted-foreground">from the library</span>}
-        </h3>
-        {author && !editable && <SaveToLibrary module={module} />}
-        {editable && (
-          <div className="flex flex-wrap gap-1.5">
-            <ActionDialog
-              trigger={
-                <Button size="sm" variant="outline">
-                  Rename
-                </Button>
-              }
-              title="Rename module"
-              fields={[{ name: "title", label: "Title", required: true, value: module.title }]}
-              onSubmit={(v) => updateModule.mutateAsync({ id: module.module_id, body: { title: v["title"]! } })}
-            />
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Move module up"
-              onClick={() => updateModule.mutate({ id: module.module_id, body: { position: module.sort_order - 1 } })}
-              disabled={module.sort_order === 1}
-            >
-              <ArrowUp className="size-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Move module down"
-              onClick={() => updateModule.mutate({ id: module.module_id, body: { position: module.sort_order + 1 } })}
-            >
-              <ArrowDown className="size-4" />
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => deleteModule.mutate(module.module_id)}>
-              Remove
-            </Button>
-            <SaveToLibrary module={module} />
-          </div>
-        )}
-      </div>
-      <ul className="mt-2 divide-y text-sm">
-        {module.topics.map((t) => (
-          <li key={t.topic_id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span>
-              {t.sort_order}. {t.title}
-              {topicSummary(t) && <span className="block text-xs text-muted-foreground">{topicSummary(t)}</span>}
-              {t.depends_on.length > 0 && (
-                <span className="block text-xs text-muted-foreground">
-                  Builds on {t.depends_on.map((id) => versionTopics.find((x) => x.topic_id === id)?.title ?? id).join(", ")}
-                </span>
-              )}
-            </span>
-            <span className="flex flex-wrap items-center gap-1.5">
-              <Tag tone={t.topic_class === "Required" ? "info" : "neutral"}>{t.topic_class}</Tag>
-              <TopicDetails topic={t} siblings={versionTopics} editable={editable} />
-              {editable && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label="Move topic up"
-                    disabled={t.sort_order === 1}
-                    onClick={() => updateTopic.mutate({ id: t.topic_id, body: { position: t.sort_order - 1 } })}
-                  >
-                    <ArrowUp className="size-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label="Move topic down"
-                    onClick={() => updateTopic.mutate({ id: t.topic_id, body: { position: t.sort_order + 1 } })}
-                  >
-                    <ArrowDown className="size-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => deleteTopic.mutate(t.topic_id)}>
-                    Remove
-                  </Button>
-                </>
-              )}
-            </span>
-          </li>
-        ))}
-        {module.topics.length === 0 && <li className="py-1.5 text-muted-foreground">No topics yet.</li>}
-      </ul>
-      {editable && (
-        <div className="mt-2">
-          <ActionDialog
-            trigger={
-              <Button size="sm" variant="outline">
-                Add topic
-              </Button>
-            }
-            title={`Add a topic to ${module.title}`}
-            fields={[
-              { name: "title", label: "Topic title", required: true },
-              {
-                name: "topic_class",
-                label: "Class",
-                type: "select",
-                value: "Required",
-                options: ["Required", "Recommended", "Optional"].map((c) => ({ value: c, label: c })),
-                hint: "Only Required topics count towards required learning",
-              },
-            ]}
-            onSubmit={(v) => addTopic.mutateAsync({ id: module.module_id, title: v["title"]!, topic_class: v["topic_class"] as TopicClass })}
-          />
-        </div>
-      )}
-    </li>
-  );
-}
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Branch Managers draft, submit and review; the Founder / CEO or Super Admin approve, activate and retire. */
-export function VersionEditor({ versionId }: { versionId: number }) {
+export function VersionEditor({ versionId, onDiscarded }: { versionId: number; onDiscarded?: () => void }) {
   const { hasRole } = useAuth();
   const author = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
   const approver = hasRole("FOUNDER_CEO", "SUPER_ADMIN");
-  const query = useQuery({ queryKey: ["delivery", "version", versionId], queryFn: () => deliveryApi.curriculumVersion(versionId) });
-  const act = useDelivery(
-    (v: { action: "submit" | "return" | "approve" | "activate" | "retire"; reason?: string }) =>
-      deliveryApi.versionAction(versionId, v.action, { reason: v.reason }),
-    "Curriculum updated",
-  );
-  const addModule = useDelivery((title: string) => deliveryApi.addModule(versionId, { title }), "Module added");
-  const rename = useDelivery((label: string) => deliveryApi.renameVersion(versionId, label), "Version renamed");
+  const [openTopic, setOpenTopic] = useState<number | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [moduleOpen, setModuleOpen] = useState(false);
+  const query = useQuery({ queryKey: ["delivery", "version", versionId], queryFn: () => curriculumApi.version(versionId) });
+
+  const submit = useCurriculumMutation(() => deliveryApi.versionAction(versionId, "submit"), "Sent for review", {
+    next: "The Founder / CEO or a Super Admin approves it or sends it back with a reason.",
+  });
+  const approve = useCurriculumMutation(() => deliveryApi.versionAction(versionId, "approve"), "Approved", { next: "It can be activated now." });
+  const activate = useCurriculumMutation(() => deliveryApi.versionAction(versionId, "activate"), "Activated", {
+    next: (v: CurriculumVersion) =>
+      v.released && (v.released.batches_mapped || v.released.enrolments_released)
+        ? `${plural(v.released.batches_mapped, "batch", "batches")} and ${plural(v.released.enrolments_released, "student")} that had no curriculum now use it.`
+        : "New batches now use it.",
+  });
+  const retire = useCurriculumMutation(() => deliveryApi.versionAction(versionId, "retire"), "Retired", {
+    next: "Batches and students already on it keep it.",
+  });
+  const giveBack = useCurriculumMutation((reason: string) => deliveryApi.versionAction(versionId, "return", { reason }), "Returned to draft", {
+    next: "The Branch Manager can change it again.",
+  });
+  const rename = useCurriculumMutation((label: string) => deliveryApi.renameVersion(versionId, label), "Draft renamed");
+  const discard = useCurriculumMutation(() => deliveryApi.deleteVersion(versionId), "Draft discarded", { onSuccess: () => onDiscarded?.() });
+  const addModule = useCurriculumMutation((title: string) => deliveryApi.addModule(versionId, { title }), "Module added", {
+    next: "Add its topics, then open Details on each to fill them in.",
+  });
+
   return (
-    <QueryView query={query}>
+    <QueryView query={query} skeleton="detail">
       {(v) => {
         const draft = v.status === "Draft";
         const editable = draft && author;
+        const modules = v.modules ?? [];
+        const checklist = editable ? v.checklist : undefined;
+        const missingByTopic = new Map<number, string[]>();
+        for (const step of checklist?.steps ?? []) {
+          if (step.key !== "topics") continue;
+          for (const item of step.items) if ("topic_id" in item) missingByTopic.set(item.topic_id, item.missing);
+        }
+        const openIncomplete = (item: ChecklistTopicItem) => {
+          setOpenTopic(item.topic_id);
+          window.setTimeout(() => scrollToId(topicDomId(item.topic_id)), 0);
+        };
+        const go = (key: ChecklistStepKey) => {
+          const topicsStep = checklist?.steps.find((s) => s.key === "topics");
+          const first = topicsStep?.items.find((i): i is ChecklistTopicItem => "topic_id" in i);
+          if (key === "topics" && first) return openIncomplete(first);
+          if (key === "modules" && modules.length === 0) return setModuleOpen(true);
+          scrollToId(STEP_TARGET[key]);
+          if (key === "rules") setProfileOpen(true);
+          if (key === "assessments") setAssessmentOpen(true);
+        };
+        const addModuleButton = (
+          <ActionDialog
+            open={moduleOpen}
+            onOpenChange={setModuleOpen}
+            trigger={<Button size="sm">Add module</Button>}
+            title="Add a module"
+            fields={[{ name: "title", label: "Module title", required: true }]}
+            onSubmit={(f) => addModule.mutateAsync(f["title"]!)}
+          />
+        );
         return (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="text-lg font-semibold">
+              <div className="min-w-0">
+                <h3 className="break-words text-lg font-semibold">
                   {v.version_label} <StatusBadge domain="curriculum" code={v.status} />
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  {v.counts.modules} module(s), {v.counts.topics} topic(s), {v.counts.required_topics} required · used by {v.usage.batches} batch(es) and{" "}
-                  {v.usage.enrolments + v.usage.tracks} enrolment(s)
+                  {plural(v.counts.modules, "module")}, {plural(v.counts.topics, "topic")}, {v.counts.required_topics} required · used by{" "}
+                  {plural(v.usage.batches, "batch", "batches")} and {plural(v.usage.enrolments + v.usage.tracks, "student")}
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -198,19 +113,28 @@ export function VersionEditor({ versionId }: { versionId: number }) {
                           Rename
                         </Button>
                       }
-                      title="Rename version"
-                      fields={[{ name: "label", label: "Version label", required: true, value: v.version_label }]}
+                      title="Rename draft"
+                      description="The name was chosen for you. Change it if you prefer another."
+                      fields={[{ name: "label", label: "Name", required: true, value: v.version_label }]}
                       onSubmit={(f) => rename.mutateAsync(f["label"]!)}
                     />
-                    <Button size="sm" onClick={() => act.mutate({ action: "submit" })}>
-                      Submit for review
-                    </Button>
+                    <ConfirmDialog
+                      title={`Discard draft ${v.version_label}?`}
+                      consequence={`Discard ${v.version_label} and everything in it (${plural(v.counts.modules, "module")}, ${plural(v.counts.topics, "topic")})? This cannot be undone.`}
+                      confirmLabel="Discard draft"
+                      destructive
+                      onConfirm={() => discard.mutateAsync(undefined)}
+                    >
+                      <Button size="sm" variant="outline">
+                        Discard draft
+                      </Button>
+                    </ConfirmDialog>
                   </>
                 )}
                 {v.status === "Under Review" && (
                   <>
                     {approver && (
-                      <Button size="sm" onClick={() => act.mutate({ action: "approve" })}>
+                      <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(undefined)}>
                         Approve
                       </Button>
                     )}
@@ -223,65 +147,97 @@ export function VersionEditor({ versionId }: { versionId: number }) {
                       title="Return to draft"
                       fields={[{ name: "reason", label: "What needs to change", type: "textarea", required: true }]}
                       submitLabel="Return"
-                      onSubmit={(f) => act.mutateAsync({ action: "return", reason: f["reason"] })}
+                      onSubmit={(f) => giveBack.mutateAsync(f["reason"]!)}
                     />
                   </>
                 )}
                 {approver && v.status === "Approved" && (
-                  <Button size="sm" onClick={() => act.mutate({ action: "activate" })}>
-                    Activate
-                  </Button>
+                  <ConfirmDialog
+                    title={`Activate ${v.version_label}?`}
+                    consequence="It replaces the current Active version for new batches. Batches and students already on the old version keep it; batches with no curriculum yet start using this one."
+                    confirmLabel="Activate"
+                    onConfirm={() => activate.mutateAsync(undefined)}
+                  >
+                    <Button size="sm">Activate</Button>
+                  </ConfirmDialog>
                 )}
                 {approver && (v.status === "Approved" || v.status === "Active") && (
-                  <ActionDialog
-                    trigger={
-                      <Button size="sm" variant="outline">
-                        Retire
-                      </Button>
-                    }
-                    title={`Retire ${v.version_label}`}
-                    description="Batches and students already on it keep it. Batches created after this will have no curriculum until another version is activated."
-                    fields={[{ name: "reason", label: "Reason", type: "textarea" }]}
-                    submitLabel="Retire"
-                    onSubmit={(f) => act.mutateAsync({ action: "retire", reason: f["reason"] || undefined })}
-                  />
+                  <ConfirmDialog
+                    title={`Retire ${v.version_label}?`}
+                    consequence={`Batches and students already on ${v.version_label} keep it. New batches will have no curriculum until another version is activated.`}
+                    confirmLabel="Retire version"
+                    destructive
+                    onConfirm={() => retire.mutateAsync(undefined)}
+                  >
+                    <Button size="sm" variant="outline">
+                      Retire
+                    </Button>
+                  </ConfirmDialog>
                 )}
               </div>
             </div>
-            {draft && v.blockers && v.blockers.length > 0 && <StatusNote tone="warning">Before review: {v.blockers.join("; ")}.</StatusNote>}
-            {!approver && (v.status === "Under Review" || v.status === "Approved") && (
-              <Note>
-                {v.status === "Under Review" ? "Awaiting approval" : "Approved; awaiting activation"} by the Founder / CEO or Super Admin.
-              </Note>
+
+            {!author && (v.status === "Under Review" || v.status === "Approved") && (
+              <StatusNote tone="info">
+                {v.status === "Under Review" ? "Waiting for approval" : "Approved, waiting to be activated"} by the Founder / CEO or a Super Admin.
+              </StatusNote>
+            )}
+            {author && v.status === "Under Review" && (
+              <StatusNote tone="info">Submitted. Waiting for the Founder / CEO or a Super Admin to approve it or send it back.</StatusNote>
             )}
             {!draft && (
-              <Note>
-                {v.status} versions are snapshots that batches and enrolments point at. To change the curriculum, start a new draft (copy this version).
-              </Note>
+              <StatusNote tone="info">
+                {v.status} versions cannot be edited because batches and students point at them. To change the curriculum, start a new draft.
+              </StatusNote>
             )}
-            <VersionPlanning version={v} editable={editable} author={author} />
-            <ComboPins version={v} editable={editable} />
-            {author && (v.status === "Approved" || v.status === "Active") && <RecordVariation version={v} />}
-            <ul className="space-y-3">
-              {(v.modules ?? []).map((m) => (
-                <ModuleEditor key={m.module_id} module={m} editable={editable} author={author} versionTopics={(v.modules ?? []).flatMap((x) => x.topics)} />
-              ))}
-            </ul>
-            {editable && (
-              <ActionDialog
-                trigger={<Button variant="outline">Add module</Button>}
-                title="Add a module"
-                fields={[{ name: "title", label: "Module title", required: true }]}
-                onSubmit={(f) => addModule.mutateAsync(f["title"]!)}
+
+            {checklist && (
+              <SubmitChecklist
+                checklist={checklist}
+                canSubmit={editable}
+                submitting={submit.isPending}
+                onGo={go}
+                onOpenTopic={openIncomplete}
+                onSubmit={() => submit.mutate(undefined)}
               />
             )}
+            {draft && !checklist && v.blockers && v.blockers.length > 0 && <StatusNote tone="warning">Before review: {v.blockers.join("; ")}.</StatusNote>}
+
+            <ComboPins version={v} editable={editable} />
+
+            <Section id="cv-modules" title="Modules and topics" actions={editable && modules.length > 0 ? addModuleButton : undefined}>
+              <ModuleTree
+                modules={modules}
+                editable={editable}
+                author={author}
+                missingByTopic={missingByTopic}
+                openTopic={openTopic}
+                setOpenTopic={setOpenTopic}
+                addAction={editable && modules.length === 0 ? addModuleButton : undefined}
+              />
+              {editable && modules.length > 1 && (
+                <p className="mt-2 text-xs text-muted-foreground">Drag a row by its handle to reorder it, or use Move up and Move down.</p>
+              )}
+            </Section>
+
+            <VersionPlanning
+              version={v}
+              editable={editable}
+              author={author}
+              profileOpen={profileOpen}
+              onProfileOpenChange={setProfileOpen}
+              assessmentOpen={assessmentOpen}
+              onAssessmentOpenChange={setAssessmentOpen}
+            />
+            {author && (v.status === "Approved" || v.status === "Active") && <RecordVariation version={v} />}
+
             <details className="text-sm">
-              <summary className="cursor-pointer font-medium">Review trail ({v.events?.length ?? 0})</summary>
+              <summary className="cursor-pointer font-medium">History ({v.events?.length ?? 0})</summary>
               <ul className="mt-2 space-y-1">
                 {(v.events ?? []).map((e) => (
                   <li key={e.event_id}>
-                    {fmtDate(e.created_at)} · <strong>{e.action}</strong> ({e.from_status ?? "—"} → {e.to_status}) by {e.actor?.full_name ?? "system"}
-                    {e.note ? ` — ${e.note}` : ""}
+                    {fmtDate(e.created_at)} · <strong>{e.action}</strong> ({e.from_status ?? "—"} → {e.to_status}) by {e.actor?.full_name ?? "the system"}
+                    {e.note ? `: ${e.note}` : ""}
                   </li>
                 ))}
               </ul>
@@ -293,8 +249,16 @@ export function VersionEditor({ versionId }: { versionId: number }) {
   );
 }
 
+const defaultVersion = (list: CurriculumVersion[]) =>
+  (list.find((v) => v.status === "Draft" || v.status === "Under Review" || v.status === "Approved") ?? list.find((v) => v.status === "Active") ?? list[0])
+    ?.curriculum_version_id ?? null;
+
 function SlotPanel({ slot }: { slot: Slot }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const top = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    top.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
   const versions = useQuery({
     queryKey: ["delivery", "versions", slot.course_id, slot.component_id],
     queryFn: () =>
@@ -302,74 +266,44 @@ function SlotPanel({ slot }: { slot: Slot }) {
         slot.component_id === null ? { course_id: slot.course_id, whole_course: true } : { course_id: slot.course_id, component_id: slot.component_id },
       ),
   });
-  const create = useDelivery(
-    (body: { version_label: string; copy_from_version_id?: number }) =>
-      deliveryApi.createVersion({ course_id: slot.course_id, component_id: slot.component_id, ...body }),
-    "Draft created",
-  );
-  const discard = useDelivery((id: number) => deliveryApi.deleteVersion(id), "Draft discarded");
+  const list = versions.data ?? [];
+  const chosen = selected !== null && list.some((v) => v.curriculum_version_id === selected) ? selected : defaultVersion(list);
+  const newDraft = versions.data && <NewDraftDialog courseId={slot.course_id} componentId={slot.component_id} versions={list} onCreated={setSelected} />;
   return (
-    <Section
-      title={`Versions — ${slot.label}`}
-      actions={
-        <QueryView query={versions}>
-          {(list: CurriculumVersion[]) => (
-            <ActionDialog
-              trigger={<Button size="sm">New draft version</Button>}
-              title="New draft version"
-              description="Start empty or copy an existing version's modules and topics."
-              fields={[
-                { name: "version_label", label: "Version label", required: true, placeholder: "CV 6.0" },
-                {
-                  name: "copy",
-                  label: "Copy from",
-                  type: "select",
-                  options: [
-                    { value: "", label: "Start empty" },
-                    ...list.map((v) => ({ value: v.curriculum_version_id, label: `${v.version_label} (${v.status})` })),
-                  ],
-                  value: "",
-                },
-              ]}
-              onSubmit={async (f) => {
-                const made = await create.mutateAsync({ version_label: f["version_label"]!, copy_from_version_id: f["copy"] ? Number(f["copy"]) : undefined });
-                setSelected(made.curriculum_version_id);
-              }}
-            />
+    <div ref={top} className="scroll-mt-20">
+      <Section title={`Versions of ${slot.label}`} actions={newDraft}>
+        <QueryView
+          query={versions}
+          isEmpty={(l) => l.length === 0}
+          empty="There is no curriculum for this yet, so batches of it have nothing to follow. Start the first draft."
+          emptyAction={newDraft}
+        >
+          {(l) => (
+            <div className="space-y-4">
+              <ul className="flex flex-wrap gap-2" aria-label="Versions">
+                {l.map((v) => (
+                  <li key={v.curriculum_version_id}>
+                    <Button
+                      size="sm"
+                      variant={chosen === v.curriculum_version_id ? "default" : "outline"}
+                      aria-pressed={chosen === v.curriculum_version_id}
+                      onClick={() => setSelected(v.curriculum_version_id)}
+                    >
+                      {v.version_label} · {v.status}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {chosen !== null ? (
+                <VersionEditor key={chosen} versionId={chosen} onDiscarded={() => setSelected(null)} />
+              ) : (
+                <EmptyState reason="Choose a version to view or edit it." />
+              )}
+            </div>
           )}
         </QueryView>
-      }
-    >
-      <QueryView query={versions} isEmpty={(list) => list.length === 0} empty="No curriculum version exists yet. Start a draft.">
-        {(list) => (
-          <>
-            <ul className="mb-4 flex flex-wrap gap-2">
-              {list.map((v) => (
-                <li key={v.curriculum_version_id}>
-                  <Button size="sm" variant={selected === v.curriculum_version_id ? "default" : "outline"} onClick={() => setSelected(v.curriculum_version_id)}>
-                    {v.version_label} · {v.status}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            {selected ? (
-              <>
-                <VersionEditor versionId={selected} />
-                {list.find((v) => v.curriculum_version_id === selected)?.status === "Draft" && (
-                  <div className="mt-3">
-                    <Button size="sm" variant="outline" onClick={() => discard.mutate(selected, { onSuccess: () => setSelected(null) })}>
-                      Discard this draft
-                    </Button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <EmptyState reason="Choose a version to view or edit it." />
-            )}
-          </>
-        )}
-      </QueryView>
-    </Section>
+      </Section>
+    </div>
   );
 }
 
@@ -378,79 +312,84 @@ export function AcademicCurriculum() {
   const query = useQuery({ queryKey: ["delivery", "curriculum-overview"], queryFn: deliveryApi.curriculumOverview });
   return (
     <>
-      <PageHead title="Course Curriculum & Versions" description="Curriculum versions per course and combo track, their review path and delivery readiness." />
-      <QueryView query={query}>
-        {(rows) => (
-          <DataTable
-            caption="Curriculum versions"
-            rows={rows}
-            getKey={(r) => `${r.course.course_id}-${r.component?.component_id ?? 0}`}
-            cols={[
-              {
-                h: "Course",
-                c: (r) => (
-                  <>
-                    {mono(r.component ? r.component.track_code : r.course.course_code)}
-                    <div>{r.component ? `↳ ${r.component.track_name} (${r.component.role})` : r.course.title}</div>
-                  </>
-                ),
-              },
-              {
-                h: "Active version",
-                c: (r) =>
-                  r.active_version ? (
+      <PageHead title="Curriculum" description="The modules, topics and completion rules of each course and track. New batches follow the Active version." />
+      <div className="space-y-6">
+        <QueryView query={query} isEmpty={(rows) => rows.length === 0} empty="No course exists yet, so there is no curriculum to write.">
+          {(rows) => (
+            <DataTable
+              caption="Curriculum of each course and track"
+              rows={rows}
+              getKey={(r) => `${r.course.course_id}-${r.component?.component_id ?? 0}`}
+              cols={[
+                {
+                  h: "Course or track",
+                  c: (r) => (
                     <>
-                      {r.active_version.version_label}
-                      {r.borrowed_from && <div className="text-xs text-muted-foreground">from {r.borrowed_from.course_code}</div>}
+                      <div className="font-medium">{r.component ? `${r.component.track_name} (${r.component.role})` : r.course.title}</div>
+                      {mono(r.component ? r.component.track_code : r.course.course_code)}
                     </>
-                  ) : (
-                    "—"
                   ),
-              },
-              {
-                h: "In progress",
-                c: (r) => (r.latest_version && r.latest_version.status !== "Active" ? `${r.latest_version.version_label} — ${r.latest_version.status}` : "—"),
-              },
-              {
-                h: "Delivery readiness",
-                c: (r) => (
-                  <>
-                    <StatusBadge domain="readiness" code={r.readiness} />
-                    {r.waiting_batches > 0 && <div className="mt-1 text-xs text-muted-foreground">{r.waiting_batches} batch(es) have no curriculum yet</div>}
-                  </>
-                ),
-              },
-              {
-                h: "",
-                c: (r) => (
-                  <span className="flex flex-wrap gap-1.5">
-                    <Button size="sm" variant="outline" onClick={() => setSlot(slotOf(r))}>
-                      Manage versions
-                    </Button>
-                    {r.component?.role === "Included booster" && r.component.component_course && (
-                      <EquivalenceReview componentId={r.component.component_id} trackCode={r.component.track_code} note={r.component.equivalence_note} />
-                    )}
-                  </span>
-                ),
-              },
-            ]}
-          />
-        )}
-      </QueryView>
-      {slot && (
-        <div className="mt-6">
-          <SlotPanel key={`${slot.course_id}-${slot.component_id}`} slot={slot} />
-        </div>
-      )}
-      <Section className="mt-6" title="Mappings, rules, variations and library reviews">
-        <CurriculumDecisions />
-      </Section>
-      <div className="mt-4 space-y-2">
-        <CurriculumModelNote />
-        <Note>
-          Course Master names and codes are read-only here. Branch Managers draft and submit; the Founder / CEO or Super Admin approve (never the person who
-          submitted it). Activating a version retires the previous Active version and maps every enrolment and batch that was waiting for a curriculum.
-        </Note>
+                },
+                {
+                  h: "Active version",
+                  c: (r) =>
+                    r.active_version ? (
+                      <>
+                        {r.active_version.version_label}
+                        {r.borrowed_from && <div className="text-xs text-muted-foreground">uses the curriculum of {r.borrowed_from.course_code}</div>}
+                      </>
+                    ) : (
+                      "None yet"
+                    ),
+                },
+                {
+                  h: "In progress",
+                  c: (r) =>
+                    r.latest_version && r.latest_version.status !== "Active" ? (
+                      <>
+                        {r.latest_version.version_label} <StatusBadge domain="curriculum" code={r.latest_version.status} />
+                      </>
+                    ) : (
+                      "Nothing"
+                    ),
+                },
+                {
+                  h: "New batches",
+                  c: (r) => (
+                    <>
+                      <StatusBadge
+                        domain="readiness"
+                        code={r.active_version ? "Ready" : "Blocked"}
+                        label={r.active_version ? "Have a curriculum" : "No Active version yet"}
+                      />
+                      {r.waiting_batches > 0 && (
+                        <div className="mt-1 text-xs text-muted-foreground">{plural(r.waiting_batches, "batch", "batches")} waiting for a curriculum</div>
+                      )}
+                    </>
+                  ),
+                },
+                {
+                  h: "",
+                  c: (r) => (
+                    <span className="flex flex-wrap gap-1.5">
+                      <Button size="sm" variant={slot && slotOf(r).label === slot.label ? "default" : "outline"} onClick={() => setSlot(slotOf(r))}>
+                        Manage versions
+                      </Button>
+                      {r.component?.role === "Included booster" && r.component.component_course && (
+                        <EquivalenceReview componentId={r.component.component_id} trackCode={r.component.track_code} note={r.component.equivalence_note} />
+                      )}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          )}
+        </QueryView>
+        {slot && <SlotPanel key={`${slot.course_id}-${slot.component_id}`} slot={slot} />}
+        <Section title="Waiting for a decision">
+          <CurriculumDecisions />
+        </Section>
+        <CurriculumHowItWorks />
       </div>
     </>
   );

@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AcademicContentReview } from "@/features/academic/content-review";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/branch/content-review")({ component: AcademicContentReview });
+/** Content Review became Content & questions (UX phase U15); old links and notifications still work. */
+export const Route = createFileRoute("/branch/content-review")({
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: `/branch/content${location.searchStr}`, replace: true });
+  },
+});

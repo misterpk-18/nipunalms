@@ -35,3 +35,11 @@ def get_request(request_id: int):
 @require_roles(*DECIDERS)
 def decide(request_id: int):
     return extensions_controller.decide(request_id)
+
+
+# The Branch Manager's recommendation on a request beyond their limit; saving it routes the request to the Founder's inbox
+@access_extensions_bp.post("/<int:request_id>/recommendation")
+@login_required
+@require_roles("BRANCH_MANAGER")
+def recommend(request_id: int):
+    return extensions_controller.recommend(request_id)

@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AcademicExceptions } from "@/features/academic/exceptions";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/branch/exceptions")({ component: AcademicExceptions });
+/** Exceptions and Recording Exceptions became the Issues inbox (UX phase U15). */
+export const Route = createFileRoute("/branch/exceptions")({
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: `/branch/issues${location.searchStr}`, replace: true });
+  },
+});

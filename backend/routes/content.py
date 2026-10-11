@@ -17,6 +17,13 @@ def list_items():
     return content_controller.list_items()
 
 
+@content_bp.get("/review-summary")
+@login_required
+@require_roles(*REVIEWERS)
+def review_summary():
+    return content_controller.review_summary()
+
+
 @content_bp.post("")
 @login_required
 @require_roles(*AUTHORS)
@@ -64,6 +71,13 @@ def submit(content_item_id: int):
 @require_roles(*REVIEWERS)
 def review(content_item_id: int):
     return content_controller.review(content_item_id)
+
+
+@content_bp.post("/<int:content_item_id>/claim")
+@login_required
+@require_roles(*REVIEWERS)
+def claim(content_item_id: int):
+    return content_controller.claim(content_item_id)
 
 
 @content_bp.post("/<int:content_item_id>/release")

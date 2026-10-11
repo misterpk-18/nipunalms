@@ -1,11 +1,51 @@
 """Support requests, their messages, and the trainer's assigned-student list."""
 from datetime import date, datetime
 
-from sqlalchemy import Select, case, or_, select
+from sqlalchemy import Select, case, exists, func, or_, select
 
 from config.database import db
-from models import Batch, BatchAllocation, Enrolment, Student, SupportAttachment, SupportMessage, SupportRequest
+from models import Batch, BatchAllocation, Enrolment, Student, SupportAttachment, SupportMessage, SupportRequest, User
 from models.support import SUPPORT_OPEN_STATUSES
+
+
+# The staff views of the request list (UX phase U15): what the status means for the person who answers
+VIEWS = {
+    "needs_action": ("Open", "In Progress"),
+    "waiting": ("Waiting on Student",),
+    "done": ("Resolved", "Closed"),
+    "all": ("Open", "In Progress", "Waiting on Student", "Resolved", "Closed"),
+}
+
+
+def count_stmt(stmt: Select) -> int:
+    return db.session.execute(select(func.count()).select_from(stmt.order_by(None).subquery())).scalar_one()
+
+
+def reply_marks(request_ids: list[int]) -> dict[int, str]:
+    """request id -> 'new_reply' (the student wrote last, after staff had answered) or 'new_request' (only the student has written)."""
+    if not request_ids:
+        return {}
+    stmt = (select(SupportMessage.support_request_id, SupportMessage.support_message_id, User.student_id)
+            .join(User, User.user_id == SupportMessage.author_user_id, isouter=True)
+            .where(SupportMessage.support_request_id.in_(request_ids), SupportMessage.is_internal.is_(False), SupportMessage.kind == "Message")
+            .order_by(SupportMessage.support_request_id, SupportMessage.support_message_id))
+    last: dict[int, bool] = {}
+    staff_spoke: set[int] = set()
+    for request_id, _, student_id in db.session.execute(stmt).all():
+        last[request_id] = student_id is not None
+        if student_id is None:
+            staff_spoke.add(request_id)
+    return {rid: ("new_reply" if rid in staff_spoke else "new_request") for rid, from_student in last.items() if from_student}
+
+
+def needing_attention(branch_ids: set[int] | None, due_by: datetime) -> int:
+    """Open requests that are near or past their reply deadline, or where the student wrote last (the navigation badge)."""
+    open_ = select(SupportRequest.support_request_id, SupportRequest.sla_due_at).where(SupportRequest.status.in_(("Open", "In Progress")))
+    if branch_ids is not None:
+        open_ = open_.where(SupportRequest.branch_id.in_(branch_ids))
+    rows = db.session.execute(open_).all()
+    marks = reply_marks([r[0] for r in rows])
+    return sum(1 for rid, due in rows if due <= due_by or marks.get(rid) == "new_reply")
 
 
 def get_request(support_request_id: int) -> SupportRequest | None:
@@ -33,6 +73,13 @@ def list_stmt(filters: dict, *, student_id: int | None, branch_ids: set[int] | N
             visible.append(SupportRequest.branch_id.in_(branch_ids))
         stmt = stmt.where(or_(*visible))
 
+    view = filters.get("view")
+    if view and student_id is None:
+        stmt = stmt.where(SupportRequest.status.in_(VIEWS[view]))
+        if view == "needs_action":  # the nearest reply deadline first (overdue ones lead)
+            stmt = stmt.order_by(None).order_by(SupportRequest.sla_due_at, SupportRequest.support_request_id)
+        elif view != "all":
+            stmt = stmt.order_by(None).order_by(SupportRequest.updated_at.desc(), SupportRequest.support_request_id.desc())
     if filters.get("status"):
         stmt = stmt.where(SupportRequest.status == filters["status"])
     if filters.get("open"):

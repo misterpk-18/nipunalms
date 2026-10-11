@@ -193,6 +193,12 @@ export type BranchSummary = {
   as_of: DateTime;
 };
 
+/** The counts on the tabs of the Branch Manager's Attendance & progress. */
+export type AttendanceTabCounts = { students_at_risk: number; recoveries: number; corrections: number };
+
+/** A correction in the Branch Manager's queue: `can_decide` is false when the viewer requested it or marked the entry, or only the Founder or a Super Admin may decide it. */
+export type CorrectionRow = Correction & { can_decide?: boolean };
+
 export type MarkBody = { default_status?: AttendanceStatus; entries?: { enrolment_id: number; status: AttendanceStatus; remarks?: string | null }[] };
 
 export const attendanceApi = {
@@ -214,6 +220,9 @@ export const attendanceApi = {
   nextSteps: () => get<NextStep[]>("/me/progress/next-steps"),
   progress: (query: Query) => list<ProgressRow>("/progress/students", query),
   summary: (query: Query) => get<BranchSummary>("/progress/summary", query),
+  enrolmentProgress: (enrolmentId: number) => get<ProgressBlock>(`/progress/enrolments/${enrolmentId}`),
+  tabCounts: (branchId: number | null) => get<AttendanceTabCounts>("/branch/attendance-summary", { branch_id: branchId }),
+  branchCorrections: (query: Query) => list<CorrectionRow>("/attendance/corrections", query),
 };
 
 export const attendanceKeys = {

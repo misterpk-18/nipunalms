@@ -36,7 +36,21 @@ const ROLES = [
     name: "branch manager",
     user: USERS.bmGnt,
     home: "/branch",
-    nav: ["My work", "Class day", "Batches", "Waiting for a batch", "Schedule & calendar", "Curriculum", "Recording Exceptions", "Certificates & Reports"],
+    nav: [
+      "My work",
+      "Class day",
+      "Batches",
+      "Waiting for a batch",
+      "Schedule & calendar",
+      "Attendance & progress",
+      "Curriculum",
+      "Content & questions",
+      "Marks & results",
+      "Completion & certificates",
+      "Student support",
+      "Issues",
+      "Reports",
+    ],
     other: "/admin",
   },
   {
@@ -93,7 +107,7 @@ test("only users with several workspaces get the Acting as switcher", async ({ p
 test("navigation items show how many things wait there, without changing the link name", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "sidebar is desktop only");
   await login(page, USERS.bmGnt);
-  const link = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Exceptions", exact: true });
+  const link = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Issues", exact: true });
   await expect(link.getByTestId("nav-badge")).toBeVisible();
   await expect(link).toHaveAccessibleDescription(/\d+ waiting/);
 });
@@ -180,7 +194,7 @@ test("old /academic links land on the matching Branch Manager screen", async ({ 
   await page.goto("/academic/curriculum");
   await expect(page).toHaveURL(/\/branch\/curriculum$/);
   await page.goto("/academic/reports");
-  await expect(page).toHaveURL(/\/branch\/academic-reports$/);
+  await expect(page).toHaveURL(/\/branch\/reports$/);
   await page.goto("/academic");
   await expect(page).toHaveURL(/\/branch$/);
   await expect(page.getByRole("heading", { level: 1, name: "My work" })).toBeVisible();

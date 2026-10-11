@@ -24,7 +24,7 @@ from repositories import class_flow as flow_repo
 from repositories import class_sessions as sessions_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import audit, delivery_access, delivery_notices, meet, scope
+from services import approvals, audit, delivery_access, delivery_notices, meet, scope
 from services import batches as batches_service
 from services import whatsapp_messages
 from services.context import actor_id, current_user
@@ -678,6 +678,7 @@ def approve_request(request_id: int, note: str | None, override_reason: str | No
                     emergency: dict | None = None) -> SessionChangeRequest:
     """Approving moves the session to the proposed slot (the same checks and notices as a direct reschedule)."""
     request = _load_request(request_id)
+    approvals.require_independent(request.requested_by, message="The requester cannot decide their own reschedule request", requester=request.requested_by)
     session = sessions_repo.get_session_for_update(request.session_id)
     _apply_reschedule(session, request.proposed_starts_at, request.proposed_ends_at, f"Trainer request: {request.reason}",
                       override_reason=override_reason, emergency=emergency)
@@ -691,6 +692,7 @@ def approve_request(request_id: int, note: str | None, override_reason: str | No
 
 def reject_request(request_id: int, note: str) -> SessionChangeRequest:
     request = _load_request(request_id)
+    approvals.require_independent(request.requested_by, message="The requester cannot decide their own reschedule request", requester=request.requested_by)
     request.status, request.decided_by, request.decided_at, request.decision_note = "Rejected", actor_id(), _now(), note
     db.session.flush()
     delivery_notices.notify_users([request.requested_by], title=f"Reschedule not approved: {request.session.title}", category="Session", body=note,

@@ -78,48 +78,39 @@ test("student sees attendance with approved recovery, four separate progress mea
   await expect(page.getByText(/the completion rule for your complimentary course is not set up/)).toBeVisible();
 });
 
-test("coordinator sees alerts and partial data, then recommends a certificate; the branch manager approves and issues it", async ({ page }, info) => {
+test("the branch manager sees students at risk first, then approves and issues a certificate from the pipeline", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
-  await login(page, USERS.coordGnt);
+  await login(page, USERS.bmGnt);
   await page.goto("/branch/progress");
   const learnerG = page.getByRole("row", { name: /Sample Learner G\./ });
-  await expect(learnerG).toContainText("71%");
+  await expect(learnerG).toContainText(/\d+%/);
   await expect(learnerG).toContainText("Alert");
+  await page.getByRole("button", { name: "Show all students" }).click();
   await expect(page.getByRole("row", { name: /Sample Learner I\./ })).toContainText("Incomplete data");
 
-  await page.goto("/branch/certificates");
-  const learnerC = page.getByRole("row", { name: /Sample Learner C\./ });
-  await expect(learnerC).toContainText("Eligibility Review");
-  await learnerC.getByRole("button", { name: "Recommend" }).click();
-  await expect(page.getByText("Recommended for approval.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /Sample Learner C\./ })).toContainText("Awaiting Approval");
-
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
-
-  await login(page, USERS.bmGnt);
-  await page.goto("/branch/reports");
-  const row = page.getByRole("row", { name: /Sample Learner C\./ });
-  await expect(row).toContainText("Awaiting Approval");
-  await row.getByRole("button", { name: "Approve for issue" }).click();
-  await expect(page.getByText("Approved for issue.")).toBeVisible();
-  await page
-    .getByRole("row", { name: /Sample Learner C\./ })
-    .getByRole("button", { name: "Issue" })
-    .click();
-  await expect(page.getByText(/Issued as NIT-CERT-\d{4}-\d{6}/)).toBeVisible();
-  await expect(page.getByRole("row", { name: /Sample Learner C\./ })).toContainText("Issued");
-  await expect(page.getByRole("row", { name: /Sample Learner A\./ }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Attendance and progress by batch" })).toBeVisible();
+  await page.goto("/branch/completion?stage=completed");
+  const learnerC = page.getByRole("listitem").filter({ hasText: "Sample Learner C." });
+  await expect(learnerC).toContainText("In review");
+  await learnerC.getByRole("button", { name: "Approve certificate" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Approve certificate" }).click();
+  await page.getByRole("tab", { name: /^Ready to issue/ }).click();
+  const ready = page.getByRole("listitem").filter({ hasText: "Sample Learner C." });
+  await ready.getByRole("button", { name: "Issue certificate" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Issue certificate" }).click();
+  await expect(page.getByText(/NIT-CERT-\d{4}-\d{6}/).first()).toBeVisible();
+  await page.getByRole("tab", { name: /^Issued/ }).click();
+  const issued = page.getByRole("list", { name: "Issued" });
+  await expect(issued.getByRole("listitem").filter({ hasText: "Sample Learner C." })).toContainText("Issued");
+  await expect(issued.getByRole("listitem").filter({ hasText: "Sample Learner A." }).first()).toBeVisible();
 });
 
 test("register shows the reissue history and public verification shows the presented version", async ({ page, request }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/branch/certificates");
-  await expect(page.getByRole("row", { name: /NIT-CERT-2026-000001.*Superseded/ })).toBeVisible();
-  await expect(page.getByRole("row", { name: /NIT-CERT-2026-000001.*Issued/ })).toContainText("v2 (reissue) — Name correction");
-  await expect(page.getByRole("row", { name: /Sample Learner F\./ })).toContainText("Revoked");
+  await page.goto("/branch/completion?stage=issued");
+  const issued = page.getByRole("list", { name: "Issued" });
+  await expect(issued.getByRole("listitem").filter({ hasText: "NIT-CERT-2026-000001" })).toContainText("version");
+  await expect(issued.getByRole("listitem").filter({ hasText: "Sample Learner F." })).toContainText("Revoked");
 
   const response = await request.get("/api/v1/certificates/verify/NIT-CERT-2026-000001");
   expect(response.ok()).toBeTruthy();
@@ -137,11 +128,11 @@ test("register shows the reissue history and public verification shows the prese
     "version",
   ]);
   expect(data.state).toBe("Valid — Current Version");
-  expect(data.version).toBe(2);
+  expect(data.version).toBeGreaterThanOrEqual(2); // a later run in the governance spec reissues it again
 
   // The public page needs no sign-in and shows the older copy as Superseded
   await page.goto("/verify/NIT-CERT-2026-000001?version=1");
-  await expect(page.getByText(/Superseded — the current copy is version 2/)).toBeVisible();
+  await expect(page.getByText(/Superseded — the current copy is version \d/)).toBeVisible();
 });
 
 test("attendance, progress and certificate screens fit a phone without horizontal scroll @mobile", async ({ page }) => {

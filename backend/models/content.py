@@ -18,6 +18,10 @@ CONTENT_STATUSES = ("Draft", "Submitted", "Under Review", "Approved", "Released"
 CONTENT_STORAGE_KINDS = ("File", "Link")
 CONTENT_REVIEW_ACTIONS = ("Submitted", "Review Started", "Approved", "Changes Requested", "Rejected", "Released", "Retired")
 RECORDING_STATUSES = ("Processing", "Released", "Partial", "Held", "Unavailable", "Expired")
+# The screen's problem reasons and the stored recording states they stand for
+PROBLEM_LABELS = {"processing": "Still being prepared", "partial": "Only part of the class was captured",
+                  "unavailable": "No recording exists", "on_hold": "On hold for review"}
+STATUS_PROBLEM = {"Processing": "processing", "Partial": "partial", "Unavailable": "unavailable", "Held": "on_hold"}
 RECORDING_SOURCES = ("Google Drive", "Manual upload")
 RECORDING_ISSUE_TYPES = ("Partial", "Held", "Unavailable", "Integration Unavailable")
 RECORDING_EXCEPTION_STATUSES = ("Open", "In Progress", "Resolved")
@@ -240,8 +244,17 @@ class Recording(db.Model):
             "released_at": self.released_at,
             "hold_reason": self.hold_reason,
             "partial_note": self.partial_note,
+            "problem": self.problem(),
             "created_at": self.created_at,
         }
+
+    def problem(self) -> dict | None:
+        """Hold, Partial and Unavailable shown as one idea, "a problem", with a plain reason (UX phase U15)."""
+        reason = STATUS_PROBLEM.get(self.status)
+        if reason is None:
+            return None
+        note = {"on_hold": self.hold_reason, "partial": self.partial_note}.get(reason)
+        return {"reason": reason, "label": PROBLEM_LABELS[reason], "note": note}
 
 
 class RecordingException(db.Model):
@@ -313,11 +326,18 @@ class AccessExtensionRequest(db.Model):
     decided_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decision_note: Mapped[str | None] = mapped_column(Text)
+    # The Branch Manager's recommendation on a request beyond their limit (db/113); saving it routes the request to the Founder
+    recommended_decision: Mapped[str | None] = mapped_column(String(10))
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    recommended_expiry: Mapped[date | None] = mapped_column(Date)
+    recommended_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    recommended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     enrolment: Mapped[Enrolment] = relationship(lazy="joined")
     student: Mapped[Student] = relationship(lazy="joined")
     branch: Mapped[Branch] = relationship(lazy="joined")
     decider: Mapped[User | None] = relationship(foreign_keys=[decided_by], lazy="joined")
+    recommender: Mapped[User | None] = relationship(foreign_keys=[recommended_by], lazy="joined")
 
     def to_dict(self) -> dict:
         return {
@@ -337,3 +357,10 @@ class AccessExtensionRequest(db.Model):
             "decided_at": self.decided_at,
             "decision_note": self.decision_note,
         }
+
+    def recommendation_dict(self) -> dict | None:
+        """The Branch Manager's recommendation (staff only; a student never sees it)."""
+        if self.recommended_at is None:
+            return None
+        return {"decision": self.recommended_decision, "note": self.recommendation, "expiry": self.recommended_expiry,
+                "by": _user_ref(self.recommender), "at": self.recommended_at}

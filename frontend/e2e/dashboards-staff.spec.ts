@@ -35,7 +35,7 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
     await expect(tile(page, "Batches delivery-ready")).toContainText("/");
     await expect(tile(page, "Open exceptions")).toContainText("awaiting a named owner");
     await expect(page.getByText("NIT-GNT-BAT-2026-000003:")).toHaveCount(0); // a batch with no curriculum yet is not at risk
-    await expect(page.locator("#main").getByRole("link", { name: "Recording exceptions" }).first()).toBeVisible();
+    await expect(page.locator("#main").getByRole("link", { name: "Recordings" }).first()).toBeVisible();
     // the Vijayawada batch is not part of a Guntur view
     await expect(page.getByText("NIT-VIJ-BAT-2026-000001")).toHaveCount(0);
   });
@@ -47,41 +47,37 @@ test.describe("Branch dashboard (academic work) and exception queue", () => {
     await expect(tile(page, "Unfulfilled recording promises")).toContainText(/\d/);
     await expect(page.getByText("NIT-GNT-BAT-2026-000003")).toHaveCount(0);
 
-    await page.goto("/branch/exceptions");
-    await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
-    await expect(page.getByRole("row", { name: /RX-0014/ })).toBeVisible();
-    await expect(page.getByRole("row", { name: /ENR-/ })).toHaveCount(0);
+    await page.goto("/branch/issues");
+    await expect(page.getByRole("heading", { level: 1, name: "Issues" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Recordings\s*\d+/ })).toBeVisible(); // the Vijayawada recording problem
+    await expect(page.getByText("Guntur", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Student waiting for a batch")).toHaveCount(0);
   });
 
   test("the coordinator logs a recovery step and becomes the named owner", async ({ page }) => {
     await login(page, USERS.coordGnt);
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Exceptions", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
-    const row = page.getByRole("row").filter({ hasText: "Awaiting batch allocation" }).filter({ hasText: "No owner yet" }).first();
-    await expect(row).toContainText("No owner yet");
-    await expect(row).toContainText("Branch Manager — Guntur");
-    const reference = (await row.getByRole("cell").first().innerText()).trim();
-
-    await row.getByRole("button", { name: /^Update ENR-/ }).click();
-    const confirm = page.getByRole("button", { name: "Log recovery step" });
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Issues", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Issues" })).toBeVisible();
+    await page.getByLabel("Owner").selectOption({ label: "Nobody yet" });
+    const row = page.getByRole("listitem").filter({ hasText: "Student waiting for a batch" }).filter({ hasText: "Nobody yet" }).first();
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: "Add note" }).click();
+    const confirm = page.getByRole("dialog").getByRole("button", { name: "Add note" });
     await expect(confirm).toBeDisabled();
-    await page.getByLabel("What was done, or will be done").fill(`Batch proposed for the October intake ${RUN}`);
+    await page.getByRole("dialog").getByLabel("Note").fill(`Batch proposed for the October intake ${RUN}`);
     await confirm.click();
-    await expect(page.getByText("Recovery step logged.")).toBeVisible();
+    await expect(page.getByText("Note added. You now own this issue.")).toBeVisible();
 
-    const updated = page.getByRole("row", { name: new RegExp(reference) });
-    await expect(updated).toContainText("Being worked on");
-    await expect(updated).toContainText("Branch Manager");
-    await expect(updated).not.toContainText("No owner yet");
-    await expect(updated).toContainText("recovery step");
+    await page.getByLabel("Owner").selectOption({ label: "Mine" });
+    await expect(page.getByText(/1 note/).first()).toBeVisible();
   });
 
   test("filter by type", async ({ page }) => {
     await login(page, USERS.coordGnt);
-    await page.goto("/branch/exceptions");
-    await page.getByLabel("Exception type").selectOption({ label: "Recording" });
-    await expect(page.getByRole("row", { name: /RX-0012/ })).toBeVisible();
-    await expect(page.getByRole("row", { name: /ENR-/ })).toHaveCount(0);
+    await page.goto("/branch/issues");
+    await page.getByRole("button", { name: /^Recordings\s*\d+/ }).click();
+    await expect(page.getByText("Recording problem").first()).toBeVisible();
+    await expect(page.getByText("Student waiting for a batch")).toHaveCount(0);
   });
 });
 
@@ -98,7 +94,7 @@ test.describe("Branch dashboard", () => {
     await expect(tile(page, "Running / starting batches")).toBeVisible();
     await expect(tile(page, "Schedule & recording exceptions")).toBeVisible();
     await expect(tile(page, "Open escalations & extension requests")).toContainText("Escalations 1");
-    for (const link of ["Batches", "Escalations & extensions", "Certificates & reports"]) {
+    for (const link of ["Batches", "Student support", "Reports"]) {
       await expect(page.locator("#main").getByRole("link", { name: link }).first()).toBeVisible();
     }
     await expect(page.getByText("Finance and Admissions remain in the CRM. This view shows academic data for the locked branch only.")).toBeVisible();
@@ -178,9 +174,9 @@ test.describe("@mobile staff dashboards", () => {
     await expect(page.getByRole("heading", { level: 1, name: "My work" })).toBeVisible();
     await expect(tile(page, "Enrolments awaiting batch allocation")).toContainText(/\d/);
     await noHorizontalScroll(page);
-    await page.goto("/branch/exceptions");
-    await expect(page.getByRole("heading", { name: "Exception / Recovery queue" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Update / }).first()).toBeVisible();
+    await page.goto("/branch/issues");
+    await expect(page.getByRole("heading", { level: 1, name: "Issues" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add note" }).first()).toBeVisible();
     await noHorizontalScroll(page);
   });
 

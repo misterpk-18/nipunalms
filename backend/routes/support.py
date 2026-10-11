@@ -14,6 +14,12 @@ def list_requests():
     return support_controller.list_requests()
 
 
+@support_bp.get("/counts")
+@login_required
+def view_counts():
+    return support_controller.view_counts()
+
+
 @support_bp.post("")
 @login_required
 def raise_request():

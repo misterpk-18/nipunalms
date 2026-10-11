@@ -425,3 +425,15 @@ def test_students_can_free_their_booking_and_staff_cancel_slots(client, world):
     assert cancelled.status_code == 200 and cancelled.get_json()["data"]["status"] == "Cancelled"
     assert db.session.execute(select(Notification).where(Notification.event_key == f"slot-cancelled:{slot}")).scalars().one()
     assert client.post(f"{API}/interview-slots/{slot}/cancel", json={}, headers=world.h["g1"]).status_code == 422
+
+
+def test_each_gap_of_an_unready_test_names_who_must_fix_it(client, world):
+    test = client.post(f"{API}/tests", json={"batch_id": world.batches["G1"].batch_id, "kind": "Module test", "title": "Module test"},
+                       headers=world.h["g1"]).get_json()["data"]
+    rows = client.get(f"{API}/assessment-reviews", headers=world.h["ac"]).get_json()["data"]
+    row = next(r for r in rows if r["item_id"] == test["test_id"] and r["kind"] == "Test")
+    owners = {g["text"]: g["owner"] for g in row["gap_details"]}
+    assert owners == {"Select the questions": "trainer", "Set the pass marks": "trainer", "Set the closing time": "trainer", "Branch Manager approval": "you"}
+    labels = {g["text"]: g["owner_label"] for g in row["gap_details"]}
+    assert labels["Branch Manager approval"] == "You approve the test" and labels["Select the questions"].endswith("adds the questions")
+    assert "The trainer" not in labels["Select the questions"]  # the author is named

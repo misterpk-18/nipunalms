@@ -473,3 +473,10 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 | Table `class_flow_progress` (`session_id` PK, `step` open / join / attendance / log, `draft` jsonb, `updated_by`, `updated_at`) | Where a trainer stands in Today's flow for a class and the half-written class log, so a refresh resumes at the same step. The row is deleted when the class is logged; the class's own state stays the truth |
 | Table `class_session_topics` (`session_id`, `topic_id`) | The topics the trainer logged as covered in a delivered class. The class keeps its one planned topic (`class_sessions.topic_id`), which still drives student topic progress |
 | `meet_events.event_type` accepts `Link requested` | The trainer's one-click "no Meet link" request to the Branch Managers |
+
+## 113 — UX phase U15: access extensions beyond the Branch Manager's limit
+
+| Change | Why |
+|---|---|
+| `access_extension_requests.recommended_decision` (approve / reject), `recommendation`, `recommended_expiry`, `recommended_by`, `recommended_at` | A request made after the second anniversary is a Founder / Super Admin decision. The Branch Manager of the service branch adds a recommendation instead of deciding it. Checks: the five fields are all set or all empty, only an exception request may carry one, the note is not blank, a suggested end date goes with an approval and is after the current end date |
+| Index `access_extension_founder_idx` (pending exception requests with a recommendation) | `recommended_at IS NOT NULL` on a Pending `needs_exception` request is the routing mark: it is in the Founder's inbox (what U16's `GET /founder/inbox` reads) |

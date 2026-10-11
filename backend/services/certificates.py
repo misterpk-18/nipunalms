@@ -165,7 +165,7 @@ def open_eligibility(enrolment: Enrolment, review: CompletionReview) -> list[Cer
                      branch_id=certificate.branch_id)
         notify(category="Certificate", title=f"Certificate eligibility to review: {enrolment.course.course_code}",
                body=f"{certificate.holder_name}'s completion was confirmed. Review the {certificate.certificate_type} entry and recommend it for approval.",
-               link="/branch/certificates", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
+               link="/branch/completion", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
                event_key=f"certificate-eligibility:{certificate.certificate_id}", action_required=True)
         opened.append(certificate)
     return opened
@@ -227,7 +227,7 @@ def recommend(certificate_id: int, note: str | None) -> Certificate:
                  reason=note, branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate awaiting your approval: {certificate.holder_name}",
            body=f"{certificate.certificate_type} for {certificate.course.course_code} was recommended by the Branch Manager.",
-           link="/branch/reports", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
+           link="/branch/completion", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-recommended:{certificate.certificate_id}", action_required=True)
     return certificate
 
@@ -245,7 +245,7 @@ def return_to_review(certificate_id: int, reason: str) -> Certificate:
     audit.record("CERTIFICATE_RETURNED", "certificate", certificate.certificate_id, old=old, new=_snapshot(certificate),
                  reason=reason, branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate returned for review: {certificate.holder_name}", body=reason,
-           link="/branch/certificates", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
+           link="/branch/completion", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-returned:{certificate.certificate_id}:{certificate.updated_at.isoformat()}", action_required=True)
     return certificate
 
@@ -272,7 +272,7 @@ def approve(certificate_id: int) -> Certificate:
     audit.record("CERTIFICATE_APPROVED", "certificate", certificate.certificate_id, old=old, new=_snapshot(certificate),
                  branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate approved for issue: {certificate.holder_name}",
-           body="The number is allocated when the certificate is issued.", link="/branch/certificates",
+           body="The number is allocated when the certificate is issued.", link="/branch/completion",
            role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-approved:{certificate.certificate_id}", action_required=True)
     return certificate
@@ -336,7 +336,7 @@ def apply_revocation(certificate: Certificate, reason: str) -> Certificate:
                  reason=reason, branch_id=certificate.branch_id)
     _tell_student(certificate, f"Your certificate was revoked: {certificate.certificate_number}", reason, "revoked")
     notify(category="Certificate", title=f"Certificate revoked: {certificate.certificate_number}", body=reason,
-           link="/branch/reports", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
+           link="/branch/completion", role_code="BRANCH_MANAGER", branch_id=certificate.branch_id,
            event_key=f"certificate-revoked-bm:{certificate.certificate_id}")
     return certificate
 

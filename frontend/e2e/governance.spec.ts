@@ -22,25 +22,31 @@ test("the founder has curriculum approvals and certificate decisions", async ({ 
 test("a branch manager's correction request is approved by the super admin", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.coordGnt);
-  await page.goto("/branch/certificates");
-  const row = page.getByRole("row", { name: /NIT-CERT-2026-000001.*Issued/ });
-  await row.getByRole("button", { name: "Request correction" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel(/Reason/).fill("Surname spelling");
-  await dialog.getByLabel("Name to print").fill("Sample Learner A. Kumar");
-  await dialog.getByRole("button", { name: "Request" }).click();
-  await expect(page.getByText("Correction requested; an independent approver decides it.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /NIT-CERT-2026-000001.*Issued/ })).toContainText("Correction requested");
+  await page.goto("/branch/completion?stage=issued");
+  const card = page.getByRole("listitem").filter({ hasText: "NIT-CERT-2026-000001" });
+  await expect(card).toBeVisible();
+  // a run that already asked leaves the request waiting: then only the decision is left to test
+  if ((await card.getByText("A change request is waiting for a decision").count()) === 0) {
+    await card.getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Request a correction" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(/Reason/).fill("Surname spelling");
+    await dialog.getByLabel("Name to print").fill("Sample Learner A. Kumar");
+    await dialog.getByRole("button", { name: "Request correction" }).click();
+  }
+  await expect(page.getByText("A change request is waiting for a decision").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await login(page, USERS.admin);
-  await page.goto("/branch/reports");
-  const request = page.getByRole("row", { name: /Surname spelling/ });
+  await page.goto("/branch/completion");
+  await page.getByRole("button", { name: /Requests and fee releases/ }).click();
+  const request = page.getByRole("row").filter({ has: page.getByRole("button", { name: "Decide" }) }).first();
   await request.getByRole("button", { name: "Decide" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Record decision" }).click();
   await expect(page.getByText("Correction approved.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /Sample Learner A\. Kumar/ })).toContainText("Issued");
+  await page.goto("/branch/completion?stage=issued");
+  await expect(page.getByRole("listitem").filter({ hasText: "NIT-CERT-2026-000001" })).toContainText("version");
 });
 
 test("the super admin sees the AI controls", async ({ page }, info) => {

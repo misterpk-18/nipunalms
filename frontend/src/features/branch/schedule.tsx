@@ -41,7 +41,9 @@ const batchName = (b: { display_name?: string | null; batch_code: string }) => b
 // ---------------------------------------------------------------- Needs decision
 
 function RequestRow({ request }: { request: RescheduleRequest }) {
-  const approver = useIsManager();
+  const manager = useIsManager();
+  // The API says when someone else must decide (a Branch Manager's own request goes to the Founder or a Super Admin)
+  const approver = manager && (request as RescheduleRequest & { can_decide?: boolean }).can_decide !== false;
   const approve = useDelivery(
     (v: { id: number; body: Parameters<typeof deliveryApi.approveRequest>[1] }) => deliveryApi.approveRequest(v.id, v.body),
     "Approved. The class moved and everyone has been told.",
@@ -60,6 +62,7 @@ function RequestRow({ request }: { request: RescheduleRequest }) {
           {fmtRange(request.proposed_starts_at, request.proposed_ends_at)} · {request.reason}
         </p>
       </div>
+      {manager && !approver && <p className="text-sm text-muted-foreground">Decided by the Founder or a Super Admin</p>}
       {approver && (
         <div className="flex items-center gap-1.5">
           <Button size="sm" onClick={() => setDialog("approve")}>

@@ -77,7 +77,14 @@ export function ClassDay() {
       <PageHead
         title="Class day"
         description="The day's classes: is each link ready, who hosts, what went wrong and what is still owed. Pick a tile to filter the list."
-        actions={<BranchPicker />}
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link to="/branch/recordings">Recordings</Link>
+            </Button>
+            <BranchPicker />
+          </>
+        }
       />
       <div className="max-w-xs">
         <Input type="date" aria-label="Date" value={date} onChange={(e) => setDate(e.target.value)} />

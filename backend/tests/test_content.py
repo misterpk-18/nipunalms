@@ -171,7 +171,7 @@ def test_review_flow_from_submission_to_release(client, login, world):
     # the coordinator was told and the notice needs action
     notice = db.session.execute(select(Notification).where(Notification.recipient_user_id == world.people.ac.user_id,
                                                            Notification.category == "Content")).scalar_one()
-    assert notice.category == "Content" and notice.action_status == "Open" and notice.link == "/branch/content-review"
+    assert notice.category == "Content" and notice.action_status == "Open" and notice.link == "/branch/content"
 
     assert post(client, f"/content-items/{item_id}/review", coordinator, json={"decision": "start"})["status"] == "Under Review"
     approved = post(client, f"/content-items/{item_id}/review", coordinator, json={"decision": "approve", "comment": "Good"})

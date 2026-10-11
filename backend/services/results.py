@@ -9,7 +9,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 
 from config.database import db
-from models import Assignment, Enrolment, Result, Test, TestAttempt
+from models import Assignment, Enrolment, Result, Test, TestAttempt, User
 from repositories import assignments as assignments_repo
 from repositories import results as results_repo
 from repositories import tests as tests_repo
@@ -116,6 +116,25 @@ def publish(filters: dict) -> list[Result]:
                                  branch_id=result.batch.branch_id)
         whatsapp_messages.result_published(result, item["title"])
     return pending
+
+
+def publish_preview(filters: dict) -> dict:
+    """What publishing would do, for the confirm: how many results go to students now, how many of those the Branch Manager has not
+    looked at (trainer's marks, never moderated), and what is still being marked (not part of the publish)."""
+    if not (filters.get("assignment_id") or filters.get("test_id")):
+        raise ValidationError("Invalid request data", {"assignment_id": ["Give an assignment_id or a test_id"]})
+    if filters.get("batch_id"):
+        access.load_batch(filters["batch_id"])
+    rows = list(db.session.execute(results_repo.list_stmt(filters, access.visible_batch_clause)).scalars().unique())
+    for batch in {r.batch for r in rows}:
+        access.assert_can_moderate(batch)
+    pending = [r for r in rows if r.status != "Published"]
+    awaiting = 0
+    if filters.get("test_id"):
+        awaiting = _awaiting_grading_by_test().get(filters["test_id"], 0)
+    return {"to_publish": len(pending), "unreviewed": sum(1 for r in pending if r.status == "Provisional"),
+            "moderated": sum(1 for r in pending if r.status == "Moderated"), "already_published": len(rows) - len(pending),
+            "awaiting_grading": awaiting}
 
 
 def _student_user_id(student_id: int) -> int | None:
@@ -233,6 +252,27 @@ def _awaiting_grading_by_test() -> dict[int, int]:
     return dict(db.session.execute(stmt).all())
 
 
+GAP_OWNERS = {
+    "Select the questions": ("trainer", "The trainer adds the questions"),
+    "Offer at least one interview slot": ("trainer", "The trainer offers interview slots"),
+    "Set the pass marks": ("trainer", "The trainer sets the pass marks"),
+    "Set the closing time": ("trainer", "The trainer sets the closing time"),
+    "Branch Manager approval": ("you", "You approve the test"),
+}
+
+
+def gap_details(test: Test, gaps: list[str]) -> list[dict]:
+    """Each gap with the person who has to fix it, named when the trainer who made the test is known."""
+    author = db.session.get(User, test.created_by)
+    details = []
+    for gap in gaps:
+        owner, label = GAP_OWNERS.get(gap, ("you", gap))
+        if owner == "trainer" and author is not None:
+            label = label.replace("The trainer", author.full_name, 1)
+        details.append({"text": gap, "owner": owner, "owner_label": label})
+    return details
+
+
 def _tests_not_ready(filters: dict, clause) -> list[dict]:
     """Tests that cannot be released yet (with what is missing), so the Branch Manager sees them next to the results work."""
     stmt = tests_repo.list_stmt({"release_status": "Configuration Pending", **({"batch_id": filters["batch_id"]} if filters.get("batch_id") else {})}, clause)
@@ -241,5 +281,5 @@ def _tests_not_ready(filters: dict, clause) -> list[dict]:
         gaps = configuration_gaps(test, tests_repo.question_count(test.test_id), tests_repo.slot_count(test.test_id))
         rows.append({"kind": "Test", "item_id": test.test_id, "code": test.test_code, "title": test.title, "type": test.kind,
                      "batch": test.batch.to_summary(), "counts": {"provisional": 0, "moderated": 0, "published": 0, "awaiting_grading": 0},
-                     "state": "Configuration Pending", "gaps": gaps, "can_moderate": access.can_moderate_batch(test.batch)})
+                     "state": "Configuration Pending", "gaps": gaps, "gap_details": gap_details(test, gaps), "can_moderate": access.can_moderate_batch(test.batch)})
     return rows

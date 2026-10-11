@@ -25,6 +25,7 @@ def list_progress():
     v.integer("batch_id", min_value=1)
     v.choice("status", ENROLMENT_STATUSES)
     v.boolean("alert")
+    v.choice("sort", ("risk",))
     v.string("q", max_length=100)
     filters = v.validate()
     page, per_page = get_page_params()

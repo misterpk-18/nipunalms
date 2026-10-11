@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AcademicCertificates } from "@/features/academic/certificates";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/branch/certificates")({ component: AcademicCertificates });
+/** Certificate Eligibility and Completion Review became Completion & certificates (UX phase U15). */
+export const Route = createFileRoute("/branch/certificates")({
+  beforeLoad: () => {
+    throw redirect({ href: "/branch/completion?stage=completed", replace: true });
+  },
+});

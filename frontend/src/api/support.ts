@@ -49,7 +49,25 @@ export type SupportDetail = SupportSummary & {
   messages: SupportMessage[];
 };
 
-export type SupportFilters = { status?: string; category?: string; escalated?: boolean; open?: boolean; mine?: boolean; q?: string; page?: number };
+export type SupportView = "needs_action" | "waiting" | "done" | "all";
+export type SupportViewCounts = Record<SupportView, number>;
+
+/** A row of the staff list: `reply_mark` says whether the student wrote last. */
+export type SupportRow = SupportSummary & { reply_mark?: "new_reply" | "new_request" | null };
+
+export type SupportFilters = {
+  status?: string;
+  category?: string;
+  escalated?: boolean;
+  open?: boolean;
+  mine?: boolean;
+  q?: string;
+  page?: number;
+  view?: SupportView;
+  per_page?: number;
+  branch_id?: number | null;
+  student_id?: number;
+};
 
 export type AssignedStudent = {
   student: { student_id: number; student_code: string; full_name: string };
@@ -61,6 +79,8 @@ export type AssignedStudent = {
 
 export const supportApi = {
   list: (filters: SupportFilters = {}): Promise<Page<SupportSummary>> => list<SupportSummary>("/support-requests", filters),
+  staffList: (filters: SupportFilters = {}): Promise<Page<SupportRow>> => list<SupportRow>("/support-requests", filters),
+  counts: (filters: SupportFilters = {}) => get<SupportViewCounts>("/support-requests/counts", filters),
   get: (id: number) => get<SupportDetail>(`/support-requests/${id}`),
   /** Raise a request; files (up to 3, 5 MB each) travel with it as a multipart form. */
   raise: (body: { category: SupportCategory; details: string; subject?: string; enrolment_id?: number | null; student_id?: number }, files: File[] = []) => {

@@ -405,6 +405,17 @@ def list_corrections(filters: dict, page: int, per_page: int) -> tuple[list[Atte
     return paginate(attendance_repo.corrections_stmt(filters, progress.visible_enrolment_condition()), page, per_page)
 
 
+def can_decide_correction(correction: AttendanceCorrection) -> bool:
+    """Whether the current user may decide it (the screen hides the buttons otherwise): a Branch Manager of the branch who is not the
+    requester or the person who marked the entry, and an admin when the requester is a Branch Manager."""
+    if correction.status != "Pending" or not current_user().has_role(*DECIDERS, branch_id=correction.enrolment.service_branch_id):
+        return False
+    record = attendance_repo.find_record(correction.session_id, correction.enrolment_id)
+    if record is not None and record.marked_by == current_user().user_id:
+        return False
+    return approvals.can_decide(correction.requested_by)
+
+
 def request_correction(session_id: int, enrolment_id: int, requested_status: str, reason: str) -> AttendanceCorrection:
     """A student's dispute, or a trainer's or Branch Manager's change to an entry that is locked (or was never marked)."""
     enrolment = progress.get_visible_enrolment(enrolment_id)

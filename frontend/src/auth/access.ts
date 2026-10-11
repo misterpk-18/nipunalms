@@ -138,16 +138,12 @@ const BRANCH_NAV: NavItem[] = [
   { to: "/branch/schedule", label: "Schedule & calendar", icon: CalendarDays, group: "Batches & students", badgeKey: "schedule" },
   { to: "/branch/progress", label: "Attendance & progress", icon: TrendingUp, group: "Batches & students", badgeKey: "attendance" },
   { to: "/branch/curriculum", label: "Curriculum", icon: Library, group: "Teaching" },
-  { to: "/branch/content-review", label: "Content Review", icon: FolderOpen, group: "Teaching", badgeKey: "content_review" },
-  { to: "/branch/assessments", label: "Reviews", icon: ClipboardCheck, group: "Teaching", badgeKey: "marks" },
-  { to: "/branch/completion", label: "Completion Review", icon: CircleCheck, group: "Completion", badgeKey: "completion" },
-  { to: "/branch/certificates", label: "Certificate Eligibility", icon: Award, group: "Completion", badgeKey: "certificates" },
-  { to: "/branch/support", label: "Student Support", icon: LifeBuoy, group: "Help", badgeKey: "support" },
-  { to: "/branch/exceptions", label: "Exceptions", icon: TriangleAlert, group: "Help", badgeKey: "issues" },
-  { to: "/branch/recording-exceptions", label: "Recording Exceptions", icon: Video, group: "Help", badgeKey: "recording_issues" },
-  { to: "/branch/requests", label: "Escalations & Extensions", icon: Briefcase, group: "Help", badgeKey: "requests" },
-  { to: "/branch/academic-reports", label: "Academic Reports", icon: ChartColumn, group: "Reports" },
-  { to: "/branch/reports", label: "Certificates & Reports", icon: ScrollText, group: "Reports" },
+  { to: "/branch/content", label: "Content & questions", icon: FolderOpen, group: "Teaching", badgeKey: "content_review" },
+  { to: "/branch/results", label: "Marks & results", icon: ClipboardCheck, group: "Teaching", badgeKey: "marks" },
+  { to: "/branch/completion", label: "Completion & certificates", icon: Award, group: "Completion", badgeKey: "completion" },
+  { to: "/branch/support", label: "Student support", icon: LifeBuoy, group: "Help", badgeKey: "support" },
+  { to: "/branch/issues", label: "Issues", icon: TriangleAlert, group: "Help", badgeKey: "issues" },
+  { to: "/branch/reports", label: "Reports", icon: ChartColumn, group: "Reports" },
 ];
 
 const ADMIN_NAV: NavItem[] = [

@@ -114,7 +114,7 @@ def list_corrections():
     filters = v.validate()
     page, per_page = get_page_params()
     rows, meta = attendance_service.list_corrections(filters, page, per_page)
-    return paginated([c.to_dict() for c in rows], meta)
+    return paginated([c.to_dict() | {"can_decide": attendance_service.can_decide_correction(c)} for c in rows], meta)
 
 
 def request_correction():

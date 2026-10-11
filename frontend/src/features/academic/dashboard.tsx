@@ -7,9 +7,9 @@ const LINKS = [
   ["/branch/curriculum", "Curriculum versions"],
   ["/branch/batches", "Batches"],
   ["/branch/schedule", "Schedule"],
-  ["/branch/recording-exceptions", "Recording exceptions"],
-  ["/branch/completion", "Completion review"],
-  ["/branch/certificates", "Certificate eligibility"],
+  ["/branch/recordings", "Recordings"],
+  ["/branch/completion", "Completion & certificates"],
+  ["/branch/issues", "Issues"],
 ] as const;
 
 /** The branch's academic work. `embedded` puts it under the Branch Manager dashboard instead of on a page of its own. */
@@ -33,14 +33,14 @@ export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) 
                 label="Academic results awaiting publication review"
                 value={d.results_awaiting_publication.count}
                 hint="Provisional or moderated, not published"
-                to="/branch/assessments"
+                to="/branch/results"
               />
               <Tile
                 rank={3}
                 label="Unfulfilled recording promises"
                 value={d.recording_exceptions.count}
-                hint="From the Recording Exception Queue"
-                to="/branch/recording-exceptions"
+                hint="Recordings that are partial, held or missing"
+                to="/branch/recordings"
               />
             </TileRow>
             <TileRow label="Additional academic widgets">
@@ -54,7 +54,7 @@ export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) 
                 label="Open exceptions"
                 value={d.open_exceptions.count}
                 hint={`${d.open_exceptions.awaiting_owner} awaiting a named owner`}
-                to="/branch/exceptions"
+                to="/branch/issues"
               />
             </TileRow>
             {d.batch_risks.map((risk) => (

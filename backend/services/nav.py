@@ -8,7 +8,10 @@ card lives in the browser, not here.
 from datetime import datetime, timedelta, timezone
 
 from repositories import dashboards as dash_repo
+from repositories import access_extensions as extensions_repo
 from repositories import nav as nav_repo
+from repositories import questions as questions_repo
+from services import access_extensions as extensions_service
 from services import scope, student_work, trainer_todo
 from services import exceptions as exceptions_service
 from services import crm_sync
@@ -18,6 +21,8 @@ from services.errors import Forbidden
 
 # Certificate register states that wait for a person to decide
 CERTIFICATE_REVIEW = ("Eligibility Review", "Awaiting Approval")
+# ... and the ones that wait for the Branch Manager to issue them (Completion & certificates counts all of these)
+CERTIFICATE_TO_ACT_ON = CERTIFICATE_REVIEW + ("Approved for Issue",)
 # A support reply counts as "near its deadline" this long before it is due
 SUPPORT_WARNING = timedelta(hours=4)
 
@@ -63,18 +68,20 @@ def _branch_counts(branch_id: int | None) -> dict[str, int]:
     by_key = {row["key"]: row["count"] for row in work["rows"]}
     now = datetime.now(timezone.utc)
     enrolments = dash_repo.enrolment_counts(branch_ids)
-    certificates = sum(dash_repo.certificates_in_status(CERTIFICATE_REVIEW, branch_ids).values())
+    certificates = sum(dash_repo.certificates_in_status(CERTIFICATE_TO_ACT_ON, branch_ids).values())
+    extensions = extensions_repo.counts(branch_ids)
     return {
         "waiting": enrolments.get("Allocation Pending", 0),
         "requests": (dash_repo.open_reschedule_requests(branch_ids) + dash_repo.escalated_support_requests(branch_ids)
                      + dash_repo.pending_extension_requests(branch_ids)),
-        "content_review": dash_repo.content_awaiting_review(branch_ids),
+        # Content & questions: uploads waiting for review plus questions waiting for approval
+        "content_review": dash_repo.content_awaiting_review(branch_ids) + questions_repo.count_drafts(branch_ids),
         "marks": dash_repo.results_awaiting_publication(branch_ids),
-        "completion": dash_repo.open_completion_reviews(branch_ids),
-        "certificates": certificates,
+        # Completion & certificates: reviews to decide plus certificates to approve or issue
+        "completion": dash_repo.open_completion_reviews(branch_ids) + certificates,
         "issues": exceptions_service.counts(branch_ids)["total"],
-        "recording_issues": dash_repo.unresolved_recording_exceptions(branch_ids),
-        "support": nav_repo.support_due_by(branch_ids, now + SUPPORT_WARNING),
+        # Student support: replies near or past their deadline, new student replies, and access extensions the Branch Manager decides
+        "support": nav_repo.support_needing_attention(branch_ids, now + SUPPORT_WARNING) + extensions["decide"] + extensions["recommend"],
         "attendance": nav_repo.pending_recoveries(branch_ids) + nav_repo.pending_corrections(branch_ids),
         "my_work": work["total"],
         "schedule": by_key.get("decisions", 0),
@@ -96,7 +103,7 @@ def _founder_counts() -> dict[str, int]:
     return {
         "curriculum": nav_repo.curriculum_awaiting_approval(),
         "certificates": sum(certificates.values()),
-        "access": len(dash_repo.pending_exception_requests()),
+        "access": len(extensions_service.awaiting_founder()),
     }
 
 

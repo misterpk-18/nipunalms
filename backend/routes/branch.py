@@ -27,3 +27,17 @@ def waiting():
 @require_roles(*ACADEMIC_ROLES)
 def waiting_for_batch(batch_id: int):
     return branch_controller.waiting_for_batch(batch_id)
+
+
+@branch_bp.get("/branch/attendance-summary")
+@login_required
+@require_roles(*ACADEMIC_ROLES)
+def attendance_summary():
+    return branch_controller.attendance_summary()
+
+
+@branch_bp.get("/branch/completion")
+@login_required
+@require_roles(*ACADEMIC_ROLES)
+def completion_pipeline():
+    return branch_controller.completion_pipeline()

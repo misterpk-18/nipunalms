@@ -16,7 +16,7 @@ function recordTarget(kind: SearchRecord["kind"], workspace: Workspace, id: numb
   // The trainer's student and batch pages are record pages (U13); the other workspaces open the list until their phases build them
   if (kind === "student") return workspace === "trainer" ? `/trainer/students/${id}` : workspace === "branch" ? "/branch/progress" : "/admin/students";
   if (kind === "batch") return workspace === "trainer" ? `/trainer/batches/${id}` : `/branch/batches/${id}`;
-  return workspace === "founder" ? "/founder/certificates" : "/branch/certificates";
+  return workspace === "founder" ? "/founder/certificates" : "/branch/completion";
 }
 
 /** Ctrl/Cmd+K: jump to a page of any workspace the person holds, or find a student, batch or certificate they may open. */

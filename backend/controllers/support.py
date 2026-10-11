@@ -19,6 +19,7 @@ def _filters() -> dict:
     v = Validator(request.args.to_dict())
     v.choice("status", SUPPORT_STATUSES)
     v.choice("category", SUPPORT_CATEGORIES)
+    v.choice("view", ("needs_action", "waiting", "done", "all"))
     v.boolean("escalated")
     v.boolean("open")
     v.boolean("mine")
@@ -32,6 +33,12 @@ def list_requests():
     page, per_page = get_page_params()
     items, meta = support_service.list_requests(_filters(), page, per_page)
     return paginated(support_service.to_summaries(items), meta)
+
+
+def view_counts():
+    filters = _filters()
+    filters.pop("view", None)
+    return ok(support_service.view_counts(filters))
 
 
 def get_request(support_request_id: int):

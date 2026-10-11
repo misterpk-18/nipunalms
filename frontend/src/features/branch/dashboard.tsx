@@ -9,8 +9,9 @@ import { PaymentInstructions } from "./payment-instructions";
 
 const LINKS = [
   ["/branch/batches", "Batches"],
-  ["/branch/requests", "Escalations & extensions"],
-  ["/branch/reports", "Certificates & reports"],
+  ["/branch/support", "Student support"],
+  ["/branch/completion", "Completion & certificates"],
+  ["/branch/reports", "Reports"],
 ] as const;
 
 /** The Branch Manager's home: My work first, then how the branch is doing. */
@@ -52,7 +53,7 @@ export function BranchDashboard() {
                 label="Open escalations & extension requests"
                 value={d.requests_open.count}
                 hint={`Escalations ${d.requests_open.escalations} · Extensions ${d.requests_open.extension_requests}`}
-                to="/branch/requests"
+                to="/branch/support"
               />
             </TileRow>
             {d.batch_risks.map((risk) => (

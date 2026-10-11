@@ -1,4 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AcademicProgress } from "@/features/academic/progress";
+import { BranchAttendance } from "@/features/branch/attendance";
 
-export const Route = createFileRoute("/branch/progress")({ component: AcademicProgress });
+export const Route = createFileRoute("/branch/progress")({ component: BranchAttendance });

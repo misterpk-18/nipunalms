@@ -41,5 +41,14 @@ def publish_results():
     v.id_list("result_ids", min_items=1)
     v.integer("assignment_id", min_value=1)
     v.integer("test_id", min_value=1)
+    v.integer("batch_id", min_value=1)
     published = results_service.publish(v.validate())
     return ok({"published": len(published), "results": [r.to_dict() for r in published]})
+
+
+def publish_preview():
+    v = Validator(request.args.to_dict())
+    v.integer("assignment_id", min_value=1)
+    v.integer("test_id", min_value=1)
+    v.integer("batch_id", min_value=1)
+    return ok(results_service.publish_preview(v.validate()))

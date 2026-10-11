@@ -109,3 +109,19 @@ def test_publishing_queues_a_whatsapp_message_per_student_without_the_marks(clie
     rows = db.session.execute(select(WhatsappMessage).where(WhatsappMessage.template_name == "nipuna_lms_result_published_u_v1")).scalars().all()
     assert len(rows) == 2 and {m.template_name for m in rows} == {"nipuna_lms_result_published_u_v1"}
     assert all(not any(mark in " ".join(m.params) for mark in ("18", "12")) for m in rows)  # marks are private; the app shows them
+
+
+def test_publish_preview_counts_what_the_confirm_will_say(client, world, provisional):
+    assignment, (r1, r2) = provisional
+    client.post(f"{API}/results/{r1}/moderate", json={"marks": 19, "reason": "Rubric correction"}, headers=world.h["ac"])
+    batch_id = world.batches["G1"].batch_id
+    url = f"{API}/results/publish-preview?assignment_id={assignment['assignment_id']}&batch_id={batch_id}"
+    preview = client.get(url, headers=world.h["ac"]).get_json()["data"]
+    assert preview == {"to_publish": 2, "unreviewed": 1, "moderated": 1, "already_published": 0, "awaiting_grading": 0}
+    assert client.get(url, headers=world.h["g1"]).status_code == 403
+    assert client.get(url, headers=world.h["ac_vij"]).status_code == 404
+    assert client.get(f"{API}/results/publish-preview", headers=world.h["ac"]).status_code == 400
+    published = client.post(f"{API}/results/publish", json={"assignment_id": assignment["assignment_id"], "batch_id": batch_id}, headers=world.h["ac"])
+    assert published.get_json()["data"]["published"] == 2
+    after = client.get(url, headers=world.h["ac"]).get_json()["data"]
+    assert after["to_publish"] == 0 and after["already_published"] == 2

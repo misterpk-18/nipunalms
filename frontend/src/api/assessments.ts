@@ -317,8 +317,16 @@ export type ReviewQueueRow = {
   counts: { provisional: number; moderated: number; published: number; awaiting_grading: number };
   state: string;
   gaps?: string[];
+  /** Each gap with who has to fix it (`owner` "trainer" or "you") and a sentence naming the person. */
+  gap_details?: GapDetail[];
   can_moderate: boolean;
 };
+
+export type GapDetail = { text: string; owner: "trainer" | "you"; owner_label: string };
+
+/** What publishing would do, for the confirm: counts of results by how far they have got. */
+export type PublishPreview = { to_publish: number; unreviewed: number; moderated: number; already_published: number; awaiting_grading: number };
+export type PublishScope = { assignment_id?: number; test_id?: number; batch_id?: number };
 
 // ---------------------------------------------------------------- Tasks & Tests (GET /me/work)
 
@@ -439,3 +447,9 @@ export const assessmentsApi = {
 /** Batches a staff member can author for (reads the Phase 1 /batches endpoint). */
 export const batchesForAuthoring = (): Promise<Page<{ batch_id: number; batch_code: string; course: { course_id: number; title: string }; state: string }>> =>
   list("/batches", { per_page: 100 });
+
+/** Marks & results (Branch Manager): ask before publishing, publish one batch's results of one item. */
+export const resultsReviewApi = {
+  publishPreview: (scope: PublishScope) => get<PublishPreview>("/results/publish-preview", scope),
+  publishScope: (scope: PublishScope) => post<{ published: number }>("/results/publish", scope),
+};

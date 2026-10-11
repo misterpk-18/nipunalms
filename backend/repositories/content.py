@@ -135,3 +135,21 @@ def versions_with_modules(course_id: int, batch_version_id: int | None) -> list[
 
 def record_activity(student_id: int, enrolment_id: int | None, kind: str, detail: dict) -> None:
     db.session.add(ActivityEvent(student_id=student_id, enrolment_id=enrolment_id, kind=kind, detail=detail))
+
+
+def claims(item_ids: list[int]) -> dict[int, ContentReview]:
+    """For items under review: the "Review Started" entry of the current version (who has it open)."""
+    if not item_ids:
+        return {}
+    latest_version = (select(func.max(ContentVersion.content_version_id)).where(ContentVersion.content_item_id == ContentReview.content_item_id)
+                      .correlate(ContentReview).scalar_subquery())
+    stmt = (select(ContentReview).where(ContentReview.content_item_id.in_(item_ids), ContentReview.action == "Review Started",
+                                        ContentReview.content_version_id == latest_version).order_by(ContentReview.acted_at, ContentReview.review_id))
+    return {review.content_item_id: review for review in db.session.execute(stmt).scalars().unique()}
+
+
+def count_by_status(branch_ids: set[int] | None) -> dict[str, int]:
+    stmt = select(ContentItem.status, func.count()).where(ContentItem.retired_at.is_(None)).group_by(ContentItem.status)
+    if branch_ids is not None:
+        stmt = stmt.where(ContentItem.branch_id.in_(branch_ids))
+    return {str(status): n for status, n in db.session.execute(stmt).all()}

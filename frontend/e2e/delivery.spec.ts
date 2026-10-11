@@ -193,16 +193,17 @@ test("coordinator approves the request; the session is rescheduled with history"
 test("super admin approves and activates the curriculum; the batch and its students pick it up", async ({ page }) => {
   await login(page, USERS.admin);
   await page.goto("/branch/curriculum");
-  await expect(page.getByRole("heading", { name: "Course Curriculum & Versions" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Curriculum" })).toBeVisible();
   const row = page.getByRole("row", { name: /NIT-CRS-052/ });
-  await expect(row).toContainText("batch(es) have no curriculum yet");
+  await expect(row).toContainText("No Active version yet");
   await row.getByRole("button", { name: "Manage versions" }).click();
   await page.getByRole("button", { name: /CV 3\.0 · Under Review/ }).click();
   await expect(page.getByText("Django & REST APIs")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Curriculum updated").first()).toBeVisible();
   await page.getByRole("button", { name: "Activate" }).click();
-  await expect(page.getByRole("row", { name: /NIT-CRS-052/ })).toContainText("Ready");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Activate" }).click(); // activating asks first (U15)
+  await expect(page.getByRole("row", { name: /NIT-CRS-052/ })).toContainText("Have a curriculum");
 
   await page.evaluate(() => window.sessionStorage.clear());
   await page.goto("/login");

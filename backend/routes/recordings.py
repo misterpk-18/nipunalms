@@ -39,6 +39,20 @@ def update_recording(recording_id: int):
     return recordings_controller.update_recording(recording_id)
 
 
+@recordings_bp.get("/classes")
+@login_required
+@require_roles(*MANAGERS)
+def classes_for_picker():
+    return recordings_controller.classes_for_picker()
+
+
+@recordings_bp.post("/<int:recording_id>/problem")
+@login_required
+@require_roles(*MANAGERS)
+def report_problem(recording_id: int):
+    return recordings_controller.report_problem(recording_id)
+
+
 @recordings_bp.post("/<int:recording_id>/release")
 @login_required
 @require_roles(*MANAGERS)

@@ -120,6 +120,13 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/access-extension-requests
 Authorization: Bearer {{token}}
 
+### access_extensions.recommend
+POST {{base}}/api/v1/access-extension-requests/1/recommendation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 # ================================================================ admin_students
 ### admin_students.get_student
 GET {{base}}/api/v1/admin/students/1
@@ -751,6 +758,14 @@ Content-Type: application/json
 {}
 
 # ================================================================ branch
+### branch.attendance_summary
+GET {{base}}/api/v1/branch/attendance-summary
+Authorization: Bearer {{token}}
+
+### branch.completion_pipeline
+GET {{base}}/api/v1/branch/completion
+Authorization: Bearer {{token}}
+
 ### branch.my_work
 GET {{base}}/api/v1/branch/my-work
 Authorization: Bearer {{token}}
@@ -1198,6 +1213,13 @@ Content-Type: application/json
 
 {}
 
+### content.claim
+POST {{base}}/api/v1/content-items/1/claim
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
 ### content.create_item
 POST {{base}}/api/v1/content-items
 Authorization: Bearer {{token}}
@@ -1248,6 +1270,10 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+### content.review_summary
+GET {{base}}/api/v1/content-items/review-summary
+Authorization: Bearer {{token}}
 
 ### content.submit
 POST {{base}}/api/v1/content-items/1/submit
@@ -1559,6 +1585,11 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ issues
+### issues.list_issues
+GET {{base}}/api/v1/issues
+Authorization: Bearer {{token}}
+
 # ================================================================ my_courses
 ### my_courses.get_enrolment
 GET {{base}}/api/v1/me/enrolments/1
@@ -1783,6 +1814,10 @@ Content-Type: application/json
 {}
 
 # ================================================================ recordings
+### recordings.classes_for_picker
+GET {{base}}/api/v1/recordings/classes
+Authorization: Bearer {{token}}
+
 ### recordings.get_recording
 GET {{base}}/api/v1/recordings/1
 Authorization: Bearer {{token}}
@@ -1814,6 +1849,13 @@ Content-Type: application/json
 
 ### recordings.release_recording
 POST {{base}}/api/v1/recordings/1/release
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### recordings.report_problem
+POST {{base}}/api/v1/recordings/1/problem
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -1862,6 +1904,14 @@ Authorization: Bearer {{token}}
 GET {{base}}/api/v1/academic/reports
 Authorization: Bearer {{token}}
 
+### reports.branch_report
+GET {{base}}/api/v1/branch/reports
+Authorization: Bearer {{token}}
+
+### reports.branch_report_export
+GET {{base}}/api/v1/branch/reports/export
+Authorization: Bearer {{token}}
+
 ### reports.trainer_reports
 GET {{base}}/api/v1/trainer/reports
 Authorization: Bearer {{token}}
@@ -1880,6 +1930,10 @@ Content-Type: application/json
 
 ### results.my_results
 GET {{base}}/api/v1/me/results
+Authorization: Bearer {{token}}
+
+### results.publish_preview
+GET {{base}}/api/v1/results/publish-preview
 Authorization: Bearer {{token}}
 
 ### results.publish_results
@@ -2106,6 +2160,10 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
+
+### support.view_counts
+GET {{base}}/api/v1/support-requests/counts
+Authorization: Bearer {{token}}
 
 # ================================================================ tests
 ### tests.approve_test

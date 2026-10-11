@@ -1,4 +1,6 @@
 """The exception queue view and the recovery steps."""
+from datetime import datetime
+
 from sqlalchemy import Select, func, select
 
 from config.database import db
@@ -13,6 +15,14 @@ def list_stmt(filters: dict, branch_ids: set[int] | None) -> Select:
     for column in ("source", "state", "queue", "branch_id"):
         if filters.get(column) is not None:
             stmt = stmt.where(getattr(ExceptionItem, column) == filters[column])
+    if filters.get("sources"):
+        stmt = stmt.where(ExceptionItem.source.in_(filters["sources"]))
+    if filters.get("opened_before") is not None:
+        stmt = stmt.where(ExceptionItem.opened_at <= filters["opened_before"])
+    if filters.get("opened_after") is not None:
+        stmt = stmt.where(ExceptionItem.opened_at > filters["opened_after"])
+    if filters.get("owner_user_id") is not None:
+        stmt = stmt.where(ExceptionItem.owner_user_id == filters["owner_user_id"])
     if filters.get("awaiting_owner") is not None:
         stmt = stmt.where(ExceptionItem.owner_user_id.is_(None) if filters["awaiting_owner"] else ExceptionItem.owner_user_id.is_not(None))
     return stmt
@@ -44,3 +54,9 @@ def counts(branch_ids: set[int] | None) -> dict:
     by_source = {source: {"count": n, "awaiting_owner": unowned} for source, n, unowned in db.session.execute(stmt.group_by(ExceptionItem.source)).all()}
     return {"total": sum(v["count"] for v in by_source.values()), "awaiting_owner": sum(v["awaiting_owner"] for v in by_source.values()),
             "by_source": by_source}
+
+
+def counts_by_source(filters: dict, branch_ids: set[int] | None) -> dict[str, int]:
+    """Open items per source with the same scope and filters as the list (the source filter itself left out)."""
+    stmt = list_stmt({k: v for k, v in filters.items() if k != "sources"}, branch_ids).order_by(None).subquery()
+    return dict(db.session.execute(select(stmt.c.source, func.count()).group_by(stmt.c.source)).all())

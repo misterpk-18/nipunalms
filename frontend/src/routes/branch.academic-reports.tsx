@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AcademicReports } from "@/features/academic/reports";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/branch/academic-reports")({ component: AcademicReports });
+/** Academic Reports and Certificates & Reports became Reports (UX phase U15). */
+export const Route = createFileRoute("/branch/academic-reports")({
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: `/branch/reports${location.searchStr}`, replace: true });
+  },
+});

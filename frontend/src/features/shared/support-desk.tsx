@@ -3,11 +3,20 @@
  * thread, internal remarks, status, escalation and reassignment. Students have their own screens (features/student/support*.tsx).
  */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { get } from "@/api/client";
-import { SUPPORT_CATEGORIES, SUPPORT_STATUSES, supportApi, type SupportDetail, type SupportFilters, type SupportSummary } from "@/api/support";
+import {
+  SUPPORT_CATEGORIES,
+  SUPPORT_STATUSES,
+  supportApi,
+  type SupportDetail,
+  type SupportFilters,
+  type SupportRow,
+  type SupportSummary,
+  type SupportView,
+} from "@/api/support";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
+import { DataTable, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -29,12 +38,54 @@ const ATTACH_TEXT = {
 };
 
 /** Status badge plus the escalation and SLA flags of a request. */
-export function SupportState({ request }: { request: SupportSummary }) {
+export function SupportState({ request, hideOverdue = false }: { request: SupportSummary; hideOverdue?: boolean }) {
   return (
     <div className="flex flex-wrap gap-1">
-      <StatusBadge domain="support" code={request.status} />
+      <StatusBadge
+        domain="support"
+        code={request.status}
+        label={hideOverdue && request.status === "Waiting on Student" ? "Waiting for the student" : undefined}
+      />
       {request.escalation_level && <Tag tone="warning">Escalated to {request.escalation_level}</Tag>}
-      {request.sla_breached && <Tag tone="danger">Reply overdue</Tag>}
+      {request.sla_breached && !hideOverdue && <Tag tone="danger">Reply overdue</Tag>}
+    </div>
+  );
+}
+
+const VIEWS = ["needs_action", "waiting", "done", "all"] as const;
+const VIEW_LABELS: Record<SupportView, string> = { needs_action: "Needs action", waiting: "Waiting for the student", done: "Done", all: "All" };
+const VIEW_EMPTY: Record<SupportView, string> = {
+  needs_action: "Nothing needs a reply right now. New requests and student replies appear here, the nearest reply deadline first.",
+  waiting: "No request is waiting for the student. When you ask a student for something, the request moves here until they answer.",
+  done: "No request has been resolved yet.",
+  all: "There are no support requests yet.",
+};
+
+/** "Reply due in 2 hours" or "Overdue by 3 hours": the reply deadline in plain words. */
+function replyDueText(dueAt: string, now: number = Date.now()): { text: string; overdue: boolean } {
+  const ms = new Date(dueAt).getTime() - now;
+  const minutes = Math.round(Math.abs(ms) / 60_000);
+  const span =
+    minutes < 60
+      ? minutes <= 1
+        ? "a minute"
+        : `${minutes} minutes`
+      : minutes < 48 * 60
+        ? `${Math.round(minutes / 60)} hour${Math.round(minutes / 60) === 1 ? "" : "s"}`
+        : `${Math.round(minutes / 1440)} days`;
+  return ms < 0 ? { text: `Overdue by ${span}`, overdue: true } : { text: `Reply due in ${span}`, overdue: false };
+}
+
+/** The reply deadline (open requests) and the marker for a new student message. */
+function ReplyCell({ request }: { request: SupportRow }) {
+  const open = request.status === "Open" || request.status === "In Progress";
+  const due = open ? replyDueText(request.sla_due_at) : null;
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {request.reply_mark === "new_reply" && <Tag tone="info">New reply</Tag>}
+      {request.reply_mark === "new_request" && <Tag tone="info">New</Tag>}
+      {due && <Tag tone={due.overdue ? "danger" : "neutral"}>{due.text}</Tag>}
+      {!due && <span className="text-xs text-muted-foreground">{request.status === "Waiting on Student" ? "Waiting for the student" : "No reply needed"}</span>}
     </div>
   );
 }
@@ -42,29 +93,86 @@ export function SupportState({ request }: { request: SupportSummary }) {
 /**
  * `simple` is the trainer's view: no category filter or ID column, and escalating, reassigning and internal remarks sit under
  * "More" in the request, so the first screen is just reading, replying and the status.
+ *
+ * `views` is the Branch Manager's view: tabs with counts (Needs action, Waiting for the student, Done, All) in place of the status
+ * filter, the nearest reply deadline first, new replies marked, and the open request kept in the address when `openId` is given.
  */
-export function SupportDesk({ base = {}, caption, empty, simple = false }: { base?: SupportFilters; caption: string; empty: string; simple?: boolean }) {
+export function SupportDesk({
+  base = {},
+  caption,
+  empty,
+  simple = false,
+  views = false,
+  initialView = "needs_action",
+  openId: controlledOpen,
+  onOpen,
+  branchId,
+  studentId,
+  perPage,
+}: {
+  base?: SupportFilters;
+  caption: string;
+  empty: string;
+  simple?: boolean;
+  views?: boolean;
+  initialView?: SupportView;
+  /** The request whose panel is open, when the page keeps it in the address. */
+  openId?: number | null;
+  onOpen?: (id: number | null) => void;
+  branchId?: number | null;
+  studentId?: number;
+  perPage?: number;
+}) {
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
-  const [openId, setOpenId] = useState<number | null>(null);
-  const filters: SupportFilters = { ...base, status, category, q, page };
-  const query = useQuery({ queryKey: ["support", "list", filters], queryFn: () => supportApi.list(filters) });
+  const [view, setView] = useState<SupportView>(initialView);
+  const [ownOpen, setOwnOpen] = useState<number | null>(null);
+  const openId = controlledOpen !== undefined ? controlledOpen : ownOpen;
+  const setOpenId = onOpen ?? setOwnOpen;
+  const scope: SupportFilters = { ...(branchId ? { branch_id: branchId } : {}), ...(studentId ? { student_id: studentId } : {}) };
+  const filters: SupportFilters = {
+    ...base,
+    ...scope,
+    category,
+    q,
+    page,
+    ...(perPage ? { per_page: perPage } : {}),
+    ...(views ? { view } : { status }),
+  };
+  const query = useQuery({
+    queryKey: ["support", "list", filters],
+    queryFn: () => supportApi.staffList(filters),
+    placeholderData: views ? keepPreviousData : undefined,
+  });
+  const counts = useQuery({ queryKey: ["support", "counts", scope], queryFn: () => supportApi.counts(scope), enabled: views });
 
   return (
     <div className="space-y-3">
+      {views && (
+        <PillTabs
+          label="Support request views"
+          tabs={VIEWS}
+          labels={VIEW_LABELS}
+          value={view}
+          onChange={(next) => (setView(next), setPage(1))}
+          counts={counts.data}
+        />
+      )}
       <div className="flex flex-wrap items-end gap-2">
-        <div className="w-full sm:w-44">
-          <Label htmlFor="support-status">Status</Label>
-          <NativeSelect
-            id="support-status"
-            placeholder="All"
-            value={status}
-            onChange={(e) => (setStatus(e.target.value), setPage(1))}
-            options={SUPPORT_STATUSES.map((s) => ({ value: s, label: s }))}
-          />
-        </div>
+        {!views && (
+          <div className="w-full sm:w-44">
+            <Label htmlFor="support-status">Status</Label>
+            <NativeSelect
+              id="support-status"
+              placeholder="All"
+              value={status}
+              onChange={(e) => (setStatus(e.target.value), setPage(1))}
+              options={SUPPORT_STATUSES.map((s) => ({ value: s, label: s }))}
+            />
+          </div>
+        )}
         {!simple && (
           <div className="w-full sm:w-48">
             <Label htmlFor="support-category">Category</Label>
@@ -79,10 +187,19 @@ export function SupportDesk({ base = {}, caption, empty, simple = false }: { bas
         )}
         <div className="w-full sm:w-64">
           <Label htmlFor="support-q">Search</Label>
-          <Input id="support-q" placeholder="ID, subject or student" value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} />
+          <Input
+            id="support-q"
+            placeholder={views ? "Student, request number or subject" : "ID, subject or student"}
+            value={q}
+            onChange={(e) => (setQ(e.target.value), setPage(1))}
+          />
         </div>
       </div>
-      <QueryView query={query} isEmpty={(r) => r.data.length === 0} empty={empty}>
+      <QueryView
+        query={query}
+        isEmpty={(r) => r.data.length === 0}
+        empty={views ? (q || category ? "No request matches that search." : VIEW_EMPTY[view]) : empty}
+      >
         {(result) => (
           <>
             <DataTable
@@ -90,13 +207,13 @@ export function SupportDesk({ base = {}, caption, empty, simple = false }: { bas
               rows={result.data}
               getKey={(r) => r.support_request_id}
               cols={[
-                ...(simple ? [] : [{ h: "ID", c: (r: SupportSummary) => <span className="font-mono text-xs">{r.request_code}</span> }]),
-                { h: "Student", c: (r: SupportSummary) => r.student.full_name },
+                ...(simple ? [] : [{ h: "ID", c: (r: SupportRow) => <span className="font-mono text-xs">{r.request_code}</span> }]),
+                { h: "Student", c: (r: SupportRow) => r.student.full_name },
                 ...(simple
                   ? [
                       {
                         h: "About",
-                        c: (r: SupportSummary) => (
+                        c: (r: SupportRow) => (
                           <>
                             <div>{r.subject}</div>
                             <div className="font-mono text-xs text-muted-foreground">
@@ -107,11 +224,12 @@ export function SupportDesk({ base = {}, caption, empty, simple = false }: { bas
                       },
                     ]
                   : [
-                      { h: "Category", c: (r: SupportSummary) => r.category },
-                      { h: "Subject", c: (r: SupportSummary) => r.subject },
+                      { h: "Category", c: (r: SupportRow) => r.category },
+                      { h: "Subject", c: (r: SupportRow) => r.subject },
                     ]),
                 { h: simple ? "With" : "Named owner", c: (r) => r.owner.label },
-                { h: "State", c: (r) => <SupportState request={r} /> },
+                ...(views ? [{ h: "Reply", c: (r: SupportRow) => <ReplyCell request={r} /> }] : []),
+                { h: "State", c: (r) => <SupportState request={r} hideOverdue={views} /> },
                 {
                   h: "Open",
                   c: (r) => (

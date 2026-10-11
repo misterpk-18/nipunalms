@@ -27,6 +27,8 @@ def _version(detail, *, full: bool = False) -> dict:
         data["modules"] = [m.to_dict() for m in version.modules]
         data["events"] = [e.to_dict() for e in detail.events]
         data["blockers"] = detail.blockers
+        if version.status == "Draft":
+            data["checklist"] = curriculum_service.checklist(version, detail.counts)
         data.update(curriculum_service.version_extras(version))
     return data
 
@@ -66,8 +68,9 @@ def create_version():
     v = Validator(json_body())
     v.integer("course_id", required=True, min_value=1)
     v.integer("component_id", nullable=True, min_value=1)
-    v.string("version_label", required=True, max_length=100)
+    v.string("version_label", max_length=100)
     v.integer("copy_from_version_id", nullable=True, min_value=1)
+    v.boolean("blank", default=False)
     version = curriculum_service.create_version(v.validate())
     return created(_version(curriculum_service.get_version_detail(version.curriculum_version_id), full=True))
 

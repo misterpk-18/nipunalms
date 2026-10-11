@@ -13,7 +13,7 @@ Escalation clock from the class end: 4 h Branch Manager review, 24 h Super Admin
 from datetime import datetime, timedelta, timezone
 
 from config.database import db
-from models import ClassSession, Enrolment, Recording, RecordingException
+from models import Batch, ClassSession, Enrolment, Recording, RecordingException
 from repositories import batches as batches_repo
 from repositories import content as content_repo
 from repositories import recordings as recordings_repo
@@ -23,7 +23,7 @@ from repositories import users as users_repo
 from repositories.common import paginate
 from services import audit, scope, student_library
 from services.context import actor_id, current_user
-from services.errors import BusinessRule, Forbidden, NotFound
+from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
 ESCALATION_STEPS = ((48, "Founder / CEO"), (24, "Super Admin"), (4, "Branch Manager review"))
@@ -135,7 +135,7 @@ def _raise(session: ClassSession, issue_type: str, issue: str, *, recording: Rec
                  new={"session": session.session_code, "issue_type": issue_type, "issue": issue, "owner_role": owner_role},
                  branch_id=exception.branch_id)
     notify(category="Recording", title=f"{exception.exception_code}: {issue_type} recording — {session.title}", body=issue,
-           link="/branch/recording-exceptions", role_code=owner_role, branch_id=exception.branch_id,
+           link="/branch/recordings", role_code=owner_role, branch_id=exception.branch_id,
            event_key=f"rx-raised-{exception.exception_code}", action_required=True)
     return exception
 
@@ -332,6 +332,70 @@ def mark_unavailable(recording_id: int, reason: str) -> Recording:
     return recording
 
 
+def mark_processing(recording_id: int, note: str | None) -> Recording:
+    """The recording is not ready (yet): it leaves the students' list until it is released again. No exception is raised: the
+    recording-check job raises one if it is still missing later."""
+    recording = _get_managed_recording(recording_id)
+    session = recording.session
+    if recording.status == "Expired":
+        raise BusinessRule("An expired recording cannot be changed")
+    if recording.status == "Processing":
+        raise BusinessRule("The recording is already marked as being prepared")
+    old_status = recording.status
+    was_visible = old_status in WATCHABLE
+    recording.status = "Processing"
+    recording.hold_reason = recording.partial_note = None
+    audit.record("RECORDING_PROCESSING", "recording", recording.recording_code, old={"status": old_status}, new={"status": "Processing"},
+                 reason=note, branch_id=session.batch.branch_id)
+    if was_visible:
+        _notify_students(session, recording, f"Recording being prepared: {session.title}",
+                         "It is being prepared again; you will be told when it is available.", "processing")
+    return recording
+
+
+# The plain problem reasons of the Recordings screen and what each one does to the recording
+PROBLEM_ACTIONS = {"processing": mark_processing, "partial": mark_partial, "unavailable": mark_unavailable, "on_hold": hold}
+
+
+def report_problem(recording_id: int, reason: str, note: str | None) -> Recording:
+    """Report a problem with a recording: one of processing, partial, unavailable or on_hold. A note is needed for all but
+    "processing"."""
+    action = PROBLEM_ACTIONS.get(reason)
+    if action is None:
+        raise ValidationError("Choose what is wrong", {"reason": [f"Must be one of: {', '.join(PROBLEM_ACTIONS)}"]})
+    if reason != "processing" and not (note or "").strip():
+        raise ValidationError("Say what happened", {"note": ["Required for this reason"]})
+    return action(recording_id, (note or "").strip() or None)
+
+
+def classes_for_picker(day, batch_id: int | None) -> list[dict]:
+    """Classes that ran on a date (at the user's branches, optionally one batch) with their recordings, so a recording can be
+    found or added by picking the class rather than typing an ID."""
+    from datetime import time as _time
+
+    from sqlalchemy import select
+
+    from config.timezone import IST
+    user = current_user()
+    start = datetime.combine(day, _time.min, tzinfo=IST)
+    stmt = (select(ClassSession).join(Batch, Batch.batch_id == ClassSession.batch_id)
+            .where(ClassSession.starts_at >= start, ClassSession.starts_at < start + timedelta(days=1),
+                   ClassSession.state.in_(("Delivered", "Live")))
+            .order_by(ClassSession.starts_at, ClassSession.session_id))
+    branch_ids = scope.visible_branch_ids(user)
+    if branch_ids is not None:
+        stmt = stmt.where(Batch.branch_id.in_(branch_ids))
+    if batch_id:
+        stmt = stmt.where(ClassSession.batch_id == batch_id)
+    rows = []
+    for session in db.session.execute(stmt).scalars().unique():
+        recordings = recordings_repo.recordings_of_session(session.session_id)
+        rows.append({"session_id": session.session_id, "session_code": session.session_code, "title": session.title,
+                     "starts_at": session.starts_at, "ends_at": session.ends_at, "state": session.state, "batch": session.batch.to_summary(),
+                     "recordings": [r.to_dict() for r in recordings]})
+    return rows
+
+
 def list_recordings(filters: dict, page: int, per_page: int) -> tuple[list[Recording], dict]:
     user = current_user()
     return paginate(recordings_repo.list_stmt(filters, scope.visible_branch_ids(user), scope.trainer_batch_ids(user)), page, per_page)
@@ -372,10 +436,10 @@ def check_missing_recordings(now: datetime | None = None) -> dict:
         title = f"{exception.exception_code} unresolved for {age} hours"
         body = f"{exception.issue_type} recording — {exception.session.title}. Owner: {owner_label(exception)}."
         for role_code in ("BRANCH_MANAGER", "SUPER_ADMIN"):
-            notify(category="Recording", title=title, body=body, link="/branch/recording-exceptions", role_code=role_code,
+            notify(category="Recording", title=title, body=body, link="/branch/recordings", role_code=role_code,
                    branch_id=exception.branch_id, event_key=f"rx-escalated-24-{exception.exception_code}", action_required=True)
         if age >= 48:
-            notify(category="Recording", title=title, body=body + " A remedy plan is needed.", link="/branch/recording-exceptions",
+            notify(category="Recording", title=title, body=body + " A remedy plan is needed.", link="/branch/recordings",
                    role_code="FOUNDER_CEO", branch_id=exception.branch_id, event_key=f"rx-escalated-48-{exception.exception_code}")
     return {"missing_recordings": raised, "escalated": escalated}
 

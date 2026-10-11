@@ -128,3 +128,8 @@ BLUEPRINTS += [batch_operations_bp, session_operations_bp]
 from routes.nav import nav_bp  # noqa: E402
 
 BLUEPRINTS += [nav_bp]
+
+# UX plan U15: the Issues inbox
+from routes.issues import issues_bp  # noqa: E402
+
+BLUEPRINTS += [issues_bp]

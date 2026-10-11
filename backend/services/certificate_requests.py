@@ -26,7 +26,7 @@ DECIDERS = {"Correction": certificates.CORRECTION_APPROVERS, "Revocation": certi
             "Reinstatement": certificates.REVOCATION_APPROVERS}
 NEEDED_STATUS = {"Correction": "Issued", "Revocation": "Issued", "Reinstatement": "Revoked"}
 # Where each deciding role works on requests
-DECIDER_LINKS = {"BRANCH_MANAGER": "/branch/reports", "SUPER_ADMIN": "/branch/certificates", "FOUNDER_CEO": "/founder/certificates"}
+DECIDER_LINKS = {"BRANCH_MANAGER": "/branch/completion", "SUPER_ADMIN": "/branch/completion", "FOUNDER_CEO": "/founder/certificates"}
 
 EXCEPTION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
 EXCEPTION_DECIDERS = ("FOUNDER_CEO", "SUPER_ADMIN")
@@ -112,7 +112,7 @@ def decide_request(request_id: int, decision: str, note: str | None) -> Certific
     audit.record(f"CERTIFICATE_{request.kind.upper()}_{decision.upper()}", "certificate", certificate.certificate_id,
                  new={"request_id": request.request_id, "decision": decision}, reason=note, branch_id=certificate.branch_id)
     notify(category="Certificate", title=f"Certificate {request.kind.lower()} {decision.lower()}: {certificate.certificate_number}",
-           body=note or request.reason, link="/branch/certificates", recipient_user_ids=[request.requested_by],
+           body=note or request.reason, link="/branch/completion", recipient_user_ids=[request.requested_by],
            branch_id=certificate.branch_id, event_key=f"certificate-request-decided:{request.request_id}")
     db.session.flush()
     return request
@@ -180,6 +180,6 @@ def decide_exception(exception_id: int, decision: str, note: str | None) -> Cert
                  new={"exception_id": exception.exception_id, "outstanding_amount": f"{exception.outstanding_amount:.2f}"},
                  reason=note, branch_id=branch_id)
     notify(category="Certificate", title=f"Certificate release exception {decision.lower()}: {exception.admission.admission_code}",
-           body=note, link="/branch/certificates", recipient_user_ids=[exception.requested_by], branch_id=branch_id,
+           body=note, link="/branch/completion", recipient_user_ids=[exception.requested_by], branch_id=branch_id,
            event_key=f"financial-exception-decided:{exception.exception_id}")
     return exception

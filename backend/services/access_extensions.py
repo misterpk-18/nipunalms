@@ -3,7 +3,8 @@
 A student asks with a reason. The Branch Manager of the enrolment's service branch (Super Admin
 as cover) approves the routine extension, which always ends on the second anniversary of the Joining Date; repeated
 requests do not stack years. A request made after the second anniversary is a further exception only a Founder / CEO or
-Super Admin may grant, with the new expiry stated. The student is told; every decision is audited.
+Super Admin may grant, with the new expiry stated. The Branch Manager of the branch does not decide it but adds a recommendation
+(UX phase U15, db/113); saving it routes the request to the Founder's inbox. The student is told; every decision is audited.
 """
 from datetime import datetime, timezone
 
@@ -53,18 +54,16 @@ def create_request(enrolment_id: int, scope_value: str, reason: str) -> AccessEx
     audit.record("ACCESS_EXTENSION_REQUESTED", "access_extension_request", request.request_code,
                  new={"enrolment": enrolment.enrolment_code, "scope": scope_value, "needs_exception": request.needs_exception},
                  reason=reason, branch_id=request.branch_id)
+    link = "/branch/support?tab=extensions"
     if request.needs_exception:
-        recipients = dict(role_code="SUPER_ADMIN", branch_id=request.branch_id)
-        headline = "needs a Founder / CEO or Super Admin exception"
+        # Beyond the Branch Manager's limit: the Branch Manager adds a recommendation, which sends it on to the Founder
+        notify(category="Access", title=f"{request.request_code}: access extension request needs your recommendation",
+               body=f"{request.student.full_name} · {enrolment.course.title} · {scope_value}. It is beyond your limit: add a recommendation "
+                    "and it goes to the Founder / CEO.", link=link, role_code="BRANCH_MANAGER", branch_id=request.branch_id,
+               event_key=f"ext-requested-{request.request_code}", action_required=True)
     else:
-        recipients = dict(role_code="BRANCH_MANAGER", branch_id=request.branch_id)
-        headline = "is waiting for approval"
-    notify(category="Access", title=f"{request.request_code}: access extension request {headline}",
-           body=f"{request.student.full_name} · {enrolment.course.title} · {scope_value}", link="/branch/requests",
-           event_key=f"ext-requested-{request.request_code}", action_required=True, **recipients)
-    if not request.needs_exception:
         notify(category="Access", title=f"{request.request_code}: access extension request is waiting for approval",
-               body=f"{request.student.full_name} · {enrolment.course.title} · {scope_value}", link="/branch/requests",
+               body=f"{request.student.full_name} · {enrolment.course.title} · {scope_value}", link=link,
                role_code="BRANCH_MANAGER", branch_id=request.branch_id, event_key=f"ext-requested-{request.request_code}", action_required=True)
     return request
 
@@ -153,3 +152,75 @@ def _granted_expiry(request: AccessExtensionRequest, new_expiry):
             raise ValidationError("State the new expiry", {"new_expiry": ["Must be a future date"]})
         return new_expiry
     return window.second_expiry
+
+
+# ---------------------------------------------------------------- recommendation (beyond the Branch Manager's limit)
+
+def recommend(request_id: int, decision: str, note: str, expiry=None) -> AccessExtensionRequest:
+    """The Branch Manager's view on a request made after the second anniversary: approve or reject, why, and (for approve) the
+    end date they suggest. It does not decide the request; saving it sends the request to the Founder's inbox. It may be revised
+    until the request is decided."""
+    request = get_request(request_id)
+    user = current_user()
+    if not user.has_role("BRANCH_MANAGER", branch_id=request.branch_id):
+        raise Forbidden("Only the Branch Manager of the service branch recommends on this request")
+    if not request.needs_exception:
+        raise BusinessRule("This request is within your limit: approve or reject it yourself")
+    if request.status != "Pending":
+        raise BusinessRule(f"{request.request_code} was already {request.status.lower()}")
+    if not (note or "").strip():
+        raise ValidationError("Say why", {"note": ["Required"]})
+    if expiry is not None:
+        if decision != "approve":
+            raise ValidationError("An end date goes with an approval", {"expiry": ["Only when you recommend approving"]})
+        if expiry <= max(today_ist(), request.original_expiry):
+            raise ValidationError("Suggest a later end date", {"expiry": ["Must be after today and after the current end date"]})
+    first_time = request.recommended_at is None
+    old = {"recommended_decision": request.recommended_decision, "recommended_expiry": str(request.recommended_expiry) if request.recommended_expiry else None}
+    request.recommended_decision, request.recommendation, request.recommended_expiry = decision, note.strip(), expiry
+    request.recommended_by, request.recommended_at = user.user_id, datetime.now(timezone.utc)
+    db.session.flush()
+    db.session.refresh(request)
+    audit.record("ACCESS_EXTENSION_RECOMMENDED", "access_extension_request", request.request_code, old=old,
+                 new={"recommended_decision": decision, "recommended_expiry": str(expiry) if expiry else None}, reason=note.strip(),
+                 branch_id=request.branch_id)
+    suggestion = f", suggesting access until {expiry:%d %b %Y}" if expiry else ""
+    notify(category="Access", title=f"{request.request_code}: access extension waiting for your decision",
+           body=f"{request.student.full_name} · {request.enrolment.course.title}. The Branch Manager recommends to {decision}{suggestion}: {note.strip()[:160]}",
+           link="/founder", role_code="FOUNDER_CEO", branch_id=None,
+           event_key=f"ext-recommended-{request.request_code}-{int(request.recommended_at.timestamp())}", action_required=True)
+    if not first_time:
+        audit.record("ACCESS_EXTENSION_RECOMMENDATION_REVISED", "access_extension_request", request.request_code, branch_id=request.branch_id)
+    return request
+
+
+def awaiting_founder(limit: int | None = None) -> list[AccessExtensionRequest]:
+    """The requests in the Founder's inbox: made after the second anniversary, still pending, with a Branch Manager's
+    recommendation (what U16's GET /founder/inbox reads)."""
+    return extensions_repo.with_founder(limit)
+
+
+def present(request: AccessExtensionRequest) -> dict:
+    """The request as a screen needs it: what it would change, who may act, and (for staff) the recommendation."""
+    user = current_user()
+    data = request.to_dict()
+    window = access.window_for(students_repo.get_enrolment(request.enrolment_id))
+    kinds = _kinds(request.scope)
+    current = max((window.expiry[k] for k in kinds), default=None)
+    is_student = user.student_id is not None
+    routine = not request.needs_exception
+    data.update({
+        "limit": "beyond" if request.needs_exception else "within",
+        "current_end_date": current if request.status != "Approved" else request.original_expiry,
+        # What approval grants without the approver stating a date: the second anniversary of the Joining Date
+        "new_end_date": window.second_expiry if routine and request.status == "Pending" else request.approved_expiry,
+        "can_decide": request.status == "Pending" and not is_student and (
+            user.has_role(*EXCEPTION_DECIDERS) if request.needs_exception
+            else user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=request.branch_id)),
+        "can_recommend": request.status == "Pending" and request.needs_exception and not is_student
+                         and user.has_role("BRANCH_MANAGER", branch_id=request.branch_id),
+    })
+    if not is_student:
+        data["recommendation"] = request.recommendation_dict()
+        data["with_founder"] = request.status == "Pending" and request.needs_exception and request.recommended_at is not None
+    return data

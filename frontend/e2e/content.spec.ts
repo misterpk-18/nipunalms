@@ -31,20 +31,20 @@ test("trainer uploads and submits content, coordinator approves and releases it,
   await dialog.getByLabel("Title").fill(TITLE);
   await dialog.getByLabel("File", { exact: true }).setInputFiles({ name: "cheatsheet.pdf", mimeType: "application/pdf", buffer: PDF });
   await dialog.getByRole("button", { name: "Save draft" }).click();
-  const row = page.getByRole("row", { name: new RegExp(TITLE) });
+  const row = page.getByRole("row", { name: new RegExp(TITLE) }).first(); // the newest (earlier runs may have left the same title)
   await expect(row).toContainText("Draft");
   await row.getByRole("button", { name: "Submit for review" }).click();
   await expect(row).toContainText("Waiting for review");
 
   await signInAs(page, USERS.coordGnt);
-  await page.goto("/branch/content-review");
-  const queued = page.getByRole("row", { name: new RegExp(TITLE) });
+  await page.goto("/branch/content");
+  const queued = page.getByRole("row", { name: new RegExp(TITLE) }).first(); // earlier runs may have left the same title behind
   await expect(queued).toContainText("Trainer R. Sample");
   await queued.getByRole("button", { name: "Review", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Approve & release" }).click();
-  await expect(page.getByRole("row", { name: new RegExp(TITLE) })).toHaveCount(0);
-  await page.getByRole("tab", { name: "Released" }).click();
-  await expect(page.getByRole("row", { name: new RegExp(TITLE) })).toContainText("Released");
+  await page.getByRole("dialog").getByRole("button", { name: "Approve & release" }).click(); // opening it claimed it; releasing asks first
+  await page.getByRole("alertdialog").getByRole("button", { name: "Approve & release" }).click();
+  await page.getByRole("tab", { name: /^Released/ }).click();
+  await expect(page.getByRole("row", { name: new RegExp(TITLE) }).first()).toContainText("Released");
 
   await signInAs(page, USERS.student);
   await page.goto("/resources"); // the old address opens the Files tab of Class Materials

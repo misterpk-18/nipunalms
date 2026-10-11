@@ -9,6 +9,9 @@ from datetime import datetime, time, timedelta, timezone
 
 from config.timezone import IST
 from repositories import branch_work as work_repo
+from repositories import nav as nav_repo
+from repositories import progress as progress_repo
+from services import progress as progress_service
 from services import scope
 from services.dashboards import scope_block
 from services.nav import SUPPORT_WARNING, require_workspace
@@ -71,11 +74,11 @@ def my_work(workspace_branch_id: int | None = None) -> dict:
 
     results, results_since = work_repo.results_to_publish(branch_ids)
     if results:
-        rows.append(_row("results", f"{_plural(results, 'result')} to review and publish", "/branch/assessments", "Review results", results, results_since))
+        rows.append(_row("results", f"{_plural(results, 'result')} to review and publish", "/branch/results", "Review results", results, results_since))
 
     content, content_since = work_repo.content_to_review(branch_ids)
     if content:
-        rows.append(_row("content", f"{_plural(content, 'content item')} waiting for review", "/branch/content-review", "Review content", content,
+        rows.append(_row("content", f"{_plural(content, 'content item')} waiting for review", "/branch/content", "Review content", content,
                          content_since))
 
     recoveries, recovery_since = work_repo.recovery_requests(branch_ids)
@@ -99,3 +102,12 @@ def my_work(workspace_branch_id: int | None = None) -> dict:
                          where=f"{first.batch.batch_code}: {first.title}" + (f" and {len(at_risk) - 1} more" if len(at_risk) > 1 else "")))
 
     return {"as_of": now, "scope": scope_block(branch_ids), "total": sum(r["count"] for r in rows), "rows": rows}
+
+
+def attendance_summary(branch_id: int | None = None) -> dict:
+    """The counts on the tabs of Attendance & progress: students below the attendance alert, recovery requests and corrections waiting."""
+    require_workspace("branch")
+    branch_ids = _branches(branch_id)
+    filters = {"branch_id": branch_id} if branch_id else {}
+    return {"students_at_risk": progress_repo.alert_count(filters, progress_service.visible_enrolment_condition()),
+            "recoveries": nav_repo.pending_recoveries(branch_ids), "corrections": nav_repo.pending_corrections(branch_ids)}

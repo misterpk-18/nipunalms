@@ -341,3 +341,56 @@ def test_issuing_queues_one_whatsapp_message_with_the_number_for_the_button(clie
     assert message.template_name == "nipuna_lms_certificate_issued_u_v1" and message.status in ("Queued", "Skipped")
     assert message.params[4] == certificate["certificate_number"] and message.button_params == [certificate["certificate_number"]]
     assert message.dedupe_key == f"certificate-issued:{cid}:1"
+
+
+# ---------------------------------------------------------------- the Completion & certificates pipeline (UX phase U15)
+
+def pipeline(client, w, who, stage=None, query=""):
+    path = f"{API}/branch/completion?{'stage=' + stage if stage else ''}{query}"
+    response = client.get(path, headers=w.h[who])
+    assert response.status_code == 200, response.get_json()
+    return response.get_json()
+
+
+def test_pipeline_moves_a_student_through_the_stages_with_counts_and_evidence(client, w, run_sql):
+    client.put(f"{API}/attendance/sessions/{w.recent.session_id}", json={"default_status": "Present"}, headers=w.h["t1"])
+    review_id = post(client, w, "t1", "/completion-reviews", {"enrolment_id": w.e1}).get_json()["data"]["review_id"]
+    ready = pipeline(client, w, "ac")  # opens on Ready to decide
+    assert ready["meta"]["counts"] == {"ready": 1, "completed": 0, "fee": 0, "issue": 0, "issued": 0}
+    row = ready["data"][0]
+    assert row["stage"] == "ready" and row["actions"] == ["decide"] and row["review"]["review_id"] == review_id
+    checks = {c["key"]: c for c in row["evidence"]["checks"]}
+    assert checks["attendance"]["ok"] is True and checks["attendance"]["threshold"] == 75
+    assert checks["trainer"]["ok"] is False and "recommendation" in checks["trainer"]["detail"] and row["evidence"]["all_ok"] is False
+
+    post(client, w, "t1", f"/completion-reviews/{review_id}/recommendation", {"recommendation": "Complete"})
+    assert post(client, w, "ac", f"/completion-reviews/{review_id}/decision", {"decision": "Complete"}).status_code == 200
+    stages = pipeline(client, w, "ac", "completed")
+    assert stages["meta"]["counts"]["completed"] == 1 and stages["meta"]["counts"]["ready"] == 0
+    done = stages["data"][0]
+    assert done["certificate"]["status"] == "Eligibility Review" and "approve" in done["actions"] and done["fee"]["cleared"] is True
+    done_checks = {c["key"]: c["ok"] for c in done["evidence"]["checks"]}
+    assert done_checks == {"attendance": True, "required_learning": False, "recoveries": True, "trainer": True}  # 1 of 3 topics covered
+
+    # an unpaid fee parks the certificate under Waiting for fee, and the Branch Manager may ask for a release
+    attendance_world.set_fee(run_sql, w.e1, balance=5000)
+    fee = pipeline(client, w, "ac", "fee")["data"][0]
+    assert fee["fee"]["state"] == "Outstanding" and fee["fee"]["balance"] == "5000.00" and fee["can_request_fee_exception"] is True
+    attendance_world.set_fee(run_sql, w.e1)
+    cid = done["certificate"]["certificate_id"]
+    assert post(client, w, "ac", f"/certificates/{cid}/approval").status_code == 200
+    issue = pipeline(client, w, "ac", "issue")
+    assert issue["meta"]["counts"]["issue"] == 1 and issue["data"][0]["actions"] == ["issue"]
+    assert post(client, w, "bm", f"/certificates/{cid}/issue").status_code == 200
+    issued_page = pipeline(client, w, "ac", "issued")
+    assert issued_page["meta"]["counts"]["issued"] == 1 and issued_page["data"][0]["certificate"]["number"].startswith("NIT-CERT-")
+    assert set(issued_page["data"][0]["actions"]) == {"request_correction", "request_revocation"}  # the rare ones, under More
+
+
+def test_pipeline_scope_filters_and_paging(client, w):
+    assert client.get(f"{API}/branch/completion?stage=nope", headers=w.h["ac"]).status_code == 400
+    assert client.get(f"{API}/branch/completion", headers=w.h["t1"]).status_code == 403
+    assert client.get(f"{API}/branch/completion?branch_id=2", headers=w.h["ac"]).status_code == 404
+    assert pipeline(client, w, "ac", "issued", "&q=nobody")["meta"]["total"] == 0
+    empty = pipeline(client, w, "founder")
+    assert empty["meta"]["labels"]["fee"] == "Waiting for fee" and empty["meta"]["pages"] == 0

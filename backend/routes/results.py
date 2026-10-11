@@ -41,3 +41,10 @@ def moderate_result(result_id: int):
 @require_roles(*MODERATOR_ROLES)
 def publish_results():
     return controller.publish_results()
+
+
+@results_bp.get("/results/publish-preview")
+@login_required
+@require_roles(*MODERATOR_ROLES)
+def publish_preview():
+    return controller.publish_preview()
