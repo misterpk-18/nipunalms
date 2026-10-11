@@ -185,7 +185,7 @@ figure out what to do next."
 | U11. Student: Career, Ask Nipuna, Support, My Account | **Done** (db 111) | `cb3ca68` | M |
 | U12. Trainer: Today, class delivery, Attendance, My requests | **Done** (db 112) | `f5f07c3` | M |
 | U13. Trainer: To grade, Assessments, Batches/Students, Content, Reports, Support | **Done** | `7d0318f` | L |
-| U14. Branch: My work, Batches, Waiting for a batch, Schedule, Class day | **Done** | | L |
+| U14. Branch: My work, Batches, Waiting for a batch, Schedule, Class day | **Done** | `94d6e78` | L |
 | U15. Branch: Curriculum, Content & questions, Marks, Attendance, Completion & certificates, Issues, Recordings, Support, Extensions, Reports | To do | | L |
 | U16. Founder | To do | | S |
 | U17. Super Admin | To do | | M |
