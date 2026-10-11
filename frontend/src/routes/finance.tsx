@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Finance } from "@/features/student/finance";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/finance")({ component: Finance });
+/** Fees & Receipts is a tab of My Account now. */
+export const Route = createFileRoute("/finance")({
+  beforeLoad: () => {
+    throw redirect({ to: "/my-account", search: { tab: "fees" }, replace: true });
+  },
+});

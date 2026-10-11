@@ -24,7 +24,7 @@ const WHAT: Record<string, TranslationKey> = { recordings: "whatRecordings", mat
 function describe(step: NextStep, t: T): { text: string; action: ReactNode } {
   const p = step.params;
   const course = step.course?.title ?? "";
-  const go = (to: "/tasks" | "/finance" | "/certificates" | "/my-courses" | "/materials", label: string) => (
+  const go = (to: "/tasks" | "/certificates" | "/my-courses" | "/materials", label: string) => (
     <Button asChild size="sm" className="tap">
       <Link to={to}>
         {label}
@@ -67,7 +67,17 @@ function describe(step: NextStep, t: T): { text: string; action: ReactNode } {
       return { text, action: go("/materials", label) };
     }
     case "certificate_fee":
-      return { text: t("stepCertFee", { course, balance: formatMoney(String(p["balance"])) }), action: go("/finance", t("finance")) };
+      return {
+        text: t("stepCertFee", { course, balance: formatMoney(String(p["balance"])) }),
+        action: (
+          <Button asChild size="sm" className="tap">
+            <Link to="/my-account" search={{ tab: "fees" }}>
+              {t("finance")}
+              <ArrowRight aria-hidden />
+            </Link>
+          </Button>
+        ),
+      };
     case "certificate_ready":
       return { text: t("stepCertReady", { course }), action: go("/certificates", t("certificates")) };
     case "topics_left":

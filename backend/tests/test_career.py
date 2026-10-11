@@ -309,3 +309,53 @@ class TestOutcomes:
         with pytest.raises(Exception, match="placement_outcomes_verified"):
             run_sql("UPDATE placement_outcomes SET verification_status = 'Verified', verified_by = :u, verified_at = now() WHERE outcome_id = :o",
                     u=world.people.bm.user_id, o=oid)
+
+
+class TestChecklist:
+    """UX phase U11: the four steps on the Career screen and what blocks applying."""
+
+    def steps(self, client, w, student=None):
+        data = client.get(ME, headers=w.h(student or w.students.s1)).get_json()["data"]
+        return {s["key"]: s for s in data["steps"]}, data["apply_needs"]
+
+    def test_a_new_student_has_nothing_done_and_three_blockers(self, client, world):
+        steps, needs = self.steps(client, world)
+        assert list(steps) == ["opt_in", "profile", "cv", "share"] and not any(s["done"] for s in steps.values())
+        assert steps["cv"]["state"] == "none" and needs == ["opt_in", "cv", "share"]
+
+    def test_each_step_ticks_as_it_is_done(self, client, world):
+        h = world.h(world.students.s1)
+        client.put(f"{ME}/profile", headers=h, json={"opted_in": True})
+        steps, needs = self.steps(client, world)
+        assert steps["opt_in"]["done"] and not steps["profile"]["done"] and needs == ["cv", "share"]
+
+        client.put(f"{ME}/profile", headers=h, json={"preferred_roles": ["Data Analyst"], "skills": ["SQL"], "qualification": "B.Sc"})
+        assert self.steps(client, world)[0]["profile"]["done"]
+
+        client.put(f"{ME}/consent", headers=h, json={"sharing_consent": True})
+        client.post(f"{ME}/cvs", headers=h, data=pdf(), content_type="multipart/form-data")
+        steps, needs = self.steps(client, world)
+        assert steps["share"]["done"] and steps["cv"]["state"] == "waiting" and needs == ["cv"]
+
+    def test_a_cv_with_requested_changes_is_told_apart_and_a_reviewed_one_clears_the_blocker(self, client, world):
+        opt_in(client, world, world.students.s1)
+        h = world.h(world.students.s1)
+        cv_id = client.post(f"{ME}/cvs", headers=h, data=pdf(), content_type="multipart/form-data").get_json()["data"]["cv_id"]
+        client.post(f"{API}/cv-documents/{cv_id}/review", headers=world.h(world.people.ac),
+                    json={"status": "Changes Requested", "feedback": "Add your projects"})
+        steps, needs = self.steps(client, world)
+        assert steps["cv"]["state"] == "changes" and needs == ["cv"]
+
+        upload_reviewed_cv(client, world, world.students.s1)
+        steps, needs = self.steps(client, world)
+        assert steps["cv"] == {"key": "cv", "done": True, "state": "reviewed"} and needs == []
+
+    def test_apply_needs_matches_what_apply_enforces(self, client, world):
+        oid = make_active_opportunity(client, world)
+        h = world.h(world.students.s1)
+        client.put(f"{ME}/profile", headers=h, json={"opted_in": True})
+        assert client.post(f"{ME}/opportunities/{oid}/apply", headers=h).status_code == 422
+        assert self.steps(client, world)[1] == ["cv", "share"]
+        opt_in(client, world, world.students.s1)
+        upload_reviewed_cv(client, world, world.students.s1)
+        assert self.steps(client, world)[1] == [] and client.post(f"{ME}/opportunities/{oid}/apply", headers=h).status_code == 201

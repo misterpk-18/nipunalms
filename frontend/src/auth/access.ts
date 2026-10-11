@@ -31,7 +31,6 @@ import {
   Users,
   Video,
   ChartColumn,
-  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { Workspace } from "@/api/types";
@@ -109,9 +108,10 @@ const STUDENT_NAV: NavItem[] = [
   { to: "/career", label: "Career", tkey: "career", icon: Briefcase },
   { to: "/ask-nipuna", label: "Ask Nipuna", tkey: "askNipuna", icon: Sparkles },
   { to: "/support", label: "Support", tkey: "support", icon: LifeBuoy, badgeKey: "support" },
-  { to: "/finance", label: "Fees & Receipts", tkey: "finance", icon: Wallet },
-  { to: "/profile", label: "Profile", tkey: "profile", icon: User },
 ];
+
+/** My Account is opened from the avatar menu, not the sidebar; the phone "More" sheet and the search palette list it too. */
+export const STUDENT_ACCOUNT: NavItem = { to: "/my-account", label: "My Account", tkey: "myAccount", icon: User };
 
 const TRAINER_NAV: NavItem[] = [
   { to: "/trainer", label: "Today", icon: House, group: "Teach" },

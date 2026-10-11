@@ -79,7 +79,13 @@ export type CareerOverview = {
   applications: ApplicationItem[];
   outcomes: OutcomeItem[];
   next_action: string;
+  /** The four steps on the checklist, in order. The CV step says where the CV stands. */
+  steps: { key: CareerStepKey; done: boolean; state?: "none" | "waiting" | "changes" | "reviewed" }[];
+  /** The steps that stop an application (the profile step never does). */
+  apply_needs: CareerStepKey[];
 };
+
+export type CareerStepKey = "opt_in" | "profile" | "cv" | "share";
 
 export type ProfileUpdate = Partial<
   Pick<

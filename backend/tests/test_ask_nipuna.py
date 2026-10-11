@@ -276,3 +276,27 @@ class TestFeedback:
         answer = ask(client, world, world.students.s1, "When is my next class?")
         response = client.post(f"{API}/queries/{answer['ai_query_id']}/feedback", headers=world.h(world.students.s2), json={"rating": "Helpful"})
         assert response.status_code == 404
+
+
+class TestThread:
+    """UX phase U11: the chat reads oldest first, and an answer with nothing to go on says so."""
+
+    def test_the_history_can_be_read_in_conversation_order(self, client, world):
+        for question in ("When is my next class?", "What is due this week?", "Explain my progress"):
+            ask(client, world, world.students.s1, question)
+        newest_first = client.get(f"{API}/queries", headers=world.h(world.students.s1)).get_json()["data"]
+        oldest_first = client.get(f"{API}/queries", headers=world.h(world.students.s1), query_string={"order": "asc"}).get_json()["data"]
+        assert [q["question"] for q in newest_first] == ["Explain my progress", "What is due this week?", "When is my next class?"]
+        assert [q["question"] for q in oldest_first] == ["When is my next class?", "What is due this week?", "Explain my progress"]
+        assert client.get(f"{API}/queries", headers=world.h(world.students.s1), query_string={"order": "sideways"}).status_code == 400
+
+    def test_an_answer_with_nothing_to_go_on_is_not_marked_answered(self, client, world):
+        ok = ask(client, world, world.students.s1, "When is my next class?")
+        assert ok["answered"] is True
+        refused = ask(client, world, world.students.s1, "Change my fee balance please")
+        assert refused["status"] == "Refused" and refused["answered"] is False
+
+    def test_no_enrolment_means_no_answer(self, client, world, run_sql):
+        run_sql("UPDATE enrolments SET status = 'Withdrawn' WHERE student_id = :s", s=world.students.s1.student_id)
+        answer = ask(client, world, world.students.s1, "Tell me about my course")
+        assert "can't see an active enrolment" in answer["answer"] and answer["answered"] is False

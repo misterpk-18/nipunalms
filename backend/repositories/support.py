@@ -1,10 +1,10 @@
 """Support requests, their messages, and the trainer's assigned-student list."""
 from datetime import date, datetime
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, case, or_, select
 
 from config.database import db
-from models import Batch, BatchAllocation, Enrolment, Student, SupportMessage, SupportRequest
+from models import Batch, BatchAllocation, Enrolment, Student, SupportAttachment, SupportMessage, SupportRequest
 from models.support import SUPPORT_OPEN_STATUSES
 
 
@@ -21,6 +21,9 @@ def list_stmt(filters: dict, *, student_id: int | None, branch_ids: set[int] | N
     """
     stmt = select(SupportRequest).order_by(SupportRequest.created_at.desc(), SupportRequest.support_request_id.desc())
     if student_id is not None:
+        # What waits on the student comes first, then the newest
+        waiting = case((SupportRequest.status == "Waiting on Student", 0), else_=1)
+        stmt = stmt.order_by(None).order_by(waiting, SupportRequest.created_at.desc(), SupportRequest.support_request_id.desc())
         stmt = stmt.where(SupportRequest.student_id == student_id)
     elif not all_branches:
         visible = [SupportRequest.owner_user_id == user_id]
@@ -72,6 +75,19 @@ def add_message(request: SupportRequest, author_user_id: int | None, body: str, 
     db.session.flush()
     db.session.expire(request, ["messages"])
     return message
+
+
+def add_attachment(message: SupportMessage, uploaded_by_user_id: int, stored: dict) -> SupportAttachment:
+    attachment = SupportAttachment(support_request_id=message.support_request_id, support_message_id=message.support_message_id,
+                                   uploaded_by_user_id=uploaded_by_user_id, **stored)
+    db.session.add(attachment)
+    db.session.flush()
+    db.session.expire(message, ["attachments"])
+    return attachment
+
+
+def get_attachment(attachment_id: int) -> SupportAttachment | None:
+    return db.session.get(SupportAttachment, attachment_id)
 
 
 def assigned_students(batch_ids: set[int]) -> list[tuple[Student, Batch, Enrolment]]:

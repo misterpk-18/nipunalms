@@ -317,3 +317,86 @@ def test_the_overdue_job_runs_from_the_jobs_runner(app, client, world, run_sql):
     result = app.test_cli_runner().invoke(args=["jobs", "run", "support-escalate-overdue"])
     assert result.exit_code == 0 and "support-escalate-overdue: {'escalated': 1}" in result.output
     assert "support-escalate-overdue" in app.test_cli_runner().invoke(args=["jobs", "list"]).output
+
+# ---------------------------------------------------------------- UX phase U11: attachments, order, labels
+
+import io  # noqa: E402
+
+
+def upload(client, w, person, path, fields, files):
+    data = {**fields, "files": [(io.BytesIO(content), name) for name, content in files]}
+    return client.post(path, headers=w.h(person), data=data, content_type="multipart/form-data")
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
+
+
+class TestAttachments:
+    def test_a_request_is_raised_with_a_screenshot_and_the_owner_can_download_it(self, client, world):
+        response = upload(client, world, world.students.s1, API, {"category": "LMS", "subject": "Join button missing", "details": "See the picture"},
+                          [("screen.png", PNG)])
+        assert response.status_code == 201, response.get_json()
+        request = response.get_json()["data"]
+        assert request["subject"] == "Join button missing"
+        [attachment] = request["messages"][0]["attachments"]
+        assert attachment["filename"] == "screen.png" and attachment["size_bytes"] == len(PNG) and attachment["mime_type"] == "image/png"
+
+        url = f"{API}/attachments/{attachment['attachment_id']}/download"
+        for person in (world.students.s1, world.people.admin):  # the student and the request's owner (LMS support)
+            got = client.get(url, headers=world.h(person))
+            assert got.status_code == 200 and got.data == PNG and "screen.png" in got.headers["Content-Disposition"]
+        assert client.get(url, headers=world.h(world.students.s2)).status_code == 404  # another student
+        assert client.get(url, headers=world.h(world.people.t2)).status_code == 404    # staff outside the request
+        assert client.get(url).status_code == 401
+        assert "SUPPORT_ATTACHMENT_DOWNLOADED" in db.session.execute(select(AuditLog.action)).scalars().all()
+
+    def test_a_reply_can_carry_files_and_an_internal_remarks_files_stay_hidden_from_the_student(self, client, world):
+        request = raise_request(client, world, world.students.s1)
+        reply = upload(client, world, world.students.s1, f"{API}/{request['support_request_id']}/messages", {"body": "Here it is"},
+                       [("a.png", PNG), ("notes.txt", b"hello")])
+        assert reply.status_code == 201
+        assert [a["filename"] for a in reply.get_json()["data"]["messages"][-1]["attachments"]] == ["a.png", "notes.txt"]
+
+        remark = upload(client, world, world.people.t1, f"{API}/{request['support_request_id']}/messages",
+                        {"body": "Checking the logs", "internal": "true"}, [("log.txt", b"secret")])
+        assert remark.status_code == 201
+        hidden = remark.get_json()["data"]["messages"][-1]["attachments"][0]["attachment_id"]
+        assert client.get(f"{API}/attachments/{hidden}/download", headers=world.h(world.students.s1)).status_code == 404
+        assert client.get(f"{API}/attachments/{hidden}/download", headers=world.h(world.people.t1)).status_code == 200
+        seen = client.get(f"{API}/{request['support_request_id']}", headers=world.h(world.students.s1)).get_json()["data"]
+        assert all(a["filename"] != "log.txt" for m in seen["messages"] for a in m["attachments"])
+
+    @pytest.mark.parametrize("files, text", [
+        ([("run.exe", b"MZ" + b"\x00" * 20)], "File type not allowed"),
+        ([("fake.png", b"not really a png")], "does not look like a real .png"),
+        ([("empty.txt", b"")], "empty"),
+        ([("big.pdf", b"%PDF-" + b"0" * (5 * 1024 * 1024))], "larger than 5 MB"),
+        ([(f"{n}.txt", b"x") for n in range(4)], "at most 3 files"),
+    ])
+    def test_files_are_checked_and_one_bad_file_stops_the_whole_request(self, client, world, files, text):
+        response = upload(client, world, world.students.s1, API, {"category": "LMS", "details": "Please look"}, files)
+        assert response.status_code == 400 and text in response.get_json()["error"]["details"]["files"][0]
+        assert client.get(API, headers=world.h(world.students.s1)).get_json()["data"] == []  # nothing was raised
+
+    def test_without_files_json_still_works(self, client, world):
+        assert raise_request(client, world, world.students.s1)["messages"][0]["attachments"] == []
+
+
+class TestStudentList:
+    def test_requests_waiting_on_the_student_come_first(self, client, world):
+        first = raise_request(client, world, world.students.s1, details="First question")
+        second = raise_request(client, world, world.students.s1, details="Second question")
+        third = raise_request(client, world, world.students.s1, details="Third question")
+        ids = lambda: [r["support_request_id"] for r in client.get(API, headers=world.h(world.students.s1)).get_json()["data"]]
+        assert ids() == [third["support_request_id"], second["support_request_id"], first["support_request_id"]]
+
+        assert client.post(f"{API}/{first['support_request_id']}/status", headers=world.h(world.people.t1),
+                           json={"status": "Waiting on Student"}).status_code == 200
+        listed = client.get(API, headers=world.h(world.students.s1)).get_json()["data"]
+        assert [r["support_request_id"] for r in listed][0] == first["support_request_id"] and listed[0]["status"] == "Waiting on Student"
+
+    def test_the_messages_say_who_wrote_them(self, client, world):
+        request = raise_request(client, world, world.students.s1)
+        client.post(f"{API}/{request['support_request_id']}/messages", headers=world.h(world.people.t1), json={"body": "Which page?"})
+        thread = client.get(f"{API}/{request['support_request_id']}", headers=world.h(world.students.s1)).get_json()["data"]["messages"]
+        assert [m["from_student"] for m in thread] == [True, False]

@@ -147,6 +147,14 @@ def password_reset_code(user: User, code: str, code_id: int) -> WhatsappMessage 
         expires_at=now + timedelta(minutes=RESET_CODE_MINUTES))
 
 
+def email_change_code(user: User, student: Student, code: str, code_id: int) -> WhatsappMessage | None:
+    """The code that confirms a student's new email: the same generic "verification code" message as a password reset."""
+    now = _now()
+    return whatsapp.enqueue(
+        templates.PASSWORD_RESET_CODE, {"code": code}, dedupe_key=f"email-change:{user.user_id}:{code_id}", student=student, user=user,
+        occurred_at=now, expires_at=now + timedelta(minutes=RESET_CODE_MINUTES))
+
+
 def student_activation_link(student: Student, token: str, activation: StudentActivation) -> WhatsappMessage | None:
     return whatsapp.enqueue(
         templates.STUDENT_ACTIVATION_LINK,

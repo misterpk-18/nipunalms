@@ -1,16 +1,20 @@
+/** Career: a four-step checklist (opt in, profile, CV reviewed, share with employers), then jobs, applications and offers. */
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { careerApi, type CareerOverview, type CareerProfile, type ProfileUpdate } from "@/api/career";
+import { Briefcase, Check } from "lucide-react";
+import { careerApi, type CareerOverview, type CareerProfile, type CareerStepKey, type ProfileUpdate } from "@/api/career";
+import { EmptyState } from "@/components/lms/empty-state";
 import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
-import { DataTable, KeyValue, Note, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
+import { DataTable, KeyValue, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { fmtDateTime, fmtDate } from "@/features/shared/format";
+import { fmtDate, fmtDateTime } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
-import { useT } from "@/lib/i18n";
+import { useT, type TranslationKey } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 const KEY = [["career"]];
 const list = (text: string) =>
@@ -19,13 +23,43 @@ const list = (text: string) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+const STEP_TITLE: Record<CareerStepKey, TranslationKey> = {
+  opt_in: "cr_step_opt_in",
+  profile: "cr_step_profile",
+  cv: "cr_step_cv",
+  share: "cr_step_share",
+};
+const NEEDS_WORD: Record<CareerStepKey, TranslationKey> = {
+  opt_in: "cr_need_opt_in",
+  profile: "cr_need_profile",
+  cv: "cr_need_cv",
+  share: "cr_need_share",
+};
+const WORK_MODES = ["On-site", "Remote", "Hybrid", "Any"] as const;
+const WORK_MODE_KEY: Record<(typeof WORK_MODES)[number], TranslationKey> = {
+  "On-site": "cr_mode_onsite",
+  Remote: "cr_mode_remote",
+  Hybrid: "cr_mode_hybrid",
+  Any: "cr_mode_any",
+};
+const LEVELS = ["Fresher", "Experienced"] as const;
+
+/** Scrolls to a checklist step and puts focus on it, so "Needs: reviewed CV" lands on the step that fixes it. */
+function goToStep(key: CareerStepKey) {
+  const element = document.getElementById(`career-step-${key}`);
+  element?.scrollIntoView({ behavior: "smooth", block: "center" });
+  element?.focus({ preventScroll: true });
+}
+
 export function Career() {
   const t = useT();
   const query = useQuery({ queryKey: ["career", "me"], queryFn: careerApi.overview });
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <PageHead title={t("careerSupport")} description="Prepare your profile and CV, and see approved job opportunities." />
-      <QueryView query={query}>{(overview) => <CareerBody overview={overview} />}</QueryView>
+      <PageHead title={t("careerSupport")} description={t("cr_desc")} />
+      <QueryView query={query} skeleton="cards">
+        {(overview) => <CareerBody overview={overview} />}
+      </QueryView>
     </div>
   );
 }
@@ -33,100 +67,87 @@ export function Career() {
 function CareerBody({ overview }: { overview: CareerOverview }) {
   const t = useT();
   const { profile } = overview;
-  const optIn = useApiMutation(() => careerApi.updateProfile({ opted_in: true }), { invalidate: KEY, success: "You have opted in to career support" });
+  const [editing, setEditing] = useState(false);
+  const optIn = useApiMutation(() => careerApi.updateProfile({ opted_in: true }), {
+    invalidate: KEY,
+    success: t("cr_opted_in_toast"),
+    next: t("cr_opted_in_next"),
+  });
   const consent = useApiMutation((value: boolean) => careerApi.setConsent(value), {
     invalidate: KEY,
-    success: (o) => (o.profile.sharing_consent ? "Employer sharing consent given" : "Employer sharing consent withdrawn"),
+    success: (o) => (o.profile.sharing_consent ? t("cr_consent_given") : t("cr_consent_withdrawn")),
   });
-  const apply = useApiMutation((id: number) => careerApi.apply(id), { invalidate: KEY, success: "Application recorded" });
-  const withdraw = useApiMutation((id: number) => careerApi.withdraw(id), { invalidate: KEY, success: "Application withdrawn" });
+  const apply = useApiMutation((id: number) => careerApi.apply(id), { invalidate: KEY, success: t("cr_applied_toast"), next: t("cr_applied_next") });
+  const withdraw = useApiMutation((id: number) => careerApi.withdraw(id), { invalidate: KEY, success: t("cr_withdrawn_toast") });
+  const needs = overview.apply_needs;
 
   return (
     <>
-      <p role="note" className="rounded-lg border-2 border-warning bg-warning-soft p-3 font-semibold text-warning">
-        {t("noGuarantee")}
-      </p>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Career Profile" actions={profile.opted_in && <ProfileEditor profile={profile} />}>
-          {!profile.opted_in ? (
-            <div className="space-y-3">
-              <p className="text-sm">
-                Opt in to prepare your profile and CV and see approved opportunities. Opting in is your choice and is separate from sharing your details with an
-                employer.
-              </p>
-              <Button onClick={() => optIn.mutate()} disabled={optIn.isPending}>
-                Opt in to career support
-              </Button>
-            </div>
-          ) : (
-            <>
-              <KeyValue
-                items={[
-                  ["Opt-in", <Tag tone="success">Opted in — {fmtDate(profile.opted_in_at)}</Tag>],
-                  ["Support period", profile.support_end ? `Until ${fmtDate(profile.support_end)}` : "—"],
-                  ["Preferred roles", profile.preferred_roles.join(", ") || "—"],
-                  ["Preferred locations", profile.preferred_locations.join(", ") || "—"],
-                  [
-                    "Skills",
-                    profile.skills.length ? (
-                      <span className="flex flex-wrap gap-1">
-                        {profile.skills.map((s) => (
-                          <Tag key={s.name} tone={s.confidence === "Verified" ? "success" : "neutral"}>
-                            {s.name} · {s.confidence}
-                          </Tag>
-                        ))}
-                      </span>
-                    ) : (
-                      "—"
-                    ),
-                  ],
-                  ["Referral readiness", <StatusBadge domain="career" code={profile.readiness} />],
-                  [
-                    "Consent for employer referral",
-                    <Tag tone={profile.sharing_consent ? "success" : "warning"}>
-                      {profile.sharing_consent ? "Active — renewable" : "Not given"}
-                    </Tag>,
-                  ],
-                  [
-                    "Profile completeness",
-                    `${profile.completeness.percent}%${profile.completeness.missing.length ? ` — add: ${profile.completeness.missing.slice(0, 2).join(", ")}` : ""}`,
-                  ],
-                ]}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                {profile.sharing_consent ? (
-                  <ConfirmDialog
-                    title="Withdraw consent?"
-                    consequence="Withdrawing stops future sharing of your profile with employers. Applications already sent stay on record."
-                    confirmLabel="Withdraw consent"
-                    destructive
-                    onConfirm={async () => void (await consent.mutateAsync(false))}
-                  >
-                    <Button variant="outline">Withdraw consent</Button>
-                  </ConfirmDialog>
-                ) : (
-                  <Button onClick={() => consent.mutate(true)} disabled={consent.isPending}>
-                    Give consent to share with employers
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </Section>
-        <CvSection overview={overview} />
-      </div>
+      <Checklist
+        overview={overview}
+        onOptIn={() => optIn.mutate()}
+        optInBusy={optIn.isPending}
+        onEdit={() => setEditing(true)}
+        onConsent={(value) => consent.mutateAsync(value)}
+        consentBusy={consent.isPending}
+      />
+      {profile.opted_in && <ProfileEditor profile={profile} open={editing} onOpenChange={setEditing} />}
 
-      <Section title="Approved Job Opportunities">
+      {profile.opted_in && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Section
+            title={t("cr_profile_title")}
+            actions={
+              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                {t("cr_edit_profile")}
+              </Button>
+            }
+          >
+            <KeyValue
+              items={[
+                [t("cr_k_support_period"), profile.support_end ? t("cr_until", { date: fmtDate(profile.support_end) }) : "—"],
+                [t("cr_k_roles"), profile.preferred_roles.join(", ") || "—"],
+                [t("cr_k_locations"), profile.preferred_locations.join(", ") || "—"],
+                [
+                  t("cr_k_skills"),
+                  profile.skills.length ? (
+                    <span className="flex flex-wrap gap-1">
+                      {profile.skills.map((s) => (
+                        <Tag key={s.name} tone={s.confidence === "Verified" ? "success" : "neutral"}>
+                          {s.name} · {s.confidence === "Verified" ? t("cr_skill_verified") : t("cr_skill_reported")}
+                        </Tag>
+                      ))}
+                    </span>
+                  ) : (
+                    "—"
+                  ),
+                ],
+                [t("cr_k_readiness"), <StatusBadge domain="career" code={profile.readiness} />],
+              ]}
+            />
+          </Section>
+          <CvSection overview={overview} />
+        </div>
+      )}
+
+      <Section id="career-jobs" title={t("cr_jobs_title")}>
+        <p className="mb-3 text-xs text-muted-foreground">{t("noGuarantee")}</p>
         {!profile.opted_in ? (
-          <p className="text-sm">Opt in to see the approved opportunities that match your courses and branch.</p>
+          <EmptyState
+            icon={Briefcase}
+            reason={t("cr_jobs_opt_in_first")}
+            action={
+              <Button onClick={() => optIn.mutate()} disabled={optIn.isPending}>
+                {t("cr_opt_in_button")}
+              </Button>
+            }
+          />
         ) : overview.opportunities.length === 0 ? (
-          <p className="text-sm">No approved opportunities match your profile right now.</p>
+          <EmptyState icon={Briefcase} reason={t("cr_jobs_none")} />
         ) : (
           <>
-            <p className="mb-3 text-sm">
-              {overview.opportunities.length} verified {overview.opportunities.length === 1 ? "opportunity matches" : "opportunities match"} your profile.
-              Applying needs your consent, a reviewed CV and an opt-in.
-            </p>
+            <p className="mb-3 text-sm">{t(overview.opportunities.length === 1 ? "cr_jobs_one" : "cr_jobs_many", { count: overview.opportunities.length })}</p>
+            {needs.length > 0 && <NeedsLine needs={needs} />}
             <ul className="grid gap-3 md:grid-cols-2">
               {overview.opportunities.map((o) => (
                 <li key={o.opportunity_id} className="rounded-lg border p-3 text-sm">
@@ -140,15 +161,20 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {o.employment_type} · {o.work_mode}
                     {o.location ? ` · ${o.location}` : ""} · {o.compensation_text}
-                    {o.closing_date ? ` · closes ${fmtDate(o.closing_date)}` : ""}
+                    {o.closing_date ? ` · ${t("cr_closes", { date: fmtDate(o.closing_date) })}` : ""}
                   </p>
-                  {o.required_skills.length > 0 && <p className="mt-1 text-xs">Skills: {o.required_skills.join(", ")}</p>}
+                  {o.required_skills.length > 0 && <p className="mt-1 text-xs">{t("cr_skills_needed", { skills: o.required_skills.join(", ") })}</p>}
                   <div className="mt-2">
                     {o.applied ? (
                       <StatusBadge domain="career" code="Applied" />
                     ) : (
-                      <Button size="sm" onClick={() => apply.mutate(o.opportunity_id)} disabled={apply.isPending} aria-label={`Apply for ${o.title}`}>
-                        Apply
+                      <Button
+                        size="sm"
+                        onClick={() => apply.mutate(o.opportunity_id)}
+                        disabled={needs.length > 0 || apply.isPending}
+                        aria-label={`${t("cr_apply")}: ${o.title}`}
+                      >
+                        {t("cr_apply")}
                       </Button>
                     )}
                   </div>
@@ -159,35 +185,36 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
         )}
       </Section>
 
-      <h2 className="text-lg font-semibold">My Applications, interviews &amp; offers</h2>
+      <h2 className="text-lg font-semibold">{t("cr_applications_title")}</h2>
       <DataTable
-        caption="Applications"
+        caption={t("cr_applications_title")}
         rows={overview.applications}
         getKey={(a) => a.application_id}
-        empty="You have not applied to any opportunity yet."
+        empty={t("cr_applications_none")}
         cols={[
-          { h: "Role", c: (a) => a.opportunity.title },
-          { h: "Employer", c: (a) => a.opportunity.employer_name },
+          { h: t("cr_col_role"), c: (a) => a.opportunity.title },
+          { h: t("cr_col_employer"), c: (a) => a.opportunity.employer_name },
           {
-            h: "Interview round",
+            h: t("cr_col_interview"),
             c: (a) => (a.interview_round ? `${a.interview_round}${a.interview_at ? ` — ${fmtDateTime(a.interview_at)}` : ""}` : (a.status_note ?? "—")),
           },
-          { h: "State", c: (a) => <StatusBadge domain="career" code={a.status} /> },
+          { h: t("cr_col_state"), c: (a) => <StatusBadge domain="career" code={a.status} /> },
           {
-            h: "Action",
+            h: t("cr_col_action"),
             c: (a) =>
               a.closed ? (
                 "—"
               ) : (
                 <ConfirmDialog
-                  title="Withdraw this application?"
-                  consequence="The employer is told you are no longer applying. You can apply again while the opportunity is open."
-                  confirmLabel="Withdraw"
+                  title={t("cr_withdraw_title")}
+                  consequence={t("cr_withdraw_consequence")}
+                  confirmLabel={t("cr_withdraw")}
+                  cancelLabel={t("cancel")}
                   destructive
                   onConfirm={async () => void (await withdraw.mutateAsync(a.application_id))}
                 >
-                  <Button size="sm" variant="outline" aria-label={`Withdraw ${a.opportunity.title}`}>
-                    Withdraw
+                  <Button size="sm" variant="outline" aria-label={`${t("cr_withdraw")}: ${a.opportunity.title}`}>
+                    {t("cr_withdraw")}
                   </Button>
                 </ConfirmDialog>
               ),
@@ -195,59 +222,202 @@ function CareerBody({ overview }: { overview: CareerOverview }) {
         ]}
       />
       {overview.outcomes.length > 0 && (
-        <Section title="Offers & joining recorded by Placement">
+        <Section title={t("cr_outcomes_title")}>
           <DataTable
-            caption="Placement outcomes"
+            caption={t("cr_outcomes_title")}
             rows={overview.outcomes}
             getKey={(o) => o.outcome_id}
             cols={[
-              { h: "Outcome", c: (o) => o.outcome_type },
-              { h: "Role", c: (o) => `${o.role_title} — ${o.employer_name}` },
-              { h: "Date", c: (o) => fmtDate(o.event_date) },
-              {
-                h: "Verification",
-                c: (o) => <StatusBadge domain="career" code={o.verification_status} />,
-              },
+              { h: t("cr_col_outcome"), c: (o) => o.outcome_type },
+              { h: t("cr_col_role"), c: (o) => `${o.role_title} — ${o.employer_name}` },
+              { h: t("cr_col_date"), c: (o) => fmtDate(o.event_date) },
+              { h: t("cr_col_verification"), c: (o) => <StatusBadge domain="career" code={o.verification_status} /> },
             ]}
           />
+          <p className="mt-3 text-xs text-muted-foreground">{t("cr_outcomes_note")}</p>
         </Section>
       )}
-      <Section title="Next action">
-        <p className="text-sm">{overview.next_action}</p>
-      </Section>
-      <Note>Verified outcomes (offers, joining) come only from Placement records.</Note>
     </>
   );
 }
 
+/** "Needs: opt in, reviewed CV, permission to share", each one a link to its step. */
+function NeedsLine({ needs }: { needs: CareerStepKey[] }) {
+  const t = useT();
+  return (
+    <p className="mb-3 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-sm" data-testid="apply-needs">
+      <strong>{t("cr_needs")}</strong>{" "}
+      {needs.map((key, index) => (
+        <span key={key}>
+          {index > 0 && ", "}
+          <button type="button" className="underline underline-offset-2" onClick={() => goToStep(key)}>
+            {t(NEEDS_WORD[key])}
+          </button>
+        </span>
+      ))}
+      . {t("cr_needs_apply")}
+    </p>
+  );
+}
+
+function Checklist({
+  overview,
+  onOptIn,
+  optInBusy,
+  onEdit,
+  onConsent,
+  consentBusy,
+}: {
+  overview: CareerOverview;
+  onOptIn: () => void;
+  optInBusy: boolean;
+  onEdit: () => void;
+  onConsent: (value: boolean) => Promise<unknown>;
+  consentBusy: boolean;
+}) {
+  const t = useT();
+  const { profile } = overview;
+  const done = overview.steps.filter((s) => s.done).length;
+  const next = overview.steps.find((s) => !s.done)?.key;
+
+  const detail = (key: CareerStepKey, state?: string): string => {
+    switch (key) {
+      case "opt_in":
+        return profile.opted_in
+          ? t("cr_opt_in_done", { date: fmtDate(profile.opted_in_at), end: profile.support_end ? fmtDate(profile.support_end) : "—" })
+          : t("cr_opt_in_hint");
+      case "profile":
+        return overview.steps.find((s) => s.key === "profile")?.done ? t("cr_profile_done") : t("cr_profile_hint");
+      case "cv":
+        return state === "reviewed"
+          ? t("cr_cv_reviewed")
+          : state === "waiting"
+            ? t("cr_cv_waiting")
+            : state === "changes"
+              ? t("cr_cv_changes")
+              : t("cr_cv_none");
+      case "share":
+        return profile.sharing_consent ? t("cr_share_done") : t("cr_share_hint");
+    }
+  };
+
+  const action = (key: CareerStepKey, stepDone: boolean) => {
+    if (key === "opt_in" && !stepDone)
+      return (
+        <Button size="sm" onClick={onOptIn} disabled={optInBusy}>
+          {t("cr_opt_in_button")}
+        </Button>
+      );
+    if (!profile.opted_in) return null;
+    if (key === "profile")
+      return (
+        <Button size="sm" variant={stepDone ? "outline" : "default"} onClick={onEdit}>
+          {t("cr_edit_profile")}
+        </Button>
+      );
+    if (key === "cv" && !stepDone)
+      return (
+        <Button size="sm" variant="outline" onClick={() => document.getElementById("cv-file")?.focus()}>
+          {t("cr_upload_cv_short")}
+        </Button>
+      );
+    if (key === "share") {
+      return profile.sharing_consent ? (
+        <ConfirmDialog
+          title={t("cr_consent_withdraw_title")}
+          consequence={t("cr_consent_withdraw_consequence")}
+          confirmLabel={t("cr_consent_withdraw")}
+          cancelLabel={t("cancel")}
+          destructive
+          onConfirm={async () => void (await onConsent(false))}
+        >
+          <Button size="sm" variant="outline">
+            {t("cr_consent_withdraw")}
+          </Button>
+        </ConfirmDialog>
+      ) : (
+        <Button size="sm" onClick={() => void onConsent(true)} disabled={consentBusy}>
+          {t("cr_consent_give")}
+        </Button>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <Section
+      title={t("cr_checklist_title")}
+      actions={<span className="text-sm text-muted-foreground">{t("cr_checklist_count", { done, total: overview.steps.length })}</span>}
+    >
+      <ol className="divide-y">
+        {overview.steps.map((step, index) => (
+          <li
+            key={step.key}
+            id={`career-step-${step.key}`}
+            tabIndex={-1}
+            className="flex flex-wrap items-center gap-3 py-3 outline-none first:pt-0 last:pb-0 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "grid size-7 shrink-0 place-items-center rounded-full border-2 text-xs font-semibold",
+                step.done
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : step.key === next
+                    ? "border-primary text-primary"
+                    : "border-border text-muted-foreground",
+              )}
+            >
+              {step.done ? <Check className="size-4" /> : index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                {t(STEP_TITLE[step.key])}
+                <span className="sr-only"> ({step.done ? t("stepDone") : t("stepTodo")})</span>
+              </p>
+              <p className="text-xs text-muted-foreground">{detail(step.key, step.state)}</p>
+            </div>
+            <div className="shrink-0">{action(step.key, step.done)}</div>
+          </li>
+        ))}
+      </ol>
+    </Section>
+  );
+}
+
 function CvSection({ overview }: { overview: CareerOverview }) {
+  const t = useT();
   const [label, setLabel] = useState("");
   const file = useRef<HTMLInputElement>(null);
   const upload = useApiMutation((vars: { file: File; label: string }) => careerApi.uploadCv(vars.file, vars.label), {
     invalidate: KEY,
-    success: (cv) => `CV v${cv.version_no} uploaded for review`,
+    success: (cv) => t("cr_cv_uploaded", { n: cv.version_no }),
+    next: t("cr_cv_uploaded_next"),
     onSuccess: () => {
       setLabel("");
       if (file.current) file.current.value = "";
     },
   });
-  const disabled = !overview.profile.opted_in;
   return (
-    <Section title="CV versions">
+    <Section title={t("cr_cv_title")}>
       {overview.cvs.length === 0 ? (
-        <p className="text-sm">No CV uploaded yet.</p>
+        <p className="text-sm text-muted-foreground">{t("cr_cv_empty")}</p>
       ) : (
         <ul className="space-y-2 text-sm">
           {overview.cvs.map((cv) => (
             <li key={cv.cv_id} className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                <button className="underline-offset-2 hover:underline" onClick={() => void careerApi.downloadCv(cv)} aria-label={`Download ${cv.label}`}>
+                <button
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => void careerApi.downloadCv(cv)}
+                  aria-label={`${t("cr_download")}: ${cv.label}`}
+                >
                   {cv.label}
                 </button>{" "}
                 <span className="text-xs text-muted-foreground">
                   v{cv.version_no} · {fmtDate(cv.uploaded_at)}
                 </span>
-                {cv.review_feedback && <span className="block text-xs">Feedback: {cv.review_feedback}</span>}
+                {cv.review_feedback && <span className="block text-xs">{t("cr_feedback", { text: cv.review_feedback })}</span>}
               </span>
               <StatusBadge domain="cv" code={cv.review_status} />
             </li>
@@ -262,16 +432,15 @@ function CvSection({ overview }: { overview: CareerOverview }) {
           if (chosen) upload.mutate({ file: chosen, label });
         }}
       >
-        <Field label="CV file (PDF, DOC or DOCX, up to 5 MB)" htmlFor="cv-file">
-          <Input id="cv-file" ref={file} type="file" accept=".pdf,.doc,.docx" disabled={disabled} />
+        <Field label={t("cr_cv_file")} htmlFor="cv-file">
+          <Input id="cv-file" ref={file} type="file" accept=".pdf,.doc,.docx" />
         </Field>
-        <Field label="Label (optional)" htmlFor="cv-label">
-          <Input id="cv-label" value={label} onChange={(e) => setLabel(e.target.value)} disabled={disabled} placeholder="e.g. CV — Data roles" />
+        <Field label={t("cr_cv_label")} htmlFor="cv-label">
+          <Input id="cv-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("cr_cv_label_example")} />
         </Field>
-        <Button type="submit" disabled={disabled || upload.isPending}>
-          Upload new CV
+        <Button type="submit" disabled={upload.isPending}>
+          {t("cr_cv_upload")}
         </Button>
-        {disabled && <p className="text-xs text-muted-foreground">Opt in to career support to upload a CV.</p>}
       </form>
     </Section>
   );
@@ -289,8 +458,8 @@ type ProfileForm = {
   availability: string;
 };
 
-function ProfileEditor({ profile }: { profile: CareerProfile }) {
-  const [open, setOpen] = useState(false);
+function ProfileEditor({ profile, open, onOpenChange }: { profile: CareerProfile; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const t = useT();
   const form = useForm<ProfileForm>({
     values: {
       preferred_roles: profile.preferred_roles.join(", "),
@@ -321,74 +490,69 @@ function ProfileEditor({ profile }: { profile: CareerProfile }) {
     },
     {
       invalidate: KEY,
-      success: "Career profile saved",
+      success: t("cr_profile_saved"),
       silentValidation: true,
-      onSuccess: () => setOpen(false),
+      onSuccess: () => onOpenChange(false),
       onError: (error) => applyServerErrors(form, error),
     },
   );
   const errors = form.formState.errors;
 
   return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        Edit profile
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <form className="space-y-3" noValidate onSubmit={form.handleSubmit((values) => save.mutate(values))}>
-            <DialogHeader>
-              <DialogTitle>Career profile</DialogTitle>
-              <DialogDescription>Separate lists with commas. Skills you add are shown as Student Reported until staff verify them.</DialogDescription>
-            </DialogHeader>
-            <Field label="Preferred roles" htmlFor="cp-roles" error={errors.preferred_roles?.message}>
-              <Input id="cp-roles" {...form.register("preferred_roles")} />
-            </Field>
-            <Field label="Preferred locations" htmlFor="cp-locations" error={errors.preferred_locations?.message}>
-              <Input id="cp-locations" {...form.register("preferred_locations")} />
-            </Field>
-            <Field label="Skills" htmlFor="cp-skills" error={errors.skills?.message}>
-              <Input id="cp-skills" {...form.register("skills")} />
-            </Field>
-            <Field label="Work mode" htmlFor="cp-mode" error={errors.work_mode?.message}>
-              <NativeSelect
-                id="cp-mode"
-                placeholder="Not set"
-                {...form.register("work_mode")}
-                options={["On-site", "Remote", "Hybrid", "Any"].map((v) => ({ value: v, label: v }))}
-              />
-            </Field>
-            <Field label="Qualification" htmlFor="cp-qualification" error={errors.qualification?.message}>
-              <Input id="cp-qualification" {...form.register("qualification")} />
-            </Field>
-            <Field label="Graduation year" htmlFor="cp-year" error={errors.graduation_year?.message}>
-              <Input id="cp-year" inputMode="numeric" {...form.register("graduation_year")} />
-            </Field>
-            <Field label="Fresher or experienced" htmlFor="cp-level" error={errors.experience_level?.message}>
-              <NativeSelect
-                id="cp-level"
-                placeholder="Not set"
-                {...form.register("experience_level")}
-                options={["Fresher", "Experienced"].map((v) => ({ value: v, label: v }))}
-              />
-            </Field>
-            <Field label="Portfolio or project link" htmlFor="cp-portfolio" error={errors.portfolio_url?.message}>
-              <Input id="cp-portfolio" placeholder="https://" {...form.register("portfolio_url")} />
-            </Field>
-            <Field label="Availability" htmlFor="cp-availability" error={errors.availability?.message}>
-              <Input id="cp-availability" {...form.register("availability")} />
-            </Field>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={save.isPending}>
-                Save profile
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <form className="space-y-3" noValidate onSubmit={form.handleSubmit((values) => save.mutate(values))}>
+          <DialogHeader>
+            <DialogTitle>{t("cr_profile_title")}</DialogTitle>
+            <DialogDescription>{t("cr_profile_help")}</DialogDescription>
+          </DialogHeader>
+          <Field label={t("cr_k_roles")} htmlFor="cp-roles" error={errors.preferred_roles?.message}>
+            <Input id="cp-roles" {...form.register("preferred_roles")} />
+          </Field>
+          <Field label={t("cr_k_locations")} htmlFor="cp-locations" error={errors.preferred_locations?.message}>
+            <Input id="cp-locations" {...form.register("preferred_locations")} />
+          </Field>
+          <Field label={t("cr_k_skills")} htmlFor="cp-skills" error={errors.skills?.message}>
+            <Input id="cp-skills" {...form.register("skills")} />
+          </Field>
+          <Field label={t("cr_f_work_mode")} htmlFor="cp-mode" error={errors.work_mode?.message}>
+            <NativeSelect
+              id="cp-mode"
+              placeholder={t("cr_not_set")}
+              {...form.register("work_mode")}
+              options={WORK_MODES.map((v) => ({ value: v, label: t(WORK_MODE_KEY[v]) }))}
+            />
+          </Field>
+          <Field label={t("cr_f_qualification")} htmlFor="cp-qualification" error={errors.qualification?.message}>
+            <Input id="cp-qualification" {...form.register("qualification")} />
+          </Field>
+          <Field label={t("cr_f_year")} htmlFor="cp-year" error={errors.graduation_year?.message}>
+            <Input id="cp-year" inputMode="numeric" {...form.register("graduation_year")} />
+          </Field>
+          <Field label={t("cr_f_level")} htmlFor="cp-level" error={errors.experience_level?.message}>
+            <NativeSelect
+              id="cp-level"
+              placeholder={t("cr_not_set")}
+              {...form.register("experience_level")}
+              options={LEVELS.map((v) => ({ value: v, label: t(v === "Fresher" ? "cr_level_fresher" : "cr_level_experienced") }))}
+            />
+          </Field>
+          <Field label={t("cr_f_portfolio")} htmlFor="cp-portfolio" error={errors.portfolio_url?.message}>
+            <Input id="cp-portfolio" placeholder="https://" {...form.register("portfolio_url")} />
+          </Field>
+          <Field label={t("cr_f_availability")} htmlFor="cp-availability" error={errors.availability?.message}>
+            <Input id="cp-availability" {...form.register("availability")} />
+          </Field>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t("cancel")}
+            </Button>
+            <Button type="submit" disabled={save.isPending}>
+              {t("cr_profile_save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -64,6 +64,8 @@ class CareerOverview:
     applications: list[Application]
     outcomes: list[PlacementOutcome]
     next_action: str
+    steps: list[dict]
+    apply_needs: list[str]
 
 
 # ---------------------------------------------------------------- profile helpers
@@ -75,6 +77,30 @@ def completeness(profile: CareerProfile | None, has_reviewed_cv: bool) -> dict:
         missing.append("A reviewed CV")
     total = len(PROFILE_FIELDS) + 1
     return {"percent": round(100 * (total - len(missing)) / total), "missing": missing}
+
+
+PROFILE_CORE = ("preferred_roles", "skills", "qualification")  # what an employer needs to judge a fit; the rest is optional
+
+
+def checklist(profile: CareerProfile | None, cvs: list[CvDocument]) -> tuple[list[dict], list[str]]:
+    """The four steps on the Career screen, in order (Opt in, Profile, CV reviewed, Share with employers), each done or not, and
+    the keys of the steps that block applying. Applying needs the opt-in, a reviewed CV and the consent (see `apply`); the profile
+    is part of the checklist because employers read it, but it does not block. A CV step carries `state`: none, waiting
+    (uploaded, not reviewed yet), changes (the reviewer asked for changes) or reviewed."""
+    opted_in = bool(profile and profile.opted_in)
+    profile_done = bool(profile and all(getattr(profile, f) for f in PROFILE_CORE))
+    latest = next((cv for cv in cvs if cv.review_status != "Superseded"), None)
+    reviewed = any(cv.review_status == "Reviewed" for cv in cvs)  # the same test `apply` makes
+    cv_state = ("reviewed" if reviewed else "none" if latest is None else "changes" if latest.review_status == "Changes Requested" else "waiting")
+    shared = bool(profile and profile.sharing_consent)
+    steps = [
+        {"key": "opt_in", "done": opted_in},
+        {"key": "profile", "done": profile_done},
+        {"key": "cv", "done": cv_state == "reviewed", "state": cv_state},
+        {"key": "share", "done": shared},
+    ]
+    needs = [step["key"] for step in steps if not step["done"] and step["key"] != "profile"]
+    return steps, needs
 
 
 def _student(student_id: int | None = None) -> Student:
@@ -124,12 +150,13 @@ def overview() -> CareerOverview:
     cvs = career_repo.cvs_of_student(student.student_id)
     has_reviewed = any(cv.review_status == "Reviewed" for cv in cvs)
     applications = career_repo.applications_of_student(student.student_id)
+    steps, apply_needs = checklist(profile, cvs)
     return CareerOverview(
         student=student, profile=profile, completeness=completeness(profile, has_reviewed), cvs=cvs,
         opportunities=_eligible_for(student) if profile and profile.opted_in else [],
         applied_opportunity_ids={a.opportunity_id for a in applications},
         applications=applications, outcomes=career_repo.outcomes_of_student(student.student_id),
-        next_action=_next_action(profile, has_reviewed, applications),
+        next_action=_next_action(profile, has_reviewed, applications), steps=steps, apply_needs=apply_needs,
     )
 
 

@@ -457,3 +457,11 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 |---|---|
 | `crm_events` accepts `WhatsappStatusUpdated` | The CRM reports what happened to a message after answering Queued |
 | `whatsapp_outbox.crm_outbox_id`, `delivery_status` (Sent / Delivered / Read / Failed / Skipped), `delivery_version`, `delivery_at` | The latest reported state, applied only when its version is newer |
+
+## 111 — UX phase U11: student Career, Ask Nipuna, Support and My Account
+
+| Change | Why |
+|---|---|
+| Table `support_attachments` (`support_request_id`, `support_message_id`, `uploaded_by_user_id`, `file_path`, `original_filename`, `mime_type`, `file_size_bytes`) | A file attached to a support message. The bytes are on disk under `UPLOAD_DIR/support`; type, size and who may download are checked by the service |
+| Table `email_change_codes` (`user_id`, `new_email`, `code_hash`, `expires_at`, `wrong_attempts`, `used_at`) | The 6-digit code that confirms a student's new email. Only a hash of `"<user id>:<email>:<code>"` is stored; single use, 10 minutes, burned after 5 wrong tries; at most 5 per person per hour (service rule) |
+| `branches.payment_instructions` (text) | How and where a student pays at that branch, shown on the Next payment card. Set through `PUT /branches/{id}/payment-instructions` |

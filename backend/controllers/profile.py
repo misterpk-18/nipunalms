@@ -1,4 +1,5 @@
 from controllers.common import Validator, json_body, ok
+from services import email_change as email_service
 from services import profile as profile_service
 from services.context import current_user
 
@@ -38,7 +39,7 @@ def _view(view: profile_service.ProfileView) -> dict:
             "mfa_status": student.mfa_status,
             "recovery": {
                 "email_on_file": student.email is not None,
-                "method": "Your branch Branch Manager can issue a new activation link; only you set the password.",
+                "method": "If you forget your password, a code is sent to your WhatsApp number. Only you set the password.",
             },
         }
     return data
@@ -57,3 +58,16 @@ def update_profile():
 
 def sign_out_other_devices():
     return ok({"signed_out": profile_service.sign_out_other_devices()})
+
+
+def request_email_code():
+    v = Validator(json_body())
+    v.email("email", required=True)
+    return ok(email_service.request_code(v.validate()["email"]))
+
+
+def confirm_email():
+    v = Validator(json_body())
+    v.string("code", required=True, min_length=4, max_length=12)
+    email_service.confirm(v.validate()["code"])
+    return get_profile()

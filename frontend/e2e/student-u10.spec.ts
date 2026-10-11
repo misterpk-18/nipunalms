@@ -135,7 +135,7 @@ test("Certificates: the tracker follows the course to Issued, then the PDF downl
   await page.reload();
   await expect(page.getByRole("heading", { name: "Certificates" })).toBeVisible();
   await expect(page.getByText("A fee payment is holding your certificate")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open Fees & Receipts" })).toHaveAttribute("href", "/finance");
+  await expect(page.getByRole("link", { name: "Open Fees & Receipts" })).toHaveAttribute("href", "/my-account?tab=fees");
   await expect(card).toContainText("In review");
 
   // the Founder releases the certificate despite the balance; the Branch Manager approves and issues it

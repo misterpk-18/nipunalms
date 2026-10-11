@@ -23,3 +23,17 @@ def update_profile():
 @login_required
 def sign_out_other_devices():
     return profile_controller.sign_out_other_devices()
+
+
+@profile_bp.post("/email/request-code")
+@login_required
+@require_roles("STUDENT")
+def request_email_code():
+    return profile_controller.request_email_code()
+
+
+@profile_bp.post("/email/confirm")
+@login_required
+@require_roles("STUDENT")
+def confirm_email():
+    return profile_controller.confirm_email()

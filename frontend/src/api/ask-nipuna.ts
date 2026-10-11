@@ -18,6 +18,8 @@ export type AiAnswer = {
   question: string;
   action: string | null;
   answer: string;
+  /** False when the answer says it had nothing to go on, or the question was refused: the screen then offers a person's help. */
+  answered: boolean;
   status: "Answered" | "Refused" | "Failed";
   refusal_reason: string | null;
   is_fallback: boolean;
@@ -33,6 +35,7 @@ export type AiAnswer = {
 export const askApi = {
   status: () => get<AssistantStatus>("/ask-nipuna/status"),
   ask: (question: string, action?: string) => post<AiAnswer>("/ask-nipuna/queries", { question, action: action ?? null }),
-  history: (page = 1): Promise<Page<AiAnswer>> => list<AiAnswer>("/ask-nipuna/queries", { page, per_page: 10 }),
+  /** The latest 30 questions, oldest first: the order a chat reads in. */
+  history: (page = 1): Promise<Page<AiAnswer>> => list<AiAnswer>("/ask-nipuna/queries", { page, per_page: 30, order: "asc" }),
   feedback: (id: number, rating: "Helpful" | "Not helpful", comment?: string) => post<AiAnswer>(`/ask-nipuna/queries/${id}/feedback`, { rating, comment }),
 };

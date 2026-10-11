@@ -469,9 +469,11 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | GET | `/support-requests` | Scoped | Filters `status`, `category`, `open`, `mine`, `escalated=true` (escalated to the Branch Manager), `branch_id`, `student_id`, `q`. Student: own; trainer: requests they own or raised; BM: their branch; admin: all |
-| POST | `/support-requests` | Student; staff for a student (`student_id`) | `{category, details, subject?, priority?, enrolment_id?}`. Routed to a named owner; staff raising for a student = "Staff flag" |
+| POST | `/support-requests` | Student; staff for a student (`student_id`) | `{category, details, subject?, priority?, enrolment_id?}` as JSON, or as a multipart form with the same fields plus up to 3 `files` (UX phase 11). Routed to a named owner; staff raising for a student = "Staff flag" |
+| GET | `/support-requests` (student) | | The student's list puts **Waiting on Student** first, then newest. Every thread message carries `from_student` (the screen words it "You" for the student's own lines) and `attachments[]` (`attachment_id`, `filename`, `mime_type`, `size_bytes`) |
 | GET | `/support-requests/{id}` | Scoped | With the thread; internal remarks are left out for a student |
-| POST | `/support-requests/{id}/messages` | Scoped | `{body, internal?}`; a staff reply moves Open to In Progress, a student reply moves Waiting on Student to In Progress |
+| GET | `/support-requests/attachments/{id}/download` | Scoped | A file of a message, for anyone who may see the request (404 outside their scope, and for a student, on an internal remark); audited |
+| POST | `/support-requests/{id}/messages` | Scoped | `{body, internal?}` (JSON or multipart with up to 3 `files`); a staff reply moves Open to In Progress, a student reply moves Waiting on Student to In Progress |
 | POST | `/support-requests/{id}/status` | Owner / branch BM / admin | `In Progress`, `Waiting on Student`, `Resolved` (note required), `Closed` |
 | POST | `/support-requests/{id}/close`, `/reopen` | Student closes a Resolved request; student or manager reopens with a reason | Reopen gives a fresh SLA clock |
 | POST | `/support-requests/{id}/escalate` | Staff | A trainer-owned request goes to the Branch Manager (the owner changes); any other request is marked escalated to the Branch Manager |
@@ -481,7 +483,7 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 | GET | `/notifications/overview` | Signed in | `{unread, action_required, needs_action, new, categories}`: the bell shows `new + needs_action` |
 | POST | `/notifications/{id}/read`, `/acknowledge`, `/action-done`, `/notifications/read-all` | Recipient | Separate states; acknowledging also reads, does not complete the action |
 | GET / PUT | `/notifications/preferences` | Signed in | Group × channel matrix; In-app always on. Each channel has `live`: WhatsApp is live only when `whatsapp_enabled` is on, `CRM_BASE_URL` is set and a template is approved; Email when its integration is Configured and Verified. The screen offers only live channels |
-| GET | `/me/career` | Student | Profile + completeness, CVs, eligible opportunities, applications, outcomes, next action |
+| GET | `/me/career` | Student | Profile + completeness, CVs, eligible opportunities, applications, outcomes, next action, plus (UX phase 11) `steps[]` (the checklist in order: `opt_in`, `profile`, `cv` with `state` none / waiting / changes / reviewed, `share`; each `done`) and `apply_needs[]` (the step keys that block applying: opt-in, a reviewed CV, consent; the profile step never blocks) |
 | PUT | `/me/career/profile`, `/me/career/consent` | Student | Opt in / out; employer-sharing consent is separate |
 | POST | `/me/career/cvs` (multipart `file`, `label`) | Student | New version, older ones marked Superseded |
 | POST | `/me/career/opportunities/{id}/apply`, `/me/career/applications/{id}/withdraw` | Student | Needs opt-in, consent, a Reviewed CV; one application per opportunity and cycle |
@@ -497,13 +499,17 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 | POST | `/placement-outcomes/{id}/verify` | BM, Super Admin | `{decision: Verified or Rejected, evidence_note}`; not by the recorder |
 | GET | `/placement-outcomes/summary` | BM, Super Admin | Verified outcomes and distinct students per type (reports read this) |
 | GET / PATCH | `/me/profile` | Signed in (PATCH: student) | Identity with masked mobile, devices, language. Staff get role, branch, devices, last sign-in |
+| POST | `/me/email/request-code` | Student | `{email}`. Sends a 6-digit code to the student's WhatsApp number (template 1, the generic verification-code message). Answers `{sent, channel, expires_in_minutes, reason}`; `sent: false` says why nothing went out (WhatsApp switched off, no number on file). 422 for an address already in use or the same as now; 429 after 5 codes in an hour |
+| POST | `/me/email/confirm` | Student | `{code}`. The newest unused code of the last 10 minutes; only its hash is stored (it covers the address too), single use, burned after 5 wrong tries. On success `students.email` and `users.email` become the new address (audited) and the profile is returned |
 | POST | `/me/devices/sign-out-others` | Signed in | Revokes every other session |
-| GET | `/me/finance` | Student | Read-only CRM data: `admissions[]` (one per course: its own fee, verified paid, balance, receipts) and `schedules[]` (each instalment schedule **once**: per invoice when `installments_scope = invoice`, listing the courses it covers, with `next_due_*` and `overdue_amount`) |
+| GET | `/me/finance/receipts/{admission_id}/{receipt_number}/pdf` | Student (owner only) | A receipt PDF drawn by the LMS from the CRM's verified receipt row and fee position (`services/pdf.render_receipt`): receipt number and date, amount, student, course, invoice, fee / verified paid / balance. Another student's admission or an unknown number is 404; audited |
+| PUT | `/branches/{id}/payment-instructions` | BM (own branches), Super Admin | `{payment_instructions: text or null}`: how and where students pay at this branch, shown on the Next payment card. The LMS's own setting (`branches.payment_instructions`), not the CRM's |
+| GET | `/me/finance` | Student | Adds `next_payment`: `{state: unknown}` (the CRM has sent nothing), `{state: paid}`, or `{state: due, due_date, amount, overdue_amount, is_overdue, courses[], invoice_number, how_to_pay: {branch, instructions}}`: the earliest next instalment across the schedules, overdue when the CRM says so or the date has passed. Read-only CRM data: `admissions[]` (one per course: its own fee, verified paid, balance, receipts) and `schedules[]` (each instalment schedule **once**: per invoice when `installments_scope = invoice`, listing the courses it covers, with `next_due_*` and `overdue_amount`) |
 | GET | `/finance-summaries` | BM (service or collecting branch), Super Admin, Founder | Filters `branch_id`, `student_id`, `has_balance`. `meta.totals`: `balance` summed per admission; `overdue_amount` and `next_due_amount` summed once per schedule |
 | GET | `/finance-summaries/{admission_id}` | Same | One admission plus its `schedule` |
 | GET | `/ask-nipuna/status` | Signed in | `AI Available` / `Configuration Pending` / `Quota Limited` / `Disabled`, usage today, actions, scope. Disabled while `ai_enabled` is false or an AI control covers the caller's audience and branch |
 | GET / POST | `/ai-controls`, `/ai-controls/{id}/restore` | Super Admin, Founder (fresh auth to change) | Switch AI off: `{audience: Student\|Staff\|All, branch_id?, reason, remediation?}` (`All` is Founder only and company-wide). Restore with `{restoration_note}` (the checks that passed) |
-| POST / GET | `/ask-nipuna/queries` | Signed in | Ask (refusals are answered with `status: Refused` and do not use the allowance); own history |
+| POST / GET | `/ask-nipuna/queries` | Signed in | Ask (refusals are answered with `status: Refused` and do not use the allowance); own history, newest first, or `order=asc` to list the page oldest first (a chat reads that way). Each item has `answered`: false when the answer says it had nothing to go on or the question was refused, so the screen offers "Raise a support request with this question" |
 | POST | `/ask-nipuna/queries/{id}/feedback` | Asker | `Helpful` / `Not helpful` (+ comment); a report notifies the branch's Branch Managers |
 
 Job: `flask --app app jobs run support-escalate-overdue`.
@@ -722,3 +728,10 @@ Templates 1-3 (reset code, student activation link, staff invite) are queued by 
 ### 4.16 WhatsApp status events (CRM round 6, `110`)
 
 `WhatsappStatusUpdated` is a CRM event on the existing intake (`POST /integrations/crm/events`), data `{dedupe_key, status (Sent / Delivered / Read / Failed / Skipped), crm_outbox_id, provider_message_id, reason, occurred_at}`. It is applied when its `source_version` is higher than the last one for that dedupe key. `Failed` and `Skipped` also finish the LMS row with the reason; the other states set `delivery_status`. An unknown key or an older version is answered as `Ignored — stale` (not an error). The `Queued` answer to `POST /lms/whatsapp` is the normal first answer and stores `crm_outbox_id`.
+
+### 4.17 Student Career, Ask Nipuna, Support and My Account (UX phase 11, `111`)
+
+New and changed endpoints are in the §4.8 tables above (support attachments, career `steps` and `apply_needs`, `answered` and `order=asc` on Ask Nipuna, the email code pair, `next_payment`, the receipt PDF and the branch payment instructions). Rules:
+- **Attachments**: images (png, jpg), PDF, text, Word (doc, docx); 5 MB each, at most 3 per message; the first bytes must match the type. Files are kept on disk under `UPLOAD_DIR/support/<request id>/` and downloaded only through the API.
+- **Email change** needs the code, which is **delivered by WhatsApp** (the LMS has no email sender), through the same outbox and switch as every other message. With WhatsApp off nothing is sent, the email is not changed and the answer says so.
+- **Receipts**: the CRM's finance summary carries each verified receipt's number, date and amount only, so the PDF is a copy drawn by the LMS from those rows (no official receipt layout, no payment mode). Whether the CRM already issues receipt PDFs is still to be confirmed with the CRM.

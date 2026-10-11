@@ -39,6 +39,8 @@ def overview():
         "applications": [{**a.to_dict(), "opportunity": _opportunity_of(a)} for a in o.applications],
         "outcomes": [_student_outcome(x) for x in o.outcomes],
         "next_action": o.next_action,
+        "steps": o.steps,
+        "apply_needs": o.apply_needs,
     })
 
 

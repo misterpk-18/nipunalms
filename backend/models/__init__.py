@@ -2,7 +2,7 @@
 
 Models map existing tables (schema lives in db/*.sql); they never create tables.
 """
-from models.access import ActiveSession, PasswordResetCode, Role, StaffInvite, User, UserRoleScope, UserSession
+from models.access import ActiveSession, EmailChangeCode, PasswordResetCode, Role, StaffInvite, User, UserRoleScope, UserSession
 from models.admin import SecurityControl
 from models.batches import Batch, BatchAllocation, BatchCrmState, BatchTrainer, ClassSession
 from models.assessments import (
@@ -21,7 +21,7 @@ from models.delivery import BatchEvent, CurriculumEvent, MeetEvent, SessionChang
 __all__ = [
     "Assignment", "AssignmentSubmission", "AttemptAnswer", "InterviewSlot", "Question", "Result", "SubmissionReview", "Test",
     "TestAttempt", "TestQuestion",
-    "ActiveSession", "PasswordResetCode", "StaffInvite", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
+    "ActiveSession", "EmailChangeCode", "PasswordResetCode", "StaffInvite", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
     "BatchAllocation", "BatchCrmState", "BatchTrainer", "Branch", "BranchFinanceSnapshot", "ClassSession", "Course", "CourseComponent", "CrmEvent", "CrmOutbox",
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "SecurityControl", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
@@ -57,11 +57,11 @@ __all__ += ["ExceptionItem", "ExceptionRecoveryStep"]
 from models.ask_nipuna import AiFeatureControl, AiQuery  # noqa: E402
 from models.career import Application, ApplicationEvent, CareerProfile, CvDocument, Opportunity, PlacementOutcome  # noqa: E402
 from models.notification_preferences import NotificationPreference  # noqa: E402
-from models.support import SupportMessage, SupportRequest  # noqa: E402
+from models.support import SupportAttachment, SupportMessage, SupportRequest  # noqa: E402
 
 __all__ += [
     "AiFeatureControl", "AiQuery", "Application", "ApplicationEvent", "CareerProfile", "CvDocument", "NotificationPreference", "Opportunity",
-    "PlacementOutcome", "SupportMessage", "SupportRequest",
+    "PlacementOutcome", "SupportAttachment", "SupportMessage", "SupportRequest",
 ]
 
 # Gap fix plan phase 4: the Academic Calendar (101)

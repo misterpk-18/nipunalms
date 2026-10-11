@@ -1,7 +1,6 @@
 /**
- * Support requests for everyone who works on them: a filterable list and a request panel with the thread. The student
- * screen uses `mode="student"` (reply, close, reopen); trainer, academic and branch screens use `mode="staff"`
- * (internal remarks, status, escalate, reassign).
+ * Support requests for the people who work on them (trainer and branch screens): a filterable list and a request panel with the
+ * thread, internal remarks, status, escalation and reassignment. Students have their own screens (features/student/support*.tsx).
  */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,9 +16,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/auth/auth";
 import { useApiMutation } from "@/lib/mutation";
 import { fmtDateTime } from "@/features/shared/format";
+import { AttachmentLinks, FilePicker } from "./support-attachments";
 import { ReasonDialog } from "./reason-dialog";
 
-export type SupportMode = "student" | "staff";
+const ATTACH_TEXT = {
+  add: "Attach files",
+  hint: "Images, PDF, text or Word; up to 3 files of 5 MB",
+  tooBig: (name: string) => `${name} is larger than 5 MB`,
+  wrongType: (name: string) => `${name} is not an allowed file type`,
+  tooMany: "Attach at most 3 files",
+  remove: (name: string) => `Remove ${name}`,
+};
 
 /** Status badge plus the escalation and SLA flags of a request. */
 export function SupportState({ request }: { request: SupportSummary }) {
@@ -32,7 +39,7 @@ export function SupportState({ request }: { request: SupportSummary }) {
   );
 }
 
-export function SupportDesk({ mode, base = {}, caption, empty }: { mode: SupportMode; base?: SupportFilters; caption: string; empty: string }) {
+export function SupportDesk({ base = {}, caption, empty }: { base?: SupportFilters; caption: string; empty: string }) {
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
@@ -64,12 +71,10 @@ export function SupportDesk({ mode, base = {}, caption, empty }: { mode: Support
             options={SUPPORT_CATEGORIES.map((s) => ({ value: s, label: s }))}
           />
         </div>
-        {mode === "staff" && (
-          <div className="w-full sm:w-64">
-            <Label htmlFor="support-q">Search</Label>
-            <Input id="support-q" placeholder="ID, subject or student" value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} />
-          </div>
-        )}
+        <div className="w-full sm:w-64">
+          <Label htmlFor="support-q">Search</Label>
+          <Input id="support-q" placeholder="ID, subject or student" value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} />
+        </div>
       </div>
       <QueryView query={query} isEmpty={(r) => r.data.length === 0} empty={empty}>
         {(result) => (
@@ -80,7 +85,7 @@ export function SupportDesk({ mode, base = {}, caption, empty }: { mode: Support
               getKey={(r) => r.support_request_id}
               cols={[
                 { h: "ID", c: (r) => <span className="font-mono text-xs">{r.request_code}</span> },
-                ...(mode === "staff" ? [{ h: "Student", c: (r: SupportSummary) => r.student.full_name }] : []),
+                { h: "Student", c: (r: SupportSummary) => r.student.full_name },
                 { h: "Category", c: (r) => r.category },
                 { h: "Subject", c: (r) => r.subject },
                 { h: "Named owner", c: (r) => r.owner.label },
@@ -111,22 +116,22 @@ export function SupportDesk({ mode, base = {}, caption, empty }: { mode: Support
           </>
         )}
       </QueryView>
-      <SupportPanel id={openId} mode={mode} onClose={() => setOpenId(null)} />
+      <SupportPanel id={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 }
 
 type StaffMember = { user_id: number; full_name: string; role_code: string };
 
-export function SupportPanel({ id, mode, onClose }: { id: number | null; mode: SupportMode; onClose: () => void }) {
+export function SupportPanel({ id, onClose }: { id: number | null; onClose: () => void }) {
   return (
     <Dialog open={id !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">{id !== null && <PanelBody id={id} mode={mode} />}</DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">{id !== null && <PanelBody id={id} />}</DialogContent>
     </Dialog>
   );
 }
 
-function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
+function PanelBody({ id }: { id: number }) {
   const { profile } = useAuth();
   const query = useQuery({ queryKey: ["support", "detail", id], queryFn: () => supportApi.get(id) });
   const done = { invalidate: [["support"]] };
@@ -135,16 +140,19 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
   const [target, setTarget] = useState("");
   const [assignee, setAssignee] = useState("");
 
-  const message = useApiMutation((vars: { body: string; internal: boolean }) => supportApi.message(id, vars.body, vars.internal), {
+  const [files, setFiles] = useState<File[]>([]);
+  const message = useApiMutation((vars: { body: string; internal: boolean; files: File[] }) => supportApi.message(id, vars.body, vars.internal, vars.files), {
     ...done,
     success: "Message sent",
-    onSuccess: () => setText(""),
+    onSuccess: () => {
+      setText("");
+      setFiles([]);
+    },
   });
   const status = useApiMutation((vars: { status: string; note?: string }) => supportApi.status(id, vars.status, vars.note), {
     ...done,
     success: "Status updated",
   });
-  const close = useApiMutation(() => supportApi.close(id), { ...done, success: "Request closed" });
   const reopen = useApiMutation((reason: string) => supportApi.reopen(id, reason), { ...done, success: "Request reopened" });
   const escalate = useApiMutation((reason: string) => supportApi.escalate(id, reason), { ...done, success: "Request escalated" });
   const assign = useApiMutation((ownerId: number) => supportApi.assign(id, ownerId), { ...done, success: "Owner changed" });
@@ -152,7 +160,7 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
   const staff = useQuery({
     queryKey: ["reference", "staff", branchId],
     queryFn: () => get<StaffMember[]>("/reference/staff", { branch_id: branchId }),
-    enabled: mode === "staff" && branchId !== undefined,
+    enabled: branchId !== undefined,
   });
 
   return (
@@ -184,14 +192,12 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
                   <SupportState request={request} />
                 </dd>
               </div>
-              {mode === "staff" && (
-                <div>
-                  <dt className="text-xs text-muted-foreground">Student</dt>
-                  <dd>
-                    {request.student.full_name} <span className="font-mono text-xs">{request.student.student_code}</span>
-                  </dd>
-                </div>
-              )}
+              <div>
+                <dt className="text-xs text-muted-foreground">Student</dt>
+                <dd>
+                  {request.student.full_name} <span className="font-mono text-xs">{request.student.student_code}</span>
+                </dd>
+              </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Respond by</dt>
                 <dd>{fmtDateTime(request.sla_due_at)}</dd>
@@ -212,13 +218,13 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
                 >
                   <div className="mb-0.5 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                     <span>
-                      {m.from_student ? "Student" : m.author.full_name}
-                      {m.author.user_id === profile?.user.user_id ? " (you)" : ""}
+                      {m.author.user_id === profile?.user.user_id ? `${m.author.full_name} (you)` : m.from_student ? "Student" : m.author.full_name}
                       {m.is_internal ? " · internal remark, not shown to the student" : ""}
                     </span>
                     <span>{fmtDateTime(m.created_at)}</span>
                   </div>
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  <AttachmentLinks attachments={m.attachments} />
                 </li>
               ))}
             </ol>
@@ -227,25 +233,19 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
               <div className="space-y-2">
                 <Label htmlFor="support-reply">Reply</Label>
                 <Textarea id="support-reply" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+                <FilePicker files={files} onChange={setFiles} inputId="support-reply-files" text={ATTACH_TEXT} />
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button disabled={!text.trim() || message.isPending} onClick={() => message.mutate({ body: text.trim(), internal })}>
+                  <Button disabled={!text.trim() || message.isPending} onClick={() => message.mutate({ body: text.trim(), internal, files })}>
                     {internal ? "Add internal remark" : "Send reply"}
                   </Button>
-                  {mode === "staff" && (
-                    <label className="flex items-center gap-1.5 text-sm">
-                      <input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> Internal remark (student cannot see it)
-                    </label>
-                  )}
+                  <label className="flex items-center gap-1.5 text-sm">
+                    <input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> Internal remark (student cannot see it)
+                  </label>
                 </div>
               </div>
             )}
 
             <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-              {mode === "student" && request.status === "Resolved" && (
-                <Button onClick={() => close.mutate()} disabled={close.isPending}>
-                  Confirm resolved and close
-                </Button>
-              )}
               {finished && (
                 <ReasonDialog
                   title="Reopen this request"
@@ -256,7 +256,7 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
                   trigger={<Button variant="outline">Reopen</Button>}
                 />
               )}
-              {mode === "staff" && !finished && (
+              {!finished && (
                 <>
                   <div className="w-44">
                     <Label htmlFor="support-set-status">Change status</Label>
@@ -316,7 +316,7 @@ function PanelBody({ id, mode }: { id: number; mode: SupportMode }) {
                   )}
                 </>
               )}
-              {mode === "staff" && request.status === "Resolved" && (
+              {request.status === "Resolved" && (
                 <Button variant="outline" onClick={() => status.mutate({ status: "Closed" })} disabled={status.isPending}>
                   Close
                 </Button>

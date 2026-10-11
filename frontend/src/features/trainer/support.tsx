@@ -40,7 +40,7 @@ export function TrainerSupport() {
       />
       <div className="space-y-4">
         <Section title="Support requests">
-          <SupportDesk mode="staff" caption="Support flags" empty="No open support flags for your students." base={{ mine: true }} />
+          <SupportDesk caption="Support flags" empty="No open support flags for your students." base={{ mine: true }} />
         </Section>
         <Section title="Students with an open flag">
           <QueryView query={students} isEmpty={(rows) => rows.every((r) => r.open_requests.length === 0)} empty="None of your students has an open request.">

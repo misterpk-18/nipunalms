@@ -1,8 +1,17 @@
-from flask import request
+from flask import request, send_file
 
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated
 from models.support import SUPPORT_CATEGORIES, SUPPORT_PRIORITIES, SUPPORT_STATUSES
 from services import support as support_service
+
+
+def _payload() -> dict:
+    """A message arrives as JSON, or as a multipart form when files are attached (the fields are the same)."""
+    return dict(request.form) if request.mimetype == "multipart/form-data" else json_body()
+
+
+def _files() -> list:
+    return request.files.getlist("files") if request.mimetype == "multipart/form-data" else []
 
 
 def _filters() -> dict:
@@ -29,22 +38,28 @@ def get_request(support_request_id: int):
 
 
 def raise_request():
-    v = Validator(json_body())
+    v = Validator(_payload())
     v.choice("category", SUPPORT_CATEGORIES, required=True)
     v.string("details", required=True, min_length=3, max_length=4000)
     v.string("subject", max_length=200)
     v.choice("priority", SUPPORT_PRIORITIES)
     v.integer("enrolment_id", nullable=True, min_value=1)
     v.integer("student_id", min_value=1)
-    return created(support_service.to_detail(support_service.raise_request(v.validate())))
+    return created(support_service.to_detail(support_service.raise_request(v.validate(), _files())))
 
 
 def add_message(support_request_id: int):
-    v = Validator(json_body())
+    v = Validator(_payload())
     v.string("body", required=True, max_length=4000)
     v.boolean("internal", default=False)
     data = v.validate()
-    return created(support_service.to_detail(support_service.add_message(support_request_id, data["body"], internal=data["internal"])))
+    request_after = support_service.add_message(support_request_id, data["body"], internal=data["internal"], files=_files())
+    return created(support_service.to_detail(request_after))
+
+
+def download_attachment(attachment_id: int):
+    attachment, path = support_service.download_attachment(attachment_id)
+    return send_file(path, as_attachment=True, download_name=attachment.original_filename, mimetype=attachment.mime_type)
 
 
 def change_status(support_request_id: int):

@@ -182,6 +182,21 @@ class PasswordResetCode(db.Model):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
 
+class EmailChangeCode(db.Model):
+    """A one-time code that confirms a student's new email address; only its hash is stored (db/111)."""
+
+    __tablename__ = "email_change_codes"
+
+    code_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
+    new_email: Mapped[str] = mapped_column(String(255))
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    wrong_attempts: Mapped[int] = mapped_column(SmallInteger, default=0)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+
+
 class StaffInvite(db.Model):
     """The one-time link a new staff member uses to choose their password; only the token's hash is stored (db/108)."""
 

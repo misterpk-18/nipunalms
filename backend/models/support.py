@@ -114,6 +114,7 @@ class SupportMessage(db.Model):
 
     request: Mapped[SupportRequest] = relationship(back_populates="messages")
     author: Mapped[User | None] = relationship(lazy="joined")
+    attachments: Mapped[list["SupportAttachment"]] = relationship(order_by="SupportAttachment.attachment_id", lazy="selectin")
 
     def to_dict(self) -> dict:
         return {
@@ -122,5 +123,26 @@ class SupportMessage(db.Model):
             "kind": self.kind,
             "body": self.body,
             "is_internal": self.is_internal,
+            "attachments": [a.to_dict() for a in self.attachments],
             "created_at": self.created_at,
         }
+
+
+class SupportAttachment(db.Model):
+    """A file attached to a support message (db/111). The bytes are on disk; downloads go through the request's own access rules."""
+
+    __tablename__ = "support_attachments"
+
+    attachment_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    support_request_id: Mapped[int] = mapped_column(Integer, ForeignKey("support_requests.support_request_id"))
+    support_message_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("support_messages.support_message_id"))
+    uploaded_by_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
+    file_path: Mapped[str] = mapped_column(String(500))
+    original_filename: Mapped[str] = mapped_column(String(255))
+    mime_type: Mapped[str | None] = mapped_column(String(100))
+    file_size_bytes: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+
+    def to_dict(self) -> dict:
+        return {"attachment_id": self.attachment_id, "filename": self.original_filename, "mime_type": self.mime_type,
+                "size_bytes": self.file_size_bytes}

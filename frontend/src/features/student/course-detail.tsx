@@ -123,7 +123,7 @@ export function CourseDetail() {
                     : []),
                 ]}
               />
-              <Link to="/finance" className="text-primary underline">
+              <Link to="/my-account" search={{ tab: "fees" }} className="text-primary underline">
                 {t("feesAndReceipts")}
               </Link>
             </HowThisWorks>

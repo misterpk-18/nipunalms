@@ -1,4 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Profile } from "@/features/student/profile";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/profile")({ component: Profile });
+/** The student's Profile is a tab of My Account now. */
+export const Route = createFileRoute("/profile")({
+  beforeLoad: () => {
+    throw redirect({ to: "/my-account", replace: true });
+  },
+});

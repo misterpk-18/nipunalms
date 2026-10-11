@@ -1,6 +1,6 @@
-from flask import request
+from flask import Response, request
 
-from controllers.common import Validator, get_page_params, ok, paginated
+from controllers.common import Validator, get_page_params, json_body, ok, paginated, require_changes
 from services import finance as finance_service
 
 SOURCE = "CRM (authoritative) — read-only"
@@ -40,7 +40,21 @@ def _schedule(schedule: finance_service.Schedule) -> dict:
 def my_finance():
     rows = finance_service.my_summaries()
     return ok({"source": SOURCE, "note": PENDING_NOTE, "admissions": [_entry(a, s) for a, s in rows],
-               "schedules": [_schedule(s) for s in finance_service.schedules_of(rows)]})
+               "schedules": [_schedule(s) for s in finance_service.schedules_of(rows)],
+               "next_payment": finance_service.next_payment(rows)})
+
+
+def my_receipt_pdf(admission_id: int, receipt_number: str):
+    content, filename = finance_service.receipt_pdf(admission_id, receipt_number)
+    return Response(content, mimetype="application/pdf", headers={"Content-Disposition": f'attachment; filename="{filename}"',
+                                                                  "Cache-Control": "private, no-store"})
+
+
+def set_payment_instructions(branch_id: int):
+    v = Validator(json_body())
+    v.string("payment_instructions", nullable=True, max_length=1500)
+    branch = finance_service.set_payment_instructions(branch_id, require_changes(v.validate())["payment_instructions"])
+    return ok({**branch.to_summary(), "payment_instructions": branch.payment_instructions})
 
 
 def list_summaries():

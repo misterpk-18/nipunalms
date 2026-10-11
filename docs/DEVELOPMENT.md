@@ -197,7 +197,7 @@ React SPA in `frontend/`, built to mirror **nipuna-crm/frontend**. The product i
 | Who may open a workspace | `profile.workspaces` from `/auth/me` (already expanded per role: Super Admin also holds branch, Founder also admin and branch); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
 | Guard | Root route: public paths (`/login`, `/activate`) → anonymous → `/login?redirect=` → `must_change_password` → `/change-password` → workspace not permitted → **Permission Restricted** view (link home) → `/` redirects to `home_route`. Not a security boundary; every endpoint re-checks scope | Same as the CRM |
 | "Acting as" switcher | Header pill "Acting as: <role> ▾" (`acting-as.tsx`), shown when the user has more than one workspace or, in the Branch Manager workspace, more than one branch. A menu lists each workspace with a one-line description and goes to that workspace's home; the branch picker (All branches / one branch) is kept per user in `localStorage` (`lib/acting-branch.ts`, `auth/acting.ts`) and narrows the nav counts and the Getting started card. Single-role, single-branch users keep the static "role · branch" chip. The cross-workspace nav items ("Branch views", "Super Admin view") are gone | Replaces the prototype's UAT role simulator; no prototype banner, no "Demo" badges |
-| Navigation | `NavItem` has `group` (heading in the sidebar and the More sheet) and `badgeKey` (the count shown from `GET /me/nav-counts`, polled every minute). The count is a visual badge plus a screen-reader description outside the link, so a link's name stays the page name. Trainer, Branch Manager, Super Admin and Founder navs are grouped; the student nav is Home · My Learning · Schedule · Tasks & Tests · Class Materials · My Progress · Certificates · Career · Ask Nipuna · Support (then Fees & Receipts and Profile until U11 moves them into My Account) | One place that says what waits for you |
+| Navigation | `NavItem` has `group` (heading in the sidebar and the More sheet) and `badgeKey` (the count shown from `GET /me/nav-counts`, polled every minute). The count is a visual badge plus a screen-reader description outside the link, so a link's name stays the page name. Trainer, Branch Manager, Super Admin and Founder navs are grouped; the student nav is Home · My Learning · Schedule · Tasks & Tests · Class Materials · My Progress · Certificates · Career · Ask Nipuna · Support (Fees & Receipts and Profile are tabs of **My Account**, opened from the avatar menu and the phone More sheet) | One place that says what waits for you |
 | Search | Ctrl/Cmd+K or the header search button opens `command-palette.tsx`: the pages of every workspace the user holds, plus `GET /search` records (students, batches, certificates) within scope. A record opens the list that holds it in the current workspace (record pages arrive with their screens) | Find a screen or a person without remembering where it is |
 | Getting started | `getting-started.tsx` on the Student, Trainer, Branch Manager and Super Admin homes, from `GET /me/getting-started`; hidden once every step is done; dismissal kept in `localStorage` | First-run guidance that ticks itself |
 | Session | Bearer token in memory + `sessionStorage` (`nipuna-lms-session`); `["me"]` query holds the profile; `FRESH_AUTH_REQUIRED` opens a password dialog and retries once | Same as the CRM |
@@ -241,7 +241,7 @@ keeps the track screen out of the enrolment route's nesting for the same reason.
 "Acting as" switcher (see the decisions table); the search button (Ctrl/Cmd+K); language toggle (student workspace);
 notifications bell (`notification-bell.tsx`) counting what is new or needs action, with a preview of the latest five and "Open inbox"
 (student → `/notifications`, trainer / branch / admin → `<workspace>/notifications`; the founder has none);
-account menu (Profile — `/profile` for students, `/account/profile` for staff — Change password, Sign out).
+account menu (My Account — `/my-account` for students, Profile at `/account/profile` for staff — Change password, Sign out).
 
 **Sidebar** (≥ `md`, 240px): the workspace's nav list from `NAV` in `auth/access.ts` (same items, labels, order and
 icons as the prototype, grouped under headings and with count badges for staff workspaces; there is no Notifications item, the bell
@@ -270,7 +270,7 @@ status on screen is `<StatusBadge domain="…" code={…} />`: the colour, the p
 do") come from the dictionary, never from the text. Use `label=` only when the API sends a richer label (an attendance entry
 with its recovery). An unknown code shows its own text in grey and warns once in development: add it to the dictionary.
 
-**Shared feature parts** (`features/shared/`): `notification-centre` (the inbox and the `NotificationRow` the bell reuses), `notification-preferences` (on the Profile screen), `assistant` (Ask Nipuna), `support-desk`,
+**Shared feature parts** (`features/shared/`): `notification-centre` (the inbox and the `NotificationRow` the bell reuses), `notification-preferences` (on My Account / the staff Profile; `translated` for students), `staff-profile`, `assistant` (Ask Nipuna, student and trainer), `support-desk` (staff), `support-attachments` (`FilePicker`, `AttachmentLinks`),
 `reason-dialog`, `certificate-register`, `attendance-parts` (`MeasureCards`, `Meter`), `content-detail`, `delivery-ui`
 (IST `fmtDate` / `fmtRange`, DeliveryBar, MeetBadge, field-driven `ActionDialog`), `sessions`, `dashboard-parts`
 (`Tile`, `CrmTile`, `TileRow`, `QuickLinks`, `CardGap`), `recovery-step` (`RecoveryStepButton`, `OwnerCell`,
@@ -306,7 +306,7 @@ only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind 
 | `/login` | auth page | `POST /auth/login` | Student ID / student email / staff email + password, show / hide password, forgot-password guidance ("Ask your branch to reissue an activation link"), activation-state explanation, EN/తెలుగు |
 | `/activate?token=` | auth page | `GET /auth/activation/{token}`, `POST /auth/activate` | Checks the token (valid / expired / used), set + confirm password, success → `/login` |
 | `/change-password` | auth page | `POST /auth/change-password` | Forced when `must_change_password`, also from the account menu |
-| `/account/profile` | `student/profile` | `GET /me/profile` | Staff: role, branch, devices, password, last sign-in; read-only. Framed by the user's home workspace |
+| `/account/profile` | `shared/staff-profile` | `GET /me/profile` | Staff: role, branch, devices, password, last sign-in; read-only. Framed by the user's home workspace |
 | `/` | — | `GET /auth/me` | Never renders: redirects to `home_route` |
 
 #### Student (`features/student/`)
@@ -326,12 +326,11 @@ only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind 
 | `/materials` | `materials`, `access-window` | `/me/recordings`, `/me/resources`, `/me/access`, `/recordings/{id}/watch`, `/content-items/{id}/open`, `/access-extension-requests` | **Class Materials**: tabs Recordings / Files (`?tab=files`), grouped by course then topic (or week for a recording with no topic). Recordings are video cards (Watch, status, "Watch only, no download"); files are rows (Open / Download; filters by course, type, title). One access line per course ("Available until 12 Jan 2027 · Request extension"); the extension dialog lives here; the rules are in "How access works". `/recordings` and `/resources` redirect here |
 | `/progress` | `progress`, `attendance`, `results` | `/me/progress`, `/me/progress/next-steps`, `/me/attendance`, `/attendance/recoveries`, `/attendance/corrections`, `/me/results` | **My Progress**: tabs Overview · Attendance · Results (`?tab=`). Overview: "What to do next" then four separate measure cards (course tabs when several enrolments). Attendance: a table per course; **Request recovery** only on an Absent row without one, **Report a mistake** in the row menu, and the row shows each request's status, who decides and the decision note. Results: a row links to the assignment or test (feedback is there); a score shows only once published. `/attendance` and `/results` redirect here |
 | `/certificates` | `certificates` | `/me/certificates`, `/me/certificates/{id}/pdf` | One card per course with the 3-step tracker (Course completed → Review → Issued), the blocker in plain words, a fee banner linked to Fees, and, once issued, **Download PDF** and **Copy verification link** |
-| `/career` | `career` | `/me/career/*` | Opt-in, profile editor, consent (withdraw), CV upload / versions / download, approved opportunities with Apply, applications with Withdraw, outcomes |
-| `/ask-nipuna` | `shared/assistant` | `/ask-nipuna/*` | Status, scope, usage, actions, sources, warnings, thumbs; refusals shown as "Not answered: out of scope" |
-| `/support` | `support` | `/support-requests` | Raise form, my requests, request panel with the thread (reply, confirm and close, reopen) |
-| `/notifications` | `shared/notification-centre` | `/notifications/*` | Inbox: tabs Needs action (first when any, with a count) · All · Done; one status (New / Needs action / Done) and one button per item; mark as done / read. Reached from the bell, not the sidebar. Preferences are on `/profile` |
-| `/finance` | `finance` | `/me/finance` | Per course: fee, verified paid, balance, receipts; the instalment schedule once per invoice (`INV-… · Course A + Course B`); as-of time and source |
-| `/profile` | `profile` | `/me/profile` | Identity with masked mobile, language (stored on the student), devices (sign out / sign out others), password and recovery |
+| `/career` | `career` | `/me/career/*` | A four-step checklist on top (Opt in → Profile → CV reviewed → Share with employers, from `steps`); Apply is disabled with "Needs: …" linking to the step (`apply_needs`); the no-guarantee note sits under Jobs for you; profile editor, CV upload / versions / download, opportunities, applications with Withdraw, outcomes |
+| `/ask-nipuna` | `shared/assistant` | `/ask-nipuna/*` | Chat thread oldest first with the box pinned under it; quick actions pre-fill the box and never override typed text; sources are links; quota shown from 80% used; an answer with `answered: false` is tagged "Can't answer this" and offers "Raise a support request with this question" (opens `/support?new=1` filled in). The trainer variant (`/trainer/ask-nipuna`) has trainer example prompts |
+| `/support` | `support` | `/support-requests` | Requests waiting on the student first with a badge and a banner; guided form (subject, help per category, up to 3 attachments) that opens the new request. `?new=1&category=&subject=&details=` opens the form filled in. `/support/$requestId` (`support-request`): breadcrumbs, thread (the student's own lines say "You"), reply with files, confirm and close, reopen |
+| `/notifications` | `shared/notification-centre` | `/notifications/*` | Inbox: tabs Needs action (first when any, with a count) · All · Done; one status (New / Needs action / Done) and one button per item; mark as done / read. Reached from the bell, not the sidebar. Preferences are on My Account |
+| `/my-account` | `account` | `/me/profile`, `/me/email/*`, `/me/finance`, `/me/finance/receipts/…/pdf` | **My Account**, tabs Profile · Fees & Receipts (`?tab=fees`). Profile: identity with masked mobile ("Contact your branch" for everything but the email), add or change email with a WhatsApp code, language, notification preferences, devices, password and recovery. Fees: the **Next payment** card (amount, date, overdue in red, how to pay from the branch setting), per course fee / paid / dues with a **Download PDF** per receipt, the instalment schedule once per invoice. `/profile` and `/finance` redirect here |
 
 #### Trainer (`features/trainer/`)
 
@@ -579,7 +578,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 
 | Item | Notes |
 |---|---|
-| Fees & Receipts fields | The screen shows fee, verified paid, balance and receipts per course and one instalment schedule per invoice. `pending_verification`, `waived`, `refunded` and `payment_completion` are stored but not shown |
+| Fees & Receipts fields | The screen shows fee, verified paid, balance and receipts per course and one instalment schedule per invoice, and the amount still being checked (`pending_verification`). `waived`, `refunded` and `payment_completion` are stored but not shown |
 | Staff profile details | `/account/profile` is read-only: no phone number (the API does not return one for staff), MFA shown as Not Configured, staff cannot edit their name or email |
 | Founder notifications | No event is addressed to the Founder role, so the founder workspace has no notification route or bell |
 | Placement Team | Module 23 names a Placement Team role; there is none, so Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
@@ -587,6 +586,9 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | External channels | Email, quiet hours and delivery status for WhatsApp (Module 26) are not built; WhatsApp and email appear in preferences only when live |
 | Ask Nipuna | No spend ceiling / cost tracking (Module 24 §11); Telugu answer quality untested against a live model; the due-work facts cover the student's own batch seats only, with no per-question detail |
 | Career file storage | CV files on local disk under `UPLOAD_DIR/cv` |
+| Support attachments | Files on local disk under `UPLOAD_DIR/support` (png, jpg, pdf, txt, doc, docx; 5 MB; 3 per message) |
+| Email change code | Delivered by WhatsApp only (no email sender). With WhatsApp off the student is told no code was sent and the email stays as it is |
+| Branch payment instructions | Edited through `PUT /branches/{id}/payment-instructions` (no screen yet); the seed sets the two branches |
 
 ### Home, Today & reports
 

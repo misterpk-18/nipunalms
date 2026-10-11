@@ -8,17 +8,20 @@ Escalation: a trainer-owned request moves up to the Branch Manager; anything els
 """
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
+
+from werkzeug.datastructures import FileStorage
 
 from config.database import db
 from config.timezone import today_ist
-from models import Enrolment, Student, SupportRequest
+from models import Enrolment, Student, SupportAttachment, SupportMessage, SupportRequest
 from models.support import SUPPORT_OPEN_STATUSES
 from repositories import batches as batches_repo
 from repositories import students as students_repo
 from repositories import support as support_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import audit, scope
+from services import audit, scope, support_files
 from services.context import ADMIN_ROLES, BRANCH_ROLES, CurrentUser, current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
@@ -139,6 +142,37 @@ def assigned_students() -> list[dict]:
     return result
 
 
+# ---------------------------------------------------------------- attachments
+
+def _prepare_files(uploads: list[FileStorage] | None) -> list[tuple[FileStorage, str, bytes]]:
+    """Check every chosen file before anything is saved, so one bad file stops the whole message."""
+    prepared = []
+    for upload in support_files.check_count(uploads or []):
+        name, _extension, content = support_files.validate(upload)
+        prepared.append((upload, name, content))
+    return prepared
+
+
+def _attach(request: SupportRequest, message: SupportMessage, prepared: list[tuple[FileStorage, str, bytes]]) -> None:
+    for upload, name, content in prepared:
+        stored = support_files.store(upload, request.support_request_id, name, content)
+        support_repo.add_attachment(message, current_user().user_id, stored)
+
+
+def download_attachment(attachment_id: int) -> tuple[SupportAttachment, Path]:
+    """The file, for someone who may see its request (and, for a student, only if the message is not an internal remark)."""
+    attachment = support_repo.get_attachment(attachment_id)
+    if attachment is None:
+        raise NotFound("Attachment not found")
+    request = get_request(attachment.support_request_id)  # 404 when the request is out of the user's scope
+    message = next((m for m in request.messages if m.support_message_id == attachment.support_message_id), None)
+    if message is None or (message.is_internal and _is_student(current_user())):
+        raise NotFound("Attachment not found")
+    audit.record("SUPPORT_ATTACHMENT_DOWNLOADED", "support_request", request.request_code, new={"attachment_id": attachment.attachment_id},
+                 branch_id=request.branch_id)
+    return attachment, support_files.resolve(attachment.file_path)
+
+
 # ---------------------------------------------------------------- raising
 
 def _lead_trainer(student: Student, enrolment: Enrolment | None, branch_id: int) -> int | None:
@@ -189,9 +223,10 @@ def _student_for(user: CurrentUser, student_id: int | None) -> tuple[Student, st
     return student, "Staff flag"
 
 
-def raise_request(data: dict) -> SupportRequest:
+def raise_request(data: dict, files: list[FileStorage] | None = None) -> SupportRequest:
     user = current_user()
     student, raised_via = _student_for(user, data.get("student_id"))
+    prepared = _prepare_files(files)
 
     enrolment = None
     if data.get("enrolment_id") is not None:
@@ -209,7 +244,8 @@ def raise_request(data: dict) -> SupportRequest:
     )
     db.session.add(request)
     db.session.flush()
-    support_repo.add_message(request, user.user_id, details)
+    first = support_repo.add_message(request, user.user_id, details)
+    _attach(request, first, prepared)
 
     _notify_owner(request, f"New support request {request.request_code}", f"{student.full_name}: {request.subject}", "raised")
     if raised_via == "Staff flag":
@@ -219,9 +255,10 @@ def raise_request(data: dict) -> SupportRequest:
 
 # ---------------------------------------------------------------- thread
 
-def add_message(support_request_id: int, body: str, *, internal: bool = False) -> SupportRequest:
+def add_message(support_request_id: int, body: str, *, internal: bool = False, files: list[FileStorage] | None = None) -> SupportRequest:
     user = current_user()
     request = get_request(support_request_id)
+    prepared = _prepare_files(files)
     if request.status in ("Resolved", "Closed"):
         raise BusinessRule(f"This request is {request.status.lower()}. Reopen it to add a message.")
     if internal and _is_student(user):
@@ -233,6 +270,7 @@ def add_message(support_request_id: int, body: str, *, internal: bool = False) -
     elif request.status == "Open" and not internal:
         request.status = "In Progress"
     message = support_repo.add_message(request, user.user_id, body, is_internal=internal)
+    _attach(request, message, prepared)
 
     if _is_student(user):
         _notify_owner(request, f"Reply on {request.request_code}", f"{request.student.full_name}: {body[:120]}", f"message:{message.support_message_id}")
@@ -376,5 +414,5 @@ def _notify_student(request: SupportRequest, title: str, body: str, event: str) 
     student_user = users_repo.get_by_student_id(request.student_id)
     if student_user is None:
         return
-    notify(category="Support", title=title, body=body, link="/support", event_key=f"support:{request.support_request_id}:{event}",
+    notify(category="Support", title=title, body=body, link=f"/support/{request.support_request_id}", event_key=f"support:{request.support_request_id}:{event}",
            recipient_user_ids=[student_user.user_id], branch_id=request.branch_id)

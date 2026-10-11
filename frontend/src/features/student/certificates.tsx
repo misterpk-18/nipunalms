@@ -149,7 +149,7 @@ export function Certificates() {
                   <div className="mt-1 flex flex-wrap items-center gap-3">
                     <span>{t("certFeeOutstanding", { balance: formatMoney(feeCard.blocker?.params["balance"]) })}</span>
                     <Button asChild size="sm" variant="outline" className="tap">
-                      <Link to="/finance">{t("payFees")}</Link>
+                      <Link to="/my-account" search={{ tab: "fees" }}>{t("payFees")}</Link>
                     </Button>
                   </div>
                 </StatusNote>

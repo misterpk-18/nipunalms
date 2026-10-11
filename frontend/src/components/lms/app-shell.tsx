@@ -5,7 +5,7 @@ import { useNavCounts, type NavCounts } from "@/api/nav";
 import type { Workspace } from "@/api/types";
 import { useAuth } from "@/auth/auth";
 import { useActing } from "@/auth/acting";
-import { NAV, isNavActive, homeWorkspace, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
+import { NAV, STUDENT_ACCOUNT, isNavActive, homeWorkspace, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
 import { ActingAs } from "@/components/lms/acting-as";
 import { NotificationBell } from "@/components/lms/notification-bell";
 import { CommandPalette, SearchButton } from "@/components/lms/command-palette";
@@ -127,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <button
                   className="tap flex items-center gap-1 rounded-lg px-1 hover:bg-navy-muted"
-                  aria-label="Account menu"
+                  aria-label={translated ? t("accountMenu") : "Account menu"}
                   title={`${fullName} · ${roleLabel}`}
                 >
                   <span className="grid size-8 place-items-center rounded-full bg-navy-muted text-xs font-semibold" aria-hidden>
@@ -144,20 +144,27 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to={profile?.student ? "/profile" : "/account/profile"}>
-                    <User />
-                    {profile?.student ? t("profile") : "Profile"}
-                  </Link>
+                  {profile?.student ? (
+                    <Link to="/my-account">
+                      <User />
+                      {t("myAccount")}
+                    </Link>
+                  ) : (
+                    <Link to="/account/profile">
+                      <User />
+                      Profile
+                    </Link>
+                  )}
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/change-password">
                     <KeyRound />
-                    Change password
+                    {translated ? t("changePassword") : "Change password"}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void exit()}>
                   <LogOut />
-                  Sign out
+                  {translated ? t("signOut") : "Sign out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -233,7 +240,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SheetTitle>{translated ? t("more") : "More"}</SheetTitle>
           </SheetHeader>
           {(() => {
-            const more = items.filter((item) => !barItems.includes(item));
+            const more = [...items.filter((item) => !barItems.includes(item)), ...(translated ? [STUDENT_ACCOUNT] : [])];
             return (
               <ul className="mt-2 grid grid-cols-2 gap-2">
                 {more.map((item, index) => (

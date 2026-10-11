@@ -4,7 +4,7 @@ import { USERS, login } from "./helpers";
 /** Shell, per-role navigation and workspace guard (Phase 1b). Needs the API on :5060 with the staging users. */
 
 const ROLES = [
-  { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Tasks & Tests", "Fees & Receipts", "Profile"], other: "/trainer" },
+  { name: "student", user: USERS.student, home: "/dashboard", nav: ["Home", "My Learning", "Schedule", "Tasks & Tests", "Class Materials", "My Progress", "Certificates", "Career", "Ask Nipuna", "Support"], other: "/trainer" },
   { name: "trainer", user: USERS.trainerG1, home: "/trainer", nav: ["Today", "Sessions", "Reviews", "Batches", "Students", "Ask Nipuna"], other: "/branch" },
   {
     name: "branch manager",
@@ -128,12 +128,12 @@ test.describe("phone layout @mobile", () => {
 
     await bar.getByRole("button", { name: "More" }).click();
     const sheet = page.getByRole("dialog", { name: "More" });
-    await expect(sheet.getByRole("link", { name: "Fees & Receipts" })).toBeVisible();
-    await sheet.getByRole("link", { name: "Profile" }).click();
-    await expect(page).toHaveURL(/\/profile/);
+    await expect(sheet.getByRole("link", { name: "Support" })).toBeVisible();
+    await sheet.getByRole("link", { name: "My Account" }).click();
+    await expect(page).toHaveURL(/\/my-account/);
     await expect(sheet).toHaveCount(0);
 
-    for (const path of ["/dashboard", "/my-courses", "/progress?tab=attendance", "/finance"]) {
+    for (const path of ["/dashboard", "/my-courses", "/progress?tab=attendance", "/my-account?tab=fees"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);

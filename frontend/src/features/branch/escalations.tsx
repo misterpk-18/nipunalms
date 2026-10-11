@@ -5,7 +5,7 @@ import { SupportDesk } from "@/features/shared/support-desk";
 export function BranchEscalations() {
   return (
     <Section title="Support escalations">
-      <SupportDesk mode="staff" caption="Escalated support requests" empty="No support requests are escalated to you." base={{ escalated: true }} />
+      <SupportDesk caption="Escalated support requests" empty="No support requests are escalated to you." base={{ escalated: true }} />
     </Section>
   );
 }

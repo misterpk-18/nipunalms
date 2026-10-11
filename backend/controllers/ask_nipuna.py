@@ -1,3 +1,5 @@
+from flask import request
+
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated
 from services import ask_nipuna as ask_service
 
@@ -28,8 +30,13 @@ def ask():
 
 
 def list_queries():
+    """The person's questions, newest first; `order=asc` lists the page oldest first, the order a chat thread reads in."""
+    v = Validator(request.args.to_dict())
+    v.choice("order", ("asc", "desc"), default="desc")
     page, per_page = get_page_params()
     items, meta = ask_service.list_queries(page, per_page)
+    if v.validate()["order"] == "asc":
+        items = list(reversed(items))
     return paginated([q.to_dict() for q in items], meta)
 
 

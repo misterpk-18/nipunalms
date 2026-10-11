@@ -2,7 +2,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,6 +18,7 @@ class Branch(db.Model):
     branch_name: Mapped[str] = mapped_column(String(100))
     city: Mapped[str] = mapped_column(String(100))
     mailbox: Mapped[str] = mapped_column(String(255))
+    payment_instructions: Mapped[str | None] = mapped_column(Text)  # how and where a student pays here (db 111); the LMS's own, not the CRM's
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     source_version: Mapped[int] = mapped_column(Integer, default=0)  # last BranchUpserted applied; 0 = made in the LMS (db 096)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())

@@ -8,6 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from config.database import db
 
 
+# An answer that says it has nothing to go on: the screen then offers to hand the question to a person
+UNANSWERED_MARKERS = ("data unavailable / not verified", "i can't see an active enrolment", "i have no curriculum topics")
+
+
 class AiQuery(db.Model):
     __tablename__ = "ai_queries"
 
@@ -39,6 +43,7 @@ class AiQuery(db.Model):
             "action": self.action,
             "question": self.question,
             "answer": self.answer,
+            "answered": self.status == "Answered" and not any(marker in self.answer.lower() for marker in UNANSWERED_MARKERS),
             "status": self.status,
             "refusal_reason": self.refusal_reason,
             "is_fallback": self.is_fallback,

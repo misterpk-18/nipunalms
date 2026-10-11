@@ -4,7 +4,7 @@ import { Award, GraduationCap, Search, Users, type LucideIcon } from "lucide-rea
 import type { SearchRecord } from "@/api/nav";
 import { useRecordSearch } from "@/api/nav";
 import type { Workspace } from "@/api/types";
-import { NAV, WORKSPACE_LABELS, type NavItem } from "@/auth/access";
+import { NAV, STUDENT_ACCOUNT, WORKSPACE_LABELS, type NavItem } from "@/auth/access";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
@@ -42,7 +42,10 @@ export function CommandPalette({
     if (!open) setText("");
   }, [open]);
 
-  const pages = useMemo(() => workspaces.flatMap((w) => NAV[w].map((item) => ({ ...item, workspace: w, title: label(item) }))), [workspaces, label]);
+  const pages = useMemo(
+    () => workspaces.flatMap((w) => (w === "student" ? [...NAV[w], STUDENT_ACCOUNT] : NAV[w]).map((item) => ({ ...item, workspace: w, title: label(item) }))),
+    [workspaces, label],
+  );
   const shownPages = pages
     .filter((p) => !needle || `${p.title} ${p.group ?? ""} ${WORKSPACE_LABELS[p.workspace]}`.toLowerCase().includes(needle))
     .slice(0, needle ? 12 : 8);

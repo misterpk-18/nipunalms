@@ -66,6 +66,12 @@ def assign(support_request_id: int):
     return support_controller.assign(support_request_id)
 
 
+@support_bp.get("/attachments/<int:attachment_id>/download")
+@login_required
+def download_attachment(attachment_id: int):
+    return support_controller.download_attachment(attachment_id)
+
+
 @trainer_students_bp.get("/students")
 @login_required
 @require_roles("TRAINER")

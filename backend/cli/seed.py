@@ -554,10 +554,19 @@ def seed_delivery(ctx: SeedContext) -> None:
                                      detail="Organizer account licence Pending Verification", actor_user_id=ctx.users["bm_vij"]))
 
 
+PAYMENT_INSTRUCTIONS = {
+    "NIT-GNT": ("Pay at the Guntur branch office, Monday to Saturday, 10:00 to 17:00, by cash, card or UPI. "
+                "Bring your Student ID and keep the receipt the office gives you."),
+    "NIT-VIJ": "Pay at the Vijayawada branch office, Monday to Saturday, 10:00 to 17:00, by cash, card or UPI.",
+}
+
+
 def seed_finance(ctx: SeedContext) -> None:
     for crm_admission_id, summary in FINANCE:
         ctx.crm_event("FinanceSummaryUpdated", {"crm_admission_id": crm_admission_id, **summary}, version=2,
                       occurred_at="2026-09-28T18:00:00+05:30")
+    for branch_code, text in PAYMENT_INSTRUCTIONS.items():  # a branch setting (db 111); staff edit it through the API
+        db.session.execute(db.text("UPDATE branches SET payment_instructions = :text WHERE branch_code = :code"), {"text": text, "code": branch_code})
 
 
 def seed_crm_inbox_examples(ctx: SeedContext) -> None:

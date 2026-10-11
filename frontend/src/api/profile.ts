@@ -1,4 +1,4 @@
-import { del, get, patch, post } from "./client";
+import { del, download, get, patch, post } from "./client";
 import type { BranchRef, DateOnly, DateTime, Language } from "./types";
 
 export type Device = { session_id: string; label: string; created_at: DateTime; last_seen_at: DateTime; current: boolean };
@@ -61,10 +61,31 @@ export type FinanceSchedule = {
   as_of: DateTime;
 };
 
+/** The "Next payment" card: what is due next, whether it is overdue, and how to pay at the branch. */
+export type NextPayment =
+  | { state: "unknown" }
+  | { state: "paid" }
+  | {
+      state: "due";
+      due_date: DateOnly | null;
+      amount: string | null;
+      overdue_amount: string;
+      is_overdue: boolean;
+      courses: string[];
+      invoice_number: string | null;
+      how_to_pay: { branch: BranchRef; instructions: string | null };
+    };
+
+export type EmailCodeAnswer = { sent: boolean; channel: string; expires_in_minutes: number; reason: string | null };
+
 export const profileApi = {
   get: () => get<MyProfile>("/me/profile"),
   setLanguage: (preferred_language: Language) => patch<MyProfile>("/me/profile", { preferred_language }),
   signOutDevice: (sessionId: string) => del<null>(`/auth/sessions/${sessionId}`),
   signOutOthers: () => post<{ signed_out: number }>("/me/devices/sign-out-others"),
-  finance: () => get<{ source: string; note: string; admissions: FinanceEntry[]; schedules: FinanceSchedule[] }>("/me/finance"),
+  finance: () => get<{ source: string; note: string; admissions: FinanceEntry[]; schedules: FinanceSchedule[]; next_payment: NextPayment }>("/me/finance"),
+  receiptPdf: (admissionId: number, receiptNumber: string) =>
+    download(`/me/finance/receipts/${admissionId}/${encodeURIComponent(receiptNumber)}/pdf`, undefined, `receipt-${receiptNumber}.pdf`),
+  requestEmailCode: (email: string) => post<EmailCodeAnswer>("/me/email/request-code", { email }),
+  confirmEmail: (code: string) => post<MyProfile>("/me/email/confirm", { code }),
 };
