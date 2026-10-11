@@ -188,7 +188,7 @@ figure out what to do next."
 | U14. Branch: My work, Batches, Waiting for a batch, Schedule, Class day | **Done** | `94d6e78` | L |
 | U15. Branch: Curriculum, Content & questions, Marks, Attendance, Completion & certificates, Issues, Recordings, Support, Extensions, Reports | **Done** (db 113) | `02022c2` | L |
 | U16. Founder | **Done** (db 114) | `2eec410` | S |
-| U17. Super Admin | **Done** (db 115) | `COMMIT17` | M |
+| U17. Super Admin | **Done** (db 115) | `ed48777` | M |
 | U18. Final sweep, then resume gap-fix phase 7 | To do | | S |
 
 **Order matters:**
