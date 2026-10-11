@@ -668,7 +668,8 @@ def _load_request(request_id: int) -> SessionChangeRequest:
     if request is None:
         raise NotFound("Reschedule request not found")
     assert_can_view_session(request.session)
-    delivery_access.assert_can_manage_branch(request.session.batch.branch_id)
+    if not approvals.founder_may_decide(request.requested_by):  # a Branch Manager's own request goes to the Founder / Super Admin
+        delivery_access.assert_can_manage_branch(request.session.batch.branch_id)
     if request.status != "Open":
         raise BusinessRule(f"The request is already {request.status}")
     return request

@@ -29,7 +29,7 @@ def test_each_role_gets_the_counts_of_its_own_workspace(client, world):
     assert set(counts(client, world, world.people.t1, "trainer")) == {"to_grade", "support", "attendance", "class_logs"}
     assert {"waiting", "requests", "issues", "support", "attendance"} <= set(counts(client, world, world.people.bm, "branch"))
     assert set(counts(client, world, world.people.admin, "admin")) == {"crm_sync", "issues", "users"}
-    assert set(counts(client, world, world.people.founder, "founder")) == {"curriculum", "certificates", "access"}
+    assert set(counts(client, world, world.people.founder, "founder")) == {"inbox", "curriculum", "certificates", "access"}
 
 
 def test_a_workspace_the_user_does_not_hold_is_refused(client, world):

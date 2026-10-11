@@ -12,11 +12,11 @@ test.describe.configure({ mode: "serial" });
 test("the founder has curriculum approvals and certificate decisions", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.founder);
-  await page.getByRole("link", { name: "Curriculum Approvals" }).click();
+  await page.getByRole("link", { name: "Curriculum approvals", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Curriculum approvals" })).toBeVisible();
-  await page.getByRole("link", { name: "Certificate Decisions" }).click();
+  await page.getByRole("link", { name: "Certificate decisions", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Certificate decisions" })).toBeVisible();
-  await expect(page.getByText("No certificate request is waiting for a decision.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Waiting for you" })).toBeVisible();
 });
 
 test("a branch manager's correction request is approved by the super admin", async ({ page }, info) => {
@@ -41,7 +41,10 @@ test("a branch manager's correction request is approved by the super admin", asy
   await login(page, USERS.admin);
   await page.goto("/branch/completion");
   await page.getByRole("button", { name: /Requests and fee releases/ }).click();
-  const request = page.getByRole("row").filter({ has: page.getByRole("button", { name: "Decide" }) }).first();
+  const request = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("button", { name: "Decide" }) })
+    .first();
   await request.getByRole("button", { name: "Decide" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Record decision" }).click();
   await expect(page.getByText("Correction approved.")).toBeVisible();

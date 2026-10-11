@@ -408,7 +408,8 @@ def list_corrections(filters: dict, page: int, per_page: int) -> tuple[list[Atte
 def can_decide_correction(correction: AttendanceCorrection) -> bool:
     """Whether the current user may decide it (the screen hides the buttons otherwise): a Branch Manager of the branch who is not the
     requester or the person who marked the entry, and an admin when the requester is a Branch Manager."""
-    if correction.status != "Pending" or not current_user().has_role(*DECIDERS, branch_id=correction.enrolment.service_branch_id):
+    if correction.status != "Pending" or not (current_user().has_role(*DECIDERS, branch_id=correction.enrolment.service_branch_id)
+                                              or approvals.founder_may_decide(correction.requested_by)):
         return False
     record = attendance_repo.find_record(correction.session_id, correction.enrolment_id)
     if record is not None and record.marked_by == current_user().user_id:
@@ -448,7 +449,7 @@ def decide_correction(correction_id: int, decision: str, note: str | None) -> At
     correction = _get_correction(correction_id)
     enrolment = correction.enrolment
     user = current_user()
-    if not user.has_role(*DECIDERS, branch_id=enrolment.service_branch_id):
+    if not (user.has_role(*DECIDERS, branch_id=enrolment.service_branch_id) or approvals.founder_may_decide(correction.requested_by)):
         raise Forbidden("Only the Branch Manager can decide an attendance correction")
     if correction.status != "Pending":
         raise BusinessRule(f"This correction is already {correction.status}")

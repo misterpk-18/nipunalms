@@ -150,7 +150,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-admin` | First Super Admin on a fresh database |
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
-| `jobs list`, `jobs run [name]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally nothing runs them on a schedule |
+| `jobs list`, `jobs run [name]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `curriculum-activate`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally nothing runs them on a schedule |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 
 ### 6. Testing
@@ -164,7 +164,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | End-to-end | `cd frontend && npx playwright test` (or `npm run e2e`) | Needs the API (dev DB) and Vite running; desktop + `@mobile` projects |
 
 E2E specs live in `frontend/e2e/` (one per area: `shell`, `admin`, `delivery`, `content`, `assessments`, `attendance`,
-`services`, `trainer-u12`, `trainer-u13`, `branch-u14`, `branch-u15`, `dashboards-learning`, `dashboards-staff`, `staff-account`); `e2e/helpers.ts` has the staging users and
+`services`, `trainer-u12`, `trainer-u13`, `branch-u14`, `branch-u15`, `founder-u16`, `dashboards-learning`, `dashboards-staff`, `staff-account`); `e2e/helpers.ts` has the staging users and
 `login()`. Tests that change data assume a freshly seeded database. The trainer specs (`trainer-u12`, and the Today and register steps of `dashboards-learning`, `delivery`, `attendance`) schedule a class for today
 through the API, so it is skipped within ten minutes of midnight IST. `E2E_BASE_URL` points Playwright at another Vite
 port. Run one Playwright process at a time (they share `test-results/`).
@@ -240,7 +240,7 @@ keeps the track screen out of the enrolment route's nesting for the same reason.
 **Header** (navy, sticky): logo → `home_route`; `role label · branch` chip (large screens) or, for people with several workspaces or branches, the
 "Acting as" switcher (see the decisions table); the search button (Ctrl/Cmd+K); language toggle (student workspace);
 notifications bell (`notification-bell.tsx`) counting what is new or needs action, with a preview of the latest five and "Open inbox"
-(student → `/notifications`, trainer / branch / admin → `<workspace>/notifications`; the founder has none);
+(student → `/notifications`, trainer / branch / admin → `<workspace>/notifications`; the founder has none: their inbox and the nav counts stand in);
 account menu (My Account — `/my-account` for students, Profile at `/account/profile` for staff — Change password, Sign out).
 
 **Sidebar** (≥ `md`, 240px): the workspace's nav list from `NAV` in `auth/access.ts` (same items, labels, order and
@@ -391,10 +391,11 @@ The Academic Coordinator workspace was merged into the Branch Manager's (UX phas
 | `/admin/audit` | `admin/audit` | `/audit-log` | Filters by actor, entity, action, date (IST) |
 | `/admin/exceptions` | `admin/exceptions` | `/exceptions` | "Exception Queues — all branches": a section per queue with a branch column (company-wide rows say "All branches"); Super Admin can Update, the Founder reads |
 | `/admin/notifications` | `shared/notification-centre` | | The inbox, plus a "System issues" tab (delivery failures) for the Super Admin only |
-| `/founder/curriculum` | `founder/curriculum` (reuses `academic/curriculum` `VersionEditor`) | `/curriculum-versions?status=` | Versions Under Review or Approved; Approve / Return / Activate |
-| `/founder/certificates` | `founder/certificates` (`shared/certificate-register` `CertificateDecisions`) | `/certificate-requests`, `/certificate-financial-exceptions` | Revocations, reinstatements and fee exceptions to decide |
+| `/founder/curriculum` (`?item=`) | `founder/curriculum`, `inbox-list`, `panel-curriculum` | `/founder/inbox?group=curriculum`, `/curriculum-versions/{id}/impact`, `/approve` (with `activate_on`), `/return`, `/activate` | **Curriculum approvals**: "Waiting for you" list; a row opens a side panel with what changes, who is affected and the full outline, and a pinned bar: **Return** (reason required) and **Approve**, which asks when to activate (now: "Approve & activate", on a chosen day, or approve only). A version already approved with no day has **Activate now** (confirm). Approved versions waiting for their day are listed below; the equivalence rules and required-topic constraints stay on the page |
+| `/founder/certificates` (`?item=`) | `founder/certificates`, `panel-certificate` | `/founder/inbox?group=certificates`, `/certificate-requests/{id}/decision`, `/certificate-financial-exceptions/{id}/decision` | **Certificate decisions**: corrections, revocations, reinstatements and fee releases. Approve and Reject sit side by side with the same weight; Approve confirms with what it does (the consequence line differs per kind), Reject asks for a reason; a fee release also asks for the basis. A Branch Manager's own request says so |
+| `/founder/access` (`?item=`) | `founder/access`, `panel-access` | `/access-extension-requests?status=Pending&needs_exception=true`, `/access-extension-requests/{id}/decision` | **Access extensions** beyond two years: every waiting request with the Branch Manager's recommendation (or "waiting for the recommendation"); Review opens the panel; Approve asks for the new end date (the Branch Manager's suggestion is filled in), Reject asks for a reason. Replaces the Founder's old link to `/branch/requests` |
 | `/verify/:number` | `routes/verify.$number.tsx` | `/certificates/verify/{number}` | Public, no sign-in and no shell (`OPEN_PATH_ROOTS`); `?version=` shows an older copy |
-| `/founder` | `founder/dashboard` | `/founder/summary` | CRM tiles (Unavailable), active enrolments per branch, batches at risk, certificates awaiting approval, "Decisions needing you" (AI rupee ceiling, recording-access exceptions after the 2nd anniversary with a link to `/branch/requests`) |
+| `/founder` (`?item=`) | `founder/dashboard`, `inbox-list`, `panel`, `panel-other` | `/founder/inbox`, `/founder/summary`, `/founder/ai-budget` | **Home**: "Needs you" first (curriculum approvals, certificate decisions, access extensions with the recommendation, the AI budget, Branch Managers' own reschedule and attendance requests), oldest first, one Review button each that opens the item in a side panel on the same page (`?item=<kind>-<id>`); then "How the company is doing": the CRM tiles only once the CRM has sent finance figures (`crm_connected`), active enrolments per branch, batches at risk, certificates waiting for a Branch Manager. The AI budget panel takes the monthly amount in rupees and confirms. Nav: Home (count of everything waiting) · APPROVALS: Curriculum approvals, Certificate decisions, Access extensions (each with its count) |
 
 Admin helpers: `features/admin/shared.tsx` (Pager, FormDialog, SecretDialog), `features/admin/format.ts` (IST
 formatter, `useCanAdminister`).
@@ -504,7 +505,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Sign-in | One login form, self-service reset code (WhatsApp; no email fallback yet), activation and staff invite links that sign the person in (UX phase U7, API.md §4.14). Templates 1–3 are queued like 4–9 and also stay off until the CRM endpoint exists |
 | WhatsApp | Built and switched off (UX phase U6): messages are queued in `whatsapp_outbox` and handed to the CRM's `POST /lms/whatsapp`, which does not exist yet; needs `CRM_BASE_URL`, `whatsapp_enabled` and approved templates (API.md §4.13) |
 | Email / telephony | None; in-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `curriculum-activate` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 
@@ -582,7 +583,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Fees & Receipts fields | The screen shows fee, verified paid, balance and receipts per course and one instalment schedule per invoice, and the amount still being checked (`pending_verification`). `waived`, `refunded` and `payment_completion` are stored but not shown |
 | Staff profile details | `/account/profile` is read-only: no phone number (the API does not return one for staff), MFA shown as Not Configured, staff cannot edit their name or email |
-| Founder notifications | No event is addressed to the Founder role, so the founder workspace has no notification route or bell |
+| Founder notifications | A few events are addressed to the Founder (a new curriculum to approve, a recommendation on an access extension, certificate requests), but the founder workspace has no notification route or bell: the Needs you list and the nav counts stand in |
 | Placement Team | Module 23 names a Placement Team role; there is none, so Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
 | Support SLA | One `support_sla_hours` for all categories and priorities |
 | External channels | Email, quiet hours and delivery status for WhatsApp (Module 26) are not built; WhatsApp and email appear in preferences only when live |
@@ -611,8 +612,8 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Recovery steps are notes | A step records what is being done and names an owner; it does not assign work, set a due date or change the source record. Reassigning a recording exception's owner from the queue is not built |
 | Allocation Pending is always an exception | Every enrolment waiting for a seat is listed, however recent. A waiting-time threshold (e.g. 7 days) would keep normal flow out of the queue; needs a product decision |
 | Support queue rule | A support request enters the queue when escalated or past `sla_due_at`; the Branch Manager's escalations are also on `/branch/support (Needs action)` |
-| Post-2nd-anniversary access exceptions | Listed in the queue and the Founder's decisions with a link to `/branch/requests` (it redirects to Student support; U16 gives the Founder their own page); the Branch Manager adds a recommendation first (db 113); the Founder cannot decide from the dashboard itself |
-| AI rupee ceiling | No setting exists; the dashboards read `app_settings.ai_monthly_ceiling_inr` and show Configuration Pending while it is absent |
+| Post-2nd-anniversary access exceptions | The Branch Manager adds a recommendation first (db 113); the request then shows in the Founder's inbox and on `/founder/access`, where the Founder decides it with the new end date (U16). Still listed in the exception queue |
+| AI rupee ceiling | The Founder (or a Super Admin) approves the monthly amount from the inbox (`PUT /founder/ai-budget`, U16); it is `app_settings.ai_monthly_ceiling_inr`, and the dashboards show Configuration Pending while it is absent. Nothing enforces it yet: Ask Nipuna does not read it |
 | Integration failures tile | Counts the readiness register (Failed / Misconfigured); no live monitoring, alerting or notification |
 | Provisioning | "Provisioning" means an enrolment held in `Provisioning Pending` (complimentary offer, unmet payment gate). The seed has none, so the Provisioning table on `/admin` is empty in staging; a failed LMS-account creation has no stored state to list |
 | Dashboard freshness | Summaries are read live on each visit (no caching, no auto-refresh); `as_of` is returned but not shown |

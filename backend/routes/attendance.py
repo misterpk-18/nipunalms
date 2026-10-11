@@ -90,7 +90,7 @@ def request_correction():
 
 @attendance_bp.post("/attendance/corrections/<int:correction_id>/decision")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # the Founder only for a Branch Manager's own request (the service refuses others)
 @fresh_auth
 def decide_correction(correction_id: int):
     return attendance_controller.decide_correction(correction_id)

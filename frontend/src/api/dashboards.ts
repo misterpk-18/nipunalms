@@ -399,6 +399,8 @@ export type AdminSummary = {
 
 export type FounderSummary = {
   as_of: DateTime;
+  /** False until the CRM has sent finance figures: the CRM tiles stay hidden. */
+  crm_connected: boolean;
   scope: Scope;
   crm: { verified_collections: CrmFigure; new_paid_admissions: CrmFigure; overdue_amount: CrmFigure };
   active_enrolments: Count & { by_branch: { branch: BranchRef; count: number }[] };

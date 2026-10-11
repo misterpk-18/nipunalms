@@ -159,9 +159,10 @@ const ADMIN_NAV: NavItem[] = [
 ];
 
 const FOUNDER_NAV: NavItem[] = [
-  { to: "/founder", label: "Founder Dashboard", icon: ShieldCheck },
-  { to: "/founder/curriculum", label: "Curriculum Approvals", icon: Library, group: "Approvals", badgeKey: "curriculum" },
-  { to: "/founder/certificates", label: "Certificate Decisions", icon: Award, group: "Approvals", badgeKey: "certificates" },
+  { to: "/founder", label: "Home", icon: ShieldCheck, badgeKey: "inbox" },
+  { to: "/founder/curriculum", label: "Curriculum approvals", icon: Library, group: "Approvals", badgeKey: "curriculum" },
+  { to: "/founder/certificates", label: "Certificate decisions", icon: Award, group: "Approvals", badgeKey: "certificates" },
+  { to: "/founder/access", label: "Access extensions", icon: Hourglass, group: "Approvals", badgeKey: "access" },
 ];
 
 export const NAV: Record<Workspace, NavItem[]> = {

@@ -11,8 +11,7 @@ from repositories import dashboards as dash_repo
 from repositories import access_extensions as extensions_repo
 from repositories import nav as nav_repo
 from repositories import questions as questions_repo
-from services import access_extensions as extensions_service
-from services import scope, student_work, trainer_todo
+from services import founder_inbox, scope, student_work, trainer_todo
 from services import exceptions as exceptions_service
 from services import crm_sync
 from services.auth import workspaces_for
@@ -99,12 +98,8 @@ def _admin_counts() -> dict[str, int]:
 
 
 def _founder_counts() -> dict[str, int]:
-    certificates = dash_repo.certificates_in_status(("Awaiting Approval",), None)
-    return {
-        "curriculum": nav_repo.curriculum_awaiting_approval(),
-        "certificates": sum(certificates.values()),
-        "access": len(extensions_service.awaiting_founder()),
-    }
+    """The Founder's inbox as a whole and its three pages (curriculum, certificate decisions, access extensions)."""
+    return founder_inbox.counts()
 
 
 def nav_counts(workspace: str, branch_id: int | None = None) -> dict[str, int]:

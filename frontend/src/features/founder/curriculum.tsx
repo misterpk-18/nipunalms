@@ -1,62 +1,46 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { deliveryApi, type CurriculumVersion } from "@/api/delivery";
-import { Button } from "@/components/ui/button";
-import { DataTable, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
-import { VersionEditor } from "@/features/academic/curriculum";
+import { useFounderInbox } from "@/api/founder";
+import { PageHead, Section } from "@/components/lms/ui";
+import { HowThisWorks } from "@/components/lms/how-this-works";
 import { CurriculumDecisions } from "@/features/academic/curriculum-model";
-import { fmtDate } from "@/features/shared/delivery-ui";
+import { fmtDate } from "@/features/shared/format";
+import { InboxList } from "./inbox-list";
 
-/** Curriculum versions waiting for the Founder / CEO (or Super Admin): approve after academic review, then activate (Module 14 §5). */
+/** Curriculum versions the Branch Managers have submitted: approve them (and activate in the same step), or send them back. */
 export function FounderCurriculum() {
-  const query = useQuery({
-    queryKey: ["delivery", "versions", "approvals"],
-    queryFn: async () => {
-      const [review, approved] = await Promise.all([
-        deliveryApi.versions({ status: "Under Review" }),
-        deliveryApi.versions({ status: "Approved" }),
-      ]);
-      return [...review, ...approved];
-    },
-  });
-  const [open, setOpen] = useState<number | null>(null);
+  const inbox = useFounderInbox("curriculum");
+  const scheduled = inbox.data?.scheduled ?? [];
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <PageHead
         title="Curriculum approvals"
-        description="Versions the Branch Managers have submitted. Approve after reviewing them (never your own submission), then activate."
+        description="Review what a new curriculum changes and who it affects, then approve it, activate it or send it back."
       />
-      <Section>
-        <QueryView query={query} isEmpty={(rows) => rows.length === 0} empty="No curriculum version is waiting for approval or activation.">
-          {(rows) => (
-            <DataTable
-              caption="Curriculum versions waiting for a decision"
-              rows={rows}
-              getKey={(v: CurriculumVersion) => v.curriculum_version_id}
-              cols={[
-                { h: "Course", c: (v) => (v.component ? `${v.component.track_code} — ${v.component.track_name}` : `${v.course.course_code} — ${v.course.title}`) },
-                { h: "Version", c: (v) => v.version_label },
-                { h: "Status", c: (v) => <StatusBadge domain="curriculum" code={v.status} /> },
-                { h: "Content", c: (v) => `${v.counts.modules} module(s), ${v.counts.topics} topic(s)` },
-                { h: "Created", c: (v) => fmtDate(v.created_at) },
-                {
-                  h: "",
-                  c: (v) => (
-                    <Button size="sm" variant="outline" onClick={() => setOpen(v.curriculum_version_id)}>
-                      Review
-                    </Button>
-                  ),
-                },
-              ]}
-            />
-          )}
-        </QueryView>
-      </Section>
-      {open !== null && (
-        <Section>
-          <VersionEditor key={open} versionId={open} />
+      <InboxList
+        page="/founder/curriculum"
+        group="curriculum"
+        title="Waiting for you"
+        empty="No curriculum is waiting for you. When a Branch Manager submits a new version, it appears here."
+      />
+      {scheduled.length > 0 && (
+        <Section title="Approved, activating on a chosen day">
+          <ul className="divide-y text-sm">
+            {scheduled.map((v) => (
+              <li key={v.curriculum_version_id} className="flex flex-wrap justify-between gap-2 py-2">
+                <span>
+                  {v.version_label} for {v.course.title}
+                </span>
+                <span className="text-muted-foreground">Activates on {fmtDate(v.activate_on)}</span>
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
+      <HowThisWorks>
+        <p>
+          A Branch Manager writes a version and submits it. You cannot approve one you submitted yourself. Approving can activate it in the same step, on a day
+          you choose, or leave it approved for later. Batches already running stay on their current version.
+        </p>
+      </HowThisWorks>
       <Section title="Equivalence rules and required-topic constraints">
         <CurriculumDecisions />
       </Section>

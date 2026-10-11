@@ -187,7 +187,7 @@ def recommend(request_id: int, decision: str, note: str, expiry=None) -> AccessE
     suggestion = f", suggesting access until {expiry:%d %b %Y}" if expiry else ""
     notify(category="Access", title=f"{request.request_code}: access extension waiting for your decision",
            body=f"{request.student.full_name} · {request.enrolment.course.title}. The Branch Manager recommends to {decision}{suggestion}: {note.strip()[:160]}",
-           link="/founder", role_code="FOUNDER_CEO", branch_id=None,
+           link=f"/founder/access?item=access_extension-{request.request_id}", role_code="FOUNDER_CEO", branch_id=None,
            event_key=f"ext-recommended-{request.request_code}-{int(request.recommended_at.timestamp())}", action_required=True)
     if not first_time:
         audit.record("ACCESS_EXTENSION_RECOMMENDATION_REVISED", "access_extension_request", request.request_code, branch_id=request.branch_id)

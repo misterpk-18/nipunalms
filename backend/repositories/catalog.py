@@ -97,6 +97,13 @@ def list_versions(filters: dict) -> list[CurriculumVersion]:
     return list(db.session.execute(stmt).scalars())
 
 
+def versions_due(today) -> list[int]:
+    """Approved versions whose activation day has come, oldest first."""
+    stmt = (select(CurriculumVersion.curriculum_version_id).where(CurriculumVersion.status == "Approved", CurriculumVersion.activate_on <= today)
+            .order_by(CurriculumVersion.activate_on, CurriculumVersion.curriculum_version_id))
+    return list(db.session.execute(stmt).scalars())
+
+
 def get_module(module_id: int) -> CurriculumModule | None:
     return db.session.get(CurriculumModule, module_id)
 
@@ -193,6 +200,12 @@ def batch_counts_without_version() -> dict[int, int]:
 def batches_without_version(course_id: int) -> list[Batch]:
     stmt = select(Batch).where(Batch.course_id == course_id, Batch.curriculum_version_id.is_(None),
                                Batch.state.not_in(("Completed", "Cancelled")))
+    return list(db.session.execute(stmt).scalars())
+
+
+def open_batches_on(curriculum_version_id: int) -> list[Batch]:
+    """Batches that have not finished and follow this curriculum version."""
+    stmt = select(Batch).where(Batch.curriculum_version_id == curriculum_version_id, Batch.state.not_in(("Completed", "Cancelled", "Archived")))
     return list(db.session.execute(stmt).scalars())
 
 

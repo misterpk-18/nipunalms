@@ -60,7 +60,13 @@ const ROLES = [
     nav: ["Super Admin", "Users & Access", "Integration Readiness", "Security Readiness"],
     other: "/founder",
   },
-  { name: "founder", user: USERS.founder, home: "/founder", nav: ["Founder Dashboard", "Curriculum Approvals", "Certificate Decisions"], other: "/trainer" },
+  {
+    name: "founder",
+    user: USERS.founder,
+    home: "/founder",
+    nav: ["Home", "Curriculum approvals", "Certificate decisions", "Access extensions"],
+    other: "/trainer",
+  },
 ];
 
 for (const role of ROLES) {

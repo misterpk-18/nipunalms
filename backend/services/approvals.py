@@ -31,3 +31,9 @@ def require_independent(*involved_user_ids: int | None, message: str, requester:
         raise BusinessRule(message)
     if requester is not None and requester_needs_admin(requester) and not current_user().has_role(*ADMIN_ROLES):
         raise BusinessRule(BRANCH_MANAGER_OWN_REQUEST)
+
+
+def founder_may_decide(requester_user_id: int | None) -> bool:
+    """The Founder / CEO may decide a Branch Manager's own request even where the screen is otherwise a branch one (UX phase U16):
+    nobody at the branch can review it independently. For every other request the Founder only reads."""
+    return current_user().has_role("FOUNDER_CEO") and requester_needs_admin(requester_user_id)

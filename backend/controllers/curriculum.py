@@ -19,6 +19,7 @@ def _version(detail, *, full: bool = False) -> dict:
         "course": detail.course.to_summary(),
         "component": detail.component.to_dict() if detail.component else None,
         "approved_at": version.approved_at,
+        "activate_on": version.activate_on,
         "created_at": version.created_at,
         "counts": detail.counts,
         "usage": detail.usage,
@@ -105,8 +106,10 @@ def return_to_draft(curriculum_version_id: int):
 
 
 def approve(curriculum_version_id: int):
-    curriculum_service.approve(curriculum_version_id)
-    return _after(curriculum_version_id)
+    v = Validator(json_body())
+    v.date("activate_on", nullable=True)  # today = approve and activate now; a later day = activate then; omitted = approve only
+    _, released = curriculum_service.approve(curriculum_version_id, v.validate().get("activate_on"))
+    return _after(curriculum_version_id, {"released": released})
 
 
 def activate(curriculum_version_id: int):

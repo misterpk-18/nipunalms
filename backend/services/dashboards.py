@@ -221,6 +221,7 @@ def founder_summary() -> dict:
     access = dash_repo.pending_exception_requests()
     return {
         "as_of": _now(),
+        "crm_connected": bool(dash_repo.finance_snapshots(None)),  # the CRM tiles stay hidden until the CRM has sent finance figures
         "scope": _scope_block(None),
         "crm": _crm_figures(None, "verified_collections", "new_paid_admissions", "overdue_amount"),
         "active_enrolments": {"count": sum(by_branch.values()),

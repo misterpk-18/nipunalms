@@ -1551,6 +1551,22 @@ Content-Type: application/json
 
 {}
 
+# ================================================================ founder
+### founder.ai_budget
+PUT {{base}}/api/v1/founder/ai-budget
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### founder.curriculum_impact
+GET {{base}}/api/v1/curriculum-versions/1/impact
+Authorization: Bearer {{token}}
+
+### founder.inbox
+GET {{base}}/api/v1/founder/inbox
+Authorization: Bearer {{token}}
+
 # ================================================================ health
 ### health.get_health
 GET {{base}}/api/v1/health

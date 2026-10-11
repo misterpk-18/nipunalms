@@ -13,9 +13,10 @@ assessments; a combo's parent version pins its track and booster versions. A ver
 learning is fully described — missing rules never default to pass.
 """
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from config.database import db
+from config.timezone import today_ist
 from models import (
     AssessmentRequirement, Batch, Course, CourseComponent, CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion,
     Enrolment, VersionComponent,
@@ -627,6 +628,8 @@ def _step(version: CurriculumVersion, action: str, to_status: str, note: str | N
     """Move the version to a new status, log the step in its review trail and in the audit log."""
     old = version.status
     version.status = to_status
+    if to_status != "Approved":
+        version.activate_on = None  # only an Approved version waits for an activation day (db/114)
     db.session.flush()
     event = catalog_repo.add_event(version, action, old, to_status, actor_id(), note)
     db.session.flush()
@@ -672,20 +675,32 @@ def return_to_draft(curriculum_version_id: int, reason: str) -> CurriculumVersio
     return version
 
 
-def approve(curriculum_version_id: int) -> CurriculumVersion:
+def approve(curriculum_version_id: int, activate_on: date | None = None) -> tuple[CurriculumVersion, dict | None]:
+    """Approve a version under review. Without `activate_on` it stays Approved until someone activates it. With today's date it is
+    activated in the same step ("Approve & activate"). With a later date it is activated that day by the background job. The
+    second item is what activation released, or None when the version was not activated now."""
     version = _version(curriculum_version_id, lock=True)
     if version.status != "Under Review":
         raise BusinessRule(f"Only a version Under Review can be approved; {version.version_label} is {version.status}")
+    today = today_ist()
+    if activate_on is not None and activate_on < today:
+        raise ValidationError("Pick today or a later day", {"activate_on": ["Must not be in the past"]})
     submitted = catalog_repo.last_event(version.curriculum_version_id, "Submitted")
     approvals.require_independent(submitted.actor_user_id if submitted else None,
                                   message="The person who submitted a curriculum version cannot approve it; ask another approver")
     version.approved_by, version.approved_at = actor_id(), db.func.now()
-    _step(version, "Approved", "Approved")
+    later = activate_on is not None and activate_on > today
+    _step(version, "Approved", "Approved", f"Activates on {activate_on:%d %b %Y}" if later else None)
+    if later:
+        version.activate_on = activate_on
+        db.session.flush()
     db.session.refresh(version)
-    return version
+    if activate_on is not None and not later:
+        return activate(curriculum_version_id)
+    return version, None
 
 
-def activate(curriculum_version_id: int) -> tuple[CurriculumVersion, dict]:
+def activate(curriculum_version_id: int, note: str | None = None) -> tuple[CurriculumVersion, dict]:
     """Make an Approved version the Active one (retiring the previous Active version) and map everything that was waiting for it."""
     version = _version(curriculum_version_id, lock=True)
     if version.status != "Approved":
@@ -694,10 +709,24 @@ def activate(curriculum_version_id: int) -> tuple[CurriculumVersion, dict]:
     if previous_id is not None:
         previous = _version(previous_id, lock=True)
         _step(previous, "Retired", "Retired", f"Replaced by {version.version_label}")
-    _step(version, "Activated", "Active")
+    _step(version, "Activated", "Active", note)
     released = _release_mapping(version)
     audit.record("CURRICULUM_MAPPING_RELEASED", "curriculum_version", version.curriculum_version_id, new=released)
     return version, released
+
+
+def activate_due() -> dict:
+    """Background job: activate every Approved version whose chosen activation day has come."""
+    due = catalog_repo.versions_due(today_ist())
+    activated = []
+    for version_id in due:
+        version, released = activate(version_id, "On the day chosen when it was approved")
+        activated.append(version.version_label)
+        if version.approved_by:
+            delivery_notices.notify_users([version.approved_by], title=f"Curriculum now active: {version.version_label}", category="Curriculum",
+                                          body=f"{released['batches_mapped']} batch(es) and {released['enrolments_released']} student(s) picked it up.",
+                                          event_key=f"curriculum-activated-{version.curriculum_version_id}", link="/founder/curriculum", branch_id=None)
+    return {"activated": activated}
 
 
 def retire(curriculum_version_id: int, reason: str | None) -> CurriculumVersion:

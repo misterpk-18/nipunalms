@@ -140,6 +140,8 @@ export type CurriculumVersion = VersionRef & {
   course: CourseRef;
   component: Component | null;
   approved_at: DateTime | null;
+  /** The day an Approved version will be activated (chosen with the approval); null otherwise. */
+  activate_on?: DateOnly | null;
   created_at: DateTime;
   counts: { modules: number; topics: number; required_topics: number };
   usage: { batches: number; enrolments: number; tracks: number };

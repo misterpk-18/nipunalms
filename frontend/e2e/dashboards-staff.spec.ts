@@ -146,24 +146,24 @@ test.describe("Super Admin overview and exception queues", () => {
 });
 
 test.describe("Founder overview", () => {
-  test("tiles, decisions and links", async ({ page }) => {
+  test("tiles, the inbox and links", async ({ page, request }) => {
+    const token = (await (await request.post("/api/v1/auth/login", { data: { login: USERS.founder, password: "Nipuna-staging-1" } })).json()).data.token;
+    const summary = (await (await request.get("/api/v1/founder/summary", { headers: { Authorization: `Bearer ${token}` } })).json()).data;
     await login(page, USERS.founder);
-    await expect(page.getByRole("heading", { name: "Founder / CEO overview" })).toBeVisible();
-    for (const label of ["Verified collections against target", "New paid Admissions against target", "Overdue amount"]) {
-      await expect(tile(page, label)).toContainText("Unavailable");
-      await expect(tile(page, label)).toContainText("Not connected");
-    }
+    await expect(page.getByRole("heading", { name: "Founder / CEO home" })).toBeVisible();
+    // the CRM tiles stay hidden until the CRM has sent its figures (U16)
+    for (const label of ["Verified collections against target", "New paid Admissions against target", "Overdue amount"])
+      await expect(page.getByRole("group", { name: label })).toHaveCount(summary.crm_connected ? 1 : 0);
     await expect(tile(page, "Active enrolments in delivery")).toContainText("Guntur");
     await expect(tile(page, "Active enrolments in delivery")).toContainText("Vijayawada");
     await expect(tile(page, "Batches at delivery risk")).toContainText("Meet organizer");
-    await expect(tile(page, "Certificates awaiting approval")).toBeVisible();
+    await expect(tile(page, "Certificates waiting for a Branch Manager")).toBeVisible();
 
-    const decisions = page.locator("section").filter({ has: page.getByRole("heading", { name: "Decisions needing you" }) });
-    await expect(decisions).toContainText("Approve monthly AI rupee ceiling");
-    await expect(decisions).toContainText("Not set up");
-    await expect(decisions).toContainText("Recording access exception after 2nd anniversary");
-    await expect(decisions).toContainText("Sample Learner F.");
-    await expect(decisions).toContainText("Awaiting a decision");
+    const needs = page.getByRole("region", { name: "Needs you" });
+    await expect(needs).toBeVisible();
+    await expect(
+      needs.getByRole("listitem").filter({ hasText: "Approve the monthly AI budget" }).or(needs.getByText("Nothing is waiting for you")),
+    ).toBeVisible();
     await expect(page.locator("#main").getByRole("link", { name: "Branch views" })).toHaveCount(0); // the switcher in the header does this
   });
 });
@@ -180,9 +180,9 @@ test.describe("@mobile staff dashboards", () => {
     await noHorizontalScroll(page);
   });
 
-  test("@mobile founder and branch views keep CRM figures Unavailable", async ({ page }) => {
+  test("@mobile founder and branch views fit the screen", async ({ page }) => {
     await login(page, USERS.founder);
-    await expect(tile(page, "Overdue amount")).toContainText("Unavailable");
+    await expect(page.getByRole("heading", { name: "Founder / CEO home" })).toBeVisible();
     await noHorizontalScroll(page);
     await page.goto("/admin/exceptions");
     await expect(page.getByRole("heading", { name: "Exception Queues — all branches" })).toBeVisible();

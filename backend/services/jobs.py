@@ -7,6 +7,7 @@ from typing import Callable
 from services import attempts as attempts_service
 from services import attendance as attendance_service
 from services import batch_allocations as batch_allocations_service
+from services import curriculum as curriculum_service
 from services import recordings as recordings_service
 from services import session_ops
 from services import support as support_service
@@ -60,12 +61,18 @@ def whatsapp_send() -> dict:
     return whatsapp.send_pending()
 
 
+def curriculum_activate() -> dict:
+    """Activate the Approved curriculum versions whose activation day (chosen when they were approved) has come."""
+    return curriculum_service.activate_due()
+
+
 JOBS: dict[str, Callable[[], object]] = {
     "allocation-escalation": allocation_escalation,
     "attempts-expire": attempts_expire,
     "attendance-unconfirmed": attendance_unconfirmed,
     "class-log-check": class_log_check,
     "class-reminders": class_reminders,
+    "curriculum-activate": curriculum_activate,
     "recording-check": recording_check,
     "session-delay-check": session_delay_check,
     "support-escalate-overdue": support_escalate_overdue,

@@ -1,9 +1,9 @@
 """Courses, combo components and curriculum (versions, modules, topics)."""
-from datetime import datetime
+from datetime import date, datetime
 
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Table, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -87,6 +87,7 @@ class CurriculumVersion(db.Model):
     status: Mapped[str] = mapped_column(CurriculumStatus, default="Draft")
     approved_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    activate_on: Mapped[date | None] = mapped_column(Date)  # an Approved version becomes Active on this day (db/114)
     hours_verified_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     hours_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completion_profile: Mapped[dict | None] = mapped_column(JSONB)

@@ -133,3 +133,8 @@ BLUEPRINTS += [nav_bp]
 from routes.issues import issues_bp  # noqa: E402
 
 BLUEPRINTS += [issues_bp]
+
+# UX plan U16: the Founder's inbox
+from routes.founder import founder_bp  # noqa: E402
+
+BLUEPRINTS += [founder_bp]

@@ -129,14 +129,14 @@ def list_requests():
 
 @class_sessions_bp.post("/reschedule-requests/<int:request_id>/approve")
 @login_required
-@require_roles(*MANAGE_ROLES)
+@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")  # the Founder only for a Branch Manager's own request (the service refuses others)
 def approve_request(request_id: int):
     return class_sessions_controller.approve_request(request_id)
 
 
 @class_sessions_bp.post("/reschedule-requests/<int:request_id>/reject")
 @login_required
-@require_roles(*MANAGE_ROLES)
+@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")  # the Founder only for a Branch Manager's own request (the service refuses others)
 def reject_request(request_id: int):
     return class_sessions_controller.reject_request(request_id)
 

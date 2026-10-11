@@ -480,3 +480,10 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 |---|---|
 | `access_extension_requests.recommended_decision` (approve / reject), `recommendation`, `recommended_expiry`, `recommended_by`, `recommended_at` | A request made after the second anniversary is a Founder / Super Admin decision. The Branch Manager of the service branch adds a recommendation instead of deciding it. Checks: the five fields are all set or all empty, only an exception request may carry one, the note is not blank, a suggested end date goes with an approval and is after the current end date |
 | Index `access_extension_founder_idx` (pending exception requests with a recommendation) | `recommended_at IS NOT NULL` on a Pending `needs_exception` request is the routing mark: it is in the Founder's inbox (what U16's `GET /founder/inbox` reads) |
+
+## 114 — UX phase U16: Approve & activate a curriculum version on a chosen day
+
+| Change | Why |
+|---|---|
+| `curriculum_versions.activate_on` (date) with the check `activate_on IS NULL OR status = 'Approved'` | The Founder can approve a version and pick the day it becomes the Active one. The date is kept on the Approved version; the `curriculum-activate` job (`services/curriculum.activate_due`) activates it that day and clears it. A version approved with today's date is activated in the same step and never holds a date; activating, returning or retiring a version clears it (the check refuses a date on any other status) |
+| Index `curriculum_versions_due_idx` (versions with an `activate_on`) | The job reads the versions whose day has come |
