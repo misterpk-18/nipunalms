@@ -186,7 +186,7 @@ figure out what to do next."
 | U12. Trainer: Today, class delivery, Attendance, My requests | **Done** (db 112) | `f5f07c3` | M |
 | U13. Trainer: To grade, Assessments, Batches/Students, Content, Reports, Support | **Done** | `7d0318f` | L |
 | U14. Branch: My work, Batches, Waiting for a batch, Schedule, Class day | **Done** | `94d6e78` | L |
-| U15. Branch: Curriculum, Content & questions, Marks, Attendance, Completion & certificates, Issues, Recordings, Support, Extensions, Reports | **Done** (db 113) | | L |
+| U15. Branch: Curriculum, Content & questions, Marks, Attendance, Completion & certificates, Issues, Recordings, Support, Extensions, Reports | **Done** (db 113) | `02022c2` | L |
 | U16. Founder | To do | | S |
 | U17. Super Admin | To do | | M |
 | U18. Final sweep, then resume gap-fix phase 7 | To do | | S |
