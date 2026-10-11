@@ -183,7 +183,7 @@ figure out what to do next."
 | U9. Student: Schedule, Tasks & Tests | **Done** | `f96337a` | M |
 | U10. Student: Class Materials, My Progress, Certificates | **Done** | `a8807f6` | L |
 | U11. Student: Career, Ask Nipuna, Support, My Account | **Done** (db 111) | `cb3ca68` | M |
-| U12. Trainer: Today, class delivery, Attendance, My requests | **Done** (db 112) | `HASH` | M |
+| U12. Trainer: Today, class delivery, Attendance, My requests | **Done** (db 112) | `f5f07c3` | M |
 | U13. Trainer: To grade, Assessments, Batches/Students, Content, Reports, Support | To do | | L |
 | U14. Branch: My work, Batches, Waiting for a batch, Schedule, Class day | To do | | L |
 | U15. Branch: Curriculum, Content & questions, Marks, Attendance, Completion & certificates, Issues, Recordings, Support, Extensions, Reports | To do | | L |
