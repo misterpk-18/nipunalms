@@ -4,6 +4,8 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 
 109 gaps: 36 high, 62 medium, 11 low.
 
+> **Role note (UX phase U2):** the Academic Coordinator role was merged into the Branch Manager. Wherever a gap below says "Academic Coordinator" (written before the merge), read "Branch Manager"; the evidence and specs are left as found. See [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md).
+
 ## Register
 
 | ID | Severity | Module | Gap | Phase | Status |

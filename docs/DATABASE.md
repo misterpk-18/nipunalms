@@ -55,6 +55,15 @@ Vijayawada).
 | `104_crm_curriculum_removal.sql` | Round 5: the CRM holds no curriculum (mapping event, catalogue mirror and curriculum fields removed) | ✅ |
 | `105_curriculum_mapping_removed.sql` | UX phase U1: the *Curriculum Mapping Pending* enrolment state, its owner column and its exception source are removed | ✅ |
 | `106_coordinator_merged_into_branch_manager.sql` | UX phase U2: the Academic Coordinator role is retired and merged into the Branch Manager | ✅ |
+| `107_whatsapp_outbox.sql` | UX phase U6: WhatsApp through the CRM (outbox, templates, switch off by default) | ✅ |
+| `108_sign_in_and_accounts.sql` | UX phase U7: self-service password reset codes, staff activation, unlock | ✅ |
+| `109_topic_progress.sql` | UX phase U8: topic progress for the student Home and My Learning | ✅ |
+| `110_whatsapp_status_events.sql` | CRM round 6: WhatsApp delivery status events | ✅ |
+| `111_student_account_and_support_files.sql` | UX phase U11: support attachments, email change codes, payment instructions | ✅ |
+| `112_class_flow.sql` | UX phase U12: the trainer's class flow progress and covered topics | ✅ |
+| `113_access_extension_recommendation.sql` | UX phase U15: Branch Manager recommendation on access extensions beyond the limit | ✅ |
+| `114_curriculum_activation_date.sql` | UX phase U16: Approve & activate a curriculum version on a chosen day | ✅ |
+| `115_super_admin_setup_calendar_assign.sql` | UX phase U17: Setup owners, cancelled closures, assigned issues | ✅ |
 
 ---
 
