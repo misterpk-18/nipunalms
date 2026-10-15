@@ -189,7 +189,7 @@ figure out what to do next."
 | U15. Branch: Curriculum, Content & questions, Marks, Attendance, Completion & certificates, Issues, Recordings, Support, Extensions, Reports | **Done** (db 113) | `02022c2` | L |
 | U16. Founder | **Done** (db 114) | `2eec410` | S |
 | U17. Super Admin | **Done** (db 115) | `ed48777` | M |
-| U18. Final sweep and docs, then resume gap-fix phase 7 | **Done** | `COMMIT18` | S |
+| U18. Final sweep and docs, then resume gap-fix phase 7 | **Done** | `d6e64aa` | S |
 
 **Order matters:**
 - **Backend first.** U0–U2 change roles and rules that every later screen depends on.
