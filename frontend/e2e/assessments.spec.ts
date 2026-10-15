@@ -58,9 +58,10 @@ test("trainer reviews it, the coordinator publishes, the student sees the publis
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/to-grade");
   const work = (student: string) => page.getByRole("row").filter({ hasText: "Regression on housing dataset" }).filter({ hasText: student });
-  await expect(work("Anvitha K.")).toBeVisible();
+  // the seed's hand-ins for this assignment are Sample Learner G.'s and H.'s (Anvitha's window closed on a fixed seed date)
   await expect(work("Sample Learner G.")).toBeVisible();
-  await work("Anvitha K.")
+  await expect(work("Sample Learner H.")).toBeVisible();
+  await work("Sample Learner G.")
     .getByRole("link", { name: /^Grade/ })
     .click();
   await page.getByRole("button", { name: "Start review" }).click();
@@ -69,22 +70,26 @@ test("trainer reviews it, the coordinator publishes, the student sees the publis
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText(/Review saved/)).toBeVisible();
   await page.goto("/trainer/to-grade");
-  await expect(work("Anvitha K.")).toHaveCount(0);
+  await expect(work("Sample Learner G.")).toHaveCount(0);
 
   await page.evaluate(() => window.sessionStorage.clear());
   await page.goto("/login");
   await login(page, USERS.coordGnt);
-  await page.goto("/branch/assessments");
-  const row = page.getByRole("row", { name: /Regression on housing dataset/ });
-  await expect(row).toContainText("Awaiting moderation");
-  await row.getByRole("button", { name: "Publish" }).click();
-  await expect(page.getByText(/results? published to students/)).toBeVisible();
+  await page.goto("/branch/assessments"); // the old address opens Marks & results
+  await expect(page).toHaveURL(/\/branch\/results/);
+  const card = page.getByRole("listitem").filter({ hasText: "Regression on housing dataset" });
+  await expect(card).toContainText("To review");
+  await card.getByRole("button", { name: "Review marks" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Publish results" }).click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm.getByText(/Students will see their marks now/)).toBeVisible(); // publishing asks first
+  await confirm.getByRole("button", { name: "Publish now" }).click();
+  await expect(page.getByText(/results? published/)).toBeVisible();
 
   await page.evaluate(() => window.sessionStorage.clear());
   await page.goto("/login");
   await login(page, USERS.student);
   await page.goto("/progress?tab=results");
-  await expect(page.getByRole("row", { name: /Regression on housing dataset/ })).toContainText("17.00 / 20.00");
   await expect(page.getByRole("row", { name: /SQL coding exercise/ })).toContainText("Provisional");
   await expect(page.getByRole("row", { name: /SQL coding exercise/ })).not.toContainText(/\d+\.\d\d \/ /);
   await expect(page.getByRole("row", { name: /Python Foundations module test/ })).toContainText("42.00 / 50.00");

@@ -183,7 +183,7 @@ def suggested_readiness(batch: Batch, checks: list[dict]) -> dict:
         return {"readiness": "Blocked", "readiness_reason": "; ".join(failing),
                 "recovery_owner": f"Branch Manager {batch.branch.branch_name}"}
     if any(c["key"] == "meet" and c["status"] == "pending" for c in checks):
-        return {"readiness": "Pending Verification", "readiness_reason": "Meet organizer Pending Verification", "recovery_owner": "Super Admin"}
+        return {"readiness": "Pending Verification", "readiness_reason": "The Meet organizer is not verified yet", "recovery_owner": "Super Admin"}
     return {"readiness": "Ready", "readiness_reason": None, "recovery_owner": None}
 
 

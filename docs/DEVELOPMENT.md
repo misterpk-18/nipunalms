@@ -74,9 +74,24 @@ the CRM's persons still hold the old ones as `lms_user_id`. The next pull then h
 until the CRM clears its stale ids (round 5 hit this with 12 persons). When the CRM's test data must survive, apply a new migration in place instead:
 `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/<file>.sql`.
 
-`nipunalms-dev` is shared by the e2e suite and the local CRM. The e2e specs assume a freshly seeded database, so CRM
-joint tests (curricula activated, finance snapshots, extra batches) can make a few delivery and dashboard specs fail
-until the next rebuild.
+`nipunalms-dev` is shared by the local CRM, so it is **not** the place for a clean e2e run: CRM joint tests (curricula
+activated, finance snapshots, extra batches) and earlier e2e runs leave data behind, and a few delivery and dashboard
+specs fail on it. For a clean baseline use a **scratch database** (UX phase U18), which never touches `nipunalms-dev`:
+
+```bash
+# from backend/ — the name must end in -dev (create-dev-db refuses anything else); DEV_DATABASE_URL overrides .env
+createdb nipunalms_sweeptpl-dev
+export APP_ENV=development DEV_DATABASE_URL=postgresql+psycopg://<you>@localhost:5432/nipunalms_sweeptpl-dev WHATSAPP_API_URL= WHATSAPP_API_KEY= WHATSAPP_TEST_NUMBERS=
+../venv/bin/flask --app app create-dev-db --yes && ../venv/bin/flask --app app seed-dev   # the pristine template
+# before every spec file: copy the template, then run a temporary API on :5061 against the copy
+dropdb --force nipunalms_sweep-dev; createdb -T nipunalms_sweeptpl-dev nipunalms_sweep-dev
+DEV_DATABASE_URL=postgresql+psycopg://<you>@localhost:5432/nipunalms_sweep-dev ../venv/bin/flask --app app run --port 5061
+# frontend/: VITE_API_TARGET=http://127.0.0.1:5061 npx vite --port 5175 --strictPort, then
+# E2E_BASE_URL=http://localhost:5175 npx playwright test e2e/<spec>
+```
+
+The `WHATSAPP_*` overrides keep the temporary API from sending anything to the real test number. Drop both scratch
+databases and stop the two servers when done. Never use :5060 / :5174 (the owner's servers).
 
 ### 4. Staging data
 
@@ -163,9 +178,15 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | Lint | `cd frontend && npm run lint` | |
 | End-to-end | `cd frontend && npx playwright test` (or `npm run e2e`) | Needs the API (dev DB) and Vite running; desktop + `@mobile` projects |
 
-E2E specs live in `frontend/e2e/` (one per area: `shell`, `admin`, `delivery`, `content`, `assessments`, `attendance`,
-`services`, `trainer-u12`, `trainer-u13`, `branch-u14`, `branch-u15`, `founder-u16`, `admin-u17`, `dashboards-learning`, `dashboards-staff`, `staff-account`); `e2e/helpers.ts` has the staging users and
-`login()`. Tests that change data assume a freshly seeded database. The trainer specs (`trainer-u12`, and the Today and register steps of `dashboards-learning`, `delivery`, `attendance`) schedule a class for today
+E2E specs live in `frontend/e2e/` (one per area: `shell`, `sign-in`, `admin`, `admin-u17`, `delivery`, `batch-operations`, `content`, `assessments`,
+`attendance`, `services`, `calendar`, `governance`, `student-u10`, `student-u11`, `trainer-u12`, `trainer-u13`, `branch-u14`, `branch-u15`,
+`founder-u16`, `dashboards-learning`, `dashboards-staff`, `staff-account`, and `sweep-u18`); `e2e/helpers.ts` has the staging users and
+`login()`. `sweep-u18` is the final sweep: it opens every link of every role's navigation at desktop and phone width, in light and
+dark mode (no server error, a heading, no leftover spec wording, no sideways scroll, badge contrast, an active nav item), and walks the
+student's Join and recording and the Branch Manager's completion decision. Tests that change data assume a freshly seeded database,
+and several are serial chains: **run one spec file per fresh database** (see "Databases" above), because earlier files leave classes,
+requests and approvals behind (for example `trainer-u12` cannot schedule a class when an earlier file booked the trainer at that
+minute). The trainer specs (`trainer-u12`, and the Today and register steps of `dashboards-learning`, `delivery`, `attendance`) schedule a class for today
 through the API, so it is skipped within ten minutes of midnight IST. `E2E_BASE_URL` points Playwright at another Vite
 port. `admin-u17` locks `trainer.g3@nipuna.test` by failing six sign-ins and unlocks it again through the Users screen, and adds one holiday that it cancels (the cancelled entry stays in the calendar list); the AI switch it flips is restored in the same test. Run one Playwright process at a time (they share `test-results/`).
 
@@ -243,10 +264,20 @@ notifications bell (`notification-bell.tsx`) counting what is new or needs actio
 (student → `/notifications`, trainer / branch / admin → `<workspace>/notifications`; the founder has none: their inbox and the nav counts stand in);
 account menu (My Account — `/my-account` for students, Profile at `/account/profile` for staff — Change password, Sign out).
 
-**Sidebar** (≥ `md`, 240px): the workspace's nav list from `NAV` in `auth/access.ts` (same items, labels, order and
-icons as the prototype, grouped under headings and with count badges for staff workspaces; there is no Notifications item, the bell
-holds it). Student labels come from the dictionary. **Bottom bar** (< `md`): four pinned items
-(`mobileBarItems`) + **More** bottom sheet with the rest of the list.
+**Sidebar** (≥ `md`, 240px): the workspace's nav list from `NAV` in `auth/access.ts`, grouped under headings, with a count badge on items that
+have work waiting (`GET /me/nav-counts`, `badgeKey`). There is no Notifications item: the bell holds it. Student labels come from the
+dictionary. **Bottom bar** (< `md`): four pinned items (`mobileBarItems`) + **More** bottom sheet with the rest of the list.
+
+| Role | Navigation (group: items) |
+|---|---|
+| Student | Home · My Learning · Schedule · Tasks & Tests · Class Materials · My Progress · Certificates · Career · Ask Nipuna · Support. The avatar menu holds My Account (Profile, Fees & Receipts), Change password and Sign out |
+| Trainer | Teach: Today, Sessions, Attendance, My requests · Grade: To grade, Assignments, Assessments, Content · People: Batches, Students, Support · Insights: Reports, Ask Nipuna |
+| Branch Manager | Today: My work, Class day · Batches & students: Batches, Waiting for a batch, Schedule & calendar, Attendance & progress · Teaching: Curriculum, Content & questions, Marks & results · Completion: Completion & certificates · Help: Student support, Issues · Reports |
+| Founder | Home (the inbox) · Approvals: Curriculum approvals, Certificate decisions, Access extensions · Safety: AI controls |
+| Super Admin | Home · People: Users & access, Student accounts · Operations: Issues, Academic calendar, CRM sync · System: Setup & health, AI controls, Audit log |
+
+A person with several roles gets the **Acting as** switcher (the cross-workspace items are not in the sidebars). The Academic
+Coordinator workspace no longer exists: it was merged into the Branch Manager's (db 106) and `/academic/*` redirects to `/branch/*`.
 
 **Theme** (`src/styles.css`): the prototype's oklch tokens — `--navy`, `--navy-foreground`, `--navy-muted`, `--primary`,
 `--accent`, tone pairs `--success|warning|danger|info|neutral` (+ `-soft`), `--radius: 0.625rem` — mapped onto shadcn's
@@ -313,7 +344,7 @@ only a label (a kind, a role, a count) is a `Tag`. A figure with nothing behind 
 
 | Route | Feature | API | Notes |
 |---|---|---|---|
-| `/dashboard` | `dashboard` | `/me/home` | Header (name EN / తెలుగు, Master ID, service branch), three ranked tiles (Next Class, Due Work, Current Course Progress), Join Class (disabled with the reason; Meet organizer Pending Verification), eight cards, engagement freshness note (Stale, never zero). Each card shows its own Empty / Unavailable text via `CardGap` |
+| `/dashboard` | `dashboard` | `/me/home` | **Home**: the **Up next** hero (live class, then work due today or overdue, then the next topic, then the next class) with one button; four cards (Due work, Continue learning, Latest recording, Attendance); a batch-change banner with Agree / Decline behind a confirm and the reply-by date; the preferred-slot request only while a course waits for a batch; the Getting started card. Career, Support, Ask Nipuna and Certificates are in the nav, not on Home. A card with nothing to show says why (`CardGap`) |
 | `/my-courses` | `my-courses`, `batch-changes` | `/me/enrolments`, `/me/material-changes`, `/me/slot-options`, `/me/slot-preferences` | Enrolment cards with gate / delivery state; changes needing the student's agreement (Agree / Decline; reading a notice is not agreement); the preferred-slot request and its status (a request reserves no seat) |
 | `/courses/$enrolmentId` | `course-detail` | `/me/enrolments/{id}` | Programme, combo tracks and booster, modules with delivery progress |
 | `/courses/$enrolmentId/tracks/$trackId` | `track-detail` | `/me/enrolments/{id}/tracks/{track_id}` | |
@@ -376,7 +407,7 @@ The Academic Coordinator workspace was merged into the Branch Manager's (UX phas
 | `/branch/reports` (`?period=&from=&to=`) | `branch/reports`, `reports-parts` | `/branch/reports`, `/branch/reports/export` | **Reports**: period filter (default this month), every figure a drill-down link, progress by batch, six-month trend chart and table, CSV download per table (no Excel library installed). `/branch/academic-reports` redirects |
 | `/branch/notifications` | `shared/notification-centre` | | The inbox is reached from the bell |
 
-#### Branch Manager, Super Admin, Founder
+#### Super Admin and Founder
 
 | Route | Feature | API | Notes |
 |---|---|---|---|
@@ -456,10 +487,10 @@ Expect `201` with `"status":"Applied"`. Run it again: `200` with `"replayed":tru
 
 ## Part D — Status and clean-up
 
-Every screen in the prototype is built on `main`: foundation and CRM intake, delivery, content and recordings,
-assessments, attendance / progress / certificates, student services, admin and security, the exception queue, the six
-dashboards, both reports pages, staff notifications and `/account/profile`. CRM integration rounds 1–3 are done on both
-sides (db 090–098; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+Every screen in the prototype is built on `main`, and every screen has been redesigned in the UX plan (U0–U18, [UX_PLAN.md](UX_PLAN.md)):
+the shell and navigation, notifications, sign-in and accounts, and the Student, Trainer, Branch Manager, Founder and Super Admin
+workspaces. CRM integration rounds 1–5 are done on both sides (db 090–104; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds));
+round 6 (WhatsApp through the CRM) is built on the LMS side and switched off until the CRM endpoint and the Pinbot templates exist.
 
 **Gap fix plan** ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md), register [GAPS.md](GAPS.md)): the app was checked against the
 approved modules 14–27, which found 109 gaps.
@@ -471,18 +502,19 @@ approved modules 14–27, which found 109 gaps.
 | 3. Governance and approvals | `ea71866` | 100 |
 | 4. Academic Calendar | `be996e1` | 101 |
 | 5. Module 14 curriculum model | `506a7e7` | 102 |
+| 6. Batches and delivery (Modules 15, 16) | `2953780` | 103 |
 
-25 of the 109 gaps are closed. **Phase 6 (batches and delivery, Modules 15–16) is next**; the plan's "Resuming in a new
-session" section lists the steps and what earlier phases changed.
+42 of the 109 gaps are closed (three more are partly closed by the UX plan). The UX plan took migrations 104–115, so **phase 7
+(assessments) is next and starts at `db/116`**; phases 7–12 were rewritten in U18 for the merged Branch Manager role and the new screens.
 
 Still to do:
 
 | Item | Notes |
 |---|---|
-| Gap fix phases 6–12 | Batches and delivery, assessments, attendance and certificates, content and recordings, notifications and integrations, reports and AI, career and guardians (the last after CRM round 4) |
-| Validation pass | A cross-role acceptance run (desktop + mobile) against the merged app, and a product / role guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
-
----
+| Gap fix phases 7–12 | Assessments, attendance and certificates, content and recordings, notifications and integrations (the CRM restrictions intake), reports and AI, career and guardians (the last after CRM round 4) |
+| Owner actions | The single list is in [UX_PLAN.md](UX_PLAN.md#owner-actions-in-one-place): restart the :5060 API, apply db 111–115 to any other database, submit the WhatsApp templates in Pinbot, and the open CRM questions |
+| Product / role guide | A guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
+| Deployment | Templates only (`deploy/`, Part F); nothing is deployed |
 
 ## Part E — Backlog
 
@@ -515,7 +547,6 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Emergency / elevated access | Security control `EMERGENCY_ACCESS` (max 4 hours, reviewed afterwards) has no mechanism yet; only routine temporary access (7 days) is enforced |
 | Student MFA | `students.mfa_status` exists but no second factor is implemented |
 | Integration alerts | A Failed integration verification does not yet notify anyone |
-| Audit actor filter | The Actor filter lists staff only; student sign-ins are found by entity |
 
 ### Delivery
 
@@ -529,13 +560,12 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Phase 6 screens: API only or thin | No staff screen for slot requests (`GET / PATCH /slot-preferences`); an interbranch track placement has no target picker for another branch's batches; cover pickers list the class's branch only; shared-class topics, participant matching and disruption replacement / owner are typed as ids. Session reminders 24 h / 1 h before a class are not sent |
 | Meet participation import | Join / leave evidence is entered through `POST /class-sessions/{id}/participation` (manual or a future Meet API feed); nothing imports it from Google yet |
 | Bulk timetable import | Sessions are created one batch at a time with a repeat rule; no CSV / calendar import as in the prototype's schedule screen |
-| Calendar month grid | Schedules are list / week tables; the prototype's month calendar view and iCal export are not built |
+| Calendar export | The Super Admin's calendar has a month grid and the Branch Manager's Schedule a week calendar (UX phases U14 and U17); the prototype's iCal export is not built |
 | Curriculum diff between versions | The prototype shows what changed between versions; only the review trail is stored |
 | Re-mapping running batches to a new version | Activating a version maps pending enrolments and batches. A student moves through an individual academic mapping (`/academic-mappings`); moving a whole Running batch at once is not built |
 | Academic mapping credits in the UI | The allocation queue's "Academic mapping" dialog prepares a version move without credits; credited topics are API only (`credits` with an approved `rule_id`). Proposing an equivalence rule is API only |
 | Batch capacity waitlist | Students' slot requests can be marked Waitlisted, but there is no ordered waiting list or automatic offer when a seat frees up |
-| Session reminders | Students are notified of changes and told when a class is 5 minutes late, but not reminded 24 hours / 1 hour before a class (Module 15 §20; needs a job) |
-| Topic-level self study progress | Topic pages show classes and resources; students cannot mark a topic as studied |
+| Session reminders | The `class-reminders` job queues a WhatsApp reminder (switched off with WhatsApp); there is no in-app reminder 24 hours / 1 hour before a class (Module 15 §20) |
 | Duplicate date helpers | `shared/delivery-ui.tsx` and `shared/format.ts` format IST dates in slightly different forms; the datetime-local helpers (`toIstInput`, `fromIstInput`) live once in `lib/format.ts`. Unify the display formatters when the design settles |
 
 ### Content & recordings
@@ -575,7 +605,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Complimentary completion rule | Configuration Pending until `complimentary_completion_rule_configured` is set; needs a business decision |
 | Attendance at-risk support cases | Module 21 triggers (two consecutive absences, late pattern, no activity for 7 days) do not open support requests yet |
 | Combo per-track attendance | Progress is per enrolment; the module also wants each combo track and the booster separately |
-| Certificate document | No PDF / template and no email delivery (Email integration not verified); the register and public verification exist |
+| Certificate document | The certificate PDF is built in the LMS (UX phase U10; Latin-1 fonts, so a Telugu holder name prints as `?`, and the QR needs `PUBLIC_BASE_URL`); email delivery is not available (no Email integration). The register and public verification exist |
 | Joining date on correction | An approved correction to Present sets the joining date; changing the first Present to Absent does not reset it |
 
 ### Student services
@@ -584,7 +614,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Fees & Receipts fields | The screen shows fee, verified paid, balance and receipts per course and one instalment schedule per invoice, and the amount still being checked (`pending_verification`). `waived`, `refunded` and `payment_completion` are stored but not shown |
 | Staff profile details | `/account/profile` is read-only: no phone number (the API does not return one for staff), MFA shown as Not Configured, staff cannot edit their name or email |
-| Founder notifications | A few events are addressed to the Founder (a new curriculum to approve, a recommendation on an access extension, certificate requests), but the founder workspace has no notification route or bell: the Needs you list and the nav counts stand in |
+| Founder notifications | A few events are addressed to the Founder (a new curriculum to approve, a recommendation on an access extension, certificate requests), but the Founder has no bell: the Home inbox and the nav counts stand in (U16) |
 | Placement Team | Module 23 names a Placement Team role; there is none, so Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
 | Support SLA | One `support_sla_hours` for all categories and priorities |
 | External channels | Email, quiet hours and delivery status for WhatsApp (Module 26) are not built; WhatsApp and email appear in preferences only when live |
@@ -592,7 +622,6 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Career file storage | CV files on local disk under `UPLOAD_DIR/cv` |
 | Support attachments | Files on local disk under `UPLOAD_DIR/support` (png, jpg, pdf, txt, doc, docx; 5 MB; 3 per message) |
 | Email change code | Delivered by WhatsApp only (no email sender). With WhatsApp off the student is told no code was sent and the email stays as it is |
-| Branch payment instructions | Edited through `PUT /branches/{id}/payment-instructions` (no screen yet); the seed sets the two branches |
 
 ### Home, Today & reports
 
@@ -603,20 +632,18 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Review turnaround timestamps | Partial Data only appears for impossible pairs (review before submission). `review_started_at` is not used yet; academic reports do not include turnaround |
 | Certificate issue lead time | Measured from the completion decision to `issue_date` (a date, not a timestamp); Not Configured until issued certificates trace back to a decided review. No target or SLA is configured |
 | Trainer Today: substitute and co-trainers | Today lists sessions where the trainer is the session's trainer; a co-trainer who is not the session trainer sees the batch but not the session |
-| Student Home language | Card titles follow the EN / తెలుగు setting; card bodies are English, as in the prototype. The Telugu greeting uses `name_te` when the CRM sent it |
-| Join Class on the home tile | Shows the next class only; a second class the same day is reachable from Schedule |
 
 ### Exception queue & staff dashboards
 
 | Item | Notes |
 |---|---|
 | Recovery steps are notes | A step records what is being done and names an owner; it does not assign work, set a due date or change the source record. Reassigning a recording exception's owner from the queue is not built |
-| Allocation Pending is always an exception | Every enrolment waiting for a seat is listed, however recent. A waiting-time threshold (e.g. 7 days) would keep normal flow out of the queue; needs a product decision |
+| Allocation Pending waits on Waiting for a batch | Every enrolment waiting for a seat is listed on the Branch Manager's Waiting for a batch screen and counted on My work, however recent. A waiting-time threshold (e.g. 7 days) would keep normal flow out of the queue; needs a product decision |
 | Support queue rule | A support request enters the queue when escalated or past `sla_due_at`; the Branch Manager's escalations are also on `/branch/support (Needs action)` |
 | Post-2nd-anniversary access exceptions | The Branch Manager adds a recommendation first (db 113); the request then shows in the Founder's inbox and on `/founder/access`, where the Founder decides it with the new end date (U16). Still listed in the exception queue |
 | AI rupee ceiling | The Founder (or a Super Admin) approves the monthly amount from the inbox (`PUT /founder/ai-budget`, U16); it is `app_settings.ai_monthly_ceiling_inr`, and the dashboards show Configuration Pending while it is absent. Nothing enforces it yet: Ask Nipuna does not read it, and the AI controls page (U17) does not show or change it |
-| Integration failures tile | Counts the readiness register (Failed / Misconfigured); no live monitoring, alerting or notification |
-| Provisioning | "Provisioning" means an enrolment held in `Provisioning Pending` (complimentary offer, unmet payment gate). The seed has none, so the Provisioning table on `/admin` is empty in staging; a failed LMS-account creation has no stored state to list |
+| Integration failures | Setup & health counts what is Broken (nav badge and Home); there is no live monitoring, alerting or notification, and "Working" is set by hand |
+| Provisioning | "Provisioning" means an enrolment held in `Provisioning Pending` (complimentary offer, unmet payment gate). The seed has none; a failed LMS-account creation has no stored state to list. The Super Admin's Home no longer has a Provisioning table (U17), so these are found through Student accounts (Needs attention) |
 | Dashboard freshness | Summaries are read live on each visit (no caching, no auto-refresh); `as_of` is returned but not shown |
 | Academic "reviews awaiting" | Counts content awaiting review, open completion reviews and certificates in Eligibility Review / Awaiting Approval; assessment moderation is shown separately as "results awaiting publication review" |
 

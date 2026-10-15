@@ -64,6 +64,6 @@ test("the super admin sees AI controls as ON or OFF per audience", async ({ page
 
 test("public verification needs no sign-in @mobile", async ({ page }) => {
   await page.goto("/verify/NIT-CERT-2026-999999");
-  await expect(page.getByRole("heading", { name: "Certificate verification" })).toBeVisible();
-  await expect(page.getByText(/No certificate with this number/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Check a certificate" })).toBeVisible();
+  await expect(page.getByText("Certificate not found")).toBeVisible();
 });

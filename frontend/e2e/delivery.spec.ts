@@ -128,6 +128,7 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   await page.goto("/branch/schedule?view=list");
   await page.getByRole("button", { name: "New class" }).click();
   await choose(dialog(page).getByLabel("Batch"), /Data Science/);
+  await expect(dialog(page).getByLabel("Curriculum topic")).not.toHaveValue(""); // the dialog fills itself in from the batch (and starts again once it has): wait for it before typing
   await dialog(page).getByLabel("Title *").fill("E2E live class");
   await dialog(page).getByLabel("Starts (IST) *").fill(istInput(15));
   await dialog(page).getByLabel("Ends (IST) *").fill(istInput(75));
@@ -138,6 +139,7 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   // A weekly series for a later day
   await page.getByRole("button", { name: "New class" }).click();
   await choose(dialog(page).getByLabel("Batch"), /Data Science/);
+  await expect(dialog(page).getByLabel("Curriculum topic")).not.toHaveValue(""); // the dialog fills itself in from the batch (and starts again once it has): wait for it before typing
   await dialog(page).getByLabel("Title *").fill("E2E weekly revision");
   await dialog(page)
     .getByLabel("Starts (IST) *")
@@ -183,7 +185,10 @@ test("trainer runs the class from Today's flow, and requests a reschedule", asyn
 test("coordinator approves the request; the session is rescheduled with history", async ({ page }) => {
   await login(page, USERS.coordGnt);
   await page.goto("/branch/schedule?view=list");
-  const request = page.getByRole("region", { name: "Needs decision" }).getByRole("listitem").filter({ hasText: /PCA lab.*Lab clash with an exam/ });
+  const request = page
+    .getByRole("region", { name: "Needs decision" })
+    .getByRole("listitem")
+    .filter({ hasText: /PCA lab.*Lab clash with an exam/ });
   await request.getByRole("button", { name: "Approve", exact: true }).click();
   await dialog(page).getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved. The class moved")).toBeVisible();
@@ -200,7 +205,7 @@ test("super admin approves and activates the curriculum; the batch and its stude
   await page.getByRole("button", { name: /CV 3\.0 · Under Review/ }).click();
   await expect(page.getByText("Django & REST APIs")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText("Curriculum updated").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /CV 3\.0 · Approved/ })).toBeVisible();
   await page.getByRole("button", { name: "Activate" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Activate" }).click(); // activating asks first (U15)
   await expect(page.getByRole("row", { name: /NIT-CRS-052/ })).toContainText("Have a curriculum");
@@ -209,7 +214,7 @@ test("super admin approves and activates the curriculum; the batch and its stude
   await page.goto("/login");
   await login(page, USERS.student);
   await page.goto("/my-courses");
-  await expect(page.getByText("Your course is confirmed. Your branch will allocate you to a batch before your first class.").first()).toBeVisible();
+  await expect(page.getByText("Your course is confirmed. Your branch will give you a batch before your first class.").first()).toBeVisible();
 });
 
 test("branch manager sees the batches and classes of the branch", async ({ page }) => {

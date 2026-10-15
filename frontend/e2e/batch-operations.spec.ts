@@ -49,14 +49,24 @@ test("the Class day page loads with its sections", async ({ page }, info) => {
   for (const gone of ["Meet integration", "Last background checks"]) await expect(page.getByRole("heading", { name: gone })).toHaveCount(0);
 });
 
-test("a student sees the preferred-slot card and the changes card", async ({ page }, info) => {
+test("Home shows the batch change waiting for the student, and the preferred-slot card while a course has no batch", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
+  // Anvitha: the proposed change shows as a banner, answered with a confirm
   await login(page, USERS.student);
-  await page.goto("/my-courses");
+  await page.goto("/dashboard");
+  const banner = page.getByRole("region", { name: "Your branch proposes a change to your batch" });
+  await expect(banner).toBeVisible();
+  await expect(banner.getByText(/Nothing changes for you until you do\./)).toBeVisible();
+  await expect(banner.getByRole("button", { name: "Agree" })).toBeVisible();
+  await expect(banner.getByRole("button", { name: "Decline" })).toBeVisible();
+
+  // Sample Learner K. is still waiting for a Power BI batch (fresh seed): the request card is on Home
+  await page.evaluate(() => window.sessionStorage.clear());
+  await page.goto("/login");
+  await login(page, "NIT-STU-2026-004193");
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Preferred slot" })).toBeVisible();
   await expect(page.getByText("A request does not reserve a seat.").first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Changes needing your agreement" })).toBeVisible();
-  await expect(page.getByText("Reading a notice is not agreement.")).toBeVisible();
 });
 
 // Flows below change data: run against a freshly seeded staging database.
@@ -80,8 +90,8 @@ test("the branch manager confirms the proposed weekend batch", async ({ page }, 
 test("the student agrees to the timetable change", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.student);
-  await page.goto("/my-courses");
+  await page.goto("/dashboard"); // the change shows as a banner on Home
   await page.getByRole("button", { name: "Agree" }).first().click();
-  await page.getByRole("dialog").getByRole("button", { name: "Agree" }).click();
-  await expect(page.getByText("You agreed")).toBeVisible();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Agree" }).click();
+  await expect(page.getByText("Your answer is recorded.")).toBeVisible();
 });

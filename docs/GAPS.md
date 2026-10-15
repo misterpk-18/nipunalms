@@ -1,6 +1,6 @@
 # Gap register — LMS against approved modules 14–27
 
-Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & LMS/LMS MODULE/`, 14–27) with the code. Items already in [DEVELOPMENT.md Part E](DEVELOPMENT.md#part-e--backlog), [CRM_INTEGRATION.md §4](CRM_INTEGRATION.md#4-open-items) and WhatsApp / email delivery are left out. The fix order is in [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md); **Phase** is the plan phase, `CRM (D5)` means the CRM owns it (placement). Set **Status** to `Done (<commit>)` when a phase lands.
+Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & LMS/LMS MODULE/`, 14–27) with the code. Items already in [DEVELOPMENT.md Part E](DEVELOPMENT.md#part-e--backlog), [CRM_INTEGRATION.md §4](CRM_INTEGRATION.md#4-open-items) and WhatsApp / email delivery are left out. The fix order is in [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md); **Phase** is the plan phase, `CRM (D5)` means the CRM owns it (placement). Set **Status** to `Done (<commit>)` when a phase lands. `Partly (UX …)` marks a gap the UX plan ([UX_PLAN.md](UX_PLAN.md)) met in part. "Academic Coordinator" in the gap texts is the Branch Manager since UX phase U2; the plan for the open gaps is in [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md) (phase 7 is next, from `db/116`).
 
 109 gaps: 36 high, 62 medium, 11 low.
 
@@ -51,8 +51,8 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G041](#g041) | Medium | 24 AI Requirements | Reported AI answers all go to the Academic Coordinator; no Ask Trainer / Report Answer routing by issue type | 11 | Open |
 | [G042](#g042) | Medium | 24 AI Requirements | No way to disable AI with scope, reason, actor and restoration record | 3 | Done (phase 3) |
 | [G043](#g043) | Medium | 25 Reports & Dashboards | Role home dashboards do not carry the approved first three figures for Trainer, Academic Coordinator, Super Admin and Placement Team | 11 | Open |
-| [G044](#g044) | Medium | 25 Reports & Dashboards | No period selector, export formats, scheduled reports or report metadata/versioning | 11 | Open |
-| [G045](#g045) | Medium | 25 Reports & Dashboards | Academic dashboard lacks several required actionable measures and certificate queues/filters | 11 | Open |
+| [G044](#g044) | Medium | 25 Reports & Dashboards | No period selector, export formats, scheduled reports or report metadata/versioning | 11 | Partly (UX U15: period filter, drill-downs and CSV on Branch Reports; no Excel, PDF or scheduled reports) |
+| [G045](#g045) | Medium | 25 Reports & Dashboards | Academic dashboard lacks several required actionable measures and certificate queues/filters | 11 | Partly (UX U14, U15: My work, Attendance & progress and the Completion pipeline show the measures; not every approved measure) |
 | [G046](#g046) | Medium | 26 Notifications | Recipient can mark a notification's action as done; it is never tied to the source record | 10 | Open |
 | [G047](#g047) | Medium | 26 Notifications | Message centre lacks course/enrolment and date filters, a linked-record field, and staff Team/Branch views | 10 | Open |
 | [G048](#g048) | Medium | 26 Notifications | No revised or cancelled notice state; superseded notices are not linked | 10 | Open |
@@ -104,7 +104,7 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 | [G094](#g094) | Medium | Module 21 Attendance | No guardian or under-18 handling | 12 | Open |
 | [G095](#g095) | Medium | Module 22 Certificates | Reissue and correction has no request, approval or changed-field record | 3 | Done (phase 3) |
 | [G096](#g096) | Medium | Module 22 Certificates | Approval is not bound to identity, evidence and rule/template version, and there is no recheck before issue | 8 | Open |
-| [G097](#g097) | Medium | Module 22 Certificates | No bulk or paired review, no issue-register export, no dashboard filters or review-target clock | 8 | Open |
+| [G097](#g097) | Medium | Module 22 Certificates | No bulk or paired review, no issue-register export, no dashboard filters or review-target clock | 8 | Partly (UX U15: certificates CSV on Branch Reports; no bulk or paired review) |
 | [G098](#g098) | Medium | Module 22 Certificates | Certificate state model lacks processing, document-version and delivery dimensions | 8 | Open |
 | [G099](#g099) | Low | 24 AI Requirements | Ask Nipuna has no placement, certificate or fee sources and answers career questions with a canned text | 11 | Open |
 | [G100](#g100) | Low | 26 Notifications | No task is created when an assignment is three days overdue | 7 | Open |

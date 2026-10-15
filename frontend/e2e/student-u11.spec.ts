@@ -155,7 +155,13 @@ test("Support: guided form with an attachment opens the new request; a request w
   await expect(page.getByText(/run.exe is not a type we accept/)).toBeVisible();
 });
 
-test("My Account: Profile and Fees & Receipts replace two sidebar items; the avatar menu opens it", async ({ page }) => {
+test("My Account: Profile and Fees & Receipts replace two sidebar items; the avatar menu opens it", async ({ page, request }) => {
+  // a second device: the student is also signed in on Edge for Windows
+  const edge = await request.post("/api/v1/auth/login", {
+    data: { login: USERS.student, password: PASSWORD },
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0" },
+  });
+  expect(edge.ok()).toBeTruthy();
   await login(page, USERS.student);
   const nav = page.getByRole("navigation", { name: "Main" });
   for (const gone of ["Fees & Receipts", "Profile"]) await expect(nav.getByRole("link", { name: gone, exact: true })).toHaveCount(0);

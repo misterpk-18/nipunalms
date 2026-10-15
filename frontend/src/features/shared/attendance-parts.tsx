@@ -79,9 +79,7 @@ export function MeasureCards({ measures }: { measures: Measures }) {
       </Section>
       <Section title="4 · LMS engagement">
         <div className="flex items-center gap-2">
-          <Tag tone={engagement.level === "High" ? "success" : engagement.level === "Medium" ? "info" : engagement.level === "Low" ? "warning" : "neutral"}>
-            {engagement.level}
-          </Tag>
+          <StatusBadge domain="engagement" code={engagement.level} />
           <span className="text-sm text-muted-foreground">
             {engagement.events_in_window} activity event(s) in the last {engagement.window_days} days
           </span>

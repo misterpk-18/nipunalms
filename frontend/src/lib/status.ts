@@ -347,6 +347,13 @@ export const STATUS = {
     "Configuration Pending": s("Not set up", "warning", "Set-up is pending."),
     "Awaiting Approval": s("Awaiting a decision", "warning", "Waiting for a decision."),
   },
+  /** How active a student has been in the LMS lately. */
+  engagement: {
+    High: s("High", "success", "Visits the LMS often."),
+    Medium: s("Medium", "info", "Visits the LMS now and then."),
+    Low: s("Low", "warning", "Rarely visits the LMS. Worth a check-in."),
+    "Not started": s("No activity yet", "neutral", "Has not opened the LMS yet."),
+  },
   /** Ask Nipuna availability. */
   assistant: {
     "AI Available": s("Available", "success", "Ask Nipuna is on."),

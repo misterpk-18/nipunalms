@@ -5,7 +5,7 @@ import { useNavCounts, type NavCounts } from "@/api/nav";
 import type { Workspace } from "@/api/types";
 import { useAuth } from "@/auth/auth";
 import { useActing } from "@/auth/acting";
-import { NAV, STUDENT_ACCOUNT, isNavActive, homeWorkspace, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
+import { NAV, STUDENT_ACCOUNT, isNavActive, isWorkspaceRoot, homeWorkspace, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
 import { ActingAs } from "@/components/lms/acting-as";
 import { NotificationBell } from "@/components/lms/notification-bell";
 import { CommandPalette, SearchButton } from "@/components/lms/command-palette";
@@ -181,6 +181,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <GroupHeading items={items} index={index} />
                   <Link
                     to={item.to}
+                    activeOptions={{ exact: isWorkspaceRoot(item.to) }}
                     aria-current={isNavActive(path, item.to) ? "page" : undefined}
                     aria-describedby={countOf(item) ? badgeId("side", item) : undefined}
                     className={cn(
@@ -208,6 +209,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Fragment key={item.to}>
             <Link
               to={item.to}
+              activeOptions={{ exact: isWorkspaceRoot(item.to) }}
               aria-current={isNavActive(path, item.to) ? "page" : undefined}
               aria-describedby={countOf(item) ? badgeId("bar", item) : undefined}
               className={cn(

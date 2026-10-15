@@ -189,13 +189,39 @@ figure out what to do next."
 | U15. Branch: Curriculum, Content & questions, Marks, Attendance, Completion & certificates, Issues, Recordings, Support, Extensions, Reports | **Done** (db 113) | `02022c2` | L |
 | U16. Founder | **Done** (db 114) | `2eec410` | S |
 | U17. Super Admin | **Done** (db 115) | `ed48777` | M |
-| U18. Final sweep, then resume gap-fix phase 7 | To do | | S |
+| U18. Final sweep and docs, then resume gap-fix phase 7 | **Done** | `COMMIT18` | S |
 
 **Order matters:**
 - **Backend first.** U0–U2 change roles and rules that every later screen depends on.
 - **Shared parts next.** U3–U5 build the shared components the screen phases reuse.
 - **Messaging before sign-in.** U6 has to come before U7, because the reset code and the links need the sending path.
-- **Migrations.** `db/105` is U1, `db/106` is U2, `db/107` is U6, `db/108` is U7, `db/109` is U8, `db/110` is the WhatsApp status events (CRM round 6 reply) and `db/111` is U11, `db/112` is U12, `db/113` is U15 and `db/114` is U16 and `db/115` is U17 (U4, U5, U9, U10, U13 and U14 need none). Later phases take the next free number and record it here. Gap-fix phase 7 then starts after the last UX migration (`db/116` once U17 is in) (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+- **Migrations.** `db/105` is U1, `db/106` is U2, `db/107` is U6, `db/108` is U7, `db/109` is U8, `db/110` is the WhatsApp status events (CRM round 6 reply) and `db/111` is U11, `db/112` is U12, `db/113` is U15 and `db/114` is U16 and `db/115` is U17 (U4, U5, U9, U10, U13 and U14 need none). Later phases take the next free number and record it here. Gap-fix phase 7 starts at `db/116`, the first number after the last UX migration (see [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+
+## Gaps files (index)
+
+What each phase left unbuilt, with the owner actions and test debt that went with it, is in `docs/ux-gaps/`:
+
+| File | Phases | What it holds |
+|---|---|---|
+| [ux-gaps/U9-U12.md](ux-gaps/U9-U12.md) | U9, U10, U11, U12 | Telugu names in certificate PDFs, receipt PDFs, the email-change code by WhatsApp, question flags not saved; older fixed-date e2e debt |
+| [ux-gaps/U13-U14.md](ux-gaps/U13-U14.md) | U13, U14 | Trainer at-risk thresholds, the Batches "Next" tag, week calendar paging, My work and batch confirmation; `delivery.spec.ts` seed dependencies |
+| [ux-gaps/U15.md](ux-gaps/U15.md) | U15 | CSV-only exports, Recordings has no nav item, toast View links to tabs, recoveries and corrections not branch-filtered, the Branch Manager has no student page |
+| [ux-gaps/U16-U17.md](ux-gaps/U16-U17.md) | U16, U17 | Founder inbox gaps (other Branch Manager requests, no bell, AI budget not enforced), Super Admin gaps (manual "Working", audit sentences, retry for old events), their test debt |
+
+## Owner actions in one place
+
+Everything below needs a person outside this repository (the rows in the gaps files repeat these per phase).
+
+1. **Restart the :5060 API.** It has run without a reloader since 4 Oct, so it serves code from before migrations 102–104 and none of the new endpoints (`/me/schedule`, `/me/recordings` and `/me/progress` return 500 there; they return 200 on current code). The red "could not be loaded" cards on :5060 come from this. Restart :5174 only if its proxy or build is stale.
+2. **Apply db 111–115 to any other database** (anything besides `nipunalms-dev`, where they were applied in place): `psql -d <db> -v ON_ERROR_STOP=1 -1 -f db/111_*.sql`, then 112, 113, 114, 115 in order. A database that was not kept up to date also needs 105–110. Never rebuild `nipunalms-dev` without telling the CRM (student codes collide).
+3. **WhatsApp (round 6).** Submit the nine templates in Pinbot ([whatsapp-templates/](whatsapp-templates/README.md); replace `LMS_HOST` first). Then set `CRM_BASE_URL`, `app_settings.whatsapp_enabled` and `whatsapp_approved_templates` (`flask whatsapp status` shows why it is off). Until then nothing is sent and password reset by WhatsApp, activation links and class reminders do not reach anyone.
+4. **CRM questions for the next round document.**
+   - The CRM answered round 6 (`nipuna crm-docs/CRM_WHATSAPP_ROUND6_REPLY.md`, not committed): check its §2 differences against the LMS client (the `to` format, `Queued` as the normal answer, status back by `WhatsappStatusUpdated` events, switched off on its side until the LMS says so) before turning WhatsApp on.
+   - Does the CRM already issue receipt PDFs? (U11: the LMS prints only the figures in the finance summary.)
+   - A student's new email is not pushed to the CRM because no event carries it (U11).
+   - Round 4 request (date of birth and guardians, `PersonRestrictionsUpdated`, placement endpoints): still waiting for the CRM; it blocks gap-fix phases 10 (G057) and 12.
+5. **Give each Setup & health row an owner** and record how it was checked (U17); approve the monthly AI budget from the Founder's inbox (it is stored, not enforced yet).
+6. **On a server:** `deploy/crontab` already runs `flask jobs run`; the `curriculum-activate` job (U16) is what activates a version on the day the Founder chose. Set `PUBLIC_BASE_URL` so certificate PDFs print the verify link and QR code.
 
 ## Resuming in a new session
 
@@ -693,11 +719,33 @@ figure out what to do next."
   - Update `GAP_FIX_PLAN.md` phases 7–12 for the merged role and the new screens. Several of their screens now exist in their new form: assessments, completion, content, notifications, reports. They then only add the missing rules.
 - **Then resume gap-fix phase 7.**
 
+- **As built (15 Oct 2026).** U18 changed no migration and no endpoint; `API.md` and `DATABASE.md` are unchanged.
+  - **Clean baseline.** Everything ran on **scratch databases** (`nipunalms_sweeptpl-dev`, seeded once, copied to `nipunalms_sweep-dev` before every spec file; both dropped afterwards), a temporary API on :5061 and Vite on :5175 with the `WHATSAPP_*` variables blanked, so nothing could be sent and `nipunalms-dev`, :5060 and :5174 were never touched. Per-file reseeding is documented in [DEVELOPMENT.md](DEVELOPMENT.md) Part A.
+  - **What the sweep covered.** New `e2e/sweep-u18.spec.ts` (17 tests, desktop and phone):
+    - For each of the five roles: every link of the role's navigation opens without a server error, with a heading, no error card and none of the leftover spec words (the jargon list plus `undefined` / `NaN` / `[object Object]`); at 390px nothing scrolls sideways; in dark mode the page background is dark, every status and tone badge keeps at least 4.5:1 contrast (computed from the real colours), and exactly one nav item is current.
+    - Student: a class starting in 9 minutes shows a disabled Join with the reason until the Meet link is saved, then a Join link; Class Materials lists a recording and Watch opens it.
+    - Branch Manager: a trainer recommends, the Branch Manager decides Complete (Decide has no choice selected, the confirm states the consequence) and the student moves on in the pipeline.
+    - The jobs the existing specs already walk were re-run and pass: student submits a task and takes a test (`assessments`), certificate tracker, PDF and verification link (`student-u10`, `attendance`), trainer runs a class, grades and flags a student (`trainer-u12`, `trainer-u13`), Branch Manager creates a batch, allocates, creates classes, publishes results and issues a certificate (`branch-u14`, `branch-u15`, `delivery`, `assessments`, `attendance`), Founder approves a curriculum (`founder-u16`, `delivery`), Super Admin adds staff and retries a CRM update (`admin`, `admin-u17`).
+  - **Bugs fixed.**
+    - The Trainer's **Today** was marked as the current page on every trainer screen for screen readers (`aria-current` on two links); the router matched the workspace index link loosely. `isWorkspaceRoot` / `activeOptions={{ exact }}` in `auth/access.ts` and `app-shell.tsx`.
+    - The Founder's home printed "Meet organizer Pending Verification" and the Super Admin's Issues printed "Organizer account licence Pending Verification": the batch readiness reason (`services/batches.py`) and the seed text now read in plain words ("The Meet organizer is not verified yet").
+    - The Branch attendance screens coloured the LMS engagement level with a hand-made tone map; it is now `statusInfo("engagement", …)` in the dictionary.
+  - **Stale e2e fixed (wording, selectors, seed assumptions).** `assessments` (the trainer grades the seed's hand-ins for Sample Learners G. and H., and publishing is on Marks & results with its confirm), `attendance` and `governance` (the public verification page's new wording), `batch-operations` (the batch change and the preferred-slot card are on Home), `content` (the old exception queue is the Open problems list on Recordings), `delivery` (the New class dialog fills itself in from the batch, so the test waits for it; the Approve toast and one wording line), `services` (`/branch/requests` opens Student support), `student-u11` (the test now signs the student in on a second device itself instead of relying on leftovers from other specs).
+  - **Jargon and statuses.** The Conventions grep shows only comments and code identifiers (`outbox_id`, `OUTBOX_STATUSES`, `Pending Verification` as a data code that is labelled through `statusInfo`). No `toneFor`-style helpers, no hand-made status colour maps for statuses and no "Empty:" / "Saved:" prefixes remain. Tags that are labels, not statuses (Required / Optional, a branch, a role), keep their explicit tone.
+  - **Results on the clean database** (each spec file on its own fresh database): backend 903 passed in the first full run, and 902 passed in the final one: `test_branch_u14.py::test_my_work_lists_what_waits_in_the_decided_order` builds a class two hours ahead and fails after about 22:00 IST (it fails the same way on the code before U18), so it is a clock-dependent test, not a regression; `npx tsc --noEmit -p .` clean; Playwright desktop and mobile projects, 189 passed and 0 failed across the 23 spec files.
+  - **Still not clean, and why.**
+    - Clock-dependent tests: the backend test named above, and `trainer-u12` (and the steps of `dashboards-learning`, `delivery` and `attendance` that schedule a class for today) skip or fail after about 22:20 IST (the specs): they book a class an hour or two ahead and refuse to cross midnight. They passed at 22:07 IST. This is how the specs are written, not a defect; run them earlier in the day.
+    - The Setup & health notes for the two Meet organizers still read "Pending Verification": the text is written by migrations 001 and 060, which are history. The sweep exempts that one screen. Rewording needs a new migration (the next one is `db/116`, taken by gap-fix phase 7) or an edit on the Setup screen.
+    - Two earlier specs (`branch-u14.spec.ts`, `branch-u15.spec.ts`) fail the Prettier check; they were already like that.
+  - **Not checked.** There is no real WhatsApp (nothing is sent; the queue is covered by `test_whatsapp.py`), no real Google Meet or Drive (links are typed in; "Watch" opens the integration-not-connected message), no real CRM (a fake in the tests), no email, no payment. Telugu was checked only where existing specs cover it (`shell`, `student-u11`). Dark mode was checked by computed contrast and page colour, not by eye on every screen. A phone is a 390px viewport (Pixel 7 profile and a resized desktop), not a device. Empty states are covered only where a seed screen is empty; a role with no data at all was not walked. Loading skeletons and toasts were not asserted by the sweep.
+  - **Open gaps and owner actions.** The gaps files and the single owner list are above ([Gaps files](#gaps-files-index), [Owner actions](#owner-actions-in-one-place)). Gap-fix phase 7 (assessments, `db/116`) is next.
+
 ---
 
 ## Effects on the gap-fix plan (phases 7–12)
 
-- **Numbering and role.** Phases 7–12 start after the last UX migration. Every "Academic Coordinator" in them reads "Branch Manager".
+- **Done in U18** (the phase sections in [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md) are rewritten; the notes below are what was applied).
+- **Numbering and role.** Phases 7–12 start at `db/116`. Every "Academic Coordinator" in them reads "Branch Manager".
 - **Exception queue.** Phase 7–12 items about it use the U15 Issues inbox.
 - **Phase 10 (notifications and integrations).** The per-channel model and WhatsApp intake are mostly delivered by U5 and U6. What remains there is the CRM restrictions intake (G057).
 - **Phase 11 (reports and dashboards).** Builds on U4 counts, the "My work" lists and the U15 report exports.
@@ -709,9 +757,5 @@ figure out what to do next."
 - **PDFs are new.** Certificate and receipt PDFs need a server-side renderer (no PDF generation exists today). Choose the library in U10.
 - **Mapping removal changes what the CRM sees.** No admission waits for curriculum any more. Tell the CRM in the round 6 document so its "Waiting for batch" expectations match.
 - **Dev database.** Apply migrations in place. Rebuilding `nipunalms-dev` collides student codes with the CRM's stale `lms_user_id` values; if a rebuild is unavoidable, tell the CRM first so it can run `flask lms backfill`.
-- **Known failing e2e before these phases:**
-  - two `assessments.spec.ts` tests (fixed seed dates)
-  - `admin.spec.ts` "student accounts"
-  - `dashboards-staff.spec.ts` "logs a recovery step" (fixed in U1)
-  - The rest are rewritten as their screens change.
+- **E2E on a clean database.** Run each spec file on its own freshly seeded scratch database (DEVELOPMENT.md Part A). After U18 every spec passes that way, except that the specs that book a class for today cannot run after about 22:20 IST (see the U18 "As built" block).
 - **The owner's servers.** :5060 has no reloader; restart it after each phase. All checks use :5061 / :5175.

@@ -188,6 +188,9 @@ export function mobileBarItems(workspace: Workspace): NavItem[] {
 
 const WORKSPACE_ROOTS = ["/trainer", "/branch", "/admin", "/founder"];
 
+/** True for a workspace's index link (`/trainer`, `/branch`, …): the router must match it exactly, or it would be "current" on every page below it. */
+export const isWorkspaceRoot = (to: string) => WORKSPACE_ROOTS.includes(to);
+
 /** Workspace index links match exactly; every other item is active for its own sub-paths too. */
 export function isNavActive(path: string, to: string): boolean {
   return path === to || (!WORKSPACE_ROOTS.includes(to) && path.startsWith(`${to}/`));

@@ -10,6 +10,7 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
 - **Placement:** the LMS keeps the learning side only: internship records, career profile, CV review, and the support period tied to completion. Placement cases, opportunities, interviews and outcomes go to the CRM (D5) in the round 4 request.
 - **Under-18 learners:** the CRM sends date of birth and guardian details in `AdmissionQualified` (round 4). The LMS stores them and applies the rules.
 - **Email:** deferred along with WhatsApp. The per-channel notification model is built now, with in-app as the only live channel.
+- **After the UX plan (10-12 Oct 2026):** the Academic Coordinator role no longer exists. [UX_PLAN.md](UX_PLAN.md) merged it into the **Branch Manager** (db 106), so every "Academic Coordinator" below reads "Branch Manager" (a Branch Manager's *own* requests go to the Founder / Super Admin). Exception-queue items use the **Issues** inbox (`/branch/issues`, `/admin/issues`). Migrations 104-115 are taken, so the next phase starts at **`db/116`**.
 - **Delivery:** one commit per phase, directly on `main`.
   - Each commit carries its own migration, tests and doc updates.
   - No co-author trailer (memory rule).
@@ -24,20 +25,20 @@ Several gaps are bugs or privacy leaks in features that are already built. The r
 | 4. Academic calendar and working days | Done | `be996e1` | G063 G064 G091, plus the "Review clocks" backlog item | — |
 | 5. Curriculum model (Module 14) | Done | `506a7e7` | G013 G014 G058 G059 G060 G061 | — |
 | 6. Batches and delivery (Modules 15, 16) | Done | `2953780` | G015 G016 G017 G018 G019 G062 G065 G066 G067 G068 G069 G070 G071 G072 G101 G102 G103; G104 in part | G104's recording states (moved to phase 9) |
-| 7. Assessments (Modules 19, 20) | **Next** | | | G023 G026 G027 G080 G081 G082 G083 G084 G085 G086 G087 G088 G089 G090 G100 G107 G108 |
+| 7. Assessments (Modules 19, 20), `db/116` | **Next** | | | G023 G026 G027 G080 G081 G082 G083 G084 G085 G086 G087 G088 G089 G090 G100 G107 G108 |
 | 8. Attendance, completion, certificates | To do | | | G002 G030 G092 G093 G096 G097 G098 G109 |
 | 9. Content and recordings | To do | | | G020 G021 G073 G074 G075 G076 G077 G078 G079 G105 G106, G104 (recording states) |
-| 10. Notifications and integrations | To do | | | G046 G047 G048 G049 G050 G051 G052 G053 G054 G055 G057 |
+| 10. CRM restrictions intake (the rest of notifications and integrations) | To do | | | G057, plus what U5 and U6 left of G046-G055 |
 | 11. Reports, dashboards and AI | To do | | | G009 G041 G043 G044 G045 G099 |
 | 12. Career and guardians (after CRM round 4) | To do | | | G003 G007 G011 G037 G040 G094 |
 | CRM-owned placement (D5) | Not LMS work | | | G001 G004 G005 G006 G008 G038 G039 |
 
-42 of 109 gaps closed (G104 in part); the backend suite is at 660 passing. The status column in [GAPS.md](GAPS.md) is the source of truth. Mark a gap `Done (phase N)`
-there when its phase lands. Migrations used so far: 099–105 (104 is the round-5 CRM curriculum removal, 105 the UX phase U1 removal of Curriculum Mapping Pending).
+42 of 109 gaps closed (G104 in part; G044, G045 and G097 are partly met by the UX plan); the backend suite is at 903 passing. The status column in [GAPS.md](GAPS.md) is the source of truth. Mark a gap `Done (phase N)`
+there when its phase lands. Migrations used so far: 099–115 (104 is the round-5 CRM curriculum removal, 105–115 belong to the UX plan, see [UX_PLAN.md](UX_PLAN.md)); the next free number is **116**.
 
-**Paused for the UX plan (10 Oct 2026).** [UX_PLAN.md](UX_PLAN.md) runs first: it removes Curriculum Mapping Pending
-(`db/105`, done), merges the Academic Coordinator into the Branch Manager (`db/106`) and redesigns every screen. Phase 7 starts
-after the last UX migration, and phases 7–12 are rewritten in UX phase U18 for the merged role and the new screens.
+**The UX plan is finished (U0–U18, 12 Oct 2026).** It removed Curriculum Mapping Pending (`db/105`), merged the Academic Coordinator into the
+Branch Manager (`db/106`) and redesigned every screen (`db/107`–`115`). Phases 7–12 were rewritten in U18 for the merged role, the
+Issues inbox and the screens that now exist. Phase 7 is next.
 
 ## Resuming in a new session
 
@@ -64,7 +65,7 @@ Start here before phase 7.
 4. **Update the docs:**
    - `API.md`: endpoints and rules.
    - `DATABASE.md`: one row in the migration table and a `## NNN —` section.
-   - `DEVELOPMENT.md`: Part B screens, Part E backlog (remove what closed, add what is left), Part F jobs.
+   - `DEVELOPMENT.md`: Part B screens, Part E backlog (remove what closed, add what is left), Part F jobs. The phase sections below say which screens **already exist** after the UX plan: change those, don't rebuild them.
    - `GAPS.md` status, and the progress table above.
 5. **Commit** once per phase on `main`, in the style of `Gap fix phase N: …`, with **no co-author trailer**.
 
@@ -74,12 +75,12 @@ Start here before phase 7.
 - **Catalog fixture:** it creates a role-less user "Curriculum Reviewer" and records the booster (NIT-CRS-019) equivalence review. Tests that count users or list staff must allow for it.
 - **Certificates:**
   - They need a cleared fee (`attendance_world.set_fee(run_sql, enrolment_id, balance=0)`).
-  - Completion needs a trainer's Complete recommendation before the coordinator decides.
+  - Completion needs a trainer's Complete recommendation before the Branch Manager decides.
   - Corrections, revocations and reinstatements go through `/certificates/{id}/change-requests` and `/certificate-requests/{id}/decision`.
 - **Curriculum:**
   - A draft is submitted only when complete. Use `complete_draft()` from `tests/test_delivery.py`.
   - Approve, activate and retire are Founder / CEO or Super Admin only.
-- **Exception queue:** Curriculum Mapping Pending enrolments get a named owner automatically, so they no longer count as "awaiting owner".
+- **Exception queue:** it is the **Issues** inbox now (`GET /issues`, UX U15); Curriculum Mapping Pending no longer exists (db 105).
 - **Batches (phase 6):**
   - The database refuses Forming → Starting. A test that moves states in SQL walks Proposed, then Starting with
     `confirmed_at` / `confirmed_by`; fixtures that insert a batch with `state="Running"` are unaffected.
@@ -89,9 +90,9 @@ Start here before phase 7.
   - A session inserted as Delivered gets `delivery_outcome = 'Held'` from a trigger.
   - Batch completion is refused while a cancelled regular class owes a replacement or a student still owed teaching has
     no handover.
-- **Failing e2e regardless of these phases:** two `e2e/assessments.spec.ts` tests (fixed seed dates that have passed),
-  `admin.spec.ts` "student accounts" (fails on the phase 5 frontend too). `dashboards-staff.spec.ts` "logs a recovery
-  step" was fixed in UX phase U1 (it now logs a step on an Allocation row).
+- **E2E:** run each Playwright spec file on a freshly seeded **scratch** database, never on `nipunalms-dev` (DEVELOPMENT.md Part A,
+  "Databases"). The UX sweep (U18) did this for every spec; the few that still fail and why are in the U18 "As built" block of
+  [UX_PLAN.md](UX_PLAN.md).
 
 **Shared helpers built so far:**
 - `services/approvals.require_independent(*involved_user_ids, message=)`: the independent-approver rule, as a 422.
@@ -100,7 +101,7 @@ Start here before phase 7.
 - `services/calendar`: company holidays and branch closures, and the classes they affect.
 - `services/certificate_requests`: change requests and fee exceptions.
 - `services/ai_controls`: switching AI off and restoring it.
-- `services/academic_mappings`: equivalence rules, mappings and credits, and the Mapping Pending owner.
+- `services/academic_mappings`: equivalence rules, mappings and credits (the Mapping Pending owner is gone since U1).
 - `services/curriculum_variations` and `services/curriculum_library`.
 - Phase 6:
   - `services/batch_changes` (capacity requests, material changes and agreement, merge / split),
@@ -124,7 +125,7 @@ Start here before phase 7.
 ## Conventions every phase follows
 
 - **Migrations:**
-  - One numbered file per phase, starting at `db/099_*.sql`.
+  - One numbered file per phase, starting at `db/099_*.sql`; the next free number is `db/116` (UX phases took 104–115).
   - Header lines are `-- NNN: purpose` and `-- Depends on:`.
   - Every file must replay cleanly from an empty database, because `flask create-test-db` and `create-dev-db` rebuild from scratch.
   - Enum CHECKs are dropped and re-added with the full list.
@@ -147,7 +148,7 @@ Start here before phase 7.
   - Role tests use the existing matrix style: 403 for a role without permission, 404 for another branch, 422 for a business rule.
 - **Each commit:**
   - The full `pytest` run passes, and `npx tsc --noEmit` passes.
-  - Playwright runs for the touched screens.
+  - Playwright runs for the touched screens, on a scratch database.
   - Update `docs/API.md` and `docs/DATABASE.md`, and remove closed items from `DEVELOPMENT.md` Part E.
   - Reseed the dev database with `flask create-dev-db` and the seed.
 
@@ -366,109 +367,127 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 - **API only (Part E):** staff handling of slot requests, a picker for another branch's batches, and id fields for topics,
   participants and disruption owners.
 
-## Phase 7: assessments (Modules 19 and 20) (migration 105)
+## Phase 7: assessments (Modules 19 and 20) (migration 116)
 
-**Gaps:** G023 G026 G027 (high); G080–G090 (medium); G100 G107 G108 (low). Link required work to phase 5's `curriculum_assessment_requirements`; review targets already exist (`services/review_clock`).
+**Gaps:** G023 G026 G027 (high); G080–G090 (medium); G100 G107 G108 (low). Link required work to phase 5's `curriculum_assessment_requirements`; review targets already exist (`services/review_clock`). "Academic Coordinator" in the module text is the **Branch Manager**; their own requests go to the Founder.
+
+**Screens that already exist (UX U9, U13, U15). Add the rules to these, don't build new ones:**
+- Student: **Tasks & Tests** (`/tasks`, To do / Waiting for review / Done), the assignment page (brief first, Submit near the top), the test page (start confirm, question navigator, submit warning, receipt), **My Progress → Results**.
+- Trainer: **To grade** inbox and the focused grading screen (explicit Start review, Save & next), **Assignments**, **Assessments** (Question bank → Tests → Interviews tabs, drafts editable, Release and Close ask first).
+- Branch Manager: **Marks & results** (`/branch/results`: review, moderation, Publish with counts) and the question approval tab of **Content & questions**.
+- Items that need a decision or a fix (an attempt incident, an overdue review) go to the **Issues** inbox and **My work**, not a new queue.
 
 - **Required work must come from the curriculum:**
-  - `assignments` and `tests` reference a `curriculum_assessment_requirement_id`. `is_required` is derived from it, so trainers can't invent required work.
-  - Add `rubrics` and `rubric_criteria`, plus weight and pass rule. A required item can't be released without them.
+  - `assignments` and `tests` reference a `curriculum_assessment_requirement_id`. `is_required` is derived from it, so trainers can't invent required work (the Required / Optional tag already shows on the Trainer Assignments list and the student pages).
+  - Add `rubrics` and `rubric_criteria`, plus weight and pass rule. A required item can't be released without them (the Release confirm on Assessments lists what is missing).
 - **Assignment targeting:** add `assignment_targets` (whole batch, selected enrolments, or individual recovery), each with a reason.
-- **Brief versions:** add `assignment_versions`. Each student keeps the version they were given. A material change after release needs Academic Coordinator review and notice.
+- **Brief versions:** add `assignment_versions`. Each student keeps the version they were given. A material change after release needs Branch Manager review and notice.
 - **Submissions:**
-  - Pre-deadline replacement is blocked once `review_started_at` is set.
+  - Pre-deadline replacement is blocked once `review_started_at` is set (the grading screen already has an explicit Start review that sets it).
   - Repository and link submissions store the commit, release or version and the access scope. The link is checked at review time.
-- **Completion dimension:** Pending, Completed or Excused. Excused needs Academic Coordinator approval.
+- **Completion dimension:** Pending, Completed or Excused. Excused needs Branch Manager approval.
 - **Final projects:** add `project_milestones` and `project_vivas`, plus contribution evidence.
 - **AI-use rule:** enforce the rule. A disclosure (tool, assistance, what the student checked) is required when the rule needs one.
 - **Tests:**
   - Add `latest_start_at`. Starting checks the curriculum version and prerequisites.
-  - Practice quizzes show explanations and correct answers after submission, plus latest and best scores.
-  - Coding tests get language, limits, an I/O contract, and sample/hidden cases. The Academic Coordinator approves the cases; hidden cases are hidden from unauthorised staff.
+  - Practice quizzes show explanations and correct answers after submission, plus latest and best scores (the receipt screen already says where the result will appear).
+  - Coding tests get language, limits, an I/O contract, and sample/hidden cases. The Branch Manager approves the cases; hidden cases are hidden from unauthorised staff.
   - Question metadata: curriculum version compatibility, outcome, language, rights and history.
-- **Attempt incidents:** add `attempt_incidents`. The Academic Coordinator authorises restored time, continuation or a replacement attempt. An institute-side failure does not use up an attempt.
+- **Attempt incidents:** add `attempt_incidents`. The Branch Manager authorises restored time, continuation or a replacement attempt (the item appears on My work and Issues). An institute-side failure does not use up an attempt.
 - **Jobs:**
-  - `assignment-overdue-review`: a trainer support-review task at 3 days overdue.
+  - `assignment-overdue-review`: a trainer support-review task at 3 days overdue (shows in the trainer's Today **To do** list).
   - `assessment-unattempted`: a support or reassessment task after a window closes, never an automatic zero.
 
-## Phase 8: attendance, completion and certificates (Modules 21, 22 and the learning side of 23) (migration 105)
+## Phase 8: attendance, completion and certificates (Modules 21, 22 and the learning side of 23) (next migration)
 
 **Gaps:** G002 G030 (high); G092 G093 G096 G097 G098 (medium); G109 (low). Also apply phase 5's per-version `completion_profile` in Completion Review. G093 (under-18) depends on CRM round 4.
+
+**Screens that already exist (UX U10, U12, U15). Add the rules to these:**
+- Student: **My Progress** (Overview, Attendance with Request recovery and Report a mistake, Results) and **Certificates** (the 3-step tracker, the blocker in plain words, Download PDF, Copy verification link).
+- Trainer: **Attendance** as "Unmarked & corrections", the register inside **Today**'s flow.
+- Branch Manager: **Attendance & progress** (students below the alert first, recovery and correction queues with counts) and **Completion & certificates** (the pipeline Ready to decide → Completed → Waiting for fee → Ready to issue → Issued, evidence ticks, Decide with no default, correction / revocation / fee release under More). **Reports** already exports a certificates CSV (the start of G097).
+- The Founder decides certificate corrections, revocations, reinstatements and fee releases from **Certificate decisions** (U16).
 
 - **Attendance:**
   - Add a **Disputed** flag on attendance records. Pending and Disputed rows are excluded from both sides of the calculation.
   - Progress shows the cutoff, coverage and a `Provisional` / `Not Yet Calculable` label.
   - An approved pause (`enrolment_pauses` if it's missing) changes expectations and suppresses inactivity alerts.
-  - A correction after completion keeps the original approval, flags an academic review, and records a recalculation trace.
+  - A correction after completion keeps the original approval, flags an academic review (an Issues item), and records a recalculation trace.
   - Add `participation_mode` (in-person or online) on hybrid entries.
 - **Certificates:**
   - Approval is bound to an evidence snapshot hash and the rule and template versions. Eligibility is rechecked immediately before issue.
-  - Add bulk and paired review.
-  - Add separate processing, document and delivery dimensions. Delivery is in-app only for now.
-  - Add an issue-register CSV export and dashboard filters.
-- **Internships:** add `internship_programmes` and `internship_records` (organisation, supervisor, dates, verified duration and work, Academic Coordinator verification). These open Internship Certificate eligibility.
+  - Add bulk and paired review (on the Completion pipeline).
+  - Add separate processing, document and delivery dimensions. Delivery is in-app only for now. The PDF itself exists (U10).
+  - The issue-register CSV and dashboard filters build on the existing Reports export.
+- **Internships:** add `internship_programmes` and `internship_records` (organisation, supervisor, dates, verified duration and work, Branch Manager verification). These open Internship Certificate eligibility.
 
-## Phase 9: content and recordings (Modules 17 and 18) (migration 106)
+## Phase 9: content and recordings (Modules 17 and 18) (next migration)
 
 **Gaps:** G020 G021 (high); G073–G079 (medium); G105 G106 (low). Guardian authorisation for recordings waits for phase 12.
+
+**Screens that already exist (UX U10, U13, U15). Add the rules to these:**
+- Student: **Class Materials** (Recordings / Files tabs, one access line per course with Request extension, "How access works").
+- Trainer: **Content** (Save & submit for review, the reviewer's comment on a returned row).
+- Branch Manager: **Content & questions** (one Review with a preview, Approve & release with a confirm, Request changes, Reject), **Recordings** (pick the class, Release with a confirm, Report a problem with a plain reason) and **Student support → Access extensions** (within the limit the Branch Manager approves; beyond it a recommendation goes to the Founder's **Access extensions**).
+- Recording problems and missing recordings arrive in the **Issues** inbox.
 
 - **Recordings:**
   - Add a recording notice and acknowledgement (student and trainer). Guardian authorisation comes in phase 12.
   - Add milestone timestamps: Configured, Started, File Generated, Playback Ready, Released. Add the exception states Review Required and Failed.
-  - The release gate expands to the 7 checks.
+  - The release gate expands to the 7 checks (shown in the Release confirm on Recordings).
   - Add `recording_versions`. An edit to a published recording needs independent review.
   - Downloads need an approved exception record.
-  - Staff can record an extension request on a student's behalf.
+  - Staff can record an extension request on a student's behalf (G075; the Access extensions tab has no "on behalf" action yet).
   - Expiry shows a date and time (end of day IST). A new job `recording-expiry-notice` warns students before expiry.
 - **Content:**
   - Add asset metadata: owner, version, source and rights, reviewer, size, duration or study time. Add the types slides, handouts, images and notebooks.
-  - External links get an owner, rights and checked-at fields. A new job `content-link-check` raises a broken-link exception and withdraws the link.
-  - The student library gets Recently Added/Updated and the states Scheduled, Temporarily Unavailable and Withdrawn, with explanations. Add scheduled release (closes a backlog item).
+  - External links get an owner, rights and checked-at fields. A new job `content-link-check` raises a broken-link exception (an Issues item) and withdraws the link.
+  - The student library gets Recently Added/Updated and the states Scheduled, Temporarily Unavailable and Withdrawn, with explanations (as statuses in `lib/status.ts`). Add scheduled release (closes a backlog item).
   - Batch materials stay available after a transfer, following historical access rules.
   - Add download and playback events. Unsupported tracking shows "Not Recorded".
 
-## Phase 10: notifications and integrations register (Modules 26 and 27) (migration 107)
+## Phase 10: CRM restrictions intake (the rest of notifications and integrations) (next migration)
 
-> **After UX phases U5 and U6** (`db/107` is now `whatsapp_outbox`, so this phase takes a later number): the inbox with one status per item, the bell preview, the per-channel preferences (`live` channels only) and WhatsApp through the CRM (queue, jobs, nine templates, triggers) are built. What remains here is the per-attempt delivery states and status callback, revised / cancelled notices, the message-centre filters and team views, template versions, on-duty cover, the CRM notices and G057 (consent intake). To be rewritten in U18.
+> **After UX phases U5, U6 and U17 this phase is small.** Built already: the inbox with one status per item (New / Needs action / Done), the bell preview, per-channel preferences (`live` channels only), WhatsApp through the CRM (queue, jobs, nine templates, triggers; switched off until the CRM endpoint and the Pinbot templates exist) and **Setup & health**, the merged integrations and security register with plain states and an owner. What remains is the **CRM restrictions intake (G057)**; the other items of G046–G055 are optional and listed below only for completeness.
 
-**Gaps:** G046–G055, G057 (medium). G057 (consent / stop-contact intake) depends on CRM round 4 (A2).
+**Gap to build:** G057 (consent / stop-contact intake) depends on CRM round 4 (A2).
 
-- **Notification model:**
-  - Add `notification_messages` (one logical notice) and `notification_attempts` (per channel; in-app is live, email and WhatsApp stay Queued/Suppressed until enabled).
-  - States: Queued, Suppressed/Obsolete, Sending, Accepted, Delivered, Failed, Uncertain, Staff Recovery Required.
-  - Add revised and cancelled notices that link to the notice they replace.
-  - A required action links to its source record. A recipient can no longer close a task just by acknowledging the notice.
-- **Message centre:** filters for course/enrolment and date; My, Team and Branch views for staff.
-- **Preferences:** a history table, plus language and timing preferences. Add `notification_templates` with versions; each message records its template version and language.
-- **CRM notices:** cancellation, payment and refund events notify the student and staff. A provisioning failure creates a recovery task.
-- **On-duty cover:** add an `on_duty_roster` per role and branch. Notices go to whoever is on duty. A missing roster raises a configuration exception.
-- **Integrations register:**
-  - Statuses: Pending Verification, Manual, Planned, Live Verified.
-  - Add the mandatory per-connection fields and manual-fallback records.
-- **Freshness:** add a `freshness_threshold_minutes` setting per CRM source. Stale or unavailable data is shown as such, never as zero.
-- **CRM restrictions intake:** consent, stop-contact and offboarding (depends on round 4).
+- **CRM restrictions intake (G057):** consent, stop-contact, WhatsApp opt-out and access-offboarding state from the CRM. It suppresses sends (`services/whatsapp.py` rules) and shows on the student's page in **Student accounts** (U17). A restriction that cannot be applied raises an **Issues** item.
+- **Left over from G046–G055, only if the owner wants them:**
+  - Per-attempt delivery states and the status callback (db 110 already stores the CRM's WhatsApp status events); revised and cancelled notices that link to the notice they replace.
+  - Message-centre filters (course, date) and team / branch views for staff; preference history, language and timing; template versions.
+  - Notices for cancellation, payment and refund events from the CRM; an on-duty roster per role and branch.
+  - Setup & health states beyond the plain four (Manual, Planned, Live Verified) and the mandatory per-connection fields; a `freshness_threshold_minutes` setting per CRM source (stale data shown as stale, never zero).
 
-## Phase 11: reports, dashboards and AI (Modules 25 and 24) (migration 108)
+## Phase 11: reports, dashboards and AI (Modules 25 and 24) (next migration)
 
 **Gaps:** G009 (high); G041 G043 G044 G045 (medium); G099 (low). The placement parts of G009 wait for the CRM (D5).
+
+**Builds on the UX plan (U4, U12–U17):**
+- **Nav counts** (`GET /me/nav-counts`) and **My work** (Branch Manager) / **Today** (trainer) already carry the "first figures" each role looks at. Phase 11 checks them against the approved first three figures per role instead of adding dashboards.
+- **Branch Reports** (`/branch/reports`) already has the period filter (default this month, last month, last 90 days, custom), a drill-down link behind every figure, six-month trends and CSV downloads (`services/exports.py`, `GET /branch/reports/export`). Extend the period list, add the report envelope and make the other roles' reports (trainer **Reports**, Founder home) use the same services.
+- The Founder's **inbox** and the Super Admin's **Needs action** are the decision lists; do not add parallel dashboards.
 
 - **Period selector:** Today, Yesterday, This/Last Week (Monday to Sunday, IST), This/Last Month, Custom. Every report service takes `period_from` and `period_to`.
 - **Report envelope:** each report carries Period, Scope, Filters, Cutoff, Last Refresh, Completeness, Requested by and Generated at.
 - **Exports:**
-  - Add `services/exports.py`: CSV with the standard library, Excel with **openpyxl**, PDF with **reportlab**, plus a print stylesheet.
+  - Extend `services/exports.py` (CSV exists): Excel with **openpyxl**, PDF with **reportlab**, plus a print stylesheet.
   - Add a `report_exports` audit table. Exports are limited to the user's scope.
   - Add `scheduled_reports` (schema and job; email delivery deferred).
 - **Dashboards:**
-  - Role home dashboards show the approved first three figures for Trainer, Academic Coordinator and Super Admin.
-  - The academic dashboard adds students below the attendance minimum, missing or awaiting-review required work, open support, committed-start risk, planned vs delivered hours, and separate certificate queues.
+  - The academic figures (students below the attendance minimum, missing or awaiting-review required work, open support, committed-start risk, planned vs delivered hours, separate certificate queues) are added to Branch **Reports** and **My work**, using U4 counts.
+  - The Super Admin's Home stays a "Needs action" list (U17); add only what Module 25 requires there.
 - **Learning-side career report:** opted-in students, CV reviews, internships, readiness. Placement figures wait for the CRM.
 - **AI:**
-  - Reported answers are routed by type: academic to the Academic Coordinator with trainer input, financial to Super Admin, branch operations to the Branch Manager, privacy issues to Super Admin, policy to the Founder.
+  - Reported answers are routed by type: academic to the Branch Manager with trainer input, financial to Super Admin, branch operations to the Branch Manager, privacy issues to Super Admin, policy to the Founder (they arrive in **Issues** / **Student support**).
   - Ask Nipuna gets read-only sources for certificates and fee summaries, with dates, plus a "Data unavailable" answer.
+  - Enforce the monthly rupee ceiling the Founder approves from the inbox (`app_settings.ai_monthly_ceiling_inr`; U16 stores it, nothing reads it yet) and add a screen to change an approved amount.
 
-## Phase 12: career (learning side) and guardians (migration 109, after CRM round 4)
+## Phase 12: career (learning side) and guardians (next migration, after CRM round 4)
 
 **Gaps:** G003 G007 G011 (high); G037 G040 G094 (medium). Placement gaps G001 G004 G005 G006 G008 G038 G039 are CRM-owned (D5).
+
+**Screen that already exists (UX U11):** the student **Career** page (a four-step checklist Opt in → Profile → CV reviewed → Share with employers; Apply disabled with "Needs: …" and a link; profile, CV versions, opportunities, applications). Add the rules to it. Career staff work is done by the Branch Manager and Super Admin (there is no Placement Team role).
 
 - **Career support period:**
   - It is tied to the qualifying enrolment's approved completion (six months, late opt-in keeps the remaining time) and is enforced.
@@ -487,9 +506,9 @@ Mirror the CRM's EC2 setup (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C):
 - **Backend services:** `questions.py`, `attempts.py`, `notifications.py`, `certificates.py`, `crm.py`, `content.py`, `curriculum.py`, `batches.py`, `batch_allocations.py`, `class_sessions.py`, `assignments.py`, `submissions.py`, `tests.py`, `completion.py`, `recordings.py`, `academic_reports.py`, `dashboards.py`, `jobs.py`, `ask_nipuna.py`
 - **New backend modules:** `approvals.py`, `exports.py`, `config/working_days.py`
 - **Repositories:** `questions.py`, `notifications.py`, `tests.py`, `content.py`
-- **Database:** `db/040_attendance_certificates.sql` (views, recreated in 099), new `db/099`–`db/109`
+- **Database:** `db/040_attendance_certificates.sql` (views, recreated in 099), new `db/116` onwards (`db/099`–`db/115` are done)
 - **Frontend:**
-  - `features/academic/` (curriculum, batches, batch-panel, schedule, assessments, certificates, completion, content-review, reports)
+  - `features/branch/` (batches, schedule, results, completion, content, recordings, issues, reports) and `features/academic/` (curriculum, batch-panel, class-operations); `features/trainer/` (to-grade, assessments, content, reports); `features/founder/` (inbox and panels)
   - `features/shared/` (certificate-register, notification-centre)
   - `features/founder/dashboard.tsx`
   - `features/student/` (resources, recordings, tests)

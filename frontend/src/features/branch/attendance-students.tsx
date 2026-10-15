@@ -6,7 +6,7 @@ import { attendanceApi, type ProgressBlock, type ProgressRow } from "@/api/atten
 import { deliveryApi } from "@/api/delivery";
 import { EmptyState } from "@/components/lms/empty-state";
 import { NativeSelect } from "@/components/lms/forms";
-import { DataTable, LoadingSkeleton, QueryView, StatusNote, Tag } from "@/components/lms/ui";
+import { DataTable, LoadingSkeleton, QueryView, StatusBadge, StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -18,8 +18,7 @@ const PER_PAGE = 25;
 const batchName = (b: { display_name?: string | null; batch_code: string }) => b.display_name ?? b.batch_code;
 
 function Engagement({ level }: { level: ProgressRow["engagement"]["level"] }) {
-  const tone = level === "High" ? "success" : level === "Medium" ? "info" : level === "Low" ? "warning" : "neutral";
-  return <Tag tone={tone}>{level === "Not started" ? "No activity yet" : level}</Tag>;
+  return <StatusBadge domain="engagement" code={level} />;
 }
 
 export function StudentsTab({

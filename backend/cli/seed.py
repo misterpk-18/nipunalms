@@ -155,7 +155,7 @@ BATCHES = {
                trainers=[], crm="CRM-BAT-103", fillers=3),
     "V1": dict(code="NIT-VIJ-BAT-2026-000001", course="NIT-CRS-007", branch=VIJ, version="CV 4.0", capacity=25,
                mode="Live Online", state="Starting", readiness="Pending Verification",
-               reason="Meet organizer Pending Verification", recovery_owner="Super Admin", start=date(2026, 9, 30),
+               reason="The Meet organizer is not verified yet", recovery_owner="Super Admin", start=date(2026, 9, 30),
                end=date(2027, 1, 15), trainers=["trainer_v1"], crm="CRM-BAT-201", fillers=16),
     "V2": dict(code="NIT-VIJ-BAT-2026-000002", course="NIT-CRS-019", branch=VIJ, version="CV 1.3", capacity=20,
                mode="Classroom", state="Running", start=date(2026, 8, 24), end=date(2026, 11, 20),
@@ -551,7 +551,7 @@ def seed_delivery(ctx: SeedContext) -> None:
                                      meet_link=session.meet_link, detail="Entered manually", actor_user_id=ctx.users["bm_gnt"]))
         elif session.meet_status == "Unavailable":
             db.session.add(MeetEvent(session_id=session.session_id, event_type="Association failed", meet_status="Unavailable", organizer_email=mailbox,
-                                     detail="Organizer account licence Pending Verification", actor_user_id=ctx.users["bm_vij"]))
+                                     detail="The organizer account licence is not verified yet", actor_user_id=ctx.users["bm_vij"]))
 
 
 PAYMENT_INSTRUCTIONS = {
@@ -598,9 +598,9 @@ def seed_admin_readiness(ctx: SeedContext) -> None:
 
     integrations = {i["integration_code"]: i for i in call("get", "/integrations")}
     call("patch", f"/integrations/{integrations['GOOGLE_MEET']['integration_id']}",
-         {"notes": "Organizer licences for both branch mailboxes are Pending Verification; nothing is Live Verified"})
+         {"notes": "The organizer licences for both branch mailboxes are not verified yet; nothing is confirmed working"})
     call("patch", f"/integrations/{integrations['CRM']['integration_id']}",
-         {"notes": "Inbound events supported; outbound delivery worker not built yet (values are queued in the outbox)"})
+         {"notes": "Inbound events supported; outbound delivery worker not built yet (updates for the CRM wait in a queue)"})
 
     controls = {c["control_code"]: c for c in call("get", "/security-controls")}
     for code, evidence in (
@@ -1129,7 +1129,7 @@ def seed_recordings(ctx: SeedContext) -> None:
     register("SES-000104", gnt, status="Unavailable")
     register("SES-000201", vij, status="Unavailable")
     _call(ctx, "post", "/recording-exceptions", trainer_v, json={"session_id": sessions["SES-000201"], "issue_type": "Integration Unavailable",
-                                                                  "issue": "Organizer account licence Pending Verification"})  # RX-0014
+                                                                  "issue": "The organizer account licence is not verified yet"})  # RX-0014
     register("SES-000095", vij, status="Unavailable")
     _call(ctx, "post", "/recording-exceptions", vij, json={"session_id": sessions["SES-000095"], "issue_type": "Unavailable",
                                                             "issue": "No recording mapped to actual Class Session"})  # RX-0015

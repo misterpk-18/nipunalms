@@ -85,35 +85,25 @@ test("student recordings show status, expiry and policy; the coordinator works t
   await expect(page.getByRole("dialog")).toContainText("Google Drive recording integration");
   await page.keyboard.press("Escape");
 
+  // the old exception queue is the Recordings screen's "Open problems" (U15); the Vijayawada problem is outside this branch
   await signInAs(page, USERS.coordGnt);
   await page.goto("/branch/recording-exceptions");
-  await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("Second hour missing".toLowerCase());
-  await expect(page.getByRole("row", { name: /RX-0013/ })).toContainText("Branch Manager GNT");
-  await expect(page.getByText("RX-0014")).toHaveCount(0); // Vijayawada exception: outside this coordinator's scope
-  await page
-    .getByRole("row", { name: /RX-0012/ })
-    .getByRole("button", { name: "Start" })
+  await expect(page).toHaveURL(/\/branch\/recordings/);
+  await expect(page.getByRole("heading", { name: /^Open problems/ })).toBeVisible();
+  const problem = (name: RegExp) => page.getByRole("listitem").filter({ hasText: name });
+  await expect(problem(/Linear regression intuition/)).toContainText("Partial recording — second hour missing");
+  await expect(problem(/Logistic regression & odds/)).toContainText("Held for review");
+  await expect(page.getByText("Organizer account licence")).toHaveCount(0);
+  await problem(/Linear regression intuition/)
+    .getByRole("button", { name: "Mark as handled" })
     .click();
-  await expect(page.getByRole("row", { name: /RX-0012/ })).toContainText("In progress");
-
-  // Releasing the held recording closes RX-0013
-  await page.getByRole("tab", { name: "Recordings" }).click();
-  await page
-    .getByRole("row", { name: /Logistic regression & odds/ })
-    .getByRole("button", { name: "Release" })
-    .click();
-  await page.getByRole("tab", { name: "Exceptions" }).click();
-  await page.getByLabel("Status").selectOption("Resolved");
-  await expect(page.getByRole("row", { name: /RX-0013/ })).toContainText("Resolved");
+  await page.getByRole("dialog").getByLabel("What was done").fill("Re-uploaded the second hour");
+  await page.getByRole("dialog").getByRole("button", { name: "Mark as handled" }).click();
+  await expect(page.getByRole("heading", { name: "Open problems (1)" })).toBeVisible();
 
   await signInAs(page, USERS.student);
   await page.goto("/materials");
-  await expect(
-    page
-      .getByRole("listitem")
-      .filter({ hasText: /Logistic regression & odds/ })
-      .getByRole("button", { name: "Watch" }),
-  ).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: /Logistic regression & odds/ })).toContainText("Can't be played now"); // still held
 });
 
 test("an access-extension request is approved by the branch and the student sees the new expiry", async ({ page, request }, info) => {

@@ -130,9 +130,9 @@ test("register shows the reissue history and public verification shows the prese
   expect(data.state).toBe("Valid — Current Version");
   expect(data.version).toBeGreaterThanOrEqual(2); // a later run in the governance spec reissues it again
 
-  // The public page needs no sign-in and shows the older copy as Superseded
+  // The public page needs no sign-in and shows the older copy as replaced
   await page.goto("/verify/NIT-CERT-2026-000001?version=1");
-  await expect(page.getByText(/Superseded — the current copy is version \d/)).toBeVisible();
+  await expect(page.getByText("Replaced by a newer copy")).toBeVisible();
 });
 
 test("attendance, progress and certificate screens fit a phone without horizontal scroll @mobile", async ({ page }) => {
