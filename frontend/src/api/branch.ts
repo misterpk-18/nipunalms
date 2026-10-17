@@ -39,6 +39,8 @@ export type WaitingMatch = {
   batch: WaitingBatch;
   result: "Ready to allocate" | "Review needed";
   warnings: string[];
+  /** The batch the CRM counsellor preferred for this admission (a preference only). */
+  preferred: boolean;
   /** Set when the seat is for one track of a combo enrolment. */
   track: { enrolment_track_id: number; track_code: string; track_name: string } | null;
 };
@@ -49,6 +51,8 @@ export type WaitingRow = {
   branch: BranchRef;
   mode: string;
   waiting_days: number;
+  /** The batch code the CRM counsellor preferred, if any (it may name no batch here). */
+  preferred_batch_code: string | null;
   allocation_due_on: DateOnly | null;
   overdue: boolean;
   matches: WaitingMatch[];

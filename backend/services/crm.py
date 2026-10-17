@@ -301,8 +301,10 @@ def _admission_qualified(event: CrmEvent, data: dict) -> Handled:
     admission.complimentary_of_admission_id = paid.admission_id if paid else None
     admission.seat_type = adm.get("seat_type")
     admission.planned_start_date = adm.get("planned_start_date")
+    admission.preferred_batch_code = adm.get("preferred_batch_code")
     admission.source_version = event.source_version
     db.session.flush()
+    _check_preferred_batch(admission, warnings)
 
     # Paid enrolments first: a complimentary one links to its qualifying paid enrolment
     items = sorted(data.get("enrolments") or [_default_enrolment(adm, paid)], key=lambda i: i.get("kind") == "Complimentary")
@@ -319,6 +321,18 @@ def _admission_qualified(event: CrmEvent, data: dict) -> Handled:
     return Handled({**_admission_result(admission, student), "activation_status": student.activation_status,
                     "enrolments": [_enrolment_result(e) for e in enrolments], "warnings": warnings},
                    activation_token=token)
+
+
+def _check_preferred_batch(admission: Admission, warnings: list[str]) -> None:
+    """The preference is never refused: a code that names no batch of the course at the service branch is only reported."""
+    code = admission.preferred_batch_code
+    if not code:
+        return
+    batch = batches_repo.get_batch_by_code(code)
+    if batch is None:
+        warnings.append(f"Preferred batch {code} does not exist in the LMS yet; the Branch Manager will see it once it does")
+    elif batch.course_id != admission.course_id or batch.branch_id != admission.service_branch_id:
+        warnings.append(f"Preferred batch {code} is not a batch of {admission.course.course_code} at the service branch; it is kept but not offered")
 
 
 def _default_enrolment(adm: dict, paid: Admission | None) -> dict:

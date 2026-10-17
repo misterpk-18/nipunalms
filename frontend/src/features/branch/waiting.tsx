@@ -1,6 +1,6 @@
 /** Waiting for a batch: every student with an admission and no seat yet, the batches that could take them and a one-click Allocate. */
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { branchApi, type WaitingBatch, type WaitingMatch, type WaitingRow } from "@/api/branch";
@@ -73,6 +73,11 @@ function MatchLine({ row, match, manage }: { row: WaitingRow; match: WaitingMatc
             {batchName(b)}
           </Link>{" "}
           <span className="font-mono text-xs text-muted-foreground">{b.batch_code}</span>
+          {match.preferred && (
+            <span className="ml-2">
+              <Tag tone="success">Preferred by counsellor</Tag>
+            </span>
+          )}
           {match.track && (
             <span className="ml-2">
               <Tag tone="info">{`Track ${match.track.track_code}: ${match.track.track_name}`}</Tag>
@@ -142,7 +147,8 @@ export function WaitingStudent({ row, manage, withBranch }: { row: WaitingRow; m
 export function BranchWaiting() {
   const manage = useCanManage();
   const { branchId, branches } = useActing("branch");
-  const [q, setQ] = useState("");
+  const initial = (useSearch({ strict: false }) as { q?: string }).q ?? "";
+  const [q, setQ] = useState(initial);
   const search = q.trim();
   const query = useQuery({
     queryKey: ["branch", "waiting", branchId, search],

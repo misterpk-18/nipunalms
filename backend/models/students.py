@@ -116,6 +116,7 @@ class Admission(db.Model):
     complimentary_of_admission_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("admissions.admission_id"))
     seat_type: Mapped[str | None] = mapped_column(String(20))  # Confirmed Seat / Future Plan (CRM delivery plan)
     planned_start_date: Mapped[date | None] = mapped_column(Date)
+    preferred_batch_code: Mapped[str | None] = mapped_column(String(50))  # CRM delivery plan's preferred batch (db 116), a preference only
     source_version: Mapped[int] = mapped_column(Integer)
     seed_data: Mapped[bool] = mapped_column(Boolean, default=False)  # made-up CRM IDs from `flask seed-dev` (db 090)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
@@ -147,6 +148,7 @@ class Admission(db.Model):
             "complimentary_of_admission_id": self.complimentary_of_admission_id,
             "seat_type": self.seat_type,
             "planned_start_date": self.planned_start_date,
+            "preferred_batch_code": self.preferred_batch_code,
             "lms_status": lms_status,
         }
 

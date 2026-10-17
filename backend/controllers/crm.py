@@ -114,6 +114,7 @@ def _admission_qualified(v: Validator) -> None:
         a.string("complimentary_of_crm_admission_id", nullable=True, max_length=100)
         a.date("access_until", nullable=True)          # complimentary access period (CRM admissions.access_until)
         a.string("crm_batch_id", nullable=True, max_length=100)
+        a.string("preferred_batch_code", nullable=True, upper=True, max_length=50)  # the counsellor's preference (round 4, D19)
 
     v.nested("person", person, required=True)
     v.nested("admission", admission, required=True)

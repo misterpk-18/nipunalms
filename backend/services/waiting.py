@@ -66,6 +66,7 @@ def matches_for(enrolment: Enrolment, only_batch: Batch | None = None) -> tuple[
                 blocked.append({"batch": batch.to_summary(), "reasons": report["blocking"]})
                 continue
             matches.append({"batch": _batch_block(batch, taken.get(batch.batch_id, 0)), "result": report["result"], "warnings": report["warnings"],
+                            "preferred": batch.batch_code == enrolment.admission.preferred_batch_code,
                             "track": {"enrolment_track_id": track_id, "track_code": target.component.track_code,
                                       "track_name": target.component.track_name} if target is not None else None})
     return matches, blocked
@@ -78,6 +79,7 @@ def _row(enrolment: Enrolment, student, matches: list[dict], blocked: list[dict]
         "enrolment": enrolment.to_summary(), "student": student.to_summary(), "course": enrolment.course.to_summary(),
         "branch": enrolment.service_branch.to_summary(), "mode": enrolment.mode,
         "waiting_days": (today - enrolment.updated_at.astimezone(IST).date()).days,
+        "preferred_batch_code": enrolment.admission.preferred_batch_code,
         "allocation_due_on": due, "overdue": due is not None and due < today, "matches": matches, "blocked": blocked,
     }
 

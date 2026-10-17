@@ -350,3 +350,31 @@ def test_a_booster_uses_the_version_written_for_it_in_the_combo_before_the_cours
     combo = db.session.get(Enrolment, next(e for e in result["enrolments"] if e["kind"] == "Combo")["enrolment_id"])
     booster = next(t for t in combo.tracks if t.component.track_code == "NIT-CRS-019")
     assert booster.curriculum_version.version_label == "Booster CV 1.3"
+
+
+# ---------------------------------------------------------------- preferred batch (round 4, D19)
+
+def with_preferred(code, **kwargs):
+    data = helpers.admission_data(**kwargs)
+    data["admission"]["preferred_batch_code"] = code
+    return data
+
+
+def test_preferred_batch_is_stored_and_only_reported_when_it_names_no_batch_of_the_course(catalog, crm_event, make_batch):
+    other_course = make_batch(1, course_code="NIT-CRS-019")
+    same = make_batch(1)
+
+    kept = qualify(crm_event, with_preferred(same.batch_code.lower(), admission_id="A-201", person_id="P-201", email="a1@example.test"))
+    assert kept["result"]["warnings"] == []
+    assert db.session.execute(select(Admission.preferred_batch_code).where(Admission.crm_admission_id == "A-201")).scalar_one() == same.batch_code
+
+    unknown = qualify(crm_event, with_preferred("NIT-GNT-BAT-9999", admission_id="A-202", person_id="P-202", email="a2@example.test"))
+    assert any("does not exist in the LMS yet" in w for w in unknown["result"]["warnings"])
+
+    wrong = qualify(crm_event, with_preferred(other_course.batch_code, admission_id="A-203", person_id="P-203", email="a3@example.test"))
+    assert any("is not a batch of NIT-CRS-047" in w for w in wrong["result"]["warnings"])
+    assert db.session.execute(select(Admission.preferred_batch_code).where(Admission.crm_admission_id == "A-203")).scalar_one() == other_course.batch_code
+
+    # no key = no preference (a later refresh without one clears it)
+    assert qualify(crm_event, helpers.admission_data(admission_id="A-201", person_id="P-201", email="a1@example.test"), source_version=2)
+    assert db.session.execute(select(Admission.preferred_batch_code).where(Admission.crm_admission_id == "A-201")).scalar_one() is None

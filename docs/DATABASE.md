@@ -64,6 +64,8 @@ Vijayawada).
 | `113_access_extension_recommendation.sql` | UX phase U15: Branch Manager recommendation on access extensions beyond the limit | ✅ |
 | `114_curriculum_activation_date.sql` | UX phase U16: Approve & activate a curriculum version on a chosen day | ✅ |
 | `115_super_admin_setup_calendar_assign.sql` | UX phase U17: Setup owners, cancelled closures, assigned issues | ✅ |
+| `116_preferred_batch.sql` | CRM round 4 (D19): `admissions.preferred_batch_code`, the counsellor's preferred batch from `AdmissionQualified` | ✅ |
+| `117_retire_curriculum_mapped_events.sql` | CRM round 7: deletes old `AdmissionCurriculumMapped` events, abandons the `NIT-CRS-999` seed event, validates `crm_events_event_type_check` | ✅ |
 
 ---
 
@@ -506,5 +508,5 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 | `exception_recovery_steps.assigned_to` (FK to `users`) | "Assign" on the Super Admin's Issues is a recovery step that names its new owner. The table stays append-only |
 | `exception_queue` view recreated (same columns as db/106) | The owner is `COALESCE(the record's own owner, assigned_to or author of the latest step)`, so the owner filter and the counts follow an assignment. The integration link now points at `/admin/setup` |
 
-Applied in place to `nipunalms-dev` (`psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/115_super_admin_setup_calendar_assign.sql`). Gap-fix phase 7 starts at `db/116`.
+Applied in place to `nipunalms-dev` (`psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/115_super_admin_setup_calendar_assign.sql`). Gap-fix phase 7 starts at `db/118`.
 

@@ -333,3 +333,15 @@ def test_a_branch_manager_reads_and_sets_how_students_pay_at_their_branch(world,
     assert get(client, login, people["ac"], "/branches/1/payment-instructions")["payment_instructions"] == "Pay at the front desk"
     assert call(client, login, people["ac"], "get", "/branches/2/payment-instructions").status_code == 404
     assert call(client, login, people["g1"], "get", "/branches/1/payment-instructions").status_code == 403
+
+
+def test_waiting_marks_the_batch_the_crm_counsellor_preferred(world, client, login, make_batch, run_sql):
+    people, batch, student = world
+    other = make_batch(1, trainers=[people["g2"]], state="Running")
+    row = get(client, login, people["ac"], "/branch/waiting")[0]
+    assert row["preferred_batch_code"] is None and [m["preferred"] for m in row["matches"]] == [False, False]
+
+    run_sql(f"UPDATE admissions SET preferred_batch_code = '{other.batch_code}'")
+    row = get(client, login, people["ac"], "/branch/waiting")[0]
+    assert row["preferred_batch_code"] == other.batch_code
+    assert {m["batch"]["batch_code"]: m["preferred"] for m in row["matches"]} == {batch.batch_code: False, other.batch_code: True}

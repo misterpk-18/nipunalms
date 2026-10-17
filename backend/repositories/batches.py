@@ -25,6 +25,10 @@ def get_batch_by_crm_id(crm_batch_id: str) -> Batch | None:
     return db.session.execute(select(Batch).where(Batch.crm_batch_id == crm_batch_id)).scalar_one_or_none()
 
 
+def get_batch_by_code(batch_code: str) -> Batch | None:
+    return db.session.execute(select(Batch).where(Batch.batch_code == batch_code)).scalar_one_or_none()
+
+
 def _scope_condition(column, other_column, branch_ids: set[int] | None, ids: set[int]):
     """Rows in the user's branches, or with an id the user is tied to (assigned batch / own batch)."""
     return column.in_(branch_ids) | other_column.in_(ids)
