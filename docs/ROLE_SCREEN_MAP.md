@@ -1,6 +1,6 @@
 # Role screen map (phase R1)
 
-Read-only inventory for `docs/ROLE_SEPARATION_PLAN.md`. Nothing here is a decision: sections marked **Proposal** are for the product owner to confirm in "Open questions" (last section). File:line references are against commit `ae7ee4c` (HEAD of `main`, 18 Oct 2026). Paths are relative to `frontend/src/` unless they start with `backend/`.
+This is the per-role screen map for `docs/ROLE_SEPARATION_PLAN.md`, reflecting its decisions; file:line references are against commit `ae7ee4c` (HEAD of `main`, 18 Oct 2026), and paths are relative to `frontend/src/` unless they start with `backend/`.
 
 ## How the app decides who sees what today
 
@@ -15,6 +15,8 @@ Read-only inventory for `docs/ROLE_SEPARATION_PLAN.md`. Nothing here is a decisi
 | Bell | `components/lms/app-shell.tsx:26-31` | Student, trainer, branch, admin have a notification centre. **Founder has none** ("nothing is sent to the founder"). |
 | Phone bottom bar | `auth/access.ts:177-187` | Student, trainer, branch pin four items. Admin and Founder use their first four (Founder has only four, so its "More" sheet is empty). |
 | Search palette | `components/lms/command-palette.tsx:15-20,46-52` | Pages of every workspace the person holds; record links depend on the active workspace. |
+
+After the plan one account holds one role. A user who holds several roles today keeps the highest role on the existing account, in the order Founder > Super Admin > Branch Manager > Trainer > Student, and every other role moves to a new account (decisions 1, 8 and 23).
 
 ---
 
@@ -83,7 +85,7 @@ None. A Student holds only the student workspace.
 
 | Where | What | After R6 |
 |---|---|---|
-| `/courses/*`, `/modules/*`, `/topics/*`, `features/student/my-courses.tsx:82` ("No curriculum yet") | The modules and topics a student sees come from the batch's curriculum version | Must keep working. The outline has to come from the course (open question Q1). Rename "No curriculum yet" wording (`lib/i18n.ts` key `noCurriculumYet`). |
+| `/courses/*`, `/modules/*`, `/topics/*`, `features/student/my-courses.tsx:82` ("No curriculum yet") | The modules and topics a student sees come from the batch's curriculum version | Must keep working. The outline comes from the course (decision 11). Rename "No curriculum yet" wording (`lib/i18n.ts` key `noCurriculumYet`). |
 | Courses page for the Student | `My Learning` (`/my-courses`) already is the student's course list | No new page. Course detail stays read-only. |
 
 ## 1.6 Gaps
@@ -93,7 +95,7 @@ None. A Student holds only the student workspace.
 | Preferred-slot request exists only on Home and only while a course has no batch | `features/student/batch-changes.tsx:1` |
 | Material-change answers are handled on Home only | `features/student/dashboard.tsx:143` |
 | Fees and receipts are inside My Account, two taps on a phone | `access.ts:114`, `routes/finance.tsx` |
-| Whether the Student can see their batch's trainer, room or timetable outside a class page is not obvious from nav | `/my-courses`, `/courses/$enrolmentId`: confirm in R7 |
+| Batch trainer, room and timetable are not reachable from nav outside a class page; R7 shows them on `/courses/$enrolmentId` | `/my-courses`, `/courses/$enrolmentId` |
 
 ---
 
@@ -165,7 +167,7 @@ None today. Hand-offs to other roles (no screen of the trainer's own): question 
 |---|---|---|
 | `trainer/assignments.tsx:30-31,89,124`, `trainer/question-bank.tsx:132-133` | Topic picker fed by `GET /assessments/curriculum` | Same picker fed by the course's outline |
 | `trainer/batch-page.tsx:62`, `shared/content-detail.tsx:27` | "Curriculum <version>" / "No approved curriculum yet" | Show the course name |
-| Courses page for the Trainer | None today | **Proposal (Q9):** no nav item; a read-only "Course outline" block on the trainer batch page |
+| Courses page for the Trainer | None today | A read-only "Course outline" block on the trainer batch page; no nav item (decision 20) |
 
 ## 2.6 Gaps
 
@@ -247,13 +249,13 @@ None for a pure Branch Manager. (Super Admin and Founder section below.)
 | Where | What | Replace with |
 |---|---|---|
 | Nav `Curriculum` (`access.ts:139`), route `routes/branch.curriculum.tsx` | Draft/submit/review versions | **Courses**, read-only (see 3.5.1) |
-| `features/academic/curriculum.tsx` (396 lines), `curriculum-model.tsx` (733), `branch/curriculum-checklist.tsx`, `curriculum-new-draft.tsx`, `curriculum-pickers.tsx`, `curriculum-tree.tsx` | Version editor, checklist, tree, library, variations, equivalence, combo pins | Removed; the module/topic tree (`curriculum-tree.tsx`) is reused by the Super Admin course editor |
+| `features/academic/curriculum.tsx` (396 lines), `curriculum-model.tsx` (733), `branch/curriculum-checklist.tsx`, `curriculum-new-draft.tsx`, `curriculum-pickers.tsx`, `curriculum-tree.tsx` | Version editor, checklist, tree, library, variations, equivalence, combo pins | Removed, except the module/topic tree (`curriculum-tree.tsx`, reused by the Super Admin and Founder course editor), the reusable module library and combo track pins, which move onto the course (decision 25) |
 | `academic/dashboard.tsx:7` quick link "Curriculum versions" | | Link to Courses |
-| `branch/waiting.tsx:14` imports `PrepareMapping` from `curriculum-model.tsx` | Student mapping helper in the waiting list | Decide what survives (Q3) |
+| `branch/waiting.tsx:14` imports `PrepareMapping` from `curriculum-model.tsx` | Student mapping helper in the waiting list | Removed with equivalence rules, branch variations and the "prepare mapping" helper (decision 25); the import goes |
 | `batch-panel.tsx:54`, `batch-operations.tsx:843` | "Curriculum version" row, "same curriculum version" text | Show the course |
 | `lib/status.ts:270` (`curriculum` status domain), `notification-centre.tsx:27` (category "Curriculum") | | Remove |
 
-### 3.5.1 Courses page for the Branch Manager (Proposal)
+### 3.5.1 Courses page for the Branch Manager
 
 `/branch/courses`, nav group "Teaching" (replaces Curriculum). Read-only. List of courses offered (code, title, category, combo tracks, status as sent by the CRM) with "batches running at my branch" and "students waiting". A course page shows its outline (modules, topics) and a "New batch for this course" button that opens `/branch/batches?new=1&course=<id>` (the wizard already accepts it, `routes/branch.batches.index.tsx`).
 
@@ -261,12 +263,16 @@ None for a pure Branch Manager. (Super Admin and Founder section below.)
 
 | Gap | Evidence |
 |---|---|
-| Career and placements: no staff screen. Opportunities, CV review, career profiles, applications and placement outcomes exist in the API and the student's "CV reviewed" step depends on it | `backend/routes/career.py:56-178`; frontend only `api/career.ts` student calls and `features/student/career.tsx` |
+| Career and placements: no staff screen; out of scope, recorded in `docs/GAPS.md` (decision 21). Opportunities, CV review, career profiles, applications and placement outcomes exist in the API and the student's "CV reviewed" step depends on it | `backend/routes/career.py:56-178`; frontend only `api/career.ts` student calls and `features/student/career.tsx` |
 | Finance view: the API serves finance summaries to BM, SA and Founder, no screen | `backend/routes/finance.py:37,44`; no frontend caller |
 | `Recordings` not in nav | 3.3 |
 | Payment instructions buried on the home page | `dashboard.tsx:71` |
-| Branch pick repeated as page-head dropdown and header menu; "All branches" option exists | `my-work.tsx:37-51`, `acting-as.tsx:50-61` (plan decision 4 removes this: see Q7) |
+| Branch pick repeated as page-head dropdown and header menu; "All branches" option exists | `my-work.tsx:37-51`, `acting-as.tsx:50-61` (plan decisions 4 and 17 remove this: one branch per session, no "All branches") |
 | No view of trainers (availability, load) when assigning | `batch-panel.tsx:149` shows only the batch's own trainers |
+
+### 3.7 End state for the Branch Manager
+
+A Branch Manager works in one branch per session, chosen at sign-in and shown in the header as `Role · Branch`; there is no "All branches" choice and no page-head branch dropdown (decisions 4 and 17). Courses is read-only (3.5.1). The Branch Manager proposes branch closures on the calendar and the Super Admin approves them (decision 18). Career and placements staff screens are out of scope and recorded in `docs/GAPS.md` (decision 21).
 
 ---
 
@@ -321,23 +327,24 @@ Phone bottom bar: no list, so the first four: Home, Users & access, Student acco
 
 ## 4.4 Screens the Super Admin reaches only through the Branch Manager workspace
 
-The Super Admin holds the `branch` workspace, so all of 3.2 is open with `manage` and `approver` true. Rows below are what the Super Admin does there and a **Proposal** for a home under `/admin/*`. All "Proposal" rows depend on Q5 (how much of the branch workflow should a Super Admin keep).
+Today the Super Admin holds the `branch` workspace, so all of 3.2 is open with `manage` and `approver` true. Under decisions 15 and 24 the Super Admin gets read-only cross-branch views plus an Approvals page under `/admin/*`; branch actions stay with Branch Managers. Rows below give what the Super Admin does there today and its home under `/admin/*` (shared component, config in section 7).
 
-| Branch screen used today | What the Super Admin does there | Proposed home under Super Admin (shared component, config in section 7) |
+| Branch screen used today | What the Super Admin does there | Home under Super Admin |
 |---|---|---|
 | `/branch` My work | Sees the picked branch's list | None: `/admin` Home already has a needs-you list. |
-| `/branch/issues` ("Go fix it" targets) | Issues in `/admin/issues` send the Super Admin to `/branch/waiting`, `/branch/recordings`, `/branch/support`, `/branch/results`, `/branch/class-day`, `/branch/schedule` (`backend/services/issues.py:45-59`) | Keep Assign in `/admin/issues`; "Go fix it" for this role opens a read-only drill-down under `/admin/*`, or is removed (Q5) |
-| `/branch/batches`, `/branch/batches/$id` | Full batch management, any branch | `/admin/batches` read-only, with branch filter (Q5) |
+| `/branch/issues` ("Go fix it" targets) | Issues in `/admin/issues` send the Super Admin to `/branch/waiting`, `/branch/recordings`, `/branch/support`, `/branch/results`, `/branch/class-day`, `/branch/schedule` (`backend/services/issues.py:45-59`) | Assign stays in `/admin/issues`; "Go fix it" opens a read-only detail under `/admin/*` with Assign (decision 19) |
+| `/branch/batches`, `/branch/batches/$id` | Full batch management, any branch | `/admin/batches` read-only, with branch filter |
 | `/branch/waiting` | Allocate | none (Branch Manager job) |
-| `/branch/schedule` + calendar | Approve reschedules, add classes | none; calendar stays `/admin/calendar` |
+| `/branch/schedule` + calendar | Approve reschedules, add classes | none; the calendar stays `/admin/calendar`, where the Super Admin approves closures proposed by Branch Managers (decision 18) |
 | `/branch/class-day`, `/branch/recordings` | Fix Meet links, release recordings | none |
-| `/branch/progress`, `/branch/results`, `/branch/content` | Review, moderate, publish, approve content and questions | none |
-| `/branch/completion` | Decide completions, issue certificates, decide certificate requests and fee releases | decisions only: an Approvals page shared with the Founder (see section 7, `InboxList`) |
-| `/branch/support` | Reply to students, decide access extensions | `/admin/support` read + reassign (Q5), extension decisions in Approvals |
+| `/branch/progress` | Attendance, recovery requests, corrections | `/admin/attendance` read-only, with branch filter; `/admin/students` gets the same branch filter |
+| `/branch/results`, `/branch/content` | Review, moderate, publish, approve content and questions | none |
+| `/branch/completion` | Decide completions, issue certificates, decide certificate requests and fee releases | decisions only, on the Approvals page (the same inbox as the Founder, section 7.8) |
+| `/branch/support` | Reply to students, decide access extensions | `/admin/support` read + reassign; extension decisions in Approvals |
 | `/branch/reports` | Reports for any branch | `/admin/reports` with a branch filter (same component) |
 | `/branch/curriculum` | Draft, approve, activate versions | `/admin/courses` (Courses, edit) |
-| `/branch` PaymentInstructions | Edit a branch's payment text | `/admin/branches` or within Setup (Q5) |
-| `/founder/*` items the backend lets the Super Admin decide | Fee exceptions, access extensions beyond limit, AI budget, a Branch Manager's own requests: `backend/services/founder_inbox.py:1-11`, `backend/routes/founder.py:12-19`, `backend/routes/certificates.py:118` | No UI today (the `founder` workspace is Founder-only). Approvals page for the Super Admin (Q5) |
+| `/branch` PaymentInstructions | Edit a branch's payment text | `/admin/setup`, branches section: edit a branch's payment instructions |
+| `/founder/*` items the backend lets the Super Admin decide | Fee exceptions, access extensions beyond limit, AI budget, a Branch Manager's own requests: `backend/services/founder_inbox.py:1-11`, `backend/routes/founder.py:12-19`, `backend/routes/certificates.py:118` | No UI today (the `founder` workspace is Founder-only). The Approvals page under `/admin`, the same inbox as the Founder (decision 24) |
 
 Command palette also sends Super Admin results to `/branch/batches/$id` and `/branch/completion` (`command-palette.tsx:17-19`).
 
@@ -348,11 +355,17 @@ Command palette also sends Super Admin results to `/branch/batches/$id` and `/br
 | `/branch/curriculum` | Author and approver (both) | `/admin/courses`: **create and edit** |
 | `/founder/curriculum` | Not reachable (founder workspace only); backend allows (`founder.py:27`) | gone |
 | `/admin/users` role descriptions `:36` | mentions curriculum | reword |
-| `backend/routes/curriculum.py` (24 `require_roles`), `academic_records.py` (15) | versions, library, variations, equivalence | removed or reduced (R6) |
+| `backend/routes/curriculum.py` (24 `require_roles`), `academic_records.py` (15) | versions, library, variations, equivalence | removed; only the course outline endpoints remain (R6) |
 
-### 4.5.1 Courses page for the Super Admin (Proposal)
+### 4.5.1 Courses page for the Super Admin
 
-`/admin/courses`, nav group "Academic" (new) or "Operations". List: code, title, category, combo/tracks, status, batches, active enrolments. Course page: outline editor (modules, topics: add, rename, reorder, remove; reuse `branch/curriculum-tree.tsx`); optional blocks pending Q3 (hours, completion rules, required assessments, combo pins). No draft, no submit, no approval. Edits are audited. Course code, title, category and status come from the CRM `CourseUpserted` event (`docs/CRM_INTEGRATION.md`, `db/002_catalog_curriculum.sql:5-12`): see Q2.
+`/admin/courses`, nav group "Academic" (new). List: code, title, category, combo/tracks, status, batches, active enrolments. Course page:
+
+- Outline editor for modules and topics (add, rename, reorder, remove), reusing `branch/curriculum-tree.tsx` moved to `features/shared`. Only modules and topics are editable (decision 12).
+- Blocks kept on the course: hours, completion rules, required assessments, combo track pins and the reusable module library (decisions 13 and 25). Equivalence rules, branch variations and the "prepare mapping" helper are removed.
+- No draft, no version, no checklist, no submit, no approval.
+- An edit applies at once, notifies the Branch Managers of branches with running batches of the course, and is audited (decision 14).
+- Course code, title, category, status and tracks are read-only and come from the CRM `CourseUpserted` event (`docs/CRM_INTEGRATION.md`, `db/002_catalog_curriculum.sql:5-12`).
 
 ## 4.6 Gaps
 
@@ -364,7 +377,13 @@ Command palette also sends Super Admin results to `/branch/batches/$id` and `/br
 | No Courses | 4.5.1 |
 | "Add role" form conflicts with one-account-per-role | `admin/users.tsx:210,362-400` |
 | Cross-branch work happens with a hidden branch pick; admin pages have none (no branch filter on `/admin/students`, `/admin/issues` beyond the list) | `auth/acting.ts:12` |
-| No hand-out list of migrated accounts yet | plan R2 |
+| No hand-out list of migrated accounts yet; Users & access gets a hand-out page (decision 22) | plan R2 |
+
+### 4.7 End state for the Super Admin
+
+One account, one role, no "Acting as", no implicit Branch workspace. Nav under `/admin`: Home, Approvals (the same inbox the Founder has; the Super Admin sees and decides every item: fee exceptions, access extensions, certificates, AI budget, Branch Managers' own requests), Users & access, Student accounts, Batches, Attendance, Support, Reports, Issues, Academic calendar, Courses, CRM sync, Setup & health, AI controls, Audit log. Batches, Students, Attendance and Reports are read-only cross-branch views with a branch filter; Support is read plus reassign. Payment instructions are edited in Setup & health, in a branches section. The independence rule stays: nobody decides their own request.
+
+Users & access has a hand-out page listing every account created by the role split, with a one-time activation link per account (decision 22). The Super Admin and the Founder see it. A user who held several roles keeps the highest one on the existing account in the order Founder > Super Admin > Branch Manager > Trainer > Student (decision 23).
 
 ---
 
@@ -402,33 +421,37 @@ Nothing in `/founder/*` is hidden. `Home` uses the shield icon like the brand lo
 
 ## 5.4 Screens the Founder reaches only through another role's workspace
 
-### Through `/admin/*` (read-only: `useCanAdminister()` false)
+Today the Founder opens `admin` and `branch` implicitly. Under decision 16 the Founder does everything the Super Admin can do plus approvals, read-write across all branches, under `/founder`; day-to-day branch actions (attendance, running classes) stay with Branch Managers.
 
-| Admin screen | What the Founder can do there | Proposed home under Founder (Proposal, Q6) |
+### Through `/admin/*` (read-only today: `useCanAdminister()` false)
+
+| Admin screen | What the Founder can do there today | Home under Founder |
 |---|---|---|
-| `/admin` Home | read | keep `/founder` Home |
-| `/admin/users`, `/admin/users` filters | read staff list and scopes (`backend/routes/admin_users.py:9,16`) | none (Q6) |
-| `/admin/students`, `/admin/students/$id` | read | `/founder/students` read-only, if kept (Q6) |
-| `/admin/issues` | read | `/founder/issues` read-only with branch filter, if kept |
-| `/admin/calendar` | **add a Company Holiday** (`calendar.tsx:207-209`); sees branch closures, cannot decide (`:284`) | `/founder/calendar`: company holidays add/edit; closures read |
-| `/admin/crm-sync` | read, no Retry | `/founder/...` or none (Q6) |
-| `/admin/setup` | read | none or read (Q6) |
-| `/admin/ai-controls` | same as `/founder/ai-controls` | already at `/founder/ai-controls`; drop the admin copy for this role |
-| `/admin/audit` | read | `/founder/audit` read-only (Q6) |
-| `/admin/notifications` | open | none: Founder has no bell today (Q10) |
+| `/admin` Home | read | `/founder` Home |
+| `/admin/users`, `/admin/users` filters | read staff list and scopes (`backend/routes/admin_users.py:9,16`) | `/founder/users`, same component as the Super Admin's, read-write, including the hand-out page |
+| `/admin/students`, `/admin/students/$id` | read | `/founder/students`, read-write, with branch filter |
+| `/admin/issues` | read | `/founder/issues`, with branch filter, Assign, notes |
+| `/admin/calendar` | **add a Company Holiday** (`calendar.tsx:207-209`); sees branch closures, cannot decide (`:284`) | `/founder/calendar`: company holidays, branch closures, decide closures |
+| `/admin/crm-sync` | read, no Retry | `/founder/crm-sync`, with Retry |
+| `/admin/setup` | read | `/founder/setup`, with edit |
+| `/admin/ai-controls` | same as `/founder/ai-controls` | already at `/founder/ai-controls`; the admin copy is not used by this role |
+| `/admin/audit` | read | `/founder/audit` |
+| `/admin/notifications` | open | `/founder/notifications` (the Founder's own bell, decision 16) |
 
-### Through `/branch/*` (read-only: `manage` false)
+### Through `/branch/*` (read-only today: `manage` false)
 
-| Branch screen | Founder today | Proposed home under Founder (Proposal, Q6) |
+| Branch screen | Founder today | Home under Founder |
 |---|---|---|
 | `/branch` | tiles and lists for all branches (the API allows Founder: `backend/routes/dashboards.py:10-31`, `branch.py:11`) | `/founder` Home tiles (already has company tiles) |
-| `/branch/batches`, `/branch/batches/$id` | read | `/founder/batches` read-only, branch filter |
-| `/branch/schedule`, `/branch/class-day`, `/branch/recordings` | read; `/recordings/classes` is BM/SA only (`backend/routes/recordings.py:42`), so the picker likely fails | none, or a read-only schedule (Q6) |
-| `/branch/progress`, `/branch/completion` | read | `/founder/students` / certificates register |
-| `/branch/waiting`, `/branch/results`, `/branch/content`, `/branch/support` | read | none (Branch Manager jobs) |
-| `/branch/issues` | read (this is where "Go fix it" from `/admin/issues` lands) | `/founder/issues` read-only |
-| `/branch/reports` | **403**: `GET /branch/reports` is BM/SA only (`backend/routes/reports.py:24`); the Founder-allowed `GET /academic/reports` has no screen (`api/dashboards.ts:291,313`) | `/founder/reports` company-wide (Q8) |
-| `/branch/curriculum` | read | gone with curriculum |
+| `/branch/batches`, `/branch/batches/$id` | read | `/founder/batches`, branch filter, same config as the Super Admin (section 7.6) |
+| `/branch/schedule`, `/branch/class-day`, `/branch/recordings` | read; `/recordings/classes` is BM/SA only (`backend/routes/recordings.py:42`), so the picker likely fails | none: running classes stays with Branch Managers |
+| `/branch/progress` | read | `/founder/attendance`, read-only, branch filter |
+| `/branch/completion` | read | `/founder/certificates` and the Approvals inbox |
+| `/branch/waiting`, `/branch/results`, `/branch/content` | read | none (Branch Manager jobs) |
+| `/branch/support` | read | `/founder/support`, read and reassign |
+| `/branch/issues` | read (this is where "Go fix it" from `/admin/issues` lands) | `/founder/issues` |
+| `/branch/reports` | **403**: `GET /branch/reports` is BM/SA only (`backend/routes/reports.py:24`); the Founder-allowed `GET /academic/reports` has no screen (`api/dashboards.ts:291,313`) | `/founder/reports`, company-wide, built on `GET /academic/reports` |
+| `/branch/curriculum` | read | `/founder/courses` (edit) |
 
 Command palette: Founder's student result opens `/admin/students/$id`, batch result `/branch/batches/$id`, certificate result `/founder/certificates` (`command-palette.tsx:15-20`).
 
@@ -439,11 +462,11 @@ Command palette: Founder's student result opens `/admin/students/$id`, batch res
 | Nav `Curriculum approvals` + badge `curriculum` (`access.ts:162`), `routes/founder.curriculum.tsx`, `features/founder/curriculum.tsx`, `panel-curriculum.tsx`, `panel.tsx:5,10-11` | Remove (plan R6) |
 | Inbox kind `curriculum` and group `curriculum` (`api/founder.ts:13-14,30`), `backend/services/founder_inbox.py` `_curriculum_items`, `GROUPS`, `PAGES`, nav count key `curriculum` | Remove from inbox and nav counts |
 | `founder/decision-bar.tsx:19` comment about curriculum activation dialog | Reword |
-| `Equivalence rules and required-topic constraints` section (`founder/curriculum.tsx:44-45`) | Gone unless Q3 keeps it |
+| `Equivalence rules and required-topic constraints` section (`founder/curriculum.tsx:44-45`) | Gone: equivalence rules are removed (decision 25) |
 
-### 5.5.1 Courses page for the Founder (Proposal)
+### 5.5.1 Courses page for the Founder
 
-`/founder/courses`, nav group "Approvals" becomes "Company" or similar. Read-only. Same list as the Super Admin's but with company-wide counts per branch (batches, active enrolments). Course page: outline read-only.
+`/founder/courses`, nav group "Company" (replaces "Approvals" as the group for course work; approvals keep their own group). Same page as the Super Admin's (superset): list with company-wide counts per branch (batches, active enrolments), and an outline editor for modules and topics. Same blocks kept (hours, completion rules, required assessments, combo track pins, reusable module library), same rules (edits apply at once, notify affected Branch Managers, are audited; code, title, category, status and tracks stay read-only from the CRM).
 
 ## 5.6 Gaps
 
@@ -456,13 +479,17 @@ Command palette: Founder's student result opens `/admin/students/$id`, batch res
 | Everything outside the inbox needs the "Acting as" switcher | 5.4 |
 | Phone "More" sheet is empty | `app-shell.tsx:245` |
 
+### 5.7 End state for the Founder
+
+One account, one role, no "Acting as". The Founder does everything the Super Admin can do, plus approvals, read-write across all branches, under `/founder`. Day-to-day branch actions (attendance, running classes) stay with Branch Managers. Nav under `/founder`: Home (the decision inbox), Approvals (certificate decisions, access extensions, fee exceptions, AI budget, Branch Managers' own requests; the same inbox the Super Admin has), Courses (edit), Users & access (with the hand-out page), Students, Batches, Attendance, Issues, Reports (company-wide), Academic calendar, Support, CRM sync, Setup & health, AI controls, Audit log. The Founder has a bell (`/founder/notifications`), a notification inbox and a Getting started card. The phone "More" sheet carries every item beyond the four pinned.
+
 ---
 
 # 6. Curriculum screens to replace by Courses (all roles)
 
 | Piece | Files | Action (R6) |
 |---|---|---|
-| Routes | `routes/branch.curriculum.tsx`, `routes/founder.curriculum.tsx` | Remove; add `/admin/courses`, `/branch/courses`, `/founder/courses` (and optionally trainer, Q9) |
+| Routes | `routes/branch.curriculum.tsx`, `routes/founder.curriculum.tsx` | Remove; add `/admin/courses`, `/branch/courses`, `/founder/courses` (the Trainer gets a read-only outline block on the batch page, no route) |
 | Nav items | `auth/access.ts:139` (Branch), `:162` (Founder) | Replace / remove |
 | Nav badge `curriculum` | `access.ts:162`; `backend/services/nav.py` (`_founder_counts` via `founder_inbox.counts()`), `backend/services/founder_inbox.py` | Remove |
 | Version editor and model | `features/academic/curriculum.tsx`, `features/academic/curriculum-model.tsx` | Remove (editor of modules/topics survives as the course editor) |
@@ -470,15 +497,15 @@ Command palette: Founder's student result opens `/admin/students/$id`, batch res
 | Founder pieces | `features/founder/curriculum.tsx`, `panel-curriculum.tsx`, `panel.tsx:5,10-11` | Remove |
 | API client | `api/curriculum.ts`, curriculum calls in `api/delivery.ts`, `api/founder.ts:8-24,76-80` | Remove |
 | Links and labels | `academic/dashboard.tsx:7`, `lib/status.ts:270`, `notification-centre.tsx:27`, `lib/i18n.ts` | Reword |
-| Backend routes | `backend/routes/curriculum.py`, `academic_records.py`, `founder.py:27` | Remove or reduce |
+| Backend routes | `backend/routes/curriculum.py`, `academic_records.py`, `founder.py:27` | Remove; replaced by course outline endpoints |
 
-**Finding for R6 (not in the plan):** the modules and topics that students, trainers and sessions use hang off `curriculum_version_id`. That column appears in `db/002, 003, 004, 005, 010, 020, 030, 040, 095, 097, 098, 102, 105, 109` (occurrence counts in that order: 5, 4, 2, 8, 9, 9, 4, 6, 4, 20, 2, 18, 1, 8). Enrolments, batches, sessions, content, assessments, attendance and topic progress all point at it. "Drop the version tables, courses stay" therefore needs a decision on where modules and topics live (Q1) before the migration is written.
+**Work for R6:** the modules and topics that students, trainers and sessions use hang off `curriculum_version_id`. That column appears in `db/002, 003, 004, 005, 010, 020, 030, 040, 095, 097, 098, 102, 105, 109` (occurrence counts in that order: 5, 4, 2, 8, 9, 9, 4, 6, 4, 20, 2, 18, 1, 8). Enrolments, batches, sessions, content, assessments, attendance and topic progress all point at it. Decision 11 puts the outline on the course, so the migration re-points every one of these tables (and the queries, views and foreign keys that use them) to the course before the version, draft and approval tables are dropped. Courses are never dropped.
 
 ---
 
 # 7. Shared screens
 
-Components used by more than one role, today and as a fixed per-role config (**Proposal**; nothing implemented). Rule from the plan: no `hasRole` inside; the route passes the config.
+Components used by more than one role, each with a fixed per-role config. Rule from the plan: no `hasRole` inside; the route passes the config.
 
 Legend: Y = on, N = off, `-` = role does not use the component.
 
@@ -486,61 +513,68 @@ Legend: Y = on, N = off, `-` = role does not use the component.
 
 | Option | Student | Trainer | Branch Manager | Super Admin | Founder |
 |---|---|---|---|---|---|
-| Route | `/notifications` | `/trainer/notifications` | `/branch/notifications` | `/admin/notifications` | none today (Q10) |
-| `showSystemIssuesTab` (today `hasRole("SUPER_ADMIN")`, `:90-91`) | N | N | N | Y | N |
-| `title` | translated | "Notifications" | "Notifications" | "Notifications" | - |
+| Route | `/notifications` | `/trainer/notifications` | `/branch/notifications` | `/admin/notifications` | `/founder/notifications` (new bell, decision 16) |
+| `showSystemIssuesTab` (today `hasRole("SUPER_ADMIN")`, `:90-91`) | N | N | N | Y | Y |
+| `title` | translated | "Notifications" | "Notifications" | "Notifications" | "Notifications" |
+
+The Founder's inbox carries decisions waiting (the nav counts that already exist).
 
 ## 7.2 Staff profile (`features/shared/staff-profile.tsx:12`, `/account/profile`)
 
 | Option | Trainer | Branch Manager | Super Admin | Founder |
 |---|---|---|---|---|
 | `role` label | from session | from session | from session | from session |
-| `branchLabel` | its branch | its (picked) branch | "All branches" | "All branches" |
+| `branchLabel` | its branch | its branch (fixed for the session) | "All branches" | "All branches" |
 | Today | union of all scopes (`:29-32`) | same | same | same |
 
 Frames inside the shell of "the workspace the user lands in" (`access.ts:63-66`), which stays valid with one role.
 
-## 7.3 Academic calendar (two implementations: `features/admin/calendar.tsx:201` and `features/shared/academic-calendar.tsx:39`)
+## 7.3 Academic calendar (one component replacing `features/admin/calendar.tsx:201` and `features/shared/academic-calendar.tsx:39`)
 
 | Option | Branch Manager | Super Admin | Founder |
 |---|---|---|---|
-| Surface | Section of Schedule & calendar | `/admin/calendar` | `/founder/calendar` (Proposal, Q6) |
-| `canAddCompanyHoliday` | N | Y | Y (today `central`) |
-| `canProposeBranchClosure` | Y (own branch) | Y (any branch, direct) | N |
-| `canDecideClosure` | Y (today `approver`, `shared/academic-calendar.tsx:43`) | Y (`calendar.tsx:208,284`) | N |
-| `canEditOrCancel` | N | Y | company holidays only (Q8) |
-| `branchScope` | own branch | any | any |
+| Surface | Section of Schedule & calendar | `/admin/calendar` | `/founder/calendar` |
+| `canAddCompanyHoliday` | N | Y | Y |
+| `canProposeBranchClosure` | Y (own branch, waits for approval) | Y (any branch, takes effect at once) | Y (any branch, takes effect at once) |
+| `canDecideClosure` | N | Y | Y |
+| `canEditOrCancel` | N | Y | Y |
+| `branchScope` | the session's branch | any | any |
 | `view` | list | month and list | month and list |
 
-Today the Branch Manager can decide a closure that the same person proposed. See Q8.
+Decision 18: the Branch Manager proposes closures and the Super Admin approves; Founder and Super Admin add company holidays. A Branch Manager can no longer decide a closure, so the proposer and decider are never the same person.
 
 ## 7.4 Issues list (`features/branch/issues.tsx:175`)
 
 | Option | Branch Manager | Super Admin | Founder |
 |---|---|---|---|
-| `canNote` | Y | Y | N (the API says via `issue.can_note`, `:134`) |
-| `canAssign` | N | Y (today `:8`) | N |
-| `branchScoped` | Y (branch pick) | N (all) | N (all) |
-| `goFix` target | `/branch/*` | read-only drill-down or removed (Q5) | read-only drill-down |
+| `canNote` | Y | Y | Y |
+| `canAssign` | N | Y (today `:8`) | Y |
+| `branchScoped` | Y (the session's branch) | N (all) | N (all) |
+| `goFix` target | `/branch/*` | read-only detail under `/admin/*`, with Assign (decision 19) | read-only detail under `/founder/*`, with Assign |
 
 ## 7.5 Support desk (`features/shared/support-desk.tsx:100`)
 
-| Option | Trainer | Branch Manager | Super Admin (Q5) |
-|---|---|---|---|
-| `simple` | Y (`trainer/support.tsx:22`) | N | N |
-| `views` (tabs with counts) | N | Y (`branch/support.tsx:56`) | Y |
-| `base.mine` | Y | N | N |
-| `branchId` | - | picked branch | any |
-| `canReassign` (today `profile.scopes.some(BM, SA, FOUNDER)`, `support-desk.tsx:444`) | N | Y | Y |
+| Option | Trainer | Branch Manager | Super Admin | Founder |
+|---|---|---|---|---|
+| `simple` | Y (`trainer/support.tsx:22`) | N | N | N |
+| `views` (tabs with counts) | N | Y (`branch/support.tsx:56`) | Y | Y |
+| `base.mine` | Y | N | N | N |
+| `branchId` | - | the session's branch | any (filter) | any (filter) |
+| `canReassign` (today `profile.scopes.some(BM, SA, FOUNDER)`, `support-desk.tsx:444`) | N | Y | Y | Y |
+| `canEscalate` | Y | N | N | N |
+| Route | `/trainer/support` | `/branch/support` | `/admin/support` | `/founder/support` |
 | `canEscalate` | Y | N | N |
 
 ## 7.6 Batch page parts and operations (`features/academic/batch-panel.tsx`, `batch-operations.tsx`, `features/branch/batch-page.tsx`)
 
-| Option | Branch Manager | Super Admin (Q5) | Founder (Q6) |
+| Option | Branch Manager | Super Admin | Founder |
 |---|---|---|---|
 | `manage` (today `useCanManage`) | Y | N | N |
 | `approve` (today `useIsManager`, overrides and decisions) | Y | N | N |
-| `branchScope` | picked branch | all | all |
+| `branchScope` | the session's branch | all (filter) | all (filter) |
+| Route | `/branch/batches` | `/admin/batches` | `/founder/batches` |
+
+Day-to-day branch actions stay with Branch Managers (decisions 15 and 16); Super Admin and Founder decisions are made in the Approvals inbox, not on the batch page.
 
 Replaces `useCanManage()` / `useIsManager()` in: `branch/batches.tsx:35`, `class-day.tsx:67`, `waiting.tsx:148`, `payment-instructions.tsx:15`, `batch-page.tsx:99,160,198`, `schedule.tsx:44,291`, `new-class.tsx:46`, `class-actions.tsx:73-74`, `batch-dialogs.tsx:154`, `academic/class-operations.tsx:35,183,276-278,380-381`, `academic/batch-operations.tsx:41-42,947-948`, `academic/batch-panel.tsx` (props), `shared/sessions.tsx:26`.
 
@@ -556,11 +590,11 @@ Replaces `useCanManage()` / `useIsManager()` in: `branch/batches.tsx:35`, `class
 
 | Option | Branch Manager | Super Admin | Founder |
 |---|---|---|---|
-| Surface | collapsed section in `/branch/completion` | Approvals page (Q5) | `/founder/certificates` |
-| Decides | change requests and fee releases it may (API: "independent approver") | same | requests, fee exceptions |
-| `kinds` | certificate | certificate, fee_exception | certificate, fee_exception |
+| Surface | collapsed section in `/branch/completion` | `/admin/approvals` (Approvals page) | `/founder/certificates` and the Home inbox |
+| Decides | change requests and fee releases it may (API: "independent approver") | every item in the shared inbox | every item in the shared inbox |
+| `kinds` | certificate | certificate, fee_exception, access_extension, ai_budget, Branch Managers' own requests | same as Super Admin |
 
-Two UIs for the same decision today (`CertificateDecisions` table and the Founder's `InboxList` panels).
+The Approvals page is the same inbox the Founder has (`InboxList`); Super Admin and Founder see and decide the same items. The independence rule stays: nobody decides their own request. The `CertificateDecisions` table and the Founder's `InboxList` panels (two UIs today) become one inbox component.
 
 ## 7.9 Question bank (`features/trainer/question-bank.tsx:242`)
 
@@ -590,22 +624,23 @@ Backend audience uses the union (`backend/services/ask_nipuna.py:95`).
 
 ## 7.12 Needs-you / dashboard building blocks
 
-`components/lms/needs-you-list.tsx` (Trainer Today, Branch My work, Admin Home, Founder inbox via `founder/inbox-list.tsx`), `features/shared/dashboard-parts.tsx` (`Tile`, `CrmTile`, `QuickLinks`: Branch, Founder, academic), `components/lms/getting-started.tsx:28` (Student, Trainer, Branch, Admin; none for Founder). Role-neutral. `GettingStartedCard` and `useNavCounts` take a `workspace` argument (`getting-started.tsx:34`, `app-shell.tsx:86`) that the plan turns into the session role (R3).
+`components/lms/needs-you-list.tsx` (Trainer Today, Branch My work, Admin Home, Founder inbox via `founder/inbox-list.tsx`), `features/shared/dashboard-parts.tsx` (`Tile`, `CrmTile`, `QuickLinks`: Branch, Founder, academic), `components/lms/getting-started.tsx:28` (Student, Trainer, Branch, Admin; the Founder gets the card too, decision 16). Role-neutral. `GettingStartedCard` and `useNavCounts` take a `workspace` argument (`getting-started.tsx:34`, `app-shell.tsx:86`) that the plan turns into the session role (R3).
 
 ## 7.13 Reports
 
 | Option | Branch Manager | Super Admin | Founder |
 |---|---|---|---|
-| Component | `features/branch/reports.tsx:57` | same, with branch filter (Q8) | same (Q8) |
-| `branchScope` | picked branch | all / one | all / one |
-| API | `GET /branch/reports` (BM, SA) | same | `GET /academic/reports` exists, no screen |
+| Component | `features/branch/reports.tsx:57` | same component, branch filter | same component, branch filter, company-wide |
+| Route | `/branch/reports` | `/admin/reports` | `/founder/reports` |
+| `branchScope` | the session's branch | all or one | all or one |
+| API | `GET /branch/reports` (BM, SA) | same | `GET /academic/reports` (already allowed for the Founder); this removes the 403 the Founder gets on `/branch/reports` today |
 
 ## 7.14 App shell and palette
 
 | Item | Today | Fixed config per role |
 |---|---|---|
 | Header label | "Acting as" menu or label (`app-shell.tsx:115-121`) | static `Role · Branch` (R4) |
-| Bell route | `NOTIFICATIONS[workspace]` (`:26-31`) | one route per role |
+| Bell route | `NOTIFICATIONS[workspace]` (`:26-31`) | one route per role, including `/founder/notifications` |
 | Account menu link | student `/my-account`, others `/account/profile` (`:146-158`) | same, from the role |
 | Command palette pages and record targets | all held workspaces, `recordTarget` by workspace (`command-palette.tsx:15-20,46-52`) | one nav list, record links per role (Founder student = founder page, not `/admin/students`) |
 | Mobile bar | `MOBILE_BAR` for 3 roles (`access.ts:177`) | explicit list for every role |
@@ -632,78 +667,3 @@ Backend audience uses the union (`backend/services/ask_nipuna.py:95`).
 | `/me/nav-counts`, `/me/getting-started` take `workspace` | `backend/services/nav.py:31-36,111-122,166-176` |
 | Support trainer flag, `my_requests` wording, Ask Nipuna audience, delivery access | `backend/services/support.py:56,63,71,125,141,241`, `my_requests.py:88`, `ask_nipuna.py:95`, `delivery_access.py:22` |
 | Frontend union readers | `shared/delivery-ui.tsx:16-18,59-61`, `auth/auth.tsx:77,85`, `admin/format.ts:20-22`, `shared/support-desk.tsx:444`, `shared/staff-profile.tsx:29-32`, `components/lms/app-shell.tsx:80-82` |
-
----
-
-# 8. Open questions
-
-Each has 2 to 4 options; the first is the recommendation. No answer is assumed anywhere above.
-
-**Q1. After curriculum versions are removed, where do a course's modules and topics live?** (Students, trainers, sessions, assessments and topic progress hang off `curriculum_version_id` today.)
-1. (Recommended) On the course itself: one outline per course; the Super Admin edits it and every batch follows it.
-2. Frozen per batch: a batch copies the course outline when it is created and does not change afterwards.
-3. Keep one hidden "current version" per course in the database and hide versions in the UI.
-
-**Q2. What can the Super Admin edit on a course, given the CRM owns course code, title, category, status and combo tracks (`CourseUpserted`)?**
-1. (Recommended) Only LMS-owned content: modules, topics and their details. Code, title, category, status and tracks stay read-only, from the CRM.
-2. Also the title and status, and the CRM stops being the owner of those fields (needs a CRM change).
-3. Nothing in the screen: the outline is loaded by import; Courses is read-only for everyone.
-
-**Q3. Which parts of today's curriculum model survive on a course?** (hours, completion rules, required assessments, combo track pins, equivalence rules, library of reusable modules, branch variations, "mapping" helper in Waiting for a batch)
-1. (Recommended) Keep completion rules, hours and required assessments on the course (the completion pipeline needs them); drop library, variations, equivalence and the mapping helper.
-2. Keep only modules and topics; completion uses fixed rules.
-3. Keep everything and move it onto the course page.
-
-**Q4. When the Super Admin changes the outline of a course that has running batches, what happens?**
-1. (Recommended) Change applies at once; Branch Managers of affected branches are notified; audited.
-2. Block edits while a batch of that course is running.
-3. Change applies only to batches created afterwards (needs Q1 option 2).
-
-**Q5. What does a Super Admin keep of the Branch Manager's work now that the Branch workspace is gone?**
-1. (Recommended) A cross-branch read-only view (Batches, Students, Support, Reports, with a branch filter) plus the decisions the backend reserves for "Founder or Super Admin" (fee exceptions, extensions beyond limit, a Branch Manager's own requests, AI budget) on an Approvals page; no daily class or batch actions.
-2. Full branch actions inside `/admin/*` (a copy of the Branch Manager screens with an "all branches" filter and a branch to act on).
-3. Nothing: a Branch Manager account covers branch work; the Super Admin only does people, setup, issues and calendar.
-
-**Q6. What does the Founder keep outside the inbox, now that Admin and Branch are not implicit?**
-1. (Recommended) Read-only company views inside `/founder`: Students, Batches, Issues, Reports and Audit log, with a branch filter, plus Calendar for company holidays.
-2. Only Home, Approvals, AI controls and drill-downs from the tiles.
-3. The same read-only pages as today (Users, Setup, CRM sync, Audit included) moved under `/founder`.
-
-**Q7. A Branch Manager with several branches picks a branch at sign-in. Is "all my branches" still a choice?** (Today the picker offers "All branches".)
-1. (Recommended) No: exactly one branch per session; to see another, sign in again or "Change branch".
-2. Yes: the picker also has "All my branches" (read and act across them).
-3. Yes for reading (Reports, Issues), single branch for everything else.
-
-**Q8. Who approves a branch closure, and who edits company holidays?** (Today a Branch Manager can both propose and approve; the Founder and Super Admin add company holidays; only Super Admin edits or cancels.)
-1. (Recommended) Branch Manager proposes; Super Admin approves; Founder and Super Admin add company holidays; Founder edits only company holidays.
-2. Branch Manager proposes and approves for own branch (as today); Super Admin and Founder add company holidays.
-3. Only Super Admin adds, edits, cancels and approves everything; Founder reads.
-
-**Q9. Does the Trainer get a Courses view?**
-1. (Recommended) No nav item; a read-only "Course outline" block on the trainer batch page.
-2. A Trainer nav item "Courses", read-only.
-3. No outline for trainers beyond the topic pickers.
-
-**Q10. Does the Founder get a bell and a notification inbox?** (Today none: "nothing is sent to the founder".)
-1. (Recommended) Yes: decisions waiting (the nav counts already exist) shown as a bell and an inbox page.
-2. No: Home and nav badges only.
-
-**Q11. Staff screens for Career and placements (opportunities, CV review, applications, placement outcomes): in scope for this project?** (The API exists for Branch Manager, Super Admin and Founder; no staff screen exists, so a student's "CV reviewed" step cannot be completed from the UI.)
-1. (Recommended) Out of scope here; record in `docs/GAPS.md`; decide owner (Branch Manager) later.
-2. Add a Branch Manager "Career" screen in R7.
-3. Add it to the Super Admin workspace instead.
-
-**Q12. Super Admin "Go fix it" on Issues (`/admin/issues`) today opens Branch Manager screens. Under Q5 option 1 or 3, what should it do?**
-1. (Recommended) Open a read-only detail of the record under `/admin/*`, with Assign as the action.
-2. Hide Go fix it for the Super Admin; Assign only.
-3. Keep opening the branch screens (needs a Branch Manager account to act).
-
-**Q13. Is there a screen where the Super Admin hands out the migrated accounts (R2), and who may see the list?**
-1. (Recommended) A one-time hand-out page in Users & access, Super Admin only, with a download.
-2. A CSV produced by the migration command, no screen.
-3. Email the new credentials directly to each person.
-
-**Q14. Landing order for a user with several roles during R2 (plan proposes Founder > Super Admin > Branch Manager > Trainer > Student): confirm.**
-1. (Recommended) As proposed.
-2. Lowest operational role first (Student > Trainer > Branch Manager > Super Admin > Founder).
-3. Per person, chosen by the Super Admin in the hand-out list.

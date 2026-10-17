@@ -29,6 +29,8 @@ Goal: every role gets its own, complete view. No "Acting as" switcher, no screen
 | 21 | Career/placements staff screens | **Out of scope.** Recorded in `docs/GAPS.md`. |
 | 22 | Credential hand-out | **Hand-out page in Users & access** with a one-time activation link per new account. |
 | 23 | Primary role on a split user | **Founder > Super Admin > Branch Manager > Trainer > Student.** |
+| 24 | Super Admin Approvals page | **Same inbox as the Founder:** Super Admin and Founder can both see and decide every item (fee exceptions, access extensions, certificates, AI budget, Branch Managers' own requests). The existing independence rule (nobody decides their own request) still applies. |
+| 25 | Course extras kept | **Combo track pins and the reusable module library** survive on the course. Equivalence rules, branch variations and the "prepare mapping" helper are removed. |
 
 ## What is wrong today
 
@@ -111,11 +113,10 @@ Remove the cross-feature imports (`founder/*` importing `branch/*`, `branch/cont
 - The backend change touches most of the role guards; it needs the full backend test suite and a staging pass before frontend work depends on it.
 - The CRM integration (`docs/CRM_INTEGRATION.md`) assumes the current roles; check no event intake depends on a multi-role user.
 
-## Open questions
+## Build rules
 
-None blocking. To check during R2/R6:
-- Whether any CRM event intake depends on a multi-role user.
-- Whether a Founder with Super Admin-level edit rights needs the "fresh auth" (recent password) guard on sensitive actions; keep it as today unless told otherwise.
-- The Founder's extra Super Admin powers must still respect the CRM-owned course fields (decision 12).
+- The `@fresh_auth` (recent password) guard stays on the same sensitive actions as today, for Founder and Super Admin alike.
+- Course code, title, category, status and tracks stay owned by the CRM `CourseUpserted` event, for every role (decision 12).
+- R2 starts by checking that no CRM event intake relies on a user holding more than one role; any that does is changed as part of R2.
 
 Detailed per-role screens, the shared-screen config tables and the list of cross-feature imports are in `docs/ROLE_SCREEN_MAP.md`.
