@@ -12,11 +12,11 @@ Work top to bottom. R2 and R3 (data and backend) come before any frontend phase,
 
 ## R0. Before any code
 
-- [ ] Create a feature branch off `main`
-- [ ] Take a backup of the staging database before running any migration
-- [ ] Check that no CRM event intake (`docs/CRM_INTEGRATION.md`, `backend/routes/crm*`, `backend/services/crm*`) relies on a user holding more than one role; change any that does as part of R2
-- [ ] Count users with more than one active row in `user_role_scopes` (dry run), and list them with their roles and branches
-- [ ] Note the next free migration number in `db/`
+- [x] Create a feature branch off `main` (`role-separation`)
+- [x] Take a backup of the staging database before running any migration (`~/nipunalms-dev-backup-pre-role-split-2026-10-18.dump`, `pg_dump -Fc` of `nipunalms-dev`)
+- [x] Check that no CRM event intake (`docs/CRM_INTEGRATION.md`, `backend/routes/crm*`, `backend/services/crm*`) relies on a user holding more than one role; change any that does as part of R2 (none does: intake only notifies by `role_code` + branch, and `/crm` admin routes need Super Admin)
+- [x] Count users with more than one active row in `user_role_scopes` (dry run), and list them with their roles and branches (6 on `nipunalms-dev`, all e2e leftovers `trainer.e2e.*@nipuna.test` with Trainer + Branch Manager at Guntur: users 116, 128, 129, 140, 145, 146; no Branch Manager holds two branches; Founder and Super Admin hold one role each. Note: Student and Trainer scopes also carry a branch today, 81 and 24 rows, so the R2 constraint keeps a branch on those roles and only forbids several rows for anything but Branch Manager)
+- [x] Note the next free migration number in `db/` (118)
 
 ## R1. Inventory (done)
 
