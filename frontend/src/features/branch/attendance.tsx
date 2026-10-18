@@ -1,4 +1,4 @@
-/** Attendance & progress: students (at risk first), recovery requests and attendance corrections, with counts on the tabs. */
+/** Attendance (nav label "Attendance & progress"): students (at risk first), recovery requests and attendance corrections, with counts on the tabs. */
 import { useQuery } from "@tanstack/react-query";
 import { attendanceApi } from "@/api/attendance";
 import { useAuth } from "@/auth/auth";

@@ -1,8 +1,17 @@
 import { useFounderSummary } from "@/api/dashboards";
 import { GettingStartedCard } from "@/components/lms/getting-started";
 import { Note, PageHead, QueryView, Section } from "@/components/lms/ui";
-import { CrmTile, Tile, TileRow } from "@/features/shared/dashboard-parts";
+import { CrmTile, QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 import { ApprovalsInbox } from "@/features/shared/approvals/inbox";
+
+const NEXT = [
+  ["/founder/reports", "Reports"],
+  ["/founder/issues", "Issues"],
+  ["/founder/students", "Student accounts"],
+  ["/founder/batches", "Batches"],
+  ["/founder/users", "Staff accounts"],
+  ["/founder/setup", "Setup & health"],
+] as const;
 
 /** The Founder's home: everything waiting for them first, then how the company is doing. */
 export function FounderDashboard() {
@@ -11,7 +20,10 @@ export function FounderDashboard() {
     <div className="mx-auto max-w-6xl space-y-5">
       <PageHead title="Founder / CEO home" description="Decide what is waiting for you, then see how the company is doing." />
       <GettingStartedCard />
-      <ApprovalsInbox page="/founder" />
+      <ApprovalsInbox
+        page="/founder"
+        empty="Nothing is waiting for your decision. Fee exceptions, access extensions, certificate requests and the AI budget appear here as they come in. Meanwhile, check how the company is doing below."
+      />
       <QueryView query={query} skeleton="cards">
         {(d) => (
           <Section title="How the company is doing">
@@ -46,6 +58,7 @@ export function FounderDashboard() {
           </Section>
         )}
       </QueryView>
+      <QuickLinks title="Where to go next" links={NEXT} />
     </div>
   );
 }

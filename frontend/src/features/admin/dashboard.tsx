@@ -89,7 +89,7 @@ export function AdminDashboard({ canEdit }: { canEdit: boolean }) {
             <NeedsYouList
               title="Needs action"
               items={toItems(data, canEdit)}
-              empty="Nothing needs you right now. Failed CRM updates, unowned issues and locked accounts will show up here."
+              empty="Nothing needs you right now. Failed CRM updates, unowned issues and locked accounts will show up here. Meanwhile, review Setup & health or check Student accounts."
             />
             <SetupChecklist data={data.setup} />
           </>

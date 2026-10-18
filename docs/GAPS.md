@@ -6,6 +6,13 @@ Found on 2026-10-03 by comparing the approved module PDFs (`~/Downloads/CRM  & L
 
 > **Role note (UX phase U2):** the Academic Coordinator role was merged into the Branch Manager. Wherever a gap below says "Academic Coordinator" (written before the merge), read "Branch Manager"; the evidence and specs are left as found. See [GAP_FIX_PLAN.md](GAP_FIX_PLAN.md).
 
+## Known gaps recorded by role separation (R7)
+
+Out of scope for the role-separation work, listed here so nobody assumes a screen exists. See [ROLE_SEPARATION.md](ROLE_SEPARATION.md) decision 21 and Part C.
+
+- **Career and placements staff screens (decision 21).** No Branch Manager, Super Admin or Founder screen exists for opportunities, CV review, career profiles, applications or placement outcomes. The API is there (`backend/routes/career.py`) and the student's "CV reviewed" step depends on it; only `features/student/career.tsx` and the student calls in `api/career.ts` use it. This is gap [G001](#g001); the Branch Manager gets notified of CV uploads and applications (link `/branch/support`) but has nowhere to act on them.
+- **Finance summaries screen.** `GET /finance-summaries` (`backend/routes/finance.py`) serves finance figures to the Branch Manager, Super Admin and Founder, and nothing in the frontend calls it. Collections and overdue figures reach staff only through the CRM tiles on Home. A summaries screen per role (branch for the Branch Manager, all branches with a filter for Super Admin and Founder) is not built.
+
 ## Register
 
 | ID | Severity | Module | Gap | Phase | Status |

@@ -103,14 +103,13 @@ test.describe("phone layout @mobile", () => {
 test("the branch manager sees escalations and access-extension requests on one page", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.bmGnt);
-  await page.goto("/branch/requests"); // the old address opens Student support on the Access extensions tab
-  await expect(page).toHaveURL(/\/branch\/support/);
+  await page.goto("/branch/support");
   await expect(page.getByRole("heading", { level: 1, name: "Student support" })).toBeVisible();
-
-  await page.getByRole("tab", { name: /^Requests/ }).click();
   await expect(page.getByRole("cell", { name: "SR-1051" }).first()).toBeVisible();
 
-  await page.getByRole("tab", { name: /^Access extensions/ }).click();
+  await page.goto("/branch/requests"); // the old address opens the Access extensions page
+  await expect(page).toHaveURL(/\/branch\/extensions/);
+  await expect(page.getByRole("heading", { level: 1, name: "Access extensions" })).toBeVisible();
   await expect(page.getByText("EXT-031").first()).toBeVisible();
   await expect(page.getByText("This is beyond what you can approve.")).toBeVisible();
 });

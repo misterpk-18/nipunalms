@@ -19,7 +19,7 @@ export function TrainerSessions() {
   });
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHead title="Sessions" description="Your class schedule. Open a class to run it, or ask your Branch Manager to move one." />
+      <PageHead title="Class schedule" description="Your class schedule. Open a class to run it, or ask your Branch Manager to move one." />
       <PillTabs label="Sessions" tabs={TABS} value={tab} onChange={setTab} />
       <QueryView
         query={query}

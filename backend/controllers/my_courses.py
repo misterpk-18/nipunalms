@@ -41,13 +41,23 @@ def list_enrolments():
     return ok([_card(v) for v in my_courses_service.list_enrolments()])
 
 
+def _timetable(batch) -> dict | None:
+    """The batch's weekly pattern and room, for the student's course page (None until a batch is allocated)."""
+    if batch is None:
+        return None
+    full = batch.to_dict()
+    return {key: full[key] for key in ("schedule_days", "start_time", "end_time", "location", "mode", "planned_start", "planned_end")}
+
+
 def get_enrolment(enrolment_id: int):
     view = my_courses_service.get_enrolment(enrolment_id)
     return ok({
         **_card(view),
+        "timetable": _timetable(view.batch),
         "tracks": [_track(t) for t in view.tracks],
         "modules": [_module(m) for m in view.modules],
-        "next_sessions": [{**s.to_summary(), "mode": s.mode, "trainer": s.trainer.full_name} for s in view.next_sessions],
+        "next_sessions": [{**s.to_summary(), "mode": s.mode, "trainer": s.trainer.full_name, "room": s.room}
+                          for s in view.next_sessions],
         "finance": view.finance.to_dict() if view.finance else None,
     })
 

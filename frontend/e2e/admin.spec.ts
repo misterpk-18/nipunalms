@@ -73,7 +73,7 @@ test.describe("Super Admin", () => {
     const email = `trainer.e2e.${RUN}@nipuna.test`;
     await login(page, USERS.admin);
     await page.goto("/admin/users");
-    await expect(page.getByRole("heading", { name: "Users & access" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Staff accounts" })).toBeVisible();
     await expect(page.getByRole("row", { name: /Trainer R\. Sample/ })).toContainText("Trainer · NIT-GNT");
 
     await page.getByRole("button", { name: "Add staff user" }).click();
@@ -226,7 +226,7 @@ test.describe("boundaries", () => {
   test("the Founder reads but cannot change; a Branch Manager cannot open the admin screens", async ({ page }) => {
     await login(page, USERS.founder);
     await page.goto("/admin/users");
-    await expect(page.getByRole("heading", { name: "Users & access" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Staff accounts" })).toBeVisible();
     await expect(page.getByRole("row", { name: /Super Admin/ }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Add staff user" })).toHaveCount(0);
     await page.goto("/admin/setup");

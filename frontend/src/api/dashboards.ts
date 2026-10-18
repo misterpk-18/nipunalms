@@ -416,7 +416,7 @@ export type FounderSummary = {
   };
 };
 
-/** `branchId`: the branch picked in the "Acting as" menu (null = every branch the person sees). */
+/** `branchId`: the branch of the session (a Branch Manager has exactly one; null = every branch the person sees). */
 export const useAcademicSummary = (branchId: number | null = null) =>
   useQuery({ queryKey: [...dashboardKeys.academic, branchId], queryFn: () => get<AcademicSummary>("/academic/summary", { branch_id: branchId }) });
 export const useBranchDashboard = (branchId: number | null = null) =>

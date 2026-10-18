@@ -33,13 +33,18 @@ test("the navigation is the decided list and the old screens still open", async 
     "Waiting for a batch",
     "Schedule & calendar",
     "Attendance & progress",
-    "Curriculum",
-    "Content & questions",
+    "Courses",
+    "Content review",
+    "Question approvals",
     "Marks & results",
+    "Recordings",
     "Completion & certificates",
+    "Certificate requests",
     "Student support",
+    "Access extensions",
     "Issues",
     "Reports",
+    "Payment instructions",
   ])
     await expect(nav.getByRole("link", { name: label })).toBeVisible();
   for (const gone of ["Content Review", "Reviews", "Completion Review", "Certificate Eligibility", "Exceptions", "Recording Exceptions", "Escalations & Extensions", "Academic Reports"])
@@ -133,8 +138,8 @@ test("Content & questions: one Review claims the item, the decision has a previe
 
   await login(page, USERS.bmGnt);
   await page.goto("/branch/content");
-  await expect(page.getByRole("heading", { level: 1, name: "Content & questions" })).toBeVisible();
-  for (const tab of ["To review", "Ready to release", "Changes requested", "Released", "Questions to approve"])
+  await expect(page.getByRole("heading", { level: 1, name: "Content review" })).toBeVisible();
+  for (const tab of ["To review", "Ready to release", "Changes requested", "Released"])
     await expect(page.getByRole("tab", { name: new RegExp(`^${tab}`) })).toBeVisible();
   const row = page.getByRole("row", { name: new RegExp(`E2E reading list ${RUN}`) });
   await row.getByRole("button", { name: "Review", exact: true }).click();
@@ -154,8 +159,9 @@ test("Content & questions: one Review claims the item, the decision has a previe
   await page.getByRole("alertdialog").getByRole("button", { name: "Release", exact: true }).click();
   await page.getByRole("tab", { name: /^Released/ }).click();
   await expect(page.getByRole("row", { name: new RegExp(`E2E reading list ${RUN}`) })).toBeVisible();
-  await page.getByRole("tab", { name: /^Questions to approve/ }).click();
-  await expect(page.getByRole("button", { name: "Approve", exact: true }).first()).toBeVisible(); // question approval lives here now
+  await page.goto("/branch/questions");
+  await expect(page.getByRole("heading", { level: 1, name: "Question approvals" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve", exact: true }).first()).toBeVisible(); // question approval has its own page
 });
 
 test("Marks & results: gaps name their owner and publishing asks first with counts", async ({ page }, info) => {
@@ -177,7 +183,7 @@ test("Marks & results: gaps name their owner and publishing asks first with coun
 test("Attendance & progress: students at risk first, counts on the tabs, confirms with the consequence", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.bmGnt);
-  await page.goto("/branch/progress");
+  await page.goto("/branch/attendance");
   await expect(page.getByRole("heading", { level: 1, name: "Attendance & progress" })).toBeVisible();
   const tabs = page.getByRole("tablist");
   await expect(tabs.getByRole("tab", { name: /^Students/ })).toBeVisible();
@@ -206,8 +212,8 @@ test("Student support opens on Needs action and access extensions beyond the lim
   for (const tab of ["Needs action", "Waiting for the student", "Done", "All"]) await expect(page.getByRole("tab", { name: new RegExp(`^${tab}`) })).toBeVisible();
   await expect(page.getByRole("tab", { name: /^Needs action/ })).toHaveAttribute("aria-selected", "true");
 
-  await page.getByRole("tab", { name: "Access extensions" }).click();
-  await expect(page).toHaveURL(/tab=extensions/);
+  await page.goto("/branch/support?tab=extensions"); // the old tab address opens the Access extensions page
+  await expect(page).toHaveURL(/\/branch\/extensions/);
   await expect(page.getByText(/This is beyond what you can approve/).first()).toBeVisible();
   const trigger = page.getByRole("button", { name: /^(Add|Change) recommendation$/ }).first();
   const first = (await trigger.textContent())?.startsWith("Add");
@@ -304,7 +310,7 @@ test("Reports: this month by default, every figure drills down, CSV downloads", 
 
 test("the new screens fit a phone @mobile", async ({ page }) => {
   await login(page, USERS.bmGnt);
-  for (const path of ["/branch/issues", "/branch/completion", "/branch/progress", "/branch/support", "/branch/content", "/branch/results", "/branch/recordings", "/branch/reports", "/branch/curriculum"]) {
+  for (const path of ["/branch/issues", "/branch/completion", "/branch/attendance", "/branch/support", "/branch/content", "/branch/results", "/branch/recordings", "/branch/reports", "/branch/curriculum"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
     await page.waitForTimeout(800);

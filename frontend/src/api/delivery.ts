@@ -360,7 +360,9 @@ export type TrackRow = {
 export type MyEnrolmentDetail = MyEnrolment & {
   tracks: TrackRow[];
   modules: ModuleRow[];
-  next_sessions: { session_id: number; title: string; starts_at: DateTime; ends_at: DateTime; state: string; mode: string; trainer: string }[];
+  next_sessions: { session_id: number; title: string; starts_at: DateTime; ends_at: DateTime; state: string; mode: string; trainer: string; room: string | null }[];
+  /** The batch's weekly pattern and room; null until a batch is allocated. */
+  timetable: { schedule_days: string[]; start_time: string | null; end_time: string | null; location: string | null; mode: string } | null;
   finance: { fee_total: string; verified_paid: string; balance: string; as_of: DateTime } | null;
 };
 export type TrackDetail = {

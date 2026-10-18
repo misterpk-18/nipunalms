@@ -11,6 +11,8 @@ import re
 from sqlalchemy import select
 
 from config.database import db
+from services import role_links
+from services.context import current_user
 from models import AuditLog, Batch, ClassSession, CrmEvent, Course, Integration, SecurityControl, Student, User
 from models.calendar import CalendarClosure
 from models.ask_nipuna import AiFeatureControl
@@ -302,14 +304,22 @@ def resolve_targets(entries: list[AuditLog]) -> dict[tuple[str, str], dict]:
     return found
 
 
+def _link_for(link: dict | None, role: str | None) -> dict | None:
+    if not link or "to" not in link:
+        return link
+    return {**link, "to": role_links.for_role(link["to"], role)}
+
+
 def annotate(entries: list[AuditLog], actor_names: dict[int, str]) -> list[dict]:
     """Each entry as stored plus `sentence`, `target` (its name) and `link`."""
     targets = resolve_targets(entries)
+    user = current_user()
+    role = user.role_code if user else None  # links open under the reader's own workspace (a Founder never gets /admin/*)
     out = []
     for entry in entries:
         target = targets.get((entry.entity_type, entry.entity_id))
         out.append({**entry.to_dict(), "sentence": sentence(entry, actor_names.get(entry.actor_user_id), target["label"] if target else None),
-                    "target": target["label"] if target else None, "link": target["link"] if target else None})
+                    "target": target["label"] if target else None, "link": _link_for(target["link"], role) if target else None})
     return out
 
 

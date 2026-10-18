@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { CalendarClock, ClipboardList, PlayCircle, Radio, Sparkles, type LucideIcon } from "lucide-react";
+import { Award, CalendarClock, ClipboardList, LifeBuoy, PlayCircle, Radio, Sparkles, TrendingUp, Wallet, type LucideIcon } from "lucide-react";
 import { deliveryApi } from "@/api/delivery";
 import { useMyHome, type HomeBatchChange, type StudentHome, type UpNext } from "@/api/dashboards";
 import { EmptyState } from "@/components/lms/empty-state";
@@ -313,6 +313,34 @@ function AttendanceCard({ card }: { card: StudentHome["attendance_alert"] }) {
 
 // ---------------------------------------------------------------- the screen
 
+/** One tap from Home to the places a phone's bottom bar has no room for: Progress, Certificates, Support, and fees and receipts. */
+function QuickLinks() {
+  const t = useT();
+  const links = [
+    { to: "/progress", label: t("myProgress"), icon: TrendingUp },
+    { to: "/certificates", label: t("certificates"), icon: Award },
+    { to: "/support", label: t("support"), icon: LifeBuoy },
+    { to: "/my-account", search: { tab: "fees" }, label: t("feesAndReceipts"), icon: Wallet },
+  ] as const;
+  return (
+    <section aria-label={t("quickLinks")}>
+      <h2 className="mb-2 text-base font-semibold">{t("quickLinks")}</h2>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {links.map(({ to, label, icon: Icon, ...rest }) => (
+          <Link
+            key={to}
+            to={to}
+            {...("search" in rest ? { search: rest.search } : {})}
+            className="tap flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm hover:bg-accent"
+          >
+            <Icon className="size-4 shrink-0" aria-hidden /> {label}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function StudentHome() {
   const query = useMyHome();
   const { lang } = useLanguage();
@@ -337,6 +365,7 @@ export function StudentHome() {
               />
               {home.batch_changes.state === "Ready" && home.batch_changes.items.map((change) => <BatchChangeBanner key={change.change_id} change={change} />)}
               <UpNextHero up={home.up_next} />
+              <QuickLinks />
               <div className="grid gap-4 md:grid-cols-2">
                 <DueWorkCard card={home.due_work} />
                 <ContinueCard card={home.continue_learning} progress={home.course_progress} />

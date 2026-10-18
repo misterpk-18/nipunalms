@@ -223,7 +223,7 @@ export function TrainerToday() {
   const query = useTrainerToday();
   return (
     <div className={cn("mx-auto max-w-4xl")}>
-      <PageHead title="Today" description="Run today's classes and see what needs you." />
+      <PageHead title="Today" description="Run today's classes and see what needs you. For every class, open Class schedule; for any register, open Attendance." />
       <div className="mb-4">
         <GettingStartedCard />
       </div>
@@ -245,7 +245,7 @@ export function TrainerToday() {
                   reason="No class is scheduled for you today."
                   action={
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/trainer/sessions">See your schedule</Link>
+                      <Link to="/trainer/sessions">Open Class schedule</Link>
                     </Button>
                   }
                 />

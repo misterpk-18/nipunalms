@@ -54,7 +54,7 @@ def create_request(enrolment_id: int, scope_value: str, reason: str) -> AccessEx
     audit.record("ACCESS_EXTENSION_REQUESTED", "access_extension_request", request.request_code,
                  new={"enrolment": enrolment.enrolment_code, "scope": scope_value, "needs_exception": request.needs_exception},
                  reason=reason, branch_id=request.branch_id)
-    link = "/branch/support?tab=extensions"
+    link = "/branch/extensions"
     if request.needs_exception:
         # Beyond the Branch Manager's limit: the Branch Manager adds a recommendation, which sends it on to the Founder
         notify(category="Access", title=f"{request.request_code}: access extension request needs your recommendation",

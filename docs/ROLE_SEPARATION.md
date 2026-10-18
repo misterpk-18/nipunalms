@@ -82,9 +82,9 @@ No component calls `hasRole`, `useCanManage`, `useIsManager` or `useCanAdministe
 - [x] 7.11 Assistant: `variant` per role (`Assistant` takes `variant`; the student and trainer routes pass it; no role read in the component)
 - [x] 7.12 Dashboard building blocks: role-neutral, Founder gets Getting started (`GettingStartedCard` and `useNavCounts` read the session; Founder Home now has the Getting started card (backend `/me/getting-started` already served the Founder))
 - [x] 7.13 Reports: one component with a branch filter, three routes (one `Reports` (`features/shared/reports.tsx`) with `area` for the Super Admin and Founder (branch filter, plus a branch-by-branch table from `GET /academic/reports?branch_id=`); routes `/branch/reports`, `/admin/reports`, `/founder/reports`. Backend: `GET /branch/reports` and its export now also admit Super Admin and Founder (all branches or `branch_id`), because the BM report shape is what the one component renders; figure drill links are built per role (never `/branch/*`, none where the role has no screen))
-- [x] 7.14 App shell and command palette: one nav per role, record links per role (Founder student result opens a founder page), explicit mobile bar list for every role (Super Admin and Founder nav per 4.7 / 5.7 (Courses added in R6; Founder keeps "Curriculum approvals" until R6 removes it); `RECORD_TARGETS` per role (Founder student opens `/founder/students/$id`, batch results open `/admin|founder/batches/$id`, nothing links to `/branch/*` for them); `MOBILE_BAR` is an explicit list for all five roles; new `/founder/approvals`)
+- [x] 7.14 App shell and command palette: one nav per role, record links per role (Founder student result opens a founder page), explicit mobile bar list for every role (Super Admin and Founder nav per 4.7 / 5.7 (Courses added in R6; Curriculum approvals no longer exist); `RECORD_TARGETS` per role (Founder student opens `/founder/students/$id`, batch results open `/admin|founder/batches/$id`, nothing links to `/branch/*` for them); `MOBILE_BAR` is an explicit list for all five roles; new `/founder/approvals`)
 - [x] 7.15 Move the cross-feature imports into `features/shared` (list in Part C) and retire the leftover `features/academic/` directory (moved to `features/shared`: url-state, pager, url-params, form-parts (was `admin/shared`), staff-options, question-bank, batches, batch-page, batch-panel, batch-operations, class-operations, class-actions, batch-dialogs, new-class, new-batch-wizard, timetable, attendance-students, waiting-student (split out of `branch/waiting`), reports; `features/academic/dashboard` became `branch/academic-dashboard`; `features/academic/` now holds only `curriculum.tsx` and `curriculum-model.tsx` for R6 to delete; the only remaining cross-feature imports are curriculum ones)
-- [x] Frontend: delete the union readers listed in 7.16 (`shared/delivery-ui.tsx`, `auth/auth.tsx:77,85`, `admin/format.ts:20-22`, `shared/support-desk.tsx:444`, `shared/staff-profile.tsx:29-32`, `components/lms/app-shell.tsx:80-82`) (`useCanAdminister` deleted: `canEdit` / `area` (`features/shared/central-area.ts`, `ADMIN_AREA`, `FOUNDER_AREA`, both editable) is passed by the route; `auth/auth.tsx` derives the role and workspace from the session role (no scopes union); `hasRole` remains only for `academic/curriculum.tsx` and `curriculum-model.tsx` (R6 deletes them); support desk `can_respond` comes from the API)
+- [x] Frontend: delete the union readers listed in 7.16 (`shared/delivery-ui.tsx`, `auth/auth.tsx:77,85`, `admin/format.ts:20-22`, `shared/support-desk.tsx:444`, `shared/staff-profile.tsx:29-32`, `components/lms/app-shell.tsx:80-82`) (`useCanAdminister` deleted: `canEdit` / `area` (`features/shared/central-area.ts`, `ADMIN_AREA`, `FOUNDER_AREA`, both editable) is passed by the route; `auth/auth.tsx` derives the role and workspace from the session role (no scopes union); `hasRole` is deleted (curriculum, its last user, is gone); support desk `can_respond` comes from the API)
 
 ## R6. Curriculum to Courses
 
@@ -115,26 +115,26 @@ Frontend
 ## Per-role build
 
 ### Student
-- [ ] No nav change; verify every page still works after R3 and R6
-- [ ] Show batch trainer, room and timetable on `/courses/$enrolmentId`
+- [x] No nav change; verify every page still works after R3 and R6 (smoked every student page and legacy redirect on a temp stack (dashboard, courses, schedule, tasks, materials, progress tabs, certificates, career, ask, support, account, notifications): no failed API call after fixing the Home slot-preference card, which asked for slot options on a completed course)
+- [x] Show batch trainer, room and timetable on `/courses/$enrolmentId` (Your batch section on the course page: batch, trainers, room, weekly timetable, mode; coming-up classes show their room; `GET /me/enrolments/{id}` returns `timetable`, test in `test_delivery.py`)
 - [x] Reword "No curriculum yet" (`features/student/my-courses.tsx:82`) (`noOutlineYet` "No course outline yet" (and `noTopicsYet`, `noModulesYet` reworded))
-- [ ] Keep all legacy redirect routes as they are (`/assignments`, `/tests`, `/attendance`, `/results`, `/finance`, `/profile`, `/recordings`, `/resources`)
+- [x] Keep all legacy redirect routes as they are (`/assignments`, `/tests`, `/attendance`, `/results`, `/finance`, `/profile`, `/recordings`, `/resources`) (all eight routes exist and redirect (checked))
 
 ### Trainer
-- [ ] Rename the "Content" nav item out of the "Grade" group (it is uploads and review state)
+- [x] Rename the "Content" nav item out of the "Grade" group (it is uploads and review state) (now "My uploads" in Teach)
 - [x] Course outline block on the trainer batch page (`features/trainer/batch-page.tsx`) (read-only block, no route)
-- [ ] Completion recommendation screen (the backend `completion.py:19,33` already allows it)
-- [ ] Read-only holiday and closure view for planning
-- [ ] Trainer support, requests, profile and notifications use the shared components with the trainer config
+- [x] Completion recommendation screen (the backend `completion.py:19,33` already allows it) (`/trainer/completion`, nav "Course completion" under People: start a review, recommend Complete / Not yet / Needs recovery with a note)
+- [x] Read-only holiday and closure view for planning (`/trainer/calendar` ("Holidays & closures", Teach) with `CALENDAR_READ_ONLY`)
+- [x] Trainer support, requests, profile and notifications use the shared components with the trainer config (verified: support uses `SupportDesk` (`simple`), notifications use `NotificationCentre`, profile is the shared `StaffProfile`, requests reads the role-neutral `/me/requests`)
 
 ### Branch Manager
-- [ ] One branch per session: remove "All branches"
-- [ ] Add `/branch/recordings` to the nav
-- [ ] Surface payment instructions, access extensions and certificate requests as visible items, not buried sections (as in R7)
+- [x] One branch per session: remove "All branches" (verified: no "All branches" choice exists for a Branch Manager (the only remaining "All branches" is the Super Admin / Founder filter))
+- [x] Add `/branch/recordings` to the nav (Recordings under Teaching)
+- [x] Surface payment instructions, access extensions and certificate requests as visible items, not buried sections (as in R7) (new nav items: Payment instructions (`/branch/payments`, group Branch), Access extensions (`/branch/extensions`, Help), Certificate requests (`/branch/certificate-requests`, Completion), each with its own badge; the old tab and section links redirect)
 - [x] `/branch/courses` replaces Curriculum under "Teaching" (nav item "Courses" under Teaching)
 - [x] Branch Manager proposes closures; cannot decide them
-- [ ] Rename the "Attendance & progress" URL to match the label or the label to match the URL
-- [ ] Split "Content & questions" or label its two jobs clearly
+- [x] Rename the "Attendance & progress" URL to match the label or the label to match the URL (URL is now `/branch/attendance` (label stays "Attendance & progress"); `/branch/progress` redirects)
+- [x] Split "Content & questions" or label its two jobs clearly (two nav items: Content review (`/branch/content`) and Question approvals (`/branch/questions`); `?tab=questions` redirects; separate badges `content_review` and `questions`)
 
 ### Super Admin
 - [x] (built except Courses, which R6 adds) Nav under `/admin`: Home, Approvals, Users & access, Student accounts, Batches, Attendance, Support, Reports, Issues, Academic calendar, Courses, CRM sync, Setup & health, AI controls, Audit log (Courses added; order matches 4.7)
@@ -143,32 +143,32 @@ Frontend
 - [x] `/admin/batches`, `/admin/students` (branch filter), `/admin/attendance`, `/admin/reports`: read-only cross-branch (read-only cross-branch views; students and attendance have a branch filter, reports have one too)
 - [x] `/admin/support`: read and reassign
 - [x] "Go fix it" on `/admin/issues` opens a read-only detail with Assign (`backend/services/issues.py:45-64`)
-- [ ] Payment instructions edited in `/admin/setup`, branches section
+- [x] Payment instructions edited in `/admin/setup`, branches section (Branches section on Setup & health (both `/admin` and `/founder`), any branch; kept the Branch Manager editing their own branch on `/branch/payments` (decision text only moves it for Super Admin, no read-only rule for the Branch Manager); backend already allowed all three roles)
 - [x] Approve closures proposed by Branch Managers on `/admin/calendar`
 - [x] Users & access hand-out page (the hand-out section is in the shared Users & access component, served on `/admin/users` and `/founder/users`)
-- [ ] Remove the implicit Branch workspace and its "Acting as" entry
+- [x] Remove the implicit Branch workspace and its "Acting as" entry (verified: `WORKSPACE_OF_ROLE` gives one workspace per role, no Acting as in the frontend)
 
 ### Founder
 - [x] (built except Courses, which R6 adds; "Curriculum approvals" still listed until R6) Nav under `/founder`: Home, Approvals, Courses, Users & access, Students, Batches, Attendance, Issues, Reports, Academic calendar, Support, CRM sync, Setup & health, AI controls, Audit log (Courses added, Curriculum approvals removed; order matches 5.7)
 - [x] (all built except `/founder/courses`, R6) `/founder/users` with hand-out page, `/founder/students`, `/founder/batches`, `/founder/attendance`, `/founder/issues`, `/founder/reports`, `/founder/calendar`, `/founder/support`, `/founder/crm-sync` (with Retry), `/founder/setup` (editable), `/founder/audit`, `/founder/courses` (all routes exist)
 - [x] Bell, `/founder/notifications`, Getting started card (bell and `/founder/notifications` from part 1; Getting started card on Founder Home)
 - [x] Phone "More" sheet carries every item beyond the four pinned (explicit four pinned (Home, Approvals, Students, Issues); the shell's More sheet lists the rest)
-- [ ] Remove the implicit Admin and Branch workspaces and the "Acting as" entries
-- [ ] Add the Founder's Home empty state and next-step hints
+- [x] Remove the implicit Admin and Branch workspaces and the "Acting as" entries (verified as above for the Founder)
+- [x] Add the Founder's Home empty state and next-step hints (empty text names what appears there; "Where to go next" links; Home icon is no longer the brand shield)
 
 ## R7. Make everything visible
 
-- [ ] Every role's sidebar and phone bottom bar reviewed: each task reachable in at most two taps
-- [ ] Empty states and "where do I go next" hints on every landing page
-- [ ] Remove dead nav items and unlabeled icons; the Founder Home shield icon differs from the brand logo (`auth/access.ts:161`)
-- [ ] Getting started card on every role's home
-- [ ] Student: Progress, Certificates, Support reachable in one tap on a phone, or fees and receipts promoted out of My Account
-- [ ] Trainer: resolve the overlap of Today, Sessions and Attendance (labels or grouping)
-- [ ] Branch Manager: items listed under the Branch Manager checklist above
-- [ ] Super Admin: label "Student accounts" and "Users & access" so the difference is clear; move CRM sync out of "Operations" into "System"
-- [ ] Founder: items listed under the Founder checklist above
-- [ ] Record Career and placements staff screens as a known gap in `docs/GAPS.md` (out of scope)
-- [ ] Record the finance summaries screen gap (API exists for Branch Manager, Super Admin and Founder, no screen) in `docs/GAPS.md`
+- [x] Every role's sidebar and phone bottom bar reviewed: each task reachable in at most two taps (explicit `MOBILE_BAR` for all five roles; every other page is one More tap away (two taps total); hints under labels that could be confused)
+- [x] Empty states and "where do I go next" hints on every landing page (Founder, Super Admin and Trainer Today empty texts now point to the next page; Student, Branch Manager already had them)
+- [x] Remove dead nav items and unlabeled icons; the Founder Home shield icon differs from the brand logo (`auth/access.ts:161`) (Founder Home uses the House icon; no nav item without a page)
+- [x] Getting started card on every role's home (verified on all five homes)
+- [x] Student: Progress, Certificates, Support reachable in one tap on a phone, or fees and receipts promoted out of My Account (Quick links on Home: My Progress, Certificates, Support, Fees & receipts)
+- [x] Trainer: resolve the overlap of Today, Sessions and Attendance (labels or grouping) (Today (run today), Class schedule (all classes), Attendance (registers), each with a one-line hint)
+- [x] Branch Manager: items listed under the Branch Manager checklist above (see the Branch Manager checklist)
+- [x] Super Admin: label "Student accounts" and "Users & access" so the difference is clear; move CRM sync out of "Operations" into "System" ("Staff accounts" and "Student accounts" with hints; CRM sync already sits under System)
+- [x] Founder: items listed under the Founder checklist above (see the Founder checklist; Founder labels match Super Admin)
+- [x] Record Career and placements staff screens as a known gap in `docs/GAPS.md` (out of scope) (added to `docs/GAPS.md`)
+- [x] Record the finance summaries screen gap (API exists for Branch Manager, Super Admin and Founder, no screen) in `docs/GAPS.md` (added to `docs/GAPS.md`)
 
 ## R8. Tests and docs
 

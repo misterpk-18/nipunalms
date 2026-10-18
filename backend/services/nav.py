@@ -75,14 +75,18 @@ def _branch_counts() -> dict[str, int]:
         "waiting": enrolments.get("Allocation Pending", 0),
         "requests": (dash_repo.open_reschedule_requests(branch_ids) + dash_repo.escalated_support_requests(branch_ids)
                      + dash_repo.pending_extension_requests(branch_ids)),
-        # Content & questions: uploads waiting for review plus questions waiting for approval
-        "content_review": dash_repo.content_awaiting_review(branch_ids) + questions_repo.count_drafts(branch_ids),
+        # Content review: uploads waiting for review. Question approvals: questions waiting for approval (two pages)
+        "content_review": dash_repo.content_awaiting_review(branch_ids),
+        "questions": questions_repo.count_drafts(branch_ids),
         "marks": dash_repo.results_awaiting_publication(branch_ids),
         # Completion & certificates: reviews to decide plus certificates to approve or issue
         "completion": dash_repo.open_completion_reviews(branch_ids) + certificates,
         "issues": exceptions_service.counts(branch_ids)["total"],
-        # Student support: replies near or past their deadline, new student replies, and access extensions the Branch Manager decides
-        "support": nav_repo.support_needing_attention(branch_ids, now + SUPPORT_WARNING) + extensions["decide"] + extensions["recommend"],
+        # Student support: replies near or past their deadline and new student replies. Access extensions (decide or recommend) and
+        # certificate requests are their own pages with their own counts
+        "support": nav_repo.support_needing_attention(branch_ids, now + SUPPORT_WARNING),
+        "extensions": extensions["decide"] + extensions["recommend"],
+        "certificate_requests": founder_inbox.counts()["certificates"],
         "attendance": nav_repo.pending_recoveries(branch_ids) + nav_repo.pending_corrections(branch_ids),
         "my_work": work["total"],
         "schedule": by_key.get("decisions", 0),

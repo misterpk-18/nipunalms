@@ -70,7 +70,7 @@ def fix_link(source: str, source_id: int, branch_id: int | None) -> dict:
         case "RESULTS":
             return {"to": "/branch/results", "search": {"batch": source_id}}
         case "ACCESS_EXCEPTION":
-            return {"to": "/branch/support", "search": {"tab": "extensions", "request": source_id}}
+            return {"to": "/branch/extensions", "search": {"request": source_id}}
         case "DISRUPTION":
             return {"to": "/branch/class-day", "search": {}}
         case "CLASS_LOG" | "REPLACEMENT":

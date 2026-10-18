@@ -54,6 +54,11 @@ function NavCount({ count, id }: { count: number | undefined; id: string }) {
 
 const badgeId = (area: string, item: NavItem) => `nav-count-${area}-${item.to.replace(/\W+/g, "-")}`;
 
+/** The one-line "what is this for" under a label, for pages that could be mistaken for each other. */
+function ItemHint({ item }: { item: NavItem }) {
+  return item.hint ? <span className="block text-xs font-normal leading-snug text-muted-foreground">{item.hint}</span> : null;
+}
+
 /** Group heading above the first item of each group. */
 function GroupHeading({ items, index }: { items: NavItem[]; index: number }) {
   const group = items[index].group;
@@ -196,7 +201,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     )}
                   >
                     <item.icon className="size-4 shrink-0" aria-hidden />
-                    <span className="min-w-0 flex-1">{label(item)}</span>
+                    <span className="min-w-0 flex-1">
+                      {label(item)}
+                      <ItemHint item={item} />
+                    </span>
                     <NavBadge count={countOf(item)} />
                   </Link>
                   <NavCount count={countOf(item)} id={badgeId("side", item)} />
@@ -263,7 +271,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                       className="tap flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
                     >
                       <item.icon className="size-4 shrink-0" aria-hidden />
-                      <span className="min-w-0 flex-1">{label(item)}</span>
+                      <span className="min-w-0 flex-1">
+                        {label(item)}
+                        <ItemHint item={item} />
+                      </span>
                       <NavBadge count={countOf(item)} />
                     </Link>
                     <NavCount count={countOf(item)} id={badgeId("more", item)} />

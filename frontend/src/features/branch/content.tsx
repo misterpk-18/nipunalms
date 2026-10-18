@@ -1,6 +1,6 @@
-/** Content & questions: what trainers sent for review, what is ready to release, and the questions waiting for approval. */
+/** Content review: what trainers sent for review and what is ready to release. Questions for tests are approved on their own page (`/branch/questions`). */
 import { useState } from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { contentApi, contentReviewApi, formatDateTime, type ReviewListItem, type ReviewSummary } from "@/api/content";
 import { useAuth } from "@/auth/auth";
@@ -8,26 +8,24 @@ import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, LoadingSkeleton, PageHead, PillTabs, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { QuestionBank } from "@/features/shared/question-bank";
 import { useApiMutation } from "@/lib/mutation";
 import { audienceText, releaseConsequence } from "./content-audience";
 import { ContentReviewDialog } from "./content-review";
 
-type TabKey = "awaiting" | "ready" | "changes" | "released" | "questions";
+type TabKey = "awaiting" | "ready" | "changes" | "released";
 
 const TABS = [
   { key: "awaiting", label: "To review", statuses: "Submitted,Under Review" },
   { key: "ready", label: "Ready to release", statuses: "Approved" },
   { key: "changes", label: "Changes requested", statuses: "Changes Requested,Rejected" },
   { key: "released", label: "Released", statuses: "Released" },
-  { key: "questions", label: "Questions to approve", statuses: "" },
 ] as const satisfies readonly { key: TabKey; label: string; statuses: string }[];
 
 type TabLabel = (typeof TABS)[number]["label"];
 const LABELS = TABS.map((t) => t.label) as readonly TabLabel[];
 const PER_PAGE = 20;
 
-const EMPTY: Record<Exclude<TabKey, "questions">, string> = {
+const EMPTY: Record<TabKey, string> = {
   awaiting: "Nothing is waiting for your review. When a trainer sends content for review it appears here.",
   ready: "Nothing is approved and waiting. Content you approve without releasing stays here until you release it.",
   changes: "Nothing has been sent back. Content you ask a trainer to change or reject appears here.",
@@ -63,7 +61,7 @@ function ReviewList({
   moveTo,
   counts,
 }: {
-  tab: Exclude<TabKey, "questions">;
+  tab: TabKey;
   onOpen: (id: number) => void;
   moveTo: (tab: TabKey) => void;
   counts?: ReviewSummary;
@@ -75,7 +73,7 @@ function ReviewList({
     queryKey: ["content-items", "review", tab, page],
     queryFn: () => contentReviewApi.list({ status: statuses, page, per_page: PER_PAGE }),
   });
-  const other = TABS.find((t) => t.key !== tab && t.key !== "questions" && (counts?.[t.key] ?? 0) > 0);
+  const other = TABS.find((t) => t.key !== tab && (counts?.[t.key] ?? 0) > 0);
   return (
     <>
       <QueryView
@@ -180,6 +178,8 @@ export function BranchContent() {
   const search = useSearch({ strict: false }) as { tab?: unknown; item?: unknown };
   const navigate = useNavigate();
   const summary = useQuery({ queryKey: ["content-items", "review-summary"], queryFn: contentReviewApi.summary });
+  // The old "Questions to approve" tab became its own page
+  if (search.tab === "questions") return <Navigate to="/branch/questions" replace />;
   const itemId = Number(search.item) > 0 ? Number(search.item) : null;
 
   const requested = isTab(search.tab) ? search.tab : null;
@@ -196,15 +196,14 @@ export function BranchContent() {
         "Ready to release": summary.data.ready,
         "Changes requested": summary.data.changes,
         Released: summary.data.released,
-        "Questions to approve": summary.data.questions,
       } satisfies Record<TabLabel, number>)
     : undefined;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <PageHead title="Content & questions" description="Review what trainers send, release it to students, and approve questions for tests." />
+      <PageHead title="Content review" description="Review what trainers send and release it to students. Questions for tests are approved under Question approvals." />
       <PillTabs
-        label="Content and questions"
+        label="Content review"
         tabs={LABELS}
         value={TABS.find((t) => t.key === tab)?.label ?? "To review"}
         onChange={(label) => setSearch({ tab: TABS.find((t) => t.label === label)?.key ?? "awaiting", item: undefined })}
@@ -212,8 +211,6 @@ export function BranchContent() {
       />
       {waitingForCounts ? (
         <LoadingSkeleton />
-      ) : tab === "questions" ? (
-        <QuestionBank canApprove initialStatus="Draft" />
       ) : (
         <ReviewList key={tab} tab={tab} counts={summary.data} onOpen={(id) => setSearch({ item: id })} moveTo={(t) => setSearch({ tab: t, item: undefined })} />
       )}

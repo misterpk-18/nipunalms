@@ -333,7 +333,7 @@ test("@mobile the phone bar and the new screens fit a phone", async ({ page }, i
   test.skip(info.project.name !== "mobile", "phone layout only");
   await login(page, USERS.trainerG1);
   const bar = page.getByRole("navigation", { name: "Bottom" });
-  for (const label of ["Today", "Sessions", "To grade", "Students"]) await expect(bar.getByRole("link", { name: label })).toBeVisible();
+  for (const label of ["Today", "Class schedule", "To grade", "Students"]) await expect(bar.getByRole("link", { name: label })).toBeVisible();
   for (const path of [
     "/trainer/to-grade",
     "/trainer/students",

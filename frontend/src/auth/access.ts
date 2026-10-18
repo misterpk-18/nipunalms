@@ -5,10 +5,12 @@
 import {
   Activity,
   Award,
+  BadgeCheck,
   BookOpen,
   Briefcase,
   CalendarCheck,
   CalendarDays,
+  CalendarOff,
   CircleCheck,
   ClipboardCheck,
   ClipboardList,
@@ -19,10 +21,10 @@ import {
   Hourglass,
   House,
   Library,
+  PlayCircle,
   LifeBuoy,
   RefreshCw,
   ScrollText,
-  ShieldCheck,
   Sparkles,
   TrendingUp,
   TriangleAlert,
@@ -30,6 +32,7 @@ import {
   UserCog,
   Users,
   Video,
+  Wallet,
   ChartColumn,
   type LucideIcon,
 } from "lucide-react";
@@ -81,7 +84,16 @@ export const WORKSPACE_HOME: Record<Workspace, string> = {
 };
 
 /** `group` is the heading the item sits under; `badgeKey` names its count in `GET /me/nav-counts` (see api/nav.ts). */
-export type NavItem = { to: string; label: string; icon: LucideIcon; tkey?: TranslationKey; group?: string; badgeKey?: string };
+export type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  tkey?: TranslationKey;
+  group?: string;
+  badgeKey?: string;
+  /** One short line saying what the page is for; shown under the label where two pages could be mistaken for each other. */
+  hint?: string;
+};
 
 const STUDENT_NAV: NavItem[] = [
   { to: "/dashboard", label: "Home", tkey: "home", icon: House },
@@ -100,16 +112,18 @@ const STUDENT_NAV: NavItem[] = [
 export const STUDENT_ACCOUNT: NavItem = { to: "/my-account", label: "My Account", tkey: "myAccount", icon: User };
 
 const TRAINER_NAV: NavItem[] = [
-  { to: "/trainer", label: "Today", icon: House, group: "Teach", badgeKey: "class_logs" },
-  { to: "/trainer/sessions", label: "Sessions", icon: CalendarDays, group: "Teach" },
-  { to: "/trainer/attendance", label: "Attendance", icon: CalendarCheck, group: "Teach", badgeKey: "attendance" },
-  { to: "/trainer/requests", label: "My requests", icon: FileClock, group: "Teach" },
+  { to: "/trainer", label: "Today", icon: House, group: "Teach", badgeKey: "class_logs", hint: "Classes to run today: start, attendance, class log" },
+  { to: "/trainer/sessions", label: "Class schedule", icon: CalendarDays, group: "Teach", hint: "All your classes, and asks to move one" },
+  { to: "/trainer/attendance", label: "Attendance", icon: CalendarCheck, group: "Teach", badgeKey: "attendance", hint: "Registers still to mark, and corrections" },
+  { to: "/trainer/calendar", label: "Holidays & closures", icon: CalendarOff, group: "Teach", hint: "Days with no classes, for planning" },
+  { to: "/trainer/requests", label: "My requests", icon: FileClock, group: "Teach", hint: "What you asked the Branch Manager, and the answers" },
+  { to: "/trainer/content", label: "My uploads", icon: FolderOpen, group: "Teach", hint: "Content you sent for review" },
   { to: "/trainer/to-grade", label: "To grade", icon: ClipboardCheck, group: "Grade", badgeKey: "to_grade" },
   { to: "/trainer/assignments", label: "Assignments", icon: ClipboardList, group: "Grade" },
-  { to: "/trainer/assessments", label: "Assessments", icon: FileQuestion, group: "Grade" },
-  { to: "/trainer/content", label: "Content", icon: FolderOpen, group: "Grade" },
+  { to: "/trainer/assessments", label: "Assessments", icon: FileQuestion, group: "Grade", hint: "Questions, tests and mock interviews" },
   { to: "/trainer/batches", label: "Batches", icon: Users, group: "People" },
   { to: "/trainer/students", label: "Students", icon: GraduationCap, group: "People" },
+  { to: "/trainer/completion", label: "Course completion", icon: BadgeCheck, group: "People", hint: "Recommend who has finished the course" },
   { to: "/trainer/support", label: "Support", icon: LifeBuoy, group: "People", badgeKey: "support" },
   { to: "/trainer/reports", label: "Reports", icon: ChartColumn, group: "Insights" },
   { to: "/trainer/ask-nipuna", label: "Ask Nipuna", icon: Sparkles, group: "Insights" },
@@ -121,21 +135,26 @@ const BRANCH_NAV: NavItem[] = [
   { to: "/branch/batches", label: "Batches", icon: Users, group: "Batches & students" },
   { to: "/branch/waiting", label: "Waiting for a batch", icon: Hourglass, group: "Batches & students", badgeKey: "waiting" },
   { to: "/branch/schedule", label: "Schedule & calendar", icon: CalendarDays, group: "Batches & students", badgeKey: "schedule" },
-  { to: "/branch/progress", label: "Attendance & progress", icon: TrendingUp, group: "Batches & students", badgeKey: "attendance" },
+  { to: "/branch/attendance", label: "Attendance & progress", icon: TrendingUp, group: "Batches & students", badgeKey: "attendance" },
   { to: "/branch/courses", label: "Courses", icon: Library, group: "Teaching" },
-  { to: "/branch/content", label: "Content & questions", icon: FolderOpen, group: "Teaching", badgeKey: "content_review" },
+  { to: "/branch/content", label: "Content review", icon: FolderOpen, group: "Teaching", badgeKey: "content_review", hint: "What trainers uploaded" },
+  { to: "/branch/questions", label: "Question approvals", icon: FileQuestion, group: "Teaching", badgeKey: "questions", hint: "Test questions trainers wrote" },
   { to: "/branch/results", label: "Marks & results", icon: ClipboardCheck, group: "Teaching", badgeKey: "marks" },
+  { to: "/branch/recordings", label: "Recordings", icon: PlayCircle, group: "Teaching", hint: "Release a class recording" },
   { to: "/branch/completion", label: "Completion & certificates", icon: Award, group: "Completion", badgeKey: "completion" },
+  { to: "/branch/certificate-requests", label: "Certificate requests", icon: FileClock, group: "Completion", badgeKey: "certificate_requests", hint: "Corrections, revocations, fee releases" },
   { to: "/branch/support", label: "Student support", icon: LifeBuoy, group: "Help", badgeKey: "support" },
+  { to: "/branch/extensions", label: "Access extensions", icon: Hourglass, group: "Help", badgeKey: "extensions", hint: "More time on recordings and materials" },
   { to: "/branch/issues", label: "Issues", icon: TriangleAlert, group: "Help", badgeKey: "issues" },
-  { to: "/branch/reports", label: "Reports", icon: ChartColumn, group: "Reports" },
+  { to: "/branch/reports", label: "Reports", icon: ChartColumn, group: "Branch" },
+  { to: "/branch/payments", label: "Payment instructions", icon: Wallet, group: "Branch", hint: "How students pay at this branch" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
   { to: "/admin", label: "Home", icon: House, badgeKey: "home" },
   { to: "/admin/approvals", label: "Approvals", icon: CircleCheck, group: "Approvals", badgeKey: "approvals" },
-  { to: "/admin/users", label: "Users & access", icon: UserCog, group: "People", badgeKey: "users" },
-  { to: "/admin/students", label: "Student accounts", icon: GraduationCap, group: "People", badgeKey: "student_accounts" },
+  { to: "/admin/users", label: "Staff accounts", icon: UserCog, group: "People", badgeKey: "users", hint: "Staff logins, roles and branches" },
+  { to: "/admin/students", label: "Student accounts", icon: GraduationCap, group: "People", badgeKey: "student_accounts", hint: "Student logins and what needs fixing" },
   { to: "/admin/batches", label: "Batches", icon: Users, group: "Operations" },
   { to: "/admin/attendance", label: "Attendance", icon: CalendarCheck, group: "Operations" },
   { to: "/admin/support", label: "Support", icon: LifeBuoy, group: "Operations" },
@@ -150,11 +169,11 @@ const ADMIN_NAV: NavItem[] = [
 ];
 
 const FOUNDER_NAV: NavItem[] = [
-  { to: "/founder", label: "Home", icon: ShieldCheck },
+  { to: "/founder", label: "Home", icon: House },
   { to: "/founder/approvals", label: "Approvals", icon: CircleCheck, group: "Approvals", badgeKey: "inbox" },
   { to: "/founder/courses", label: "Courses", icon: Library, group: "Company" },
-  { to: "/founder/users", label: "Users & access", icon: UserCog, group: "People", badgeKey: "users" },
-  { to: "/founder/students", label: "Students", icon: GraduationCap, group: "People", badgeKey: "student_accounts" },
+  { to: "/founder/users", label: "Staff accounts", icon: UserCog, group: "People", badgeKey: "users", hint: "Staff logins, roles and branches" },
+  { to: "/founder/students", label: "Student accounts", icon: GraduationCap, group: "People", badgeKey: "student_accounts", hint: "Student logins and what needs fixing" },
   { to: "/founder/batches", label: "Batches", icon: Users, group: "Operations" },
   { to: "/founder/attendance", label: "Attendance", icon: CalendarCheck, group: "Operations" },
   { to: "/founder/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },

@@ -87,7 +87,7 @@ def my_work(workspace_branch_id: int | None = None) -> dict:
         parts = [text for count, text in ((recoveries, _plural(recoveries, "recovery request")),
                                           (corrections, _plural(corrections, "attendance correction"))) if count]
         dates = [d for d in (recovery_since, correction_since) if d]
-        rows.append(_row("attendance", f"{' and '.join(parts)} to decide", "/branch/progress", "Open requests", recoveries + corrections,
+        rows.append(_row("attendance", f"{' and '.join(parts)} to decide", "/branch/attendance", "Open requests", recoveries + corrections,
                          min(dates) if dates else None))
 
     support, support_due = work_repo.support_due(branch_ids, now + SUPPORT_WARNING)

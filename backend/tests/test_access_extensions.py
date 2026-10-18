@@ -54,7 +54,7 @@ def test_a_request_before_the_first_expiry_extends_to_the_second_anniversary(cli
     for who in (world.people.ac, world.people.bm):
         notice = db.session.execute(select(Notification).where(Notification.recipient_user_id == who.user_id,
                                                                Notification.category == "Access")).scalar_one()
-        assert notice.action_status == "Open" and notice.link == "/branch/support?tab=extensions"
+        assert notice.action_status == "Open" and notice.link == "/branch/extensions"
 
     decided = post(client, f"/access-extension-requests/{request['request_id']}/decision", auth(login, world.people.ac),
                    json={"decision": "approve", "note": "Verified"})

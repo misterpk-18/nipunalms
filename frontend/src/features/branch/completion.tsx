@@ -2,7 +2,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
 import { certificatesApi } from "@/api/certificates";
 import { completionPipelineApi, PIPELINE_STAGES, STAGE_LABELS, type PipelineRow, type PipelineStage } from "@/api/completion-pipeline";
 import { useAuth } from "@/auth/auth";
@@ -10,10 +9,8 @@ import { EmptyState } from "@/components/lms/empty-state";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { LoadingSkeleton, PageHead, PillTabs, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { fmtDate } from "@/features/shared/format";
-import { ApprovalsInbox } from "@/features/shared/approvals/inbox";
 import { useFounderInbox } from "@/api/founder";
 import { ApproveButtons, DecideButton, IssueButton, MoreActions } from "./completion-actions";
 import { rupees } from "./completion-format";
@@ -158,31 +155,17 @@ function Pager({ page, pages, total, onPage }: { page: number; pages: number; to
   );
 }
 
-/** Certificate changes and fee releases waiting for a decision, folded away so nothing that used to be reachable is lost. */
-function RequestsSection() {
+/** Certificate corrections and fee releases have their own page: say so here, with the count. */
+function RequestsLink() {
   const waiting = useFounderInbox("certificates").data?.counts.certificate ?? 0;
   return (
-    <Collapsible className="rounded-xl border bg-card px-4 py-3">
-      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 text-left text-sm font-medium">
-        <span>
-          Certificate requests
-          {waiting > 0 && <span className="ml-2 rounded-full bg-primary/10 px-1.5 text-xs text-primary">{waiting}</span>}
-          <span className="block text-xs font-normal text-muted-foreground">
-            Certificate corrections, revocations and reinstatements, and who decides them.
-          </span>
-        </span>
-        <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" aria-hidden />
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-3">
-        <ApprovalsInbox
-          page="/branch/completion"
-          group="certificates"
-          kinds={["certificate"]}
-          title="Certificate requests"
-          empty="No certificate request is waiting for a decision."
-        />
-      </CollapsibleContent>
-    </Collapsible>
+    <p className="rounded-xl border bg-card px-4 py-3 text-sm">
+      <Link to="/branch/certificate-requests" className="font-medium text-primary underline-offset-2 hover:underline">
+        Certificate requests
+      </Link>
+      {waiting > 0 && <span className="ml-2 rounded-full bg-primary/10 px-1.5 text-xs text-primary">{waiting}</span>}
+      <span className="block text-xs text-muted-foreground">Certificate corrections, revocations, reinstatements and fee releases, and who decides them.</span>
+    </p>
   );
 }
 
@@ -245,7 +228,7 @@ export function BranchCompletion() {
             reason="Nobody is ready for a completion decision. A student appears here when the trainer asks for a review or the course evidence is complete."
             action={
               <Button asChild size="sm" variant="outline">
-                <Link to="/branch/progress">Open Attendance & progress</Link>
+                <Link to="/branch/attendance">Open Attendance & progress</Link>
               </Button>
             }
           />
@@ -295,7 +278,7 @@ export function BranchCompletion() {
           {query.data.meta.pages > 1 && <Pager page={query.data.meta.page} pages={query.data.meta.pages} total={query.data.meta.total} onPage={setPage} />}
         </>
       )}
-      <RequestsSection />
+      <RequestsLink />
       <HowThisWorks>
         <p>
           <strong>Ready to decide:</strong> the course evidence is in (or the trainer asked for a review). You decide: Complete, Not yet complete, or Needs

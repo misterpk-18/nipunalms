@@ -100,3 +100,15 @@ def staff_scopes(role_codes: list[str] | None, branch_ids: set[int] | None) -> l
     if branch_ids is not None:
         stmt = stmt.where(or_(UserRoleScope.branch_id.in_(branch_ids), UserRoleScope.branch_id.is_(None)))
     return list(db.session.execute(stmt).scalars())
+
+
+def active_role_codes(user_ids: list[int]) -> dict[int, str]:
+    """`{user_id: role_code}` of each user's active role (one per account)."""
+    if not user_ids:
+        return {}
+    stmt = (
+        select(UserRoleScope.user_id, Role.role_code)
+        .join(Role, Role.role_id == UserRoleScope.role_id)
+        .where(UserRoleScope.user_id.in_(user_ids), active_scope_condition())
+    )
+    return {user_id: code for user_id, code in db.session.execute(stmt).all()}

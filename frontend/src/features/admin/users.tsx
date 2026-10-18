@@ -96,8 +96,8 @@ export function AdminUsers({ canEdit }: { canEdit: boolean }) {
   return (
     <>
       <PageHead
-        title="Users & access"
-        description="Add staff (one account per role), take away access, unlock accounts and send invites. Students are created by the CRM and looked after under Student accounts."
+        title="Staff accounts"
+        description="Staff logins: add staff (one account per role), take away access, unlock accounts and send invites. Students are created by the CRM and looked after under Student accounts."
         actions={
           canEdit && (
             <Button onClick={() => setAction({ kind: "create" })}>

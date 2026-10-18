@@ -103,8 +103,11 @@ export function SlotPreferenceCard() {
   const t = useT();
   const enrolments = useQuery({ queryKey: ["delivery", "my-enrolments"], queryFn: deliveryApi.myEnrolments });
   const [chosen, setChosen] = useState<number | null>(null);
-  const rows = (enrolments.data ?? []).filter((e) => !e.parent_enrolment_id);
-  const enrolmentId = chosen ?? rows.find((e) => !e.batch)?.enrolment_id ?? rows[0]?.enrolment_id ?? 0;
+  // A course waiting for a batch always counts (even a complimentary one); a finished course never does
+  const rows = (enrolments.data ?? []).filter((e) => e.status === "Allocation Pending" || (!e.parent_enrolment_id && e.status !== "Completed"));
+  // Preferred slots are for a course still waiting for a batch: pick that one, not an older completed course that also has no batch
+  const enrolmentId =
+    chosen ?? rows.find((e) => e.status === "Allocation Pending")?.enrolment_id ?? rows.find((e) => !e.batch)?.enrolment_id ?? rows[0]?.enrolment_id ?? 0;
   const preferences = useQuery({ queryKey: ["delivery", "my-slot-preferences"], queryFn: deliveryApi.mySlotPreferences });
   const options = useQuery({
     queryKey: ["delivery", "slot-options", enrolmentId],

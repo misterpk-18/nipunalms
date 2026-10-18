@@ -15,7 +15,7 @@ const RECORD_GROUPS: Record<SearchRecord["kind"], string> = { student: "Students
 const RECORD_TARGETS: Record<Workspace, Record<SearchRecord["kind"], (id: number) => string>> = {
   student: { student: () => "/dashboard", batch: () => "/dashboard", certificate: () => "/certificates" },
   trainer: { student: (id) => `/trainer/students/${id}`, batch: (id) => `/trainer/batches/${id}`, certificate: () => "/trainer" },
-  branch: { student: () => "/branch/progress", batch: (id) => `/branch/batches/${id}`, certificate: () => "/branch/completion" },
+  branch: { student: () => "/branch/attendance", batch: (id) => `/branch/batches/${id}`, certificate: () => "/branch/completion" },
   admin: { student: (id) => `/admin/students/${id}`, batch: (id) => `/admin/batches/${id}`, certificate: () => "/admin/approvals" },
   founder: { student: (id) => `/founder/students/${id}`, batch: (id) => `/founder/batches/${id}`, certificate: () => "/founder/certificates" },
 };

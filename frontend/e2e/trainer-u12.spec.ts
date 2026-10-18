@@ -123,7 +123,7 @@ test("Sessions is a schedule: Run class opens the Today flow and a past class ge
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/sessions");
-  await expect(page.getByRole("heading", { level: 1, name: "Sessions" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Class schedule" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Mark delivered" })).toHaveCount(0);
 

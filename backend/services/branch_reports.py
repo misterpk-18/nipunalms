@@ -67,7 +67,7 @@ def _branches(branch_id: int | None) -> set[int] | None:
 
 # Where a figure's records live for the Super Admin and Founder (read-only views under their own workspace). Branch work with no
 # cross-branch screen (schedule, completion, results, content) has no link for them: they never get a /branch/* link.
-CENTRAL_SCREENS = {"/branch/progress": "/attendance", "/branch/support": "/support", "/branch/issues": "/issues"}
+CENTRAL_SCREENS = {"/branch/attendance": "/attendance", "/branch/support": "/support", "/branch/issues": "/issues"}
 
 
 def _prefix() -> str | None:
@@ -115,11 +115,11 @@ def _figures(m: dict, branch_ids, branch_id: int | None, first: date, last: date
     return [
         _figure("classes_held", "Classes held", m["classes"].get("Delivered", 0), "/branch/schedule", {"tab": "past", **window, **branch}),
         _figure("classes_cancelled", "Classes cancelled", m["classes"].get("Cancelled", 0), "/branch/schedule", {"tab": "past", **window, **branch}),
-        _figure("attendance_rate", "Attendance rate", _rate(m["marks"]), "/branch/progress", {"tab": "students", **branch}, unit="%",
+        _figure("attendance_rate", "Attendance rate", _rate(m["marks"]), "/branch/attendance", {"tab": "students", **branch}, unit="%",
                 hint=None if m["marks"] else "No attendance was marked in this period"),
-        _figure("at_risk", "Students below the attendance alert", at_risk, "/branch/progress", {"tab": "students", "risk": 1, **branch},
+        _figure("at_risk", "Students below the attendance alert", at_risk, "/branch/attendance", {"tab": "students", "risk": 1, **branch},
                 hint="Right now, not only in this period"),
-        _figure("recoveries", "Recovery requests", sum(m["recoveries"].values()), "/branch/progress", {"tab": "recoveries", **branch}),
+        _figure("recoveries", "Recovery requests", sum(m["recoveries"].values()), "/branch/attendance", {"tab": "recoveries", **branch}),
         _figure("completed", "Courses marked complete", complete, "/branch/completion", {"stage": "completed", **branch}),
         _figure("not_yet", "Not yet complete or needs recovery", other, "/branch/completion", {"stage": "ready", **branch}),
         _figure("certificates", "Certificates issued", m["issued"], "/branch/completion", {"stage": "issued", **branch}),

@@ -5,17 +5,18 @@ import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { CrmTile, QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 import { AcademicDashboard } from "./academic-dashboard";
 import { MyWork } from "./my-work";
-import { PaymentInstructions } from "./payment-instructions";
 
 const LINKS = [
   ["/branch/batches", "Batches"],
   ["/branch/support", "Student support"],
+  ["/branch/extensions", "Access extensions"],
+  ["/branch/payments", "Payment instructions"],
   ["/branch/completion", "Completion & certificates"],
   ["/branch/reports", "Reports"],
 ] as const;
 
 /** The Branch Manager's home: My work first, then how the branch is doing. */
-export function BranchDashboard({ manage }: { manage: boolean }) {
+export function BranchDashboard() {
   const { branchId } = useAuth();
   const query = useBranchDashboard(branchId);
   return (
@@ -67,7 +68,6 @@ export function BranchDashboard({ manage }: { manage: boolean }) {
         )}
       </QueryView>
       <AcademicDashboard embedded />
-      <PaymentInstructions manage={manage} />
     </div>
   );
 }

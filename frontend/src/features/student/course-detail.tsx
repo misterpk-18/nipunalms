@@ -50,6 +50,27 @@ export function CourseDetail() {
               {e.topics && e.topics.total > 0 && <Meter value={e.topics.percent} label={t("topicsDone", { done: e.topics.done, total: e.topics.total })} />}
             </div>
 
+            <Section className="mb-4" title={t("yourBatch")}>
+              {e.batch && e.timetable ? (
+                <KeyValue
+                  items={[
+                    [t("batchLabel"), mono(e.batch.batch_code)],
+                    [t("trainersLabel"), e.trainers.length ? e.trainers.map((tr) => tr.full_name).join(", ") : t("notAssigned")],
+                    [t("roomLabel"), e.timetable.location ?? t("notSet")],
+                    [
+                      t("timetableLabel"),
+                      [e.timetable.schedule_days.join(", "), e.timetable.start_time && e.timetable.end_time ? `${e.timetable.start_time}–${e.timetable.end_time} IST` : ""]
+                        .filter(Boolean)
+                        .join(" · ") || t("notSet"),
+                    ],
+                    [t("deliveryMode"), e.timetable.mode],
+                  ]}
+                />
+              ) : (
+                <EmptyState reason={t("notAllocated")} />
+              )}
+            </Section>
+
             {e.tracks.length > 0 && (
               <Section className="mb-4" title={t("tracksTitle")}>
                 <ul className="grid gap-3 md:grid-cols-2">
@@ -90,7 +111,7 @@ export function CourseDetail() {
                         {s.title}
                       </Link>
                       <span className="text-muted-foreground">
-                        {fmtRange(s.starts_at, s.ends_at)} · {s.mode} · {s.trainer}
+                        {fmtRange(s.starts_at, s.ends_at)} · {s.mode} · {s.trainer}{s.room ? ` · ${s.room}` : ""}
                       </span>
                     </li>
                   ))}

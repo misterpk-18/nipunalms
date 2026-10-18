@@ -81,7 +81,7 @@ test("student sees attendance with approved recovery, four separate progress mea
 test("the branch manager sees students at risk first, then approves and issues a certificate from the pipeline", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.bmGnt);
-  await page.goto("/branch/progress");
+  await page.goto("/branch/attendance");
   const learnerG = page.getByRole("row", { name: /Sample Learner G\./ });
   await expect(learnerG).toContainText(/\d+%/);
   await expect(learnerG).toContainText("Alert");

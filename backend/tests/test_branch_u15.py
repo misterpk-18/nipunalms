@@ -93,7 +93,7 @@ def test_the_branch_manager_recommends_and_the_request_goes_to_the_founder(clien
     assert created["needs_exception"] is True and "recommendation" not in created  # a student never sees staff notes
     # the Branch Manager is asked for a recommendation; nobody else is told yet
     asked = db.session.execute(select(Notification).where(Notification.recipient_user_id == w.people.ac.user_id, Notification.category == "Access")).scalar_one()
-    assert "recommendation" in asked.title and asked.link == "/branch/support?tab=extensions"
+    assert "recommendation" in asked.title and asked.link == "/branch/extensions"
     row = get(client, f"/access-extension-requests/{rid}", auth(login, w.people.ac))
     assert row["limit"] == "beyond" and row["can_recommend"] is True and row["can_decide"] is False and row["with_founder"] is False
 

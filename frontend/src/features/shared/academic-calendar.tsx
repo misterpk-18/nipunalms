@@ -41,6 +41,17 @@ export const CALENDAR_CENTRAL: CalendarConfig = {
   urlState: true,
 };
 
+/** The Trainer plans around holidays and closures but changes none of them. */
+export const CALENDAR_READ_ONLY: CalendarConfig = {
+  canAddCompanyHoliday: false,
+  canProposeBranchClosure: false,
+  canDecideClosure: false,
+  canEditOrCancel: false,
+  branchScope: null,
+  views: ["month", "list"],
+  urlState: true,
+};
+
 export const calendarForBranchManager = (branch: BranchRef | null): CalendarConfig => ({
   canAddCompanyHoliday: false,
   canProposeBranchClosure: branch !== null,
@@ -287,7 +298,11 @@ export function AcademicCalendar({ config }: { config: CalendarConfig }) {
       ) : (
         <PageHead
           title="Academic calendar"
-          description="Company holidays and branch closures. Classes are never moved for you: Branch Managers are asked to replace the ones that fall on these dates."
+          description={
+            kinds.length === 0 && !canEdit && !canDecide
+              ? "Company holidays and branch closures, so you can plan around them. Your Branch Manager moves any class that falls on one; you cannot change these dates."
+              : "Company holidays and branch closures. Classes are never moved for you: Branch Managers are asked to replace the ones that fall on these dates."
+          }
           actions={
             kinds.length > 0 && (
               <Button onClick={() => setDialog({ kind: "add" })}>

@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { istDateTime } from "./format";
 import { MeetHealth } from "./meet-health";
 import { SetupDialog } from "./setup-dialog";
+import { useBranchOptions } from "@/features/shared/branch-filter";
+import { PaymentInstructions } from "@/features/shared/payment-instructions";
 
 function Row({ item, canEdit, onEdit }: { item: SetupItem; canEdit: boolean; onEdit: () => void }) {
   return (
@@ -34,6 +36,16 @@ function Row({ item, canEdit, onEdit }: { item: SetupItem; canEdit: boolean; onE
         </Button>
       )}
     </li>
+  );
+}
+
+/** Branches: how students pay at each one. Branch Managers set their own branch's text too; here any branch can be set. */
+function BranchesSection() {
+  const branches = useBranchOptions();
+  return (
+    <Section title="Branches: how students pay fees">
+      <PaymentInstructions branches={branches.data ?? []} />
+    </Section>
   );
 }
 
@@ -110,6 +122,7 @@ export function AdminSetup({ canEdit }: { canEdit: boolean }) {
         )}
       </QueryView>
       <MeetHealth />
+      {canEdit && <BranchesSection />}
       {editing && <SetupDialog item={editing} onClose={() => setEditing(null)} />}
     </div>
   );

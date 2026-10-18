@@ -332,7 +332,7 @@ def request_recovery(attendance_id: int, method: str, reason: str) -> Attendance
                  reason=reason, branch_id=enrolment.service_branch_id)
     notify(category="Attendance", title=f"Recovery requested ({recovery.recovery_code})",
            body=f"{students_repo.get_student(enrolment.student_id).full_name} — {record.session.title}: {method}",
-           link="/branch/progress", role_code="BRANCH_MANAGER", branch_id=enrolment.service_branch_id,
+           link="/branch/attendance", role_code="BRANCH_MANAGER", branch_id=enrolment.service_branch_id,
            event_key=f"recovery-requested:{recovery.recovery_id}", action_required=True)
     return recovery
 
@@ -439,7 +439,7 @@ def request_correction(session_id: int, enrolment_id: int, requested_status: str
                  old={"status": previous}, new={"status": requested_status}, reason=reason, branch_id=enrolment.service_branch_id)
     notify(category="Attendance", title=f"Attendance correction requested: {session.title}",
            body=f"{students_repo.get_student(enrolment.student_id).full_name}: {previous or 'Not yet marked'} to {requested_status}. {reason}",
-           link="/branch/progress", role_code="BRANCH_MANAGER", branch_id=enrolment.service_branch_id,
+           link="/branch/attendance", role_code="BRANCH_MANAGER", branch_id=enrolment.service_branch_id,
            event_key=f"correction-requested:{correction.correction_id}", action_required=True)
     return correction
 
@@ -513,7 +513,7 @@ def alert_unconfirmed() -> int:
         sent = notify(category="Attendance", title=f"Attendance not confirmed: {session.session_code} ({class_day:%d %b})",
                       body=f"{session.title} · {session.batch.batch_code} · {missing} student(s) not yet marked by "
                            f"{session.trainer.full_name}.",
-                      link="/branch/progress", role_code="BRANCH_MANAGER", branch_id=session.batch.branch_id,
+                      link="/branch/attendance", role_code="BRANCH_MANAGER", branch_id=session.batch.branch_id,
                       event_key=f"attendance-unconfirmed:{session.session_id}", action_required=True)
         raised += 1 if sent else 0
     return raised

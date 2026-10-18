@@ -132,6 +132,24 @@ def test_batches_list_filters(world, client, login):
 
 # ---------------------------------------------------------------- allocation
 
+def test_the_course_page_shows_the_batch_timetable_room_and_trainer(world, client, login, make_batch, run_sql):
+    people, _, student = world
+    eid = student.enrolments[0]["enrolment_id"]
+    me = lambda: data(call(client, login, student.student_code, "get", f"/me/enrolments/{eid}"), 200)  # noqa: E731
+    assert me()["timetable"] is None and me()["trainers"] == []  # no batch yet
+
+    batch = make_batch(1, trainers=[people["g2"]], capacity=5, state="Running")
+    run_sql("UPDATE batches SET schedule_days = '{1,3,5}', start_time = '18:30', end_time = '20:30', location = 'Guntur Lab 2' WHERE batch_id = :b",
+            b=batch.batch_id)
+    data(call(client, login, people["ac"], "post", f"/batches/{batch.batch_id}/allocations", json={"enrolment_id": eid, "reason": "seat"}), 201)
+    detail = me()
+    assert detail["timetable"]["schedule_days"] == ["Mon", "Wed", "Fri"]
+    assert (detail["timetable"]["start_time"], detail["timetable"]["end_time"], detail["timetable"]["location"]) == ("18:30", "20:30", "Guntur Lab 2")
+    assert [t["user_id"] for t in detail["trainers"]] == [people["g2"].user_id]
+    # only the student's own enrolment: another student's page is a 404
+    assert call(client, login, student.student_code, "get", f"/me/enrolments/{eid + 9999}").status_code == 404
+
+
 def test_allocation_review_allocate_transfer_deallocate(world, client, login, make_batch, make_student):
     people, batch, student = world
     eid = student.enrolments[0]["enrolment_id"]

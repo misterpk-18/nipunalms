@@ -31,7 +31,7 @@ test("the navigation is grouped with counts and the home leads with Needs action
   await login(page, USERS.admin);
   const nav = page.getByRole("navigation", { name: "Main" });
   for (const group of ["People", "Operations", "System"]) await expect(nav.getByText(group, { exact: true })).toBeVisible();
-  for (const item of ["Users & access", "Student accounts", "Issues", "Academic calendar", "CRM sync", "Setup & health", "AI controls", "Audit log"])
+  for (const item of ["Staff accounts", "Student accounts", "Issues", "Academic calendar", "CRM sync", "Setup & health", "AI controls", "Audit log"])
     await expect(nav.getByRole("link", { name: item, exact: true })).toBeVisible();
   if (counts["student_accounts"]) await expect(nav.getByRole("link", { name: /Student accounts/ }).getByTestId("nav-badge")).toBeVisible();
 

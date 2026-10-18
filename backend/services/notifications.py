@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 from config.database import db
 from models import Notification
 from repositories import users as users_repo
+from services import role_links
 
 
 def notify(
@@ -33,11 +34,13 @@ def notify(
         recipient_user_ids = users_repo.user_ids_with_role(role_code, branch_id)
 
     created = 0
+    roles = users_repo.active_role_codes(recipient_user_ids) if link else {}
     for user_id in recipient_user_ids:
+        user_link = role_links.for_role(link, roles.get(user_id))
         result = db.session.execute(
             insert(Notification)
             .values(recipient_user_id=user_id, branch_id=branch_id, role_code=role_code, category=category, title=title, body=body,
-                    link=link, event_key=event_key, action_status="Open" if action_required else "None")
+                    link=user_link, event_key=event_key, action_status="Open" if action_required else "None")
             .on_conflict_do_nothing(index_elements=["event_key", "recipient_user_id"])
             .returning(Notification.notification_id)  # rowcount is -1 through the ORM session
         )
