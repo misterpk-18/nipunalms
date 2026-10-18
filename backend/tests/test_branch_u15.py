@@ -13,7 +13,7 @@ from tests import attendance_world, helpers
 from tests import library_helpers as h
 from tests.library_helpers import API, auth, get, post
 from tests.services_fixtures import world as service_world  # noqa: F401
-from tests.test_delivery import _java_version, call, data, world  # noqa: F401
+from tests.test_delivery import call, data, world  # noqa: F401
 
 
 # ---------------------------------------------------------------- Issues
@@ -75,46 +75,6 @@ def test_issues_are_one_paged_role_aware_list_with_go_fix_links(client, login, c
                          headers=login(ac.email))
     assert logged.status_code == 201
     assert client.get(f"{API}/issues?owner=me", headers=login(ac.email)).get_json()["meta"]["total"] == 1
-
-
-# ---------------------------------------------------------------- Curriculum
-
-def test_new_drafts_are_named_for_you_and_copy_the_active_version(world, client, login):
-    people, _, _ = world
-    from repositories import catalog as catalog_repo
-    course_id = catalog_repo.get_course_by_code("NIT-CRS-047").course_id
-    active = data(call(client, login, people["ac"], "get", f"/curriculum-versions/{_java_version()}"), 200)
-    draft = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course_id}), 201)
-    assert active["version_label"] == "CV 5.1" and draft["version_label"] == "CV 5.2" and draft["status"] == "Draft"
-    assert len(draft["modules"]) == len(active["modules"])
-    # a second draft cannot start while one is open; after discarding, the next name is free again
-    assert call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course_id}).status_code == 409
-    assert call(client, login, people["ac"], "delete", f"/curriculum-versions/{draft['curriculum_version_id']}").status_code == 204
-    blank = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course_id, "blank": True}), 201)
-    assert blank["version_label"] == "CV 5.2" and blank["modules"] == []
-
-
-def test_the_submit_checklist_marks_incomplete_topics_by_name(world, client, login):
-    people, _, _ = world
-    from repositories import catalog as catalog_repo
-    course_id = catalog_repo.get_course_by_code("NIT-CRS-047").course_id
-    draft = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course_id, "blank": True}), 201)
-    vid = draft["curriculum_version_id"]
-    checklist = draft["checklist"]
-    assert [s["key"] for s in checklist["steps"]] == ["modules", "topics", "hours", "rules", "assessments"]
-    assert checklist["ready"] is False and checklist["next"] == "modules"
-
-    module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "Core Java"}), 201)
-    topic = data(call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "Streams"}), 201)
-    steps = {s["key"]: s for s in data(call(client, login, people["ac"], "get", f"/curriculum-versions/{vid}"), 200)["checklist"]["steps"]}
-    assert steps["modules"]["done"] is True and steps["topics"]["done"] is False
-    marked = steps["topics"]["items"][0]
-    assert marked["topic_id"] == topic["topic_id"] and marked["title"] == "Streams" and marked["module_title"] == "Core Java"
-    assert set(marked["missing"]) == {"outcome", "estimated minutes", "progress weight", "evidence of completion"}
-    from tests.test_delivery import complete_draft
-    complete_draft(client, login, people["ac"], vid)
-    done = data(call(client, login, people["ac"], "get", f"/curriculum-versions/{vid}"), 200)["checklist"]
-    assert done["ready"] is True and done["next"] is None and all(s["done"] for s in done["steps"] if s["required"])
 
 
 # ---------------------------------------------------------------- Access extensions beyond the limit

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from config.database import db
 from config.timezone import IST
-from models import ClassSession, CurriculumModule, Enrolment, Student
+from models import ClassSession, CourseModule, Enrolment, Student
 from repositories import content as content_repo
 from repositories import students as students_repo
 from services import (
@@ -120,8 +120,8 @@ def _continue_learning(enrolment: Enrolment | None) -> dict:
         return {"state": "Empty", "message": "Your learning path appears once you are studying a course."}
     target = topic_progress.continue_topic(enrolment)
     if target is not None:
-        version_id = db.session.get(CurriculumModule, target["module"]["module_id"]).curriculum_version_id
-        return {"state": "Ready", "basis": "Next topic", "track": content_repo.track_labels({version_id}).get(version_id),
+        component_id = db.session.get(CourseModule, target["module"]["module_id"]).component_id
+        return {"state": "Ready", "basis": "Next topic", "track": content_repo.track_labels({component_id}).get(component_id),
                 "module": target["module"], "topic": {"topic_id": target["topic_id"], "title": target["title"], "title_te": target["title_te"]},
                 "status": target["status"]}
     sessions: list[ClassSession] = [s for s in class_sessions.sessions_for_enrolment(enrolment.enrolment_id) if s.topic_id]
@@ -135,7 +135,7 @@ def _continue_learning(enrolment: Enrolment | None) -> dict:
         return {"state": "Empty", "message": "No class has a curriculum topic yet."}
     topic = session.topic
     module = topic.module
-    track = content_repo.track_labels({module.curriculum_version_id}).get(module.curriculum_version_id)
+    track = content_repo.track_labels({module.component_id}).get(module.component_id)
     return {
         "state": "Ready", "basis": basis, "track": track,
         "module": {"module_id": module.module_id, "title": module.title, "title_te": module.title_te},

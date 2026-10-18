@@ -1,4 +1,4 @@
-"""Delivery history: curriculum review trail, batch events, session changes, reschedule requests, Meet association log."""
+"""Delivery history: batch events, session changes, reschedule requests, Meet association log."""
 from datetime import datetime
 from decimal import Decimal
 
@@ -9,39 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from config.database import db
 from models.access import User
 from models.batches import ClassSession
-from models.enums import CurriculumStatus, MeetStatus, RescheduleRequestStatus
-
-
-class CurriculumEvent(db.Model):
-    """One step in a curriculum version's life (created, submitted, approved, activated, ...)."""
-
-    __tablename__ = "curriculum_events"
-
-    event_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    curriculum_version_id: Mapped[int] = mapped_column(Integer, ForeignKey("curriculum_versions.curriculum_version_id"))
-    action: Mapped[str] = mapped_column(String(20))
-    from_status: Mapped[str | None] = mapped_column(CurriculumStatus)
-    to_status: Mapped[str] = mapped_column(CurriculumStatus)
-    actor_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
-    note: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
-
-    actor: Mapped[User | None] = relationship(lazy="joined")
-
-    def to_dict(self) -> dict:
-        return {
-            "event_id": self.event_id,
-            "action": self.action,
-            "from_status": self.from_status,
-            "to_status": self.to_status,
-            "actor": self.actor.to_summary() if self.actor else None,
-            "note": self.note,
-            "created_at": self.created_at,
-        }
+from models.enums import MeetStatus, RescheduleRequestStatus
 
 
 class BatchEvent(db.Model):
-    """History of a batch: state, readiness, trainer and curriculum changes with who and why."""
+    """History of a batch: state, readiness, trainer and outline changes with who and why."""
 
     __tablename__ = "batch_events"
 
@@ -207,4 +179,4 @@ class ClassSessionTopic(db.Model):
     __tablename__ = "class_session_topics"
 
     session_id: Mapped[int] = mapped_column(Integer, ForeignKey("class_sessions.session_id"), primary_key=True)
-    topic_id: Mapped[int] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"), primary_key=True)
+    topic_id: Mapped[int] = mapped_column(Integer, ForeignKey("course_topics.topic_id"), primary_key=True)

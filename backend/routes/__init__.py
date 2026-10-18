@@ -22,7 +22,7 @@ from routes.certificates import certificates_bp
 from routes.completion import completion_bp
 from routes.progress import progress_bp
 from routes.batch_allocations import batch_allocations_bp
-from routes.curriculum import curriculum_bp
+from routes.course_outline import course_outline_bp
 from routes.enrolments import enrolments_bp
 from routes.my_courses import my_courses_bp
 from routes.assignments import assignments_bp
@@ -52,7 +52,7 @@ BLUEPRINTS = [
     completion_bp,
     certificates_bp,
     batch_allocations_bp,
-    curriculum_bp,
+    course_outline_bp,
     enrolments_bp,
     my_courses_bp,
     assignments_bp,
@@ -112,11 +112,6 @@ BLUEPRINTS += [ai_controls_bp]
 from routes.calendar import calendar_bp  # noqa: E402
 
 BLUEPRINTS += [calendar_bp]
-
-# Gap fix plan phase 5: the Module 14 curriculum model
-from routes.academic_records import academic_records_bp  # noqa: E402
-
-BLUEPRINTS += [academic_records_bp]
 
 # Gap fix plan phase 6: batches and delivery operations (Modules 15 and 16)
 from routes.batch_operations import batch_operations_bp  # noqa: E402

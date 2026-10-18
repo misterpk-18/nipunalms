@@ -11,21 +11,21 @@ from sqlalchemy import select
 
 from config.database import db
 from config.timezone import IST
-from models import CurriculumModule, CurriculumTopic, CurriculumVersion
+from models import CourseModule, CourseTopic
+from tests.helpers import course_id
 
 API = "/api/v1"
 
 
-def add_topics(version_label: str = "CV 5.1") -> list[int]:
-    """Three required topics under two modules of the Active CV 5.1 version; returns the topic ids in order."""
-    version = db.session.execute(select(CurriculumVersion).where(CurriculumVersion.version_label == version_label)).scalar_one()
+def add_topics() -> list[int]:
+    """Three required topics under two modules of the Java course outline; returns the topic ids in order."""
     topic_ids = []
     for order, (module_title, titles) in enumerate([("Core Java", ["OOP", "Collections"]), ("Spring Boot", ["REST APIs"])], 1):
-        module = CurriculumModule(curriculum_version_id=version.curriculum_version_id, title=module_title, sort_order=order)
+        module = CourseModule(course_id=course_id(), title=module_title, sort_order=order)
         db.session.add(module)
         db.session.flush()
         for topic_order, title in enumerate(titles, 1):
-            topic = CurriculumTopic(module_id=module.module_id, title=title, sort_order=topic_order)
+            topic = CourseTopic(module_id=module.module_id, title=title, sort_order=topic_order)
             db.session.add(topic)
             db.session.flush()
             topic_ids.append(topic.topic_id)

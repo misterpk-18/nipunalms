@@ -75,11 +75,12 @@ def clean_draft(raw: dict) -> dict:
 
 
 def _topic_options(session) -> list[dict]:
-    """The topics a class log can tick: the whole curriculum version of the planned topic (else of the batch), by module."""
-    version_id = session.topic.module.curriculum_version_id if session.topic else session.batch.curriculum_version_id
-    if version_id is None:
-        return []
-    return [{"topic_id": topic.topic_id, "title": topic.title, "module": module.title} for module, topic in flow_repo.version_topics(version_id)]
+    """The topics a class log can tick: the whole outline of the planned topic (else of the batch's course or track), by module."""
+    if session.topic:
+        course_id, component_id = session.topic.module.course_id, session.topic.module.component_id
+    else:
+        course_id, component_id = session.batch.course_id, session.batch.component_id
+    return [{"topic_id": topic.topic_id, "title": topic.title, "module": module.title} for module, topic in flow_repo.outline_topics(course_id, component_id)]
 
 
 def item(session, now: datetime | None = None) -> dict:

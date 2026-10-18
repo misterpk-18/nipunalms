@@ -9,23 +9,23 @@ from models.assessments import (
     Assignment, AssignmentSubmission, AttemptAnswer, InterviewSlot, Question, Result, SubmissionReview, Test, TestAttempt,
     TestQuestion,
 )
-from models.catalog import Course, CourseComponent, CurriculumModule, CurriculumTopic, CurriculumVersion
+from models.catalog import Course, CourseComponent, CourseModule, CourseTopic
 from models.masters import Branch, BranchFinanceSnapshot
 from models.students import (
     Admission, AdmissionLmsState, CrmEvent, CrmOutbox, Enrolment, EnrolmentTrack, FinanceSummary, Student,
     StudentActivation,
 )
 from models.system import ActivityEvent, AppSetting, AuditLog, Integration, Notification
-from models.delivery import BatchEvent, ClassFlowProgress, ClassSessionTopic, CurriculumEvent, MeetEvent, SessionChange, SessionChangeRequest
+from models.delivery import BatchEvent, ClassFlowProgress, ClassSessionTopic, MeetEvent, SessionChange, SessionChangeRequest
 
 __all__ = [
     "Assignment", "AssignmentSubmission", "AttemptAnswer", "InterviewSlot", "Question", "Result", "SubmissionReview", "Test",
     "TestAttempt", "TestQuestion",
     "ActiveSession", "EmailChangeCode", "PasswordResetCode", "StaffInvite", "SplitAccountHandout", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
     "BatchAllocation", "BatchCrmState", "BatchTrainer", "Branch", "BranchFinanceSnapshot", "ClassSession", "Course", "CourseComponent", "CrmEvent", "CrmOutbox",
-    "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
+    "CourseModule", "CourseTopic", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "SecurityControl", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",
-    "BatchEvent", "ClassFlowProgress", "ClassSessionTopic", "CurriculumEvent", "MeetEvent", "SessionChange", "SessionChangeRequest",
+    "BatchEvent", "ClassFlowProgress", "ClassSessionTopic", "MeetEvent", "SessionChange", "SessionChangeRequest",
 ]
 
 # Slice S4: attendance, progress, completion review, certificates
@@ -69,14 +69,10 @@ from models.calendar import CalendarClosure  # noqa: E402
 
 __all__ += ["CalendarClosure"]
 
-# Gap fix plan phase 5: the Module 14 curriculum model (102)
-from models.academic import (  # noqa: E402
-    AcademicMapping, AssessmentRequirement, CurriculumVariation, EquivalenceRule, LearningCredit, LibraryModule,
-    LibraryModuleVersion, VersionComponent,
-)
+# Course extras: required assessments and the reusable module library (102, moved onto the course in 121)
+from models.academic import AssessmentRequirement, LibraryModule, LibraryModuleVersion  # noqa: E402
 
-__all__ += ["AcademicMapping", "AssessmentRequirement", "CurriculumVariation", "EquivalenceRule", "LearningCredit", "LibraryModule",
-            "LibraryModuleVersion", "VersionComponent"]
+__all__ += ["AssessmentRequirement", "LibraryModule", "LibraryModuleVersion"]
 
 # Gap fix plan phase 6: batches and delivery operations, Modules 15 and 16 (103)
 from models.delivery_ops import (  # noqa: E402

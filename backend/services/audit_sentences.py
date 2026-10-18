@@ -11,7 +11,7 @@ import re
 from sqlalchemy import select
 
 from config.database import db
-from models import AuditLog, Batch, ClassSession, CrmEvent, CurriculumVersion, Integration, SecurityControl, Student, User
+from models import AuditLog, Batch, ClassSession, CrmEvent, Course, Integration, SecurityControl, Student, User
 from models.calendar import CalendarClosure
 from models.ask_nipuna import AiFeatureControl
 
@@ -90,7 +90,11 @@ SENTENCES: dict[str, str] = {
     "RECOVERY_REQUESTED": "{actor} asked to make up a missed class",
     "RECOVERY_DECIDED": "{actor} decided a make-up request",
     "RECOVERY_COMPLETED": "{actor} marked a make-up as done",
-    # curriculum and content
+    # course outlines (the old CURRICULUM_* actions stay for the history written before db/121) and content
+    "COURSE_OUTLINE_CHANGED": "{actor} changed {target}: {new.change}",
+    "COMPONENT_EQUIVALENCE_REVIEWED": "{actor} recorded the equivalence review of a combo track",
+    "LIBRARY_MODULE_SAVED": "{actor} saved a module to the library",
+    "LIBRARY_VERSION_SAVED": "{actor} saved a new version of a library module",
     "CURRICULUM_CREATED": "{actor} started the curriculum {new.version_label}",
     "CURRICULUM_UPDATED": "{actor} changed the curriculum {target}",
     "CURRICULUM_DELETED": "{actor} discarded a draft curriculum",
@@ -186,7 +190,7 @@ SENTENCES: dict[str, str] = {
 
 ENTITY_NAMES = {
     "assignment": "assignment", "test": "test", "question": "question", "result": "result", "class_session": "class", "batch": "batch",
-    "user": "person", "student": "student", "certificate": "certificate", "curriculum_version": "curriculum version",
+    "user": "person", "student": "student", "certificate": "certificate", "curriculum_version": "curriculum version", "course": "course",
     "calendar_closure": "calendar entry", "ai_feature_control": "AI switch", "integration": "connection", "security_control": "security setting",
     "crm_event": "CRM update", "exception": "issue", "enrolment": "enrolment", "content_item": "content item", "recording": "recording",
 }
@@ -288,10 +292,10 @@ def resolve_targets(entries: list[AuditLog]) -> dict[tuple[str, str], dict]:
     if sessions:
         for s in db.session.execute(select(ClassSession).where(ClassSession.session_id.in_(sessions))).scalars().unique():
             add("class_session", s.session_id, s.session_code, {"to": "/branch/schedule", "search": {"session": s.session_id}})
-    versions = _int_ids(_ids(entries, "curriculum_version"))
-    if versions:
-        for v in db.session.execute(select(CurriculumVersion).where(CurriculumVersion.curriculum_version_id.in_(versions))).scalars().unique():
-            add("curriculum_version", v.curriculum_version_id, v.version_label, {"to": "/branch/curriculum", "search": {}})
+    courses = _int_ids(_ids(entries, "course"))
+    if courses:
+        for c in db.session.execute(select(Course).where(Course.course_id.in_(courses))).scalars().unique():
+            add("course", c.course_id, f"the outline of {c.title}", {"to": "/admin/courses/$id", "params": {"id": c.course_id}})
     for entry in entries:
         if entry.entity_type == "exception":
             add("exception", entry.entity_id, "an issue", {"to": "/admin/issues", "search": {}})

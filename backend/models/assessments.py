@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from config.database import db
 from models.access import User
 from models.batches import Batch
-from models.catalog import Course, CurriculumModule, CurriculumTopic
+from models.catalog import Course, CourseModule, CourseTopic
 from models.enums import _pg_enum
 from models.masters import Branch
 from models.students import Enrolment, Student
@@ -59,7 +59,7 @@ class Assignment(db.Model):
     assignment_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     assignment_code: Mapped[str] = mapped_column(String(30), unique=True, server_default=FetchedValue())  # trigger
     batch_id: Mapped[int] = mapped_column(Integer, ForeignKey("batches.batch_id"))
-    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"))
+    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_topics.topic_id"))
     title: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(AssignmentKind, default="Class assignment")
     brief: Mapped[str] = mapped_column(Text)
@@ -81,7 +81,7 @@ class Assignment(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
     batch: Mapped[Batch] = relationship(lazy="joined")
-    topic: Mapped[CurriculumTopic | None] = relationship(lazy="joined")
+    topic: Mapped[CourseTopic | None] = relationship(lazy="joined")
     reviewer: Mapped[User] = relationship(foreign_keys=[reviewer_user_id], lazy="joined")
 
     def to_summary(self) -> dict:
@@ -195,7 +195,7 @@ class Question(db.Model):
     question_code: Mapped[str] = mapped_column(String(30), unique=True, server_default=FetchedValue())  # trigger
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.course_id"))
     branch_id: Mapped[int] = mapped_column(Integer, ForeignKey("branches.branch_id"))
-    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"))
+    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_topics.topic_id"))
     question_type: Mapped[str] = mapped_column(QuestionType)
     stem: Mapped[str] = mapped_column(Text)
     options: Mapped[list] = mapped_column(JSONB, default=list)
@@ -215,7 +215,7 @@ class Question(db.Model):
 
     course: Mapped[Course] = relationship(lazy="joined")
     branch: Mapped[Branch] = relationship(lazy="joined")
-    topic: Mapped[CurriculumTopic | None] = relationship(lazy="joined")
+    topic: Mapped[CourseTopic | None] = relationship(lazy="joined")
     author: Mapped[User] = relationship(foreign_keys=[author_user_id], lazy="joined")
 
     def to_dict(self) -> dict:
@@ -249,8 +249,8 @@ class Test(db.Model):
     test_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     test_code: Mapped[str] = mapped_column(String(30), unique=True, server_default=FetchedValue())  # trigger
     batch_id: Mapped[int] = mapped_column(Integer, ForeignKey("batches.batch_id"))
-    module_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_modules.module_id"))
-    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"))
+    module_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_modules.module_id"))
+    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_topics.topic_id"))
     title: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(TestKind)
     instructions: Mapped[str | None] = mapped_column(Text)
@@ -271,8 +271,8 @@ class Test(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
     batch: Mapped[Batch] = relationship(lazy="joined")
-    module: Mapped[CurriculumModule | None] = relationship(lazy="joined")
-    topic: Mapped[CurriculumTopic | None] = relationship(lazy="joined")
+    module: Mapped[CourseModule | None] = relationship(lazy="joined")
+    topic: Mapped[CourseTopic | None] = relationship(lazy="joined")
     reviewer: Mapped[User] = relationship(foreign_keys=[reviewer_user_id], lazy="joined")
     questions: Mapped[list["TestQuestion"]] = relationship(
         back_populates="test", order_by="TestQuestion.position", cascade="all, delete-orphan"

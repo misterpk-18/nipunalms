@@ -3,7 +3,7 @@ from sqlalchemy import Select, and_, func, select
 
 from config.database import db
 from models import (
-    Assignment, AssignmentSubmission, BatchAllocation, CurriculumModule, CurriculumTopic, CurriculumVersion, Enrolment, SubmissionReview,
+    Assignment, AssignmentSubmission, BatchAllocation, Enrolment, SubmissionReview,
 )
 
 
@@ -134,16 +134,5 @@ def enrolments_in_batch(batch_id: int) -> list[Enrolment]:
         .join(BatchAllocation, BatchAllocation.enrolment_id == Enrolment.enrolment_id)
         .where(BatchAllocation.batch_id == batch_id, BatchAllocation.status == "Active")
         .order_by(Enrolment.enrolment_id)
-    )
-    return list(db.session.execute(stmt).scalars().unique())
-
-
-def active_modules(course_id: int) -> list[CurriculumModule]:
-    """Modules (with topics) of the Active curriculum versions of a course, including its combo tracks."""
-    stmt = (
-        select(CurriculumModule)
-        .join(CurriculumVersion, CurriculumVersion.curriculum_version_id == CurriculumModule.curriculum_version_id)
-        .where(CurriculumVersion.course_id == course_id, CurriculumVersion.status == "Active")
-        .order_by(CurriculumVersion.curriculum_version_id, CurriculumModule.sort_order)
     )
     return list(db.session.execute(stmt).scalars().unique())

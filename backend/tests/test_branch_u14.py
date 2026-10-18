@@ -4,9 +4,10 @@ from datetime import datetime, timedelta
 
 from config.database import db
 from config.timezone import IST, today_ist
-from models import ClassSession, CurriculumModule, CurriculumTopic
+from models import ClassSession, CourseModule, CourseTopic
+from tests.helpers import course_id
 from tests.test_batches_delivery import confirmed_batch, ready_fields, seat
-from tests.test_delivery import _java_version, call, data, future, iso, world  # noqa: F401
+from tests.test_delivery import call, data, future, iso, world  # noqa: F401
 
 
 def get(client, login, who, path, status=200):
@@ -137,12 +138,11 @@ def test_a_combo_student_is_offered_the_whole_programme_and_each_track(world, cl
 # ---------------------------------------------------------------- the batch's steps
 
 def topics_for(batch, titles):
-    version_id = _java_version()
-    module = CurriculumModule(curriculum_version_id=version_id, title="Core Java", sort_order=1)
+    module = CourseModule(course_id=course_id(), title="Core Java", sort_order=1)
     db.session.add(module)
     db.session.flush()
     for order, title in enumerate(titles, 1):
-        db.session.add(CurriculumTopic(module_id=module.module_id, title=title, sort_order=order))
+        db.session.add(CourseTopic(module_id=module.module_id, title=title, sort_order=order))
     db.session.flush()
     db.session.commit()
 
@@ -153,12 +153,12 @@ def progress(client, login, who, batch_id):
 
 def test_the_steps_walk_a_batch_from_created_to_classes(world, client, login, make_batch):
     people, _, student = world
-    bare = make_batch(1, curriculum_version_id=_java_version())            # no trainer yet
+    bare = make_batch(1)            # no trainer yet
     p = progress(client, login, people["ac"], bare.batch_id)
     assert [(s["key"], s["done"]) for s in p["steps"]] == [("created", True), ("trainer", False), ("ready", False), ("confirmed", False), ("students", False), ("classes", False)]
     assert p["current"] == "trainer" and p["next"] == {"key": "assign_trainer", "label": "Assign a lead trainer"}
 
-    batch = make_batch(1, trainers=[people["g1"]], curriculum_version_id=_java_version())
+    batch = make_batch(1, trainers=[people["g1"]])
     p = progress(client, login, people["ac"], batch.batch_id)
     assert p["current"] == "ready" and p["next"]["key"] == "finish_setup"
     assert {x["key"] for x in p["problems"]} >= {"timetable", "resources", "recording"} and all(x["fix"] == "details" for x in p["problems"])
@@ -195,7 +195,7 @@ def test_the_steps_walk_a_batch_from_created_to_classes(world, client, login, ma
 def test_confirming_with_warnings_needs_a_reason_and_a_batch_that_is_not_ready_is_refused(world, client, login, make_batch):
     people, _, _ = world
     first = confirmed_batch(client, login, people, make_batch)
-    other = make_batch(1, trainers=[people["g2"]], curriculum_version_id=_java_version())
+    other = make_batch(1, trainers=[people["g2"]])
     data(call(client, login, people["ac"], "patch", f"/batches/{other.batch_id}", json=ready_fields(location="Lab 2")), 200)
     p = progress(client, login, people["ac"], other.batch_id)
     assert p["warnings"] and "Lab 2" in p["warnings"][0]["detail"] and p["problems"] == []
@@ -291,7 +291,7 @@ def test_a_trainer_clash_blocks_and_a_booked_room_needs_the_managers_reason(worl
     first = confirmed_batch(client, login, people, make_batch)
     generate(client, login, people["ac"], first)
     # the same trainer, the same times: it cannot be overridden
-    same_trainer = make_batch(1, trainers=[people["g1"]], curriculum_version_id=_java_version(), **{})
+    same_trainer = make_batch(1, trainers=[people["g1"]], **{})
     data(call(client, login, people["ac"], "patch", f"/batches/{same_trainer.batch_id}", json=ready_fields(location="Lab 9")), 200)
     plan = generate(client, login, people["ac"], same_trainer, 200, preview=True)
     assert plan["blocking"] and "already teaches" in plan["blocking"][0] and plan["classes"][0]["blocked"]
@@ -299,7 +299,7 @@ def test_a_trainer_clash_blocks_and_a_booked_room_needs_the_managers_reason(worl
     assert refused.status_code == 422 and refused.get_json()["error"]["details"]["blocking"]
 
     # another trainer in the same room at the same times: a warning the Branch Manager overrides with a reason
-    same_room = make_batch(1, trainers=[people["g2"]], curriculum_version_id=_java_version())
+    same_room = make_batch(1, trainers=[people["g2"]])
     data(call(client, login, people["ac"], "patch", f"/batches/{same_room.batch_id}", json=ready_fields(location="Lab 2")), 200)
     plan = generate(client, login, people["ac"], same_room, 200, preview=True)
     assert plan["blocking"] == [] and plan["warnings"] and "Lab 2" in plan["warnings"][0]

@@ -6,8 +6,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from config.database import db
+from repositories import catalog as catalog_repo
 from models import (
-    ClassFlowProgress, ClassSession, ClassSessionTopic, CurriculumModule, CurriculumTopic, MeetEvent,
+    ClassFlowProgress, ClassSession, ClassSessionTopic, CourseModule, CourseTopic, MeetEvent,
 )
 
 LINK_REQUESTED = "Link requested"
@@ -33,15 +34,15 @@ def clear_progress(session_id: int) -> None:
 
 # ---------------------------------------------------------------- covered topics
 
-def covered_topics(session_ids: list[int]) -> dict[int, list[CurriculumTopic]]:
+def covered_topics(session_ids: list[int]) -> dict[int, list[CourseTopic]]:
     """session_id -> the topics logged as covered, in curriculum order."""
-    out: dict[int, list[CurriculumTopic]] = {i: [] for i in session_ids}
+    out: dict[int, list[CourseTopic]] = {i: [] for i in session_ids}
     if session_ids:
-        stmt = (select(ClassSessionTopic.session_id, CurriculumTopic)
-                .join(CurriculumTopic, CurriculumTopic.topic_id == ClassSessionTopic.topic_id)
-                .join(CurriculumModule, CurriculumModule.module_id == CurriculumTopic.module_id)
+        stmt = (select(ClassSessionTopic.session_id, CourseTopic)
+                .join(CourseTopic, CourseTopic.topic_id == ClassSessionTopic.topic_id)
+                .join(CourseModule, CourseModule.module_id == CourseTopic.module_id)
                 .where(ClassSessionTopic.session_id.in_(session_ids))
-                .order_by(CurriculumModule.sort_order, CurriculumTopic.sort_order))
+                .order_by(CourseModule.sort_order, CourseTopic.sort_order))
         for session_id, topic in db.session.execute(stmt):
             out[session_id].append(topic)
     return out
@@ -54,13 +55,9 @@ def replace_covered_topics(session_id: int, topic_ids: list[int]) -> None:
     db.session.flush()
 
 
-def version_topics(version_id: int) -> list[tuple[CurriculumModule, CurriculumTopic]]:
-    """Every topic of a curriculum version with its module, in order (what a class log can tick)."""
-    stmt = (select(CurriculumModule, CurriculumTopic)
-            .join(CurriculumTopic, CurriculumTopic.module_id == CurriculumModule.module_id)
-            .where(CurriculumModule.curriculum_version_id == version_id)
-            .order_by(CurriculumModule.sort_order, CurriculumTopic.sort_order))
-    return [(module, topic) for module, topic in db.session.execute(stmt)]
+def outline_topics(course_id: int, component_id: int | None) -> list[tuple[CourseModule, CourseTopic]]:
+    """Every topic of one course outline (the course's own, or a combo track's) with its module, in order (what a class log can tick)."""
+    return [(module, topic) for module in catalog_repo.outline_for(course_id, component_id) for topic in module.topics]
 
 
 # ---------------------------------------------------------------- "no Meet link"

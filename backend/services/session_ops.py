@@ -516,8 +516,8 @@ def add_roster(session_id: int, data: dict) -> SessionRoster:
         raise BusinessRule(f"Batch {batch.batch_code} is {batch.state}")
     if data.get("topic_id"):
         topic = catalog_repo.get_topic(data["topic_id"])
-        if topic is None or topic.module.version.curriculum_version_id != batch.curriculum_version_id:
-            raise ValidationError("Invalid topic", {"topic_id": [f"Not a topic of {batch.batch_code}'s curriculum version"]})
+        if topic is None or topic.module.course_id != batch.course_id or topic.module.component_id != batch.component_id:
+            raise ValidationError("Invalid topic", {"topic_id": [f"Not a topic of {batch.batch_code}'s course outline"]})
     people = attendance_repo.allocated_enrolments([*sessions_repo.session_batch_ids(session_id), batch.batch_id])
     distinct = len({e.student_id for e in people})
     limit = _seat_limit(session)

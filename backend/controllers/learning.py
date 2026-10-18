@@ -10,14 +10,13 @@ def _context(context) -> dict | None:
 
 
 def _module_head(module) -> dict:
-    version = module.version
     return {
         "module_id": module.module_id,
         "title": module.title,
         "title_te": module.title_te,
         "sort_order": module.sort_order,
-        "curriculum_version": version.to_summary(),
-        "course_id": version.course_id,
+        "course_id": module.course_id,
+        "component_id": module.component_id,
     }
 
 

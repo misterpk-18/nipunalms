@@ -112,7 +112,7 @@ def student_answer(question: str, action: str | None, facts: Facts) -> tuple[str
         chosen = topic or _first_topic(facts)
         if chosen is None:
             return "I have no curriculum topics to write practice questions from yet.", []
-        return _practice(chosen[0]), _pick(facts, "curriculum_version")
+        return _practice(chosen[0]), _pick(facts, "course_outline")
     if topic is not None:
         title, module, required = topic
         sessions = [s for s in facts.data["upcoming_sessions"] if s["topic"] == title]
@@ -121,7 +121,7 @@ def student_answer(question: str, action: str | None, facts: Facts) -> tuple[str
             f"\"{title}\" is part of the module \"{module}\" in your curriculum and is {'a required' if required else 'an optional'} topic."
             f"{upcoming}\nI can only outline it from your curriculum; for the full explanation use your class notes and resources, "
             "or ask your trainer.",
-            _pick(facts, "curriculum_version", "class_session"),
+            _pick(facts, "course_outline", "class_session"),
         )
     courses = "; ".join(f"{e['course']} ({e['status']})" for e in enrolments)
     return (

@@ -29,7 +29,7 @@ from services.context import current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-PLACEMENT_KEYS = ("topic_id", "module_id", "curriculum_version_id", "batch_id")
+PLACEMENT_KEYS = ("topic_id", "module_id", "batch_id")
 REVIEWABLE = ("Submitted", "Under Review")
 
 
@@ -77,17 +77,17 @@ def _assert_open(item: ContentItem) -> None:
 
 def item_matches_enrolment(item: ContentItem, enrolment: Enrolment, batch_id: int | None) -> bool:
     """The audience rule: never a staff-only item (answer keys, marking guides, trainer notes); same branch and course, the
-    item's batch (if any) is the enrolment's batch, and the item's curriculum version (if any) is the enrolment's version or
-    one of its combo tracks' versions."""
+    item's batch (if any) is the enrolment's batch, and an item placed in a combo track's module only reaches enrolments that
+    hold that track (a module of the whole course reaches every enrolment of the course)."""
     if item.staff_only:
         return False
     if item.branch_id != enrolment.service_branch_id or item.course_id != enrolment.course_id:
         return False
     if item.batch_id is not None and item.batch_id != batch_id:
         return False
-    if item.curriculum_version_id is None:
+    if item.module is None or item.module.component_id is None:
         return True
-    return item.curriculum_version_id in {enrolment.curriculum_version_id, *(t.curriculum_version_id for t in enrolment.tracks)}
+    return item.module.component_id in {t.component_id for t in enrolment.tracks}
 
 
 def audience(item: ContentItem) -> list[Enrolment]:
@@ -110,25 +110,20 @@ def _audience_user_ids(item: ContentItem) -> list[int]:
 # ---------------------------------------------------------------- placement
 
 def _resolve_placement(data: dict, current: ContentItem | None = None) -> dict:
-    """course / curriculum version / module / topic from whichever of topic, module, version or course was given."""
-    topic = module = version = None
+    """course / module / topic from whichever of topic, module or course was given."""
+    topic = module = None
     if data.get("topic_id"):
         topic = content_repo.get_topic(data["topic_id"])
         if topic is None:
             raise ValidationError("Invalid placement", {"topic_id": ["Unknown topic"]})
-        module, version = topic.module, topic.module.version
+        module = topic.module
     elif data.get("module_id"):
         module = content_repo.get_module(data["module_id"])
         if module is None:
             raise ValidationError("Invalid placement", {"module_id": ["Unknown module"]})
-        version = module.version
-    elif data.get("curriculum_version_id"):
-        version = content_repo.get_version(data["curriculum_version_id"])
-        if version is None:
-            raise ValidationError("Invalid placement", {"curriculum_version_id": ["Unknown curriculum version"]})
 
-    if version is not None:
-        course_id = version.course_id
+    if module is not None:
+        course_id = module.course_id
     elif data.get("course_id"):
         if catalog_repo.get_course(data["course_id"]) is None:
             raise ValidationError("Invalid placement", {"course_id": ["Unknown course"]})
@@ -136,12 +131,11 @@ def _resolve_placement(data: dict, current: ContentItem | None = None) -> dict:
     elif current is not None:
         course_id = current.course_id
     else:
-        raise ValidationError("Choose where this belongs", {"topic_id": ["Choose a course, curriculum version, module or topic"]})
+        raise ValidationError("Choose where this belongs", {"topic_id": ["Choose a course, module or topic"]})
     if data.get("course_id") and data["course_id"] != course_id:
-        raise ValidationError("Invalid placement", {"course_id": ["The topic or version belongs to a different course"]})
+        raise ValidationError("Invalid placement", {"course_id": ["The topic or module belongs to a different course"]})
     return {
         "course_id": course_id,
-        "curriculum_version_id": version.curriculum_version_id if version else None,
         "module_id": module.module_id if module else None,
         "topic_id": topic.topic_id if topic else None,
     }
@@ -246,14 +240,14 @@ def update_item(content_item_id: int, data: dict) -> ContentItem:
         raise BusinessRule(f"The latest version is {item.latest_version.status}; it can only be changed by the reviewer")
 
     old = {key: getattr(item, key) for key in ("title", "description", "language", "download_allowed", "staff_only",
-                                               "curriculum_version_id", "module_id", "topic_id", "batch_id")}
+                                               "module_id", "topic_id", "batch_id")}
     for key in ("title", "description", "language", "download_allowed", "staff_only"):
         if key in data:
             setattr(item, key, data[key])
     if any(key in data for key in PLACEMENT_KEYS):
-        placement_input = {key: data[key] for key in ("topic_id", "module_id", "curriculum_version_id") if key in data}
+        placement_input = {key: data[key] for key in ("topic_id", "module_id") if key in data}
         placement = _resolve_placement(placement_input, current=item) if placement_input else {
-            "course_id": item.course_id, "curriculum_version_id": item.curriculum_version_id,
+            "course_id": item.course_id,
             "module_id": item.module_id, "topic_id": item.topic_id}
         if placement["course_id"] != item.course_id:
             raise ValidationError("Invalid placement", {"topic_id": ["Content cannot move to another course; add a new item"]})
@@ -476,7 +470,7 @@ def get_item_detail(content_item_id: int) -> tuple[ContentItem, list[ContentRevi
 
 
 def placement_options() -> list[dict]:
-    """What an author can attach content to: each batch they may manage, with the curriculum versions, modules and topics."""
+    """What an author can attach content to: each batch they may manage, with the course outlines (modules and topics)."""
     user = current_user()
     branch_ids = scope.visible_branch_ids(user)
     batches = content_repo.batches_for_authoring(branch_ids, scope.trainer_batch_ids(user))
@@ -484,19 +478,18 @@ def placement_options() -> list[dict]:
         return []
     options = []
     for batch in batches:
-        versions = content_repo.versions_with_modules(batch.course_id, batch.curriculum_version_id)
-        tracks = content_repo.track_labels({v.curriculum_version_id for v in versions})
+        outlines = content_repo.outlines_of(batch.course_id)
+        tracks = content_repo.track_labels({component_id for component_id, _ in outlines})
         options.append({
             "batch": batch.to_summary(),
             "course": batch.course.to_summary(),
             "branch": batch.branch.to_summary(),
-            "versions": [{
-                "curriculum_version_id": v.curriculum_version_id,
-                "version_label": v.version_label,
-                "track_name": tracks.get(v.curriculum_version_id, {}).get("track_name"),
+            "outlines": [{
+                "component_id": component_id,
+                "track_name": tracks.get(component_id, {}).get("track_name"),
                 "modules": [{"module_id": m.module_id, "title": m.title,
-                             "topics": [{"topic_id": t.topic_id, "title": t.title} for t in m.topics]} for m in v.modules],
-            } for v in versions],
+                             "topics": [{"topic_id": t.topic_id, "title": t.title} for t in m.topics]} for m in modules],
+            } for component_id, modules in outlines],
         })
     return options
 
@@ -519,7 +512,7 @@ def _student_entry(item: ContentItem, enrolment: Enrolment, ctx: student_library
         "description": item.description,
         "language": item.language,
         "course": item.course.to_summary(),
-        "track": tracks.get(item.curriculum_version_id),
+        "track": tracks.get(item.module.component_id if item.module else None),
         "module": {"module_id": item.module.module_id, "title": item.module.title} if item.module else None,
         "topic": {"topic_id": item.topic.topic_id, "title": item.topic.title} if item.topic else None,
         "storage_kind": version.storage_kind,
@@ -539,7 +532,7 @@ def student_resources(filters: dict) -> list[dict]:
     candidates = content_repo.released_candidates({e.service_branch_id for e in ctx.enrolments},
                                                   {e.course_id for e in ctx.enrolments}, filters)
     entries = [(item, enrolment) for item in candidates if (enrolment := _best_enrolment(item, ctx)) is not None]
-    tracks = content_repo.track_labels({item.curriculum_version_id for item, _ in entries})
+    tracks = content_repo.track_labels({item.module.component_id for item, _ in entries if item.module})
     return [_student_entry(item, enrolment, ctx, tracks) for item, enrolment in entries]
 
 

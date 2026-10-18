@@ -9,8 +9,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 
 from config.database import db
-from models import AttendanceRecord, Batch, ClassSession, CurriculumModule, CurriculumVersion, Enrolment, EnrolmentTrack, FinanceSummary
+from models import AttendanceRecord, Batch, ClassSession, CourseModule, Enrolment, EnrolmentTrack, FinanceSummary
 from repositories import batches as batches_repo
+from repositories import catalog as catalog_repo
 from repositories import class_sessions as sessions_repo
 from repositories import students as students_repo
 from services import class_sessions as class_sessions_service
@@ -24,7 +25,7 @@ UPCOMING_STATES = ("Scheduled", "Rescheduled", "Live")
 
 @dataclass
 class ModuleRow:
-    module: CurriculumModule
+    module: CourseModule
     topic_count: int
     required_topic_count: int
     session_count: int
@@ -113,15 +114,19 @@ def _batch_of(enrolment: Enrolment) -> Batch | None:
     return allocation.batch if allocation else None
 
 
-def _track_sessions(sessions: list[ClassSession], version_id: int | None) -> list[ClassSession]:
-    if version_id is None:
-        return []
+def _track_outline(track: EnrolmentTrack) -> tuple[int, int | None]:
+    """(course_id, component_id) of the outline the track follows: its own, or the standalone course it is pinned to."""
+    component = track.component
+    return (component.pinned_course_id, None) if component.pinned_course_id else (component.parent_course_id, component.component_id)
+
+
+def _track_sessions(sessions: list[ClassSession], outline: tuple[int, int | None]) -> list[ClassSession]:
     topic_ids = [s.topic_id for s in sessions if s.topic_id]
-    versions = sessions_repo.topic_version_ids(topic_ids)
-    return [s for s in sessions if s.topic_id and versions.get(s.topic_id) == version_id]
+    keys = sessions_repo.topic_outline_keys(topic_ids)
+    return [s for s in sessions if s.topic_id and keys.get(s.topic_id) == outline]
 
 
-def module_status(module: CurriculumModule, sessions: list[ClassSession]) -> tuple[str, int, int]:
+def module_status(module: CourseModule, sessions: list[ClassSession]) -> tuple[str, int, int]:
     """Not scheduled / Scheduled / In delivery / Delivered for a module, from the learner's sessions on its topics, plus
     how many of those sessions count (not cancelled) and how many were delivered."""
     topic_ids = {t.topic_id for t in module.topics}
@@ -136,10 +141,10 @@ def module_status(module: CurriculumModule, sessions: list[ClassSession]) -> tup
     return "Scheduled", len(counted), delivered
 
 
-def _module_rows(version: CurriculumVersion | None, sessions: list[ClassSession], done: dict | None = None) -> list[ModuleRow]:
-    """Modules of a version with what the learner's sessions say about each, and how many of its topics are Done."""
+def _module_rows(modules: list[CourseModule], sessions: list[ClassSession], done: dict | None = None) -> list[ModuleRow]:
+    """Modules of an outline with what the learner's sessions say about each, and how many of its topics are Done."""
     rows = []
-    for module in version.modules if version else []:
+    for module in modules:
         status, session_count, delivered = module_status(module, sessions)
         counts = (done or {}).get(module.module_id)
         rows.append(ModuleRow(module, len(module.topics), sum(t.is_required for t in module.topics), session_count, delivered, status,
@@ -177,10 +182,10 @@ def get_enrolment(enrolment_id: int) -> EnrolmentView:
                          explain_status(enrolment, batch), _linked_admission(enrolment))
     rows = topic_progress.rows_for(enrolment.enrolment_id)
     view.topics, view.continue_topic = topic_progress.course_counts(enrolment, rows), topic_progress.continue_topic(enrolment, rows)
-    by_version = topic_progress.version_counts(enrolment.enrolment_id)
-    view.tracks = [TrackRow(t, delivery_counts(_track_sessions(sessions, t.curriculum_version_id)), by_version.get(t.curriculum_version_id))
+    by_outline = topic_progress.outline_counts(enrolment.enrolment_id)
+    view.tracks = [TrackRow(t, delivery_counts(_track_sessions(sessions, _track_outline(t))), by_outline.get(_track_outline(t)))
                    for t in enrolment.tracks]
-    view.modules = _module_rows(enrolment.curriculum_version, sessions, topic_progress.module_counts(enrolment.enrolment_id))
+    view.modules = _module_rows(catalog_repo.outline_for(enrolment.course_id), sessions, topic_progress.module_counts(enrolment.enrolment_id))
     view.next_sessions = [s for s in sessions if s.state in UPCOMING_STATES][:3]
     view.finance = students_repo.get_finance_summary(enrolment.admission_id)
     return view
@@ -191,9 +196,10 @@ def get_track(enrolment_id: int, enrolment_track_id: int) -> TrackView:
     track = students_repo.get_track(enrolment_track_id)
     if track is None or track.enrolment_id != enrolment.enrolment_id:
         raise NotFound("Track not found")
-    sessions = _track_sessions(class_sessions_service.sessions_for_enrolment(enrolment.enrolment_id), track.curriculum_version_id)
+    outline = _track_outline(track)
+    sessions = _track_sessions(class_sessions_service.sessions_for_enrolment(enrolment.enrolment_id), outline)
     return TrackView(enrolment, track, delivery_counts(sessions),
-                     _module_rows(track.curriculum_version, sessions, topic_progress.module_counts(enrolment.enrolment_id)))
+                     _module_rows(catalog_repo.outline_for(*outline), sessions, topic_progress.module_counts(enrolment.enrolment_id)))
 
 
 @dataclass

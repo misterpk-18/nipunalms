@@ -33,7 +33,7 @@ def test_each_role_gets_the_counts_of_its_own_workspace(client, world):
     admin_keys = {"crm_sync", "issues", "users", "student_accounts", "calendar", "setup", "home"}
     assert set(counts(client, world, world.people.admin, "admin")) == admin_keys | {"approvals"}  # approvals: the shared inbox
     # the Founder does what the Super Admin does, plus the inbox
-    assert set(counts(client, world, world.people.founder, "founder")) == admin_keys | {"inbox", "curriculum", "certificates", "access"}
+    assert set(counts(client, world, world.people.founder, "founder")) == admin_keys | {"inbox", "certificates", "access"}
 
 
 def test_the_session_role_decides_the_workspace_and_the_query_parameters_are_ignored(client, world):

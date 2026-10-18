@@ -448,8 +448,8 @@ def check_missing_recordings(now: datetime | None = None) -> dict:
 
 def _student_recording_entries(ctx: student_library.StudentContext, recordings: list[Recording],
                                enrolment_by_batch: dict[int, Enrolment]) -> list[dict]:
-    versions = {r.session.topic.module.curriculum_version_id for r in recordings if r.session.topic}
-    tracks = content_repo.track_labels(versions)
+    components = {r.session.topic.module.component_id for r in recordings if r.session.topic}
+    tracks = content_repo.track_labels(components)
     entries = []
     for recording in recordings:
         session = recording.session
@@ -465,7 +465,7 @@ def _student_recording_entries(ctx: student_library.StudentContext, recordings: 
                         "starts_at": session.starts_at, "ends_at": session.ends_at, "mode": session.mode, "state": session.state,
                         "trainer": {"user_id": session.trainer_user_id, "full_name": session.trainer.full_name}},
             "course": session.batch.course.to_summary(),
-            "track": tracks.get(topic.module.curriculum_version_id) if topic else None,
+            "track": tracks.get(topic.module.component_id) if topic else None,
             "topic": {"topic_id": topic.topic_id, "title": topic.title} if topic else None,
             "batch": session.batch.to_summary(),
             "part_no": recording.part_no,

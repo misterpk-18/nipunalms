@@ -44,7 +44,7 @@ def get_hub(topic_id: int) -> dict:
     session_ids = [s.session_id for s in page.sessions]
     attendance = _attendance(session_ids, enrolment.enrolment_id)
     assignment_rows, test_rows = _work(topic.topic_id, enrolment.enrolment_id)
-    track = content_repo.track_labels({topic.module.curriculum_version_id}).get(topic.module.curriculum_version_id)
+    track = content_repo.track_labels({topic.module.component_id}).get(topic.module.component_id)
 
     return {
         "topic": {"topic_id": topic.topic_id, "title": topic.title, "title_te": topic.title_te, "outcome": topic.outcome,

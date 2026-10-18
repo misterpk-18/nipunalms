@@ -1,5 +1,5 @@
-"""Courses, combo components and curriculum (versions, modules, topics)."""
-from datetime import date, datetime
+"""Courses, combo components and the course outline (modules, topics). There are no curriculum versions (db/121)."""
+from datetime import datetime
 
 from decimal import Decimal
 
@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
-from models.enums import ComponentRole, CourseStatus, CurriculumStatus
+from models.enums import ComponentRole, CourseStatus
 
 
 class Course(db.Model):
@@ -21,6 +21,10 @@ class Course(db.Model):
     is_combo: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(CourseStatus, default="Active")
     source_version: Mapped[int] = mapped_column(Integer, default=1)
+    # LMS-owned (the CRM never sets them): verified standard hours and the completion rules, edited with the outline (db/121)
+    hours_verified_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    hours_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completion_profile: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
@@ -60,9 +64,12 @@ class CourseComponent(db.Model):
     equivalence_note: Mapped[str | None] = mapped_column(Text)
     equivalence_reviewed_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
     equivalence_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Combo track pin: the track follows this standalone course's outline instead of its own (needs the review above)
+    pinned_course_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("courses.course_id"))
 
     parent: Mapped[Course] = relationship(back_populates="components", foreign_keys=[parent_course_id])
     component_course: Mapped[Course | None] = relationship(foreign_keys=[component_course_id], lazy="joined")
+    pinned_course: Mapped[Course | None] = relationship(foreign_keys=[pinned_course_id], lazy="joined")
 
     def to_dict(self) -> dict:
         return {
@@ -74,64 +81,34 @@ class CourseComponent(db.Model):
             "component_course": self.component_course.to_summary() if self.component_course else None,
             "equivalence_note": self.equivalence_note,
             "equivalence_reviewed_at": self.equivalence_reviewed_at,
+            "pinned_course": self.pinned_course.to_summary() if self.pinned_course else None,
         }
 
 
-class CurriculumVersion(db.Model):
-    __tablename__ = "curriculum_versions"
+class CourseModule(db.Model):
+    """A module of a course's outline (`component_id` set: of one combo track's outline)."""
 
-    curriculum_version_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.course_id"))
-    component_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_components.component_id"))
-    version_label: Mapped[str] = mapped_column(String(100))
-    status: Mapped[str] = mapped_column(CurriculumStatus, default="Draft")
-    approved_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    activate_on: Mapped[date | None] = mapped_column(Date)  # an Approved version becomes Active on this day (db/114)
-    hours_verified_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
-    hours_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completion_profile: Mapped[dict | None] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
-
-    modules: Mapped[list["CurriculumModule"]] = relationship(
-        back_populates="version", order_by="CurriculumModule.sort_order", cascade="all, delete-orphan"
-    )
-
-    def to_summary(self) -> dict:
-        return {
-            "curriculum_version_id": self.curriculum_version_id,
-            "version_label": self.version_label,
-            "status": self.status,
-        }
-
-    def to_dict(self) -> dict:
-        return {
-            **self.to_summary(),
-            "course_id": self.course_id,
-            "component_id": self.component_id,
-            "approved_at": self.approved_at,
-        }
-
-
-class CurriculumModule(db.Model):
-    __tablename__ = "curriculum_modules"
+    __tablename__ = "course_modules"
 
     module_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    curriculum_version_id: Mapped[int] = mapped_column(Integer, ForeignKey("curriculum_versions.curriculum_version_id"))
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.course_id"))
+    component_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_components.component_id"))  # set = a combo track's outline
     title: Mapped[str] = mapped_column(String(200))
     title_te: Mapped[str | None] = mapped_column(String(300))
     sort_order: Mapped[int] = mapped_column(SmallInteger)
     library_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("library_module_versions.library_version_id"))
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)  # kept for the data that refers to it, hidden from the outline
 
-    version: Mapped[CurriculumVersion] = relationship(back_populates="modules")
-    topics: Mapped[list["CurriculumTopic"]] = relationship(
-        back_populates="module", order_by="CurriculumTopic.sort_order", cascade="all, delete-orphan"
+    course: Mapped[Course] = relationship(foreign_keys=[course_id])
+    component: Mapped[CourseComponent | None] = relationship(foreign_keys=[component_id])
+    topics: Mapped[list["CourseTopic"]] = relationship(
+        back_populates="module", order_by="CourseTopic.sort_order", cascade="all, delete-orphan"
     )
 
     def to_dict(self) -> dict:
         return {
             "module_id": self.module_id,
+            "component_id": self.component_id,
             "title": self.title,
             "title_te": self.title_te,
             "sort_order": self.sort_order,
@@ -141,17 +118,17 @@ class CurriculumModule(db.Model):
 
 
 topic_dependencies = Table(
-    "curriculum_topic_dependencies", db.metadata,
-    Column("topic_id", Integer, ForeignKey("curriculum_topics.topic_id"), primary_key=True),
-    Column("depends_on_topic_id", Integer, ForeignKey("curriculum_topics.topic_id"), primary_key=True),
+    "course_topic_dependencies", db.metadata,
+    Column("topic_id", Integer, ForeignKey("course_topics.topic_id"), primary_key=True),
+    Column("depends_on_topic_id", Integer, ForeignKey("course_topics.topic_id"), primary_key=True),
 )
 
 
-class CurriculumTopic(db.Model):
-    __tablename__ = "curriculum_topics"
+class CourseTopic(db.Model):
+    __tablename__ = "course_topics"
 
     topic_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    module_id: Mapped[int] = mapped_column(Integer, ForeignKey("curriculum_modules.module_id"))
+    module_id: Mapped[int] = mapped_column(Integer, ForeignKey("course_modules.module_id"))
     title: Mapped[str] = mapped_column(String(200))
     title_te: Mapped[str | None] = mapped_column(String(300))
     sort_order: Mapped[int] = mapped_column(SmallInteger)
@@ -164,10 +141,10 @@ class CurriculumTopic(db.Model):
     evidence: Mapped[str | None] = mapped_column(Text)
     activities: Mapped[str | None] = mapped_column(Text)
 
-    module: Mapped[CurriculumModule] = relationship(back_populates="topics")
-    depends_on: Mapped[list["CurriculumTopic"]] = relationship(
-        secondary="curriculum_topic_dependencies", primaryjoin="CurriculumTopic.topic_id == curriculum_topic_dependencies.c.topic_id",
-        secondaryjoin="CurriculumTopic.topic_id == curriculum_topic_dependencies.c.depends_on_topic_id", lazy="selectin")
+    module: Mapped[CourseModule] = relationship(back_populates="topics")
+    depends_on: Mapped[list["CourseTopic"]] = relationship(
+        secondary="course_topic_dependencies", primaryjoin="CourseTopic.topic_id == course_topic_dependencies.c.topic_id",
+        secondaryjoin="CourseTopic.topic_id == course_topic_dependencies.c.depends_on_topic_id", lazy="selectin")
 
     def to_dict(self) -> dict:
         return {

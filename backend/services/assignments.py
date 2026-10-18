@@ -15,6 +15,7 @@ from config.timezone import IST
 from models import Assignment, AssignmentSubmission, Batch, Result
 from repositories import assignments as assignments_repo
 from repositories import batches as batches_repo
+from repositories import catalog as catalog_repo
 from repositories import results as results_repo
 from repositories.common import paginate
 from services import assessment_scope as access
@@ -302,6 +303,9 @@ def _notify_students(assignment: Assignment, title: str, body: str, event_key: s
 def curriculum_options(batch_id: int) -> list[dict]:
     """Modules and topics an assignment or test of this batch can be linked to (staff)."""
     batch = access.load_batch(batch_id)
-    return [{"module_id": m.module_id, "title": m.title, "version_label": m.version.version_label,
+    modules = catalog_repo.outline_modules(batch.course_id)
+    tracks = catalog_repo.track_labels({m.component_id for m in modules})
+    return [{"module_id": m.module_id, "title": m.title, "component_id": m.component_id,
+             "track_name": tracks.get(m.component_id, {}).get("track_name"),
              "topics": [{"topic_id": t.topic_id, "title": t.title} for t in m.topics]}
-            for m in assignments_repo.active_modules(batch.course_id)]
+            for m in modules]

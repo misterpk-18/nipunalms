@@ -2,8 +2,8 @@
 seat between batches is a transfer request (services/batch_transfers.py).
 
 A seat is only given after the batch allocation review: service branch, course or track, capacity, delivery mode, the
-student's other classes and the enrolment's own state. The curriculum never blocks a seat: the student follows the
-curriculum version of the batch they join (a batch with none yet picks one up when it is activated). A failed check blocks; a warning
+student's other classes and the enrolment's own state. The outline never blocks a seat: a student follows the
+outline of their course. A failed check blocks; a warning
 (different mode, a timetable clash) needs the Branch Manager to acknowledge it. Ended and transferred allocations stay as
 history; nothing the student did in a previous batch is touched.
 """

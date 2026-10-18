@@ -4,25 +4,22 @@ from sqlalchemy.orm import selectinload
 
 from config.database import db
 from models import (
-    ActivityEvent, Batch, ContentItem, ContentReview, ContentVersion, CourseComponent, CurriculumModule, CurriculumTopic,
-    CurriculumVersion, Enrolment,
+    ActivityEvent, Batch, ContentItem, ContentReview, ContentVersion, CourseComponent, CourseModule, CourseTopic,
+    Enrolment,
 )
+from repositories import catalog as catalog_repo
 
 
 def get_item(content_item_id: int) -> ContentItem | None:
     return db.session.get(ContentItem, content_item_id)
 
 
-def get_topic(topic_id: int) -> CurriculumTopic | None:
-    return db.session.get(CurriculumTopic, topic_id)
+def get_topic(topic_id: int) -> CourseTopic | None:
+    return db.session.get(CourseTopic, topic_id)
 
 
-def get_module(module_id: int) -> CurriculumModule | None:
-    return db.session.get(CurriculumModule, module_id)
-
-
-def get_version(curriculum_version_id: int) -> CurriculumVersion | None:
-    return db.session.get(CurriculumVersion, curriculum_version_id)
+def get_module(module_id: int) -> CourseModule | None:
+    return db.session.get(CourseModule, module_id)
 
 
 def next_version_no(content_item_id: int) -> int:
@@ -100,17 +97,9 @@ def audience_enrolments(branch_id: int, course_id: int) -> list[Enrolment]:
     return list(db.session.execute(stmt).scalars())
 
 
-def track_labels(curriculum_version_ids: set[int]) -> dict[int, dict]:
-    """Combo track behind each curriculum version (versions of a whole course have none)."""
-    ids = {i for i in curriculum_version_ids if i}
-    if not ids:
-        return {}
-    stmt = (
-        select(CurriculumVersion.curriculum_version_id, CourseComponent)
-        .join(CourseComponent, CourseComponent.component_id == CurriculumVersion.component_id)
-        .where(CurriculumVersion.curriculum_version_id.in_(ids))
-    )
-    return {version_id: {"track_code": c.track_code, "track_name": c.track_name} for version_id, c in db.session.execute(stmt).all()}
+def track_labels(component_ids: set[int | None]) -> dict[int, dict]:
+    """Combo track behind each component id (a whole-course module has none)."""
+    return catalog_repo.track_labels(component_ids)
 
 
 def batches_for_authoring(branch_ids: set[int] | None, batch_ids: set[int]) -> list[Batch]:
@@ -121,16 +110,13 @@ def batches_for_authoring(branch_ids: set[int] | None, batch_ids: set[int]) -> l
     return list(db.session.execute(stmt).scalars())
 
 
-def versions_with_modules(course_id: int, batch_version_id: int | None) -> list[CurriculumVersion]:
-    """The batch's curriculum version plus the Active track versions of the course, with modules and topics loaded."""
-    stmt = (
-        select(CurriculumVersion)
-        .options(selectinload(CurriculumVersion.modules).selectinload(CurriculumModule.topics))
-        .where(CurriculumVersion.course_id == course_id,
-               or_(CurriculumVersion.status == "Active", CurriculumVersion.curriculum_version_id == batch_version_id))
-        .order_by(CurriculumVersion.component_id.nulls_first(), CurriculumVersion.curriculum_version_id)
-    )
-    return list(db.session.execute(stmt).scalars())
+def outlines_of(course_id: int) -> list[tuple[int | None, list[CourseModule]]]:
+    """The course's outlines with modules and topics: the whole course first, then each combo track that has modules."""
+    groups: dict[int | None, list[CourseModule]] = {}
+    for module in catalog_repo.outline_modules(course_id):
+        groups.setdefault(module.component_id, []).append(module)
+    return sorted(groups.items(), key=lambda kv: (kv[0] is not None, kv[0] or 0))
+
 
 
 def record_activity(student_id: int, enrolment_id: int | None, kind: str, detail: dict) -> None:

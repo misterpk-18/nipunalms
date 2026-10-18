@@ -7,7 +7,7 @@ from sqlalchemy import Select, exists, func, select
 from config.database import db
 from models import (
     AssignmentSubmission, AttendanceCorrection, CalendarClosure, AttendanceRecord, AttendanceRecovery, AuditLog, Batch, BatchAllocation, ClassSession,
-    CurriculumVersion, Enrolment, Integration, SubmissionReview, SupportRequest, User,
+    Enrolment, Integration, SubmissionReview, SupportRequest, User,
 )
 
 SUPPORT_OPEN = ("Open", "In Progress", "Waiting on Student")
@@ -56,10 +56,6 @@ def pending_corrections(branch_ids: set[int] | None) -> int:
     stmt = (select(func.count()).select_from(AttendanceCorrection).join(ClassSession, ClassSession.session_id == AttendanceCorrection.session_id)
             .join(Batch, Batch.batch_id == ClassSession.batch_id).where(AttendanceCorrection.status == "Pending"))
     return _count(_branch(stmt, Batch.branch_id, branch_ids))
-
-
-def curriculum_awaiting_approval() -> int:
-    return _count(select(func.count()).select_from(CurriculumVersion).where(CurriculumVersion.status == "Under Review"))
 
 
 def pending_closures(today) -> int:

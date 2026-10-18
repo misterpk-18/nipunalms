@@ -30,8 +30,7 @@ from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
 CLOSED_STATES = ("Completed", "Cancelled", "Archived")
-PUBLISHED_STATUSES = ("Approved", "Active")
-NO_CURRICULUM = "No approved curriculum yet. Classes can be scheduled without topics, and the batch picks up the curriculum when one is activated"
+NO_OUTLINE = "The course has no modules yet. Classes can be scheduled without topics; they can be linked once the outline is written"
 # The Branch Manager confirms, holds and archives; Super Admin covers every branch (Module 15 §5, §19)
 CONFIRM_ROLES = ("BRANCH_MANAGER",)
 # Enrolments that still owe teaching when a batch completes: each needs a named owner, plan and destination (§19)
@@ -111,7 +110,7 @@ CAPACITY_SIDES = ("classroom_capacity", "lab_capacity", "online_capacity")
 
 def _snapshot(batch: Batch) -> dict:
     return {"capacity": batch.capacity, "mode": batch.mode, "planned_start": batch.planned_start, "planned_end": batch.planned_end,
-            "curriculum_version_id": batch.curriculum_version_id, "state": batch.state, "readiness": batch.readiness,
+            "state": batch.state, "readiness": batch.readiness,
             "schedule_days": batch.schedule_days, "start_time": batch.start_time, "end_time": batch.end_time,
             "location": batch.location, **{f: getattr(batch, f) for f in PLAIN_FIELDS + CAPACITY_SIDES}}
 
@@ -151,14 +150,13 @@ def _apply_timetable(batch: Batch, data: dict) -> None:
 def readiness_checks(batch: Batch, allocated: int) -> list[dict]:
     """What has to be true before a batch can start, each check pass / fail / pending with what to do about it."""
     checks = []
-    version = batch.curriculum_version
-    if version is None:
-        checks.append({"key": "curriculum", "label": "Curriculum version", "status": "warn", "detail": NO_CURRICULUM})
-    elif version.status not in PUBLISHED_STATUSES:
-        checks.append({"key": "curriculum", "label": "Curriculum version", "status": "fail",
-                       "detail": f"{version.version_label} is {version.status} and not yet approved"})
+    modules = catalog_repo.outline_for(batch.course_id, batch.component_id)
+    if not modules:
+        checks.append({"key": "curriculum", "label": "Course outline", "status": "warn", "detail": NO_OUTLINE})
     else:
-        checks.append({"key": "curriculum", "label": "Curriculum version", "status": "pass", "detail": f"{version.version_label} ({version.status})"})
+        topics = sum(len(m.topics) for m in modules)
+        checks.append({"key": "curriculum", "label": "Course outline", "status": "pass",
+                       "detail": f"{len(modules)} module(s), {topics} topic(s)"})
 
     lead = batches_repo.lead_trainer(batch.batch_id)
     checks.append({"key": "trainer", "label": "Lead trainer", "status": "pass" if lead else "fail",
@@ -207,19 +205,12 @@ def _item(key: str, label: str, status: str, detail: str) -> dict:
 
 
 def _course_item(batch: Batch) -> dict:
-    version = batch.curriculum_version
-    label = "1. Course and curriculum version"
-    if version is None:
-        return _item("course_version", label, "warn", NO_CURRICULUM)
-    if version.status not in PUBLISHED_STATUSES:
-        return _item("course_version", label, "fail", f"{version.version_label} is {version.status}")
-    if batch.component_id is None and batch.course.is_combo:
-        pinned = {p.component_id for p in catalog_repo.version_components(version.curriculum_version_id)}
-        missing = [c.track_code for c in catalog_repo.components_of(batch.course_id) if c.component_id not in pinned]
-        if missing:
-            return _item("course_version", label, "fail", f"{version.version_label} does not pin {', '.join(missing)}")
+    label = "1. Course and outline"
+    modules = catalog_repo.outline_for(batch.course_id, batch.component_id)
+    if not modules:
+        return _item("course_version", label, "warn", NO_OUTLINE)
     what = f"{batch.component.track_code} of {batch.course.course_code}" if batch.component else batch.course.course_code
-    return _item("course_version", label, "pass", f"{what} · {version.version_label} ({version.status})")
+    return _item("course_version", label, "pass", f"{what} · {len(modules)} module(s)")
 
 
 def _people_item(batch: Batch) -> dict:
@@ -244,9 +235,9 @@ def _timetable_item(batch: Batch) -> dict:
                                         ("teaching days", batch.schedule_days), ("class times", batch.start_time)) if not value]
     if missing:
         return _item("timetable", label, "pending", "Missing " + ", ".join(missing))
-    from services import curriculum  # curriculum imports batches
+    from services import course_outline  # course_outline imports delivery notices
 
-    totals = curriculum.totals(batch.curriculum_version) if batch.curriculum_version else None
+    totals = course_outline.totals(batch.course, catalog_repo.outline_modules(batch.course_id)) if batch.course else None
     hours = (f"{round(totals['instructional_minutes'] / 60, 1)} instructional hours" if totals and totals["hours_verified"]
              else "planned hours Pending")
     days = ", ".join(WEEKDAYS[d - 1] for d in sorted(batch.schedule_days))
@@ -370,15 +361,6 @@ def set_readiness(batch_id: int, readiness: str, reason: str | None, recovery_ow
 
 # ---------------------------------------------------------------- create / update
 
-def _validate_version(course_id: int, version_id: int, component_id: int | None = None) -> None:
-    version = catalog_repo.get_curriculum_version(version_id)
-    if version is None or version.course_id != course_id or version.component_id != component_id:
-        what = "this track" if component_id else "this course"
-        raise ValidationError("Invalid curriculum version", {"curriculum_version_id": [f"Not a curriculum version of {what}"]})
-    if version.status not in PUBLISHED_STATUSES:
-        raise ValidationError("Invalid curriculum version", {"curriculum_version_id": [f"{version.version_label} is {version.status}; use an approved version"]})
-
-
 def _validate_component(course, component_id: int | None) -> None:
     """A track batch teaches one main track (or the booster) of a combo course (Module 15 §4)."""
     if component_id is None:
@@ -389,8 +371,7 @@ def _validate_component(course, component_id: int | None) -> None:
 
 
 def create_batch(data: dict) -> Batch:
-    """A new batch in Forming (Draft). The Active curriculum version of the course (or track) is used unless one is chosen;
-    readiness is worked out from the checks."""
+    """A new batch in Forming (Draft). It follows the outline of its course (or track); readiness is worked out from the checks."""
     course = catalog_repo.get_course(data["course_id"])
     if course is None or course.status != "Active":
         raise ValidationError("Unknown course", {"course_id": ["Not an active course"]})
@@ -401,14 +382,10 @@ def create_batch(data: dict) -> Batch:
     component_id = data.get("component_id")
     _validate_component(course, component_id)
 
-    version_id = (data["curriculum_version_id"] if "curriculum_version_id" in data
-                  else catalog_repo.active_curriculum_version_id(course.course_id, component_id))
-    if version_id is not None:
-        _validate_version(course.course_id, version_id, component_id)
     mode = data.get("mode", "Classroom")
     check_capacity_sides(mode, data["capacity"], data)
 
-    batch = Batch(course_id=course.course_id, branch_id=branch.branch_id, curriculum_version_id=version_id, capacity=data["capacity"],
+    batch = Batch(course_id=course.course_id, branch_id=branch.branch_id, capacity=data["capacity"],
                   mode=mode, planned_start=data.get("planned_start"), planned_end=data.get("planned_end"),
                   crm_batch_id=data.get("crm_batch_id"), component_id=component_id,
                   **{f: data[f] for f in PLAIN_FIELDS + CAPACITY_SIDES if f in data})
@@ -464,16 +441,6 @@ def update_batch(batch_id: int, data: dict) -> Batch:
             raise BusinessRule("The track of a batch can only change while it is a Draft with no students")
         _validate_component(batch.course, data["component_id"])
         batch.component_id = data["component_id"]
-        if "curriculum_version_id" not in data:
-            data["curriculum_version_id"] = catalog_repo.active_curriculum_version_id(batch.course_id, data["component_id"])
-    if "curriculum_version_id" in data and data["curriculum_version_id"] != batch.curriculum_version_id:
-        if batch.state not in ("Forming", "Proposed", "Starting"):
-            raise BusinessRule("The curriculum version can only change before the batch is Running; use an academic mapping for running batches")
-        if data["curriculum_version_id"] is not None:
-            _validate_version(batch.course_id, data["curriculum_version_id"], batch.component_id)
-        batch.curriculum_version_id = data["curriculum_version_id"]
-        batches_repo.add_event(batch.batch_id, "Curriculum changed", from_value=str(old["curriculum_version_id"]),
-                               to_value=str(data["curriculum_version_id"]), actor_user_id=actor_id())
     for field in ("capacity", "mode", "planned_start", "planned_end", *PLAIN_FIELDS, *CAPACITY_SIDES):
         if field in data:
             setattr(batch, field, data[field])

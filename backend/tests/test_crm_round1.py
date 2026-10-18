@@ -76,15 +76,18 @@ def test_a_component_in_use_is_never_removed_and_the_event_changes_nothing(crm_e
     assert _components("NIT-CRS-900") == []
 
 
-def test_curriculum_written_for_a_track_also_blocks_removing_it(catalog, crm_event):
+def test_an_outline_written_for_a_track_also_blocks_removing_it(catalog, crm_event, run_sql):
+    run_sql("""INSERT INTO course_modules (course_id, component_id, title, sort_order)
+               SELECT parent_course_id, component_id, 'Track outline', 1 FROM course_components
+               WHERE track_code IN ('NIT-CRS-018/T1', 'NIT-CRS-018/T2', 'NIT-CRS-018/T3')""")
     data = {**helpers.catalog_courses()[-1], "is_combo": False, "components": []}
 
     refused = crm_event("CourseUpserted", data, source_version=2)
 
     assert refused.status_code == 422
     message = refused.get_json()["error"]["message"]
-    # The three main tracks have curriculum versions; the unused booster track alone would have been removed
-    assert "NIT-CRS-018/T1, NIT-CRS-018/T2, NIT-CRS-018/T3 are" in message and "0 enrolment(s) and 3 curriculum version(s)" in message
+    # The three main tracks have outlines; the unused booster track alone would have been removed
+    assert "NIT-CRS-018/T1, NIT-CRS-018/T2, NIT-CRS-018/T3 are" in message and "0 enrolment(s) and 3 outline module(s)" in message
     assert len(_components("NIT-CRS-018")) == 4
 
 

@@ -1,16 +1,5 @@
 """Builders for CRM event payloads and small assertions shared by the tests."""
 
-# label, course code, track code (None = the course as a whole) — an Active version for each
-CURRICULA = [
-    ("Parent Programme v2026.1", "NIT-CRS-018", None),
-    ("Track CV 3.2", "NIT-CRS-018", "NIT-CRS-018/T1"),
-    ("Track CV 2.4", "NIT-CRS-018", "NIT-CRS-018/T2"),
-    ("Track CV 1.1", "NIT-CRS-018", "NIT-CRS-018/T3"),
-    ("CV 1.3", "NIT-CRS-019", None),
-    ("CV 5.1", "NIT-CRS-047", None),
-]
-
-
 def catalog_courses() -> list[dict]:
     """CourseUpserted payloads, in an order that satisfies references (the booster course first)."""
     return [
@@ -66,3 +55,10 @@ def finance_data(crm_admission_id="A-100", **overrides) -> dict:
         "receipts": [{"receipt_number": "GNT-R-2627-00001", "date": "2026-09-28", "amount": 10000}],
     }
     return {**data, **overrides}
+
+
+def course_id(course_code: str = "NIT-CRS-047") -> int:
+    """The id of a catalogue course (Java Full Stack by default); needs the `catalog` fixture."""
+    from repositories import catalog as catalog_repo
+
+    return catalog_repo.get_course_by_code(course_code).course_id

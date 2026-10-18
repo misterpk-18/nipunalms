@@ -261,10 +261,10 @@ def _check_removable(course: Course, removed: list[CourseComponent]) -> None:
         return
     ids = [c.component_id for c in blocked]
     enrolments = catalog_repo.enrolments_using_components(ids)
-    versions = sum(usage[i]["curriculum_versions"] for i in ids)
+    modules = sum(usage[i]["modules"] for i in ids)
     raise BusinessRule(
         f"Course {course.course_code}: track(s) {', '.join(c.track_code for c in blocked)} are still used by "
-        f"{enrolments} enrolment(s) and {versions} curriculum version(s); move or withdraw them before the CRM removes them",
+        f"{enrolments} enrolment(s) and {modules} outline module(s); move or withdraw them before the CRM removes them",
         {"tracks": [{"track_code": c.track_code, **usage[c.component_id]} for c in blocked]})
 
 
@@ -409,35 +409,23 @@ def _ensure_enrolment(admission: Admission, student: Student, item: dict, warnin
         enrolment.benefit_note = gate.get("note")
     db.session.flush()
 
-    _map_curriculum(enrolment, course, item.get("tracks"))
+    _map_tracks(enrolment, course, item.get("tracks"))
     _link_batch(enrolment, item, warnings)
     return enrolment
 
 
-def _map_curriculum(enrolment: Enrolment, course: Course, track_codes: list[str] | None) -> None:
-    """Attach the Active curriculum versions. Without one the enrolment keeps none (never a guessed version) and is allocatable
-    all the same: it follows the version of its batch, and activating a version gives it to the enrolments still without."""
-    enrolment.curriculum_version_id = catalog_repo.active_curriculum_version_id(course.course_id)
-
+def _map_tracks(enrolment: Enrolment, course: Course, track_codes: list[str] | None) -> None:
+    """A combo enrolment holds one track per component the CRM names (all of them when it names none). Nothing waits for an
+    outline: an enrolment follows the outline of its course (and of each track) as the LMS holds it, and is allocatable at once."""
     if enrolment.kind == "Combo":
         components = [c for c in course.components if track_codes is None or c.track_code in track_codes]
         unknown = set(track_codes or ()) - {c.track_code for c in course.components}
         if unknown:
             raise BusinessRule(f"Unknown track(s) for {course.course_code}: {', '.join(sorted(unknown))}")
-        existing = {t.component_id: t for t in enrolment.tracks}
-        pins = ({p.component_id: p.component_version_id for p in catalog_repo.version_components(enrolment.curriculum_version_id)}
-                if enrolment.curriculum_version_id else {})
+        existing = {t.component_id for t in enrolment.tracks}
         for component in components:
-            # The version the parent programme pins; else the Active version written for this track; else, once the
-            # component's equivalence is reviewed (Module 14 §3), its own course's Active version
-            version_id = pins.get(component.component_id) or catalog_repo.active_curriculum_version_id(course.course_id, component.component_id)
-            if version_id is None and component.component_course_id and component.equivalence_reviewed_at is not None:
-                version_id = catalog_repo.active_curriculum_version_id(component.component_course_id)
-            track = existing.get(component.component_id)
-            if track is None:
-                enrolment.tracks.append(EnrolmentTrack(component_id=component.component_id, curriculum_version_id=version_id))
-            else:
-                track.curriculum_version_id = version_id
+            if component.component_id not in existing:
+                enrolment.tracks.append(EnrolmentTrack(component_id=component.component_id))
         db.session.flush()
 
     gate_blocked = enrolment.benefit_gate_met is False

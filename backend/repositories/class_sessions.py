@@ -7,7 +7,7 @@ from sqlalchemy.orm import aliased
 from config.database import db
 from config.timezone import IST
 from models import (
-    Batch, BatchAllocation, ClassSession, CurriculumModule, Enrolment, CurriculumTopic, MeetEvent, SessionChange,
+    Batch, BatchAllocation, ClassSession, CourseModule, Enrolment, CourseTopic, MeetEvent, SessionChange,
     SessionChangeRequest, SessionPerson, SessionRoster,
 )
 
@@ -299,8 +299,8 @@ def module_topic_ids(module_ids: list[int]) -> dict[int, list[int]]:
     if not module_ids:
         return {}
     rows = db.session.execute(
-        select(CurriculumTopic.module_id, CurriculumTopic.topic_id).where(CurriculumTopic.module_id.in_(module_ids))
-        .order_by(CurriculumTopic.sort_order)
+        select(CourseTopic.module_id, CourseTopic.topic_id).where(CourseTopic.module_id.in_(module_ids))
+        .order_by(CourseTopic.sort_order)
     )
     result: dict[int, list[int]] = {}
     for module_id, topic_id in rows:
@@ -311,17 +311,17 @@ def module_topic_ids(module_ids: list[int]) -> dict[int, list[int]]:
 def topic_module_ids(topic_ids: list[int]) -> dict[int, int]:
     if not topic_ids:
         return {}
-    return dict(db.session.execute(select(CurriculumTopic.topic_id, CurriculumTopic.module_id).where(CurriculumTopic.topic_id.in_(topic_ids))).all())
+    return dict(db.session.execute(select(CourseTopic.topic_id, CourseTopic.module_id).where(CourseTopic.topic_id.in_(topic_ids))).all())
 
 
-def topic_version_ids(topic_ids: list[int]) -> dict[int, int]:
-    """topic_id -> curriculum_version_id (through its module)."""
+def topic_outline_keys(topic_ids: list[int]) -> dict[int, tuple[int, int | None]]:
+    """topic_id -> (course_id, component_id) of the outline its module belongs to."""
     if not topic_ids:
         return {}
     rows = db.session.execute(
-        select(CurriculumTopic.topic_id, CurriculumModule.curriculum_version_id)
-        .join(CurriculumModule, CurriculumModule.module_id == CurriculumTopic.module_id)
-        .where(CurriculumTopic.topic_id.in_(topic_ids))
+        select(CourseTopic.topic_id, CourseModule.course_id, CourseModule.component_id)
+        .join(CourseModule, CourseModule.module_id == CourseTopic.module_id)
+        .where(CourseTopic.topic_id.in_(topic_ids))
     )
-    return dict(rows.all())
+    return {topic_id: (course_id, component_id) for topic_id, course_id, component_id in rows}
 

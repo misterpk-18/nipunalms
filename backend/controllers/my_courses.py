@@ -55,8 +55,7 @@ def get_enrolment(enrolment_id: int):
 def get_track(enrolment_id: int, enrolment_track_id: int):
     view = my_courses_service.get_track(enrolment_id, enrolment_track_id)
     return ok({
-        "enrolment": {**view.enrolment.to_summary(), "curriculum_version": view.enrolment.curriculum_version.to_summary()
-                      if view.enrolment.curriculum_version else None},
+        "enrolment": view.enrolment.to_summary(),
         "track": view.track.to_dict(),
         "delivery": view.delivery,
         "modules": [_module(m) for m in view.modules],

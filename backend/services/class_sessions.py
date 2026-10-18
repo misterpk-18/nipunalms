@@ -211,7 +211,7 @@ def _check_future(starts_at: datetime, ends_at: datetime, field: str = "starts_a
 
 def _valid_topic(batch: Batch, topic_id: int) -> None:
     topic = catalog_repo.get_topic(topic_id)
-    if topic is None or topic.module.version.course_id != batch.course_id:
+    if topic is None or topic.module.course_id != batch.course_id:
         raise ValidationError("Invalid topic", {"topic_id": ["Not a topic of this batch's course"]})
 
 

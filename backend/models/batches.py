@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
 from models.access import User
-from models.catalog import Course, CourseComponent, CurriculumTopic, CurriculumVersion
+from models.catalog import Course, CourseComponent, CourseTopic
 from models.enums import (
     AllocationStatus, BatchReadiness, BatchState, BatchTrainerRole, DeliveryMode, MeetStatus, SessionState,
 )
@@ -45,7 +45,6 @@ class Batch(db.Model):
     crm_linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.course_id"))
     branch_id: Mapped[int] = mapped_column(Integer, ForeignKey("branches.branch_id"))
-    curriculum_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_versions.curriculum_version_id"))
     capacity: Mapped[int] = mapped_column(Integer)
     mode: Mapped[str] = mapped_column(DeliveryMode, default="Classroom")
     planned_start: Mapped[date | None] = mapped_column(Date)
@@ -88,7 +87,6 @@ class Batch(db.Model):
     branch: Mapped[Branch] = relationship(lazy="joined", foreign_keys=[branch_id])
     creating_branch: Mapped[Branch] = relationship(lazy="joined", foreign_keys=[creating_branch_id], viewonly=True)
     component: Mapped[CourseComponent | None] = relationship(lazy="joined")
-    curriculum_version: Mapped[CurriculumVersion | None] = relationship(lazy="joined")
     proposer: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[proposed_by], viewonly=True)
     confirmer: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[confirmed_by], viewonly=True)
     trainers: Mapped[list["BatchTrainer"]] = relationship(
@@ -112,7 +110,6 @@ class Batch(db.Model):
             "creating_branch": self.creating_branch.to_summary(),
             "batch_type": self.batch_type,
             "schedule_pattern": self.schedule_pattern,
-            "curriculum_version": self.curriculum_version.to_summary() if self.curriculum_version else None,
             "capacity": self.capacity,
             "classroom_capacity": self.classroom_capacity,
             "lab_capacity": self.lab_capacity,
@@ -205,7 +202,7 @@ class ClassSession(db.Model):
     session_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     session_code: Mapped[str] = mapped_column(String(30), unique=True, server_default=FetchedValue())  # trigger
     batch_id: Mapped[int] = mapped_column(Integer, ForeignKey("batches.batch_id"))
-    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"))
+    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_topics.topic_id"))
     title: Mapped[str] = mapped_column(String(200))
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -251,7 +248,7 @@ class ClassSession(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
     batch: Mapped[Batch] = relationship(lazy="joined")
-    topic: Mapped[CurriculumTopic | None] = relationship(lazy="joined")
+    topic: Mapped[CourseTopic | None] = relationship(lazy="joined")
     trainer: Mapped[User] = relationship(lazy="joined", foreign_keys=[trainer_user_id])
     owner: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[owner_user_id], viewonly=True)
 

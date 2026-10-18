@@ -86,11 +86,9 @@ def test_course_codes_and_track_codes_are_unique(catalog, run_sql):
                       SELECT parent_course_id, track_code, 'Again' FROM course_components LIMIT 1""")
 
 
-def test_only_combo_courses_have_components_and_one_active_version_each(catalog, run_sql):
+def test_only_combo_courses_have_components(catalog, run_sql):
     fails(run_sql, """INSERT INTO course_components (parent_course_id, track_code, track_name)
                       SELECT course_id, 'NIT-CRS-047/T1', 'Track' FROM courses WHERE course_code = 'NIT-CRS-047'""")
-    fails(run_sql, """INSERT INTO curriculum_versions (course_id, version_label, status, approved_at)
-                      SELECT course_id, 'CV 5.2', 'Active', now() FROM courses WHERE course_code = 'NIT-CRS-047'""")
 
 
 # ---------------------------------------------------------------- enrolment rules

@@ -48,7 +48,6 @@ def _item_rules(v: Validator, *, creating: bool) -> None:
     v.string("description", nullable=True, max_length=5000)
     v.string("language", max_length=2, pattern="en|te", pattern_message="Must be en or te")
     v.integer("course_id", min_value=1)
-    v.integer("curriculum_version_id", min_value=1)
     v.integer("module_id", min_value=1)
     v.integer("topic_id", min_value=1)
     v.integer("batch_id", nullable=not creating, min_value=1)

@@ -8,7 +8,7 @@ extension. The old and proposed plan, reason and affected students are recorded 
 student agrees (in the LMS, or recorded by staff with evidence) or declines and is given an agreed alternative. Only then is
 the change applied. A notice being delivered or read is not agreement.
 
-Merge / split: students move to a successor batch of the same branch, course and curriculum version, with an effective
+Merge / split: students move to a successor batch of the same branch, course and track, with an effective
 date, reason and the Branch Manager's review, after the Branch Manager's independent approval. A move to a batch with a
 different mode or timetable needs an applied 'Batch move' material change first. Past classes, attendance and payments stay
 on the original batch.
@@ -337,8 +337,6 @@ def request_succession(data: dict) -> BatchSuccession:
         raise BusinessRule("A merge or split stays within one branch; moving branch follows the interbranch transfer rule")
     if (source.course_id, source.component_id) != (target.course_id, target.component_id):
         raise BusinessRule("The successor batch teaches a different course or track")
-    if source.curriculum_version_id != target.curriculum_version_id:
-        raise BusinessRule("The batches run different curriculum versions: the students need an approved academic mapping first")
     if target.state in CLOSED_STATES or target.state == "On Hold":
         raise BusinessRule(f"Batch {target.batch_code} is {target.state} and cannot take students")
     seated = {e.enrolment_id for _, e in batches_repo.active_allocation_rows(source.batch_id)}

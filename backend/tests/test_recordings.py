@@ -213,7 +213,7 @@ def test_expired_access_blocks_watching_but_not_the_listing(client, login, world
 def test_a_transfer_keeps_earlier_recordings_visible(client, login, world, register, allocate, make_batch):
     recording = register()
     post(client, f"/recordings/{recording['recording_id']}/release", auth(login, world.people.ac))
-    other = make_batch(1, "NIT-CRS-047", trainers=[world.people.t2], state="Running", curriculum_version_id=world.version_id)
+    other = make_batch(1, "NIT-CRS-047", trainers=[world.people.t2], state="Running")
     allocate(world.students.s1, other)  # ends the G1 allocation as Transferred
     assert student_titles(client, login, world.students.s1) == {"OOP basics": "Released"}
 

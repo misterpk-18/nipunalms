@@ -25,7 +25,7 @@ from config.database import db
 from config.timezone import IST, today_ist
 from models import (
     ActivityEvent, AttendanceRecord, AttendanceRecovery, Batch, BatchAllocation, BatchEvent, BatchTrainer, Certificate, ClassSession, Course, CourseComponent,
-    CurriculumEvent, CurriculumModule, CurriculumTopic, CurriculumVersion, Enrolment, MeetEvent, SessionChange, SessionChangeRequest, Student, User,
+    CourseModule, CourseTopic, Enrolment, MeetEvent, SessionChange, SessionChangeRequest, Student, User,
 )
 from models import (
     Assignment, AssignmentSubmission, AttemptAnswer, InterviewSlot, Question, Result, SubmissionReview, Test, TestAttempt, TestQuestion,
@@ -86,8 +86,7 @@ COMBO = {
 }
 
 # course, track (None = whole course), version label, [(module, module in Telugu, [topics])]. Every version is Active,
-# except that NIT-CRS-052 deliberately has none: its enrolments are allocatable and its batch has no curriculum until its
-# CV 3.0 draft (under review) is activated, which gives the batch and its students the version. NIT-CRS-028 has none either.
+# only a seed key now (modules and topics belong to the course). NIT-CRS-052 and NIT-CRS-028 deliberately have no outline yet.
 CURRICULA = [
     ("NIT-CRS-018", None, "CV 2026.1", [
         ("Python & SQL Foundations", None, ["Python Basics & Data Structures", "Joins, Window Functions"]),
@@ -258,7 +257,6 @@ FINANCE = [
 class SeedContext:
     client: object
     users: dict[str, int] = field(default_factory=dict)
-    versions: dict[str, int] = field(default_factory=dict)      # curriculum label -> version id
     topics: dict[tuple[str, str], int] = field(default_factory=dict)  # (version label, topic title) -> topic id
     batches: dict[str, Batch] = field(default_factory=dict)
     students: dict[str, dict] = field(default_factory=dict)     # key -> {student_id, student_code, admission ids, token}
@@ -311,7 +309,7 @@ def seed_staff(ctx: SeedContext) -> None:
     db.session.commit()
 
 
-# Sample values for the seeded (already Active) versions; real course profiles need their recorded approvals (Module 14 §14)
+# Sample values for the seeded courses; real course profiles need their recorded approvals (Module 14 §14)
 SAMPLE_COMPLETION_PROFILE = {"attendance_minimum_pct": 75, "pass_mark_pct": 50,
                              "recovery_rule": "An approved recovery completed before the course end date",
                              "reassessment_rule": "One reassessment after an unsuccessful required test"}
@@ -329,20 +327,16 @@ def seed_curriculum(ctx: SeedContext) -> None:
         course = db.session.execute(select(Course).where(Course.course_code == course_code)).scalar_one()
         component = (db.session.execute(select(CourseComponent).where(CourseComponent.track_code == track_code)).scalar_one()
                      if track_code else None)
-        version = CurriculumVersion(course_id=course.course_id, component_id=component.component_id if component else None,
-                                    version_label=label, status="Active", approved_by=ctx.users["admin"], approved_at=approved_at,
-                                    hours_verified_by=ctx.users["bm_gnt"], hours_verified_at=approved_at,
-                                    completion_profile=SAMPLE_COMPLETION_PROFILE)
-        db.session.add(version)
-        db.session.flush()
-        ctx.versions[label] = version.curriculum_version_id
+        if component is None:
+            course.hours_verified_by, course.hours_verified_at = ctx.users["bm_gnt"], approved_at
+            course.completion_profile = SAMPLE_COMPLETION_PROFILE
         for module_order, (module_title, module_te, topic_titles) in enumerate(modules, 1):
-            module = CurriculumModule(curriculum_version_id=version.curriculum_version_id, title=module_title,
-                                      title_te=module_te, sort_order=module_order)
+            module = CourseModule(course_id=course.course_id, component_id=component.component_id if component else None,
+                                  title=module_title, title_te=module_te, sort_order=module_order)
             db.session.add(module)
             db.session.flush()
             for topic_order, title in enumerate(topic_titles, 1):
-                topic = CurriculumTopic(module_id=module.module_id, title=title, sort_order=topic_order, topic_class="Required",
+                topic = CourseTopic(module_id=module.module_id, title=title, sort_order=topic_order, topic_class="Required",
                                         outcome=f"Applies {title.lower()} in a guided lab", instructional_minutes=120,
                                         independent_minutes=60, weight=1, evidence="Lab exercise checked by the trainer")
                 db.session.add(topic)
@@ -359,7 +353,6 @@ def seed_batches(ctx: SeedContext) -> None:
     for key, spec in BATCHES.items():
         course = db.session.execute(select(Course).where(Course.course_code == spec["course"])).scalar_one()
         batch = Batch(batch_code=spec["code"], crm_batch_id=spec["crm"], course_id=course.course_id, branch_id=spec["branch"],
-                      curriculum_version_id=ctx.versions[spec["version"]] if spec["version"] else None,
                       capacity=spec["capacity"], mode=spec["mode"], planned_start=spec["start"], planned_end=spec["end"],
                       state=spec["state"], readiness=spec.get("readiness", "Ready"), readiness_reason=spec.get("reason"),
                       recovery_owner=spec.get("recovery_owner"))
@@ -491,7 +484,7 @@ def seed_sessions(ctx: SeedContext) -> None:
 
 
 def seed_delivery(ctx: SeedContext) -> None:
-    """S1 Delivery states: batch history, a curriculum draft in review, a rescheduled and a cancelled class, a failed Meet
+    """S1 Delivery states: batch history, a rescheduled and a cancelled class, a failed Meet
     association, a trainer's open reschedule request, and the Meet association log of every online class."""
     for key, batch in ctx.batches.items():
         db.session.add(BatchEvent(batch_id=batch.batch_id, event_type="Created", to_value="Forming", actor_user_id=ctx.users["bm_gnt" if batch.branch_id == GNT else "bm_vij"],
@@ -500,22 +493,6 @@ def seed_delivery(ctx: SeedContext) -> None:
             db.session.add(BatchEvent(batch_id=batch.batch_id, event_type="State changed", from_value="Forming", to_value=batch.state,
                                       actor_user_id=ctx.users["bm_gnt" if batch.branch_id == GNT else "bm_vij"],
                                       created_at=datetime.combine(BATCHES[key]["start"], time(9, 0), tzinfo=IST)))
-
-    # NIT-CRS-052: a draft submitted for review (still no Active version: its enrolments and its batch have no curriculum yet)
-    course = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-052")).scalar_one()
-    draft = CurriculumVersion(course_id=course.course_id, version_label="CV 3.0", status="Under Review")
-    db.session.add(draft)
-    db.session.flush()
-    for order, (module_title, topics) in enumerate([("Python Foundations", ["Syntax & Data Types", "Functions & Modules"]),
-                                                     ("Django & REST APIs", ["Models & ORM", "Views & Serializers", "Authentication"])], 1):
-        module = CurriculumModule(curriculum_version_id=draft.curriculum_version_id, title=module_title, sort_order=order)
-        db.session.add(module)
-        db.session.flush()
-        for topic_order, title in enumerate(topics, 1):
-            db.session.add(CurriculumTopic(module_id=module.module_id, title=title, sort_order=topic_order))
-    db.session.add(CurriculumEvent(curriculum_version_id=draft.curriculum_version_id, action="Created", to_status="Draft", actor_user_id=ctx.users["bm_gnt"]))
-    db.session.add(CurriculumEvent(curriculum_version_id=draft.curriculum_version_id, action="Submitted", from_status="Draft", to_status="Under Review",
-                                   actor_user_id=ctx.users["bm_gnt"]))
 
     def session_by_title(title: str) -> ClassSession:
         return db.session.execute(select(ClassSession).where(ClassSession.title == title)).scalar_one()
@@ -1203,7 +1180,7 @@ def seed_batch_operations(ctx: SeedContext) -> None:
 
     # A weekend Java batch: reviewed by the coordinator, waiting for the Branch Manager's confirmation
     java = db.session.execute(select(Course).where(Course.course_code == "NIT-CRS-047")).scalar_one()
-    weekend = Batch(course_id=java.course_id, branch_id=GNT, curriculum_version_id=ctx.versions["CV 5.1"], capacity=20, mode="Classroom",
+    weekend = Batch(course_id=java.course_id, branch_id=GNT, capacity=20, mode="Classroom",
                     planned_start=date(2026, 11, 7), planned_end=date(2027, 2, 27), schedule_days=[6, 7], start_time=time(10, 0),
                     end_time=time(13, 0), location="Lab 3", classroom_capacity=24, display_name="Java Full Stack · Guntur · Nov 2026 · Weekend",
                     schedule_pattern="Weekend", recording_provision="Not Included", state="Forming")

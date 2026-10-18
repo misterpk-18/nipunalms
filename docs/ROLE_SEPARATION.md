@@ -89,15 +89,15 @@ No component calls `hasRole`, `useCanManage`, `useIsManager` or `useCanAdministe
 ## R6. Curriculum to Courses
 
 Backend and database
-- [ ] List every foreign key, view and query that touches the curriculum version, draft and approval tables, and the 14 migrations that use `curriculum_version_id` (002, 003, 004, 005, 010, 020, 030, 040, 095, 097, 098, 102, 105, 109)
-- [ ] Migration: put modules and topics directly on the course; re-point enrolments, batches, sessions, content, assessments, attendance and topic progress to the course; verify row counts
-- [ ] Migration: move hours, completion rules, required assessments, combo track pins and the reusable module library onto the course
-- [ ] Migration: drop the curriculum draft, version and approval tables; courses are never dropped
-- [ ] Remove equivalence rules, branch variations and the "prepare mapping" helper (code and data)
-- [ ] Remove `backend/routes/curriculum.py` and `academic_records.py` curriculum routes and `founder.py:27`; add course outline endpoints (Super Admin and Founder edit, everyone else read)
-- [ ] Keep course code, title, category, status and tracks read-only, owned by the CRM `CourseUpserted` event
-- [ ] A course edit applies at once, notifies the Branch Managers of branches with running batches of that course, and is written to the audit log
-- [ ] Remove the `curriculum` inbox kind, group and page, `_curriculum_items`, and the nav count key (`backend/services/founder_inbox.py`, `backend/services/nav.py`)
+- [x] List every foreign key, view and query that touches the curriculum version, draft and approval tables, and the 14 migrations that use `curriculum_version_id` (002, 003, 004, 005, 010, 020, 030, 040, 095, 097, 098, 102, 105, 109) (done: `db/121` header lists what it re-points; all 14 migrations' `curriculum_version_id` columns are dropped)
+- [x] Migration: put modules and topics directly on the course; re-point enrolments, batches, sessions, content, assessments, attendance and topic progress to the course; verify row counts (`db/121_course_outlines.sql`: Active, else latest, version's rows re-parented to the course; row counts checked inside the migration; dev: modules 44 to 29, topic_progress 1,721 to 1,726)
+- [x] Migration: move hours, completion rules, required assessments, combo track pins and the reusable module library onto the course (hours verification and completion profile on `courses`, `course_assessment_requirements`, `course_components.pinned_course_id`, library kept without approval)
+- [x] Migration: drop the curriculum draft, version and approval tables; courses are never dropped (also `curriculum_events`, `curriculum_version_components`, `learning_credits`, type `curriculum_status`)
+- [x] Remove equivalence rules, branch variations and the "prepare mapping" helper (code and data) (code and tables gone; the per-track equivalence review note on `course_components` stays)
+- [x] Remove `backend/routes/curriculum.py` and `academic_records.py` curriculum routes and `founder.py:27`; add course outline endpoints (Super Admin and Founder edit, everyone else read) (`services/course_outline.py`, `controllers/routes course_outline.py`: `GET /courses`, `GET /courses/{id}/outline`, module, topic, hours, completion profile, requirement, track-pin and library endpoints; Super Admin and Founder edit, everyone with sight of the course reads)
+- [x] Keep course code, title, category, status and tracks read-only, owned by the CRM `CourseUpserted` event (the outline endpoints never write them; a CRM `CourseUpserted` leaves the outline alone, tested)
+- [x] A course edit applies at once, notifies the Branch Managers of branches with running batches of that course, and is written to the audit log (audit `COURSE_OUTLINE_CHANGED`; notice category Courses, link `/branch/courses/{id}`; the editor is not notified)
+- [x] Remove the `curriculum` inbox kind, group and page, `_curriculum_items`, and the nav count key (`backend/services/founder_inbox.py`, `backend/services/nav.py`) (inbox kind, group, `_curriculum_items` and the nav count key removed)
 
 Frontend
 - [ ] Remove routes `routes/branch.curriculum.tsx`, `routes/founder.curriculum.tsx` and the nav items `auth/access.ts:139,162` and badge `curriculum`

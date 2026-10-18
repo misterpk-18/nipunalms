@@ -7,7 +7,8 @@ required learning, engagement) are separate and keep their own rules.
 """
 from dataclasses import dataclass
 
-from models import CurriculumTopic, CurriculumVersion, Enrolment
+from models import CourseTopic, Enrolment
+from repositories import catalog as catalog_repo
 from repositories import topic_progress as repo
 
 
@@ -24,16 +25,14 @@ class Counts:
         return {"done": self.done, "total": self.total, "percent": self.percent}
 
 
-def followed_versions(enrolment: Enrolment) -> list[CurriculumVersion]:
-    """The curriculum versions the enrolment follows, in the order a student studies them: each combo track, else the course's one."""
-    versions = [t.curriculum_version for t in enrolment.tracks if t.curriculum_version is not None]
-    if not versions and enrolment.curriculum_version is not None:
-        versions = [enrolment.curriculum_version]
-    return versions
+def followed_outlines(enrolment: Enrolment) -> list[tuple[int, int | None]]:
+    """The outlines the enrolment follows as (course_id, component_id), in the order a student studies them: each combo track,
+    else the course's one."""
+    return catalog_repo.followed_outlines(enrolment)
 
 
-def ordered_topics(version: CurriculumVersion) -> list[CurriculumTopic]:
-    return [topic for module in version.modules for topic in module.topics]
+def ordered_topics(outline: tuple[int, int | None]) -> list[CourseTopic]:
+    return [topic for module in catalog_repo.outline_for(*outline) for topic in module.topics]
 
 
 def rows_for(enrolment_id: int) -> dict:
@@ -51,25 +50,26 @@ def module_counts(enrolment_id: int) -> dict[int, Counts]:
 
 
 def course_counts(enrolment: Enrolment, rows: dict | None = None) -> Counts:
-    """Topics Done out of every topic of the versions the enrolment follows."""
+    """Topics Done out of every topic of the outlines the enrolment follows."""
     rows = repo.for_enrolment(enrolment.enrolment_id) if rows is None else rows
     return Counts(sum(r.is_done for r in rows.values()), len(rows))
 
 
-def version_counts(enrolment_id: int) -> dict[int, Counts]:
-    counts: dict[int, Counts] = {}
+def outline_counts(enrolment_id: int) -> dict[tuple[int, int | None], Counts]:
+    """Topics Done per outline, keyed (course_id, component_id)."""
+    counts: dict[tuple[int, int | None], Counts] = {}
     for row in repo.for_enrolment(enrolment_id).values():
-        c = counts.setdefault(row.curriculum_version_id, Counts(0, 0))
+        c = counts.setdefault((row.course_id, row.component_id), Counts(0, 0))
         c.total += 1
         c.done += row.is_done
     return counts
 
 
 def continue_topic(enrolment: Enrolment, rows: dict | None = None) -> dict | None:
-    """Where to carry on: the first topic, in study order, that is not Done. None when every topic is Done or there is no curriculum yet."""
+    """Where to carry on: the first topic, in study order, that is not Done. None when every topic is Done or the course has no outline yet."""
     rows = repo.for_enrolment(enrolment.enrolment_id) if rows is None else rows
-    for version in followed_versions(enrolment):
-        for topic in ordered_topics(version):
+    for outline in followed_outlines(enrolment):
+        for topic in ordered_topics(outline):
             progress = rows.get(topic.topic_id)
             if progress is not None and not progress.is_done:
                 return {"topic_id": topic.topic_id, "title": topic.title, "title_te": topic.title_te,
@@ -79,9 +79,9 @@ def continue_topic(enrolment: Enrolment, rows: dict | None = None) -> dict | Non
 
 
 def next_topic(enrolment: Enrolment, topic_id: int) -> dict | None:
-    """The topic after this one in study order, within the same curriculum version."""
-    for version in followed_versions(enrolment):
-        topics = ordered_topics(version)
+    """The topic after this one in study order, within the same outline."""
+    for outline in followed_outlines(enrolment):
+        topics = ordered_topics(outline)
         for index, topic in enumerate(topics):
             if topic.topic_id == topic_id:
                 after = topics[index + 1] if index + 1 < len(topics) else None

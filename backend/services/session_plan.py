@@ -3,7 +3,7 @@
 The batch already says when it meets: teaching days, start and end time, planned start and end. This turns that into dated
 classes, one per teaching day, led by the batch's lead trainer in the batch's room. Days that are company holidays or closures of
 the branch are skipped, and so are days the batch already has a class (so running it twice never doubles up). Each class takes
-the next curriculum topic that no class of the batch covers yet, when the batch has a curriculum; otherwise it is titled by number.
+the next curriculum topic that no class of the batch covers yet, when the course has an outline; otherwise it is titled by number.
 
 `preview: true` returns the plan and changes nothing. Creating is all or nothing: a trainer who already teaches at one of the times
 blocks it (it cannot be overridden), and a booked room or a student clash needs the Branch Manager's recorded reason, as when
@@ -17,6 +17,7 @@ from config.database import db
 from config.timezone import IST, today_ist
 from models import Batch, ClassSession
 from repositories import batches as batches_repo
+from repositories import catalog as catalog_repo
 from services import batches as batches_service
 from services import class_sessions, working_days
 from services.context import current_user
@@ -40,11 +41,9 @@ def _class_days(batch_id: int) -> set:
 
 def _next_topics(batch: Batch) -> list:
     """The curriculum topics still to be scheduled, in course order; optional topics are not scheduled on their own."""
-    version = batch.curriculum_version
-    if version is None:
-        return []
+    modules = catalog_repo.outline_for(batch.course_id, batch.component_id)
     taught = _taught_topic_ids(batch.batch_id)
-    return [t for m in version.modules for t in m.topics if t.topic_id not in taught and t.topic_class != "Optional"]
+    return [t for m in modules for t in m.topics if t.topic_id not in taught and t.topic_class != "Optional"]
 
 
 def _window(batch: Batch, data: dict) -> tuple:

@@ -1,5 +1,5 @@
 """Rounds 3 and 5 (docs/CRM_INTEGRATION.md): the crm_admission_id / crm_person_id filter on the pull, and the CRM holding no
-curriculum (db 104). The LMS maps an admission to its course's Active version itself and never waits on the CRM."""
+curriculum (db 104). The LMS follows the course outline itself (db 121) and never waits on the CRM."""
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import text
@@ -32,10 +32,9 @@ def test_a_new_admission_is_mapped_by_the_lms_and_allocated_with_no_crm_mapping(
     coordinator = login(make_user(roles=[("BRANCH_MANAGER", 1)]).email)
     batch = client.post(f"{API}/batches", headers=coordinator, json={
         "course_id": catalog_repo.get_course_by_code("NIT-CRS-047").course_id, "branch_id": 1, "capacity": 2,
-        "mode": "Classroom", "planned_start": "2026-10-12"}).get_json()["data"]  # the LMS gives it the Active version
+        "mode": "Classroom", "planned_start": "2026-10-12"}).get_json()["data"]  # the batch follows the course outline
     response = crm_event("AdmissionQualified", helpers.admission_data())  # no AdmissionCurriculumMapped follows, ever
     assert response.status_code == 201, response.get_json()
-    assert _scalar("SELECT cv.version_label FROM enrolments e JOIN curriculum_versions cv USING (curriculum_version_id)") == "CV 5.1"
     assert _scalar("SELECT status::text FROM enrolments") == "Allocation Pending"
 
     allocated = client.post(f"{API}/batches/{batch['batch_id']}/allocations", headers=coordinator,
@@ -73,13 +72,12 @@ def test_the_catalogue_mirror_and_the_retired_event_are_gone(client, catalog, cr
     assert _scalar("SELECT count(*) FROM crm_events WHERE event_type = 'AdmissionCurriculumMapped'") == 0
 
 
-def test_a_new_version_going_active_changes_nothing_the_crm_pulls(client, catalog, crm_event, run_sql):
+def test_an_outline_edit_changes_nothing_the_crm_pulls(client, catalog, crm_event, run_sql):
     crm_event("AdmissionQualified", helpers.admission_data())
     since = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat()
 
-    run_sql("UPDATE curriculum_versions SET status = 'Retired' WHERE version_label = 'CV 5.1'")
-    run_sql("INSERT INTO curriculum_versions (course_id, version_label, status, approved_at) SELECT course_id, 'CV 5.2', "
-            "'Active', now() FROM courses WHERE course_code = 'NIT-CRS-047'")
+    run_sql("INSERT INTO course_modules (course_id, title, sort_order) SELECT course_id, 'Cloud', 99 FROM courses "
+            "WHERE course_code = 'NIT-CRS-047'")
 
     data = _pull(client, since)
     assert (data["academics"], data["batches"]) == ([], []) and "curriculum_versions" not in data

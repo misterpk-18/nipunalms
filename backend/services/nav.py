@@ -104,8 +104,8 @@ def _admin_counts() -> dict[str, int]:
 
 
 def _founder_counts() -> dict[str, int]:
-    """The Founder does everything the Super Admin does (the admin counts) plus the inbox as a whole and its three pages
-    (curriculum, certificate decisions, access extensions)."""
+    """The Founder does everything the Super Admin does (the admin counts) plus the inbox as a whole and its pages
+    (certificate decisions, access extensions)."""
     return {**_admin_counts(), **founder_inbox.counts()}
 
 

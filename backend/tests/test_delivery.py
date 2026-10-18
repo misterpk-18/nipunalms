@@ -1,4 +1,4 @@
-"""S1 Delivery: curriculum, batches, allocation, class sessions, Meet association, student course views."""
+"""S1 Delivery: batches, allocation, class sessions, Meet association, student course views."""
 from datetime import datetime, timedelta
 
 import pytest
@@ -31,9 +31,23 @@ def world(make_user, make_batch, make_student, catalog):
         "admin": make_user(roles=[("SUPER_ADMIN", None)]),
         "founder": make_user(roles=[("FOUNDER_CEO", None)]),
     }
-    batch = make_batch(1, trainers=[people["g1"]], state="Running", curriculum_version_id=None)
+    give_outlines()
+    batch = make_batch(1, trainers=[people["g1"]], state="Running")
     student = make_student()
     return people, batch, student
+
+
+def give_outlines():
+    """One module on each catalogue course and on each track of the combo, so batches are ready on the course outline."""
+    from config.database import db
+    from models import Course, CourseComponent, CourseModule
+
+    for course in db.session.query(Course).filter(Course.course_code.in_(["NIT-CRS-018", "NIT-CRS-019", "NIT-CRS-047"])).all():
+        db.session.add(CourseModule(course_id=course.course_id, title="Core", sort_order=900))
+        for component in db.session.query(CourseComponent).filter_by(parent_course_id=course.course_id).filter(
+                CourseComponent.track_code.like("%/T%")):
+            db.session.add(CourseModule(course_id=course.course_id, component_id=component.component_id, title="Track core", sort_order=900))
+    db.session.commit()
 
 
 def call(client, login, who, method, path, **kwargs):
@@ -47,126 +61,6 @@ def data(response, status=None):
     return response.get_json().get("data")
 
 
-# ---------------------------------------------------------------- curriculum
-
-PROFILE = {"attendance_minimum_pct": 75, "pass_mark_pct": 50, "recovery_rule": "Approved recovery before the end date",
-           "reassessment_rule": "One reassessment"}
-
-
-def complete_draft(client, login, who, vid):
-    """Describe every required topic, verify the hours and set the completion profile, so the draft can be submitted."""
-    detail = data(call(client, login, who, "get", f"/curriculum-versions/{vid}"), 200)
-    for module in detail["modules"]:
-        for topic in module["topics"]:
-            data(call(client, login, who, "patch", f"/curriculum-topics/{topic['topic_id']}",
-                      json={"outcome": f"Can apply {topic['title']}", "instructional_minutes": 90, "independent_minutes": 30,
-                            "weight": 1, "evidence": "Lab checked by the trainer"}), 200)
-    data(call(client, login, who, "post", f"/curriculum-versions/{vid}/hours-verification"), 200)
-    data(call(client, login, who, "put", f"/curriculum-versions/{vid}/completion-profile", json=PROFILE), 200)
-
-
-def test_curriculum_review_path_and_independent_approval(world, client, login):
-    people, _, _ = world
-    course_id = client.get(f"{API}/reference/courses", headers=login(people["ac"].email)).get_json()["data"]
-    course_id = next(c["course_id"] for c in course_id if c["course_code"] == "NIT-CRS-052")
-
-    version = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course_id, "version_label": "CV 3.0"}), 201)
-    vid = version["curriculum_version_id"]
-    assert version["status"] == "Draft"
-    # An empty draft cannot be submitted
-    assert call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit").status_code == 422
-
-    module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "Basics"}), 201)
-    t1 = data(call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "Syntax"}), 201)
-    t2 = data(call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "Loops", "is_required": False}), 201)
-    # Move Loops to first place: positions renumber 1..n
-    data(call(client, login, people["ac"], "patch", f"/curriculum-topics/{t2['topic_id']}", json={"position": 1}), 200)
-    detail = data(call(client, login, people["ac"], "get", f"/curriculum-versions/{vid}"), 200)
-    assert [t["title"] for t in detail["modules"][0]["topics"]] == ["Loops", "Syntax"]
-    assert t1["sort_order"] == 1
-
-    complete_draft(client, login, people["ac"], vid)
-    data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit"), 200)
-    # Published content is frozen; coordinators review but only the Founder / CEO or Super Admin approve (Module 14 §5)
-    assert call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "x"}).status_code == 422
-    for who in ("ac", "ac2", "bm"):
-        assert call(client, login, people[who], "post", f"/curriculum-versions/{vid}/approve").status_code == 403
-    data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve"), 200)
-    assert call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/approve").status_code == 422  # already approved
-    assert call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/activate").status_code == 403
-    data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/activate"), 200)
-
-
-def test_a_super_admin_cannot_approve_a_version_they_submitted(world, client, login):
-    people, _, _ = world
-    course_id = next(c["course_id"] for c in client.get(f"{API}/reference/courses", headers=login(people["admin"].email)).get_json()["data"]
-                     if c["course_code"] == "NIT-CRS-052")
-    vid = data(call(client, login, people["admin"], "post", "/curriculum-versions", json={"course_id": course_id, "version_label": "CV 9"}), 201)["curriculum_version_id"]
-    module = data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
-    call(client, login, people["admin"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
-    complete_draft(client, login, people["admin"], vid)
-    data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/submit"), 200)
-    refused = call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/approve")
-    assert refused.status_code == 422 and "submitted" in refused.get_json()["error"]["message"]
-    data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve"), 200)
-
-
-def test_activation_gives_the_version_to_batches_and_students_without_one(world, client, login, make_student, make_batch, allocate):
-    people, _, _ = world
-    waiting = make_student(course="NIT-CRS-052", admission_id="A-052")
-    assert waiting.enrolments[0]["status"] == "Allocation Pending"      # allocatable although the course has no curriculum yet
-    from repositories import catalog as catalog_repo
-
-    course = catalog_repo.get_course_by_code("NIT-CRS-052")
-    blocked = make_batch(1, course_code="NIT-CRS-052", trainers=[people["g2"]])
-    review = data(call(client, login, people["ac"], "get", f"/batches/{blocked.batch_id}/readiness"), 200)
-    assert review["readiness"] == "Ready" and next(c for c in review["checks"] if c["key"] == "curriculum")["status"] == "warn"
-    assert next(c for c in review["checklist"] if c["key"] == "course_version")["status"] == "warn"  # confirming warns, never refuses
-    allocate(waiting, blocked)
-    assert data(call(client, login, waiting.student_code, "get", "/me/enrolments"), 200)[0]["curriculum_version"] is None
-
-    vid = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course.course_id, "version_label": "CV 1.0"}), 201)["curriculum_version_id"]
-    module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
-    call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
-    complete_draft(client, login, people["ac"], vid)
-    call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit")
-    call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve")
-    result = data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/activate"), 200)
-
-    assert result["status"] == "Active"
-    assert result["released"] == {"enrolments_released": 1, "batches_mapped": 1}
-    student = data(call(client, login, waiting.student_code, "get", "/me/enrolments"), 200)
-    assert student[0]["status"] == "Allocated — awaiting first regular class"
-    assert student[0]["curriculum_version"]["version_label"] == "CV 1.0"
-    detail = data(call(client, login, people["ac"], "get", f"/batches/{blocked.batch_id}"), 200)
-    assert detail["curriculum_version"]["version_label"] == "CV 1.0" and detail["readiness"] == "Ready"
-    assert any(e["event_type"] == "Curriculum mapped" for e in detail["history"])
-
-
-def test_activation_retires_previous_active_version(world, client, login):
-    people, _, _ = world
-    overview = data(call(client, login, people["ac"], "get", "/curriculum/overview"), 200)
-    java = next(r for r in overview if r["course"]["course_code"] == "NIT-CRS-047")
-    old = java["active_version"]["curriculum_version_id"]
-    new = data(call(client, login, people["ac"], "post", "/curriculum-versions",
-                    json={"course_id": java["course"]["course_id"], "version_label": "CV 6.0", "copy_from_version_id": old}), 201)
-    # copying an empty version gives an empty draft; add content and go through review
-    module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{new['curriculum_version_id']}/modules", json={"title": "M"}), 201)
-    call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
-    complete_draft(client, login, people["ac"], new["curriculum_version_id"])
-    for who, action in (("ac", "submit"), ("founder", "approve"), ("admin", "activate")):
-        assert call(client, login, people[who], "post", f"/curriculum-versions/{new['curriculum_version_id']}/{action}").status_code == 200
-    versions = data(call(client, login, people["ac"], "get", f"/curriculum-versions?course_id={java['course']['course_id']}"), 200)
-    assert {v["version_label"]: v["status"] for v in versions}["CV 5.1"] == "Retired"
-    assert {v["version_label"]: v["status"] for v in versions}["CV 6.0"] == "Active"
-
-
-def test_curriculum_writes_are_role_limited(world, client, login):
-    people, _, student = world
-    assert call(client, login, people["g1"], "post", "/curriculum-versions", json={"course_id": 1, "version_label": "x"}).status_code == 403
-    assert call(client, login, student.student_code, "get", "/curriculum/overview").status_code == 403
-
-
 # ---------------------------------------------------------------- batches
 
 def test_batch_create_update_state_and_readiness(world, client, login):
@@ -175,7 +69,7 @@ def test_batch_create_update_state_and_readiness(world, client, login):
 
     course = catalog_repo.get_course_by_code("NIT-CRS-047")
     created = data(call(client, login, people["ac"], "post", "/batches", json={"course_id": course.course_id, "branch_id": 1, "capacity": 3, "mode": "Live Online"}), 201)
-    assert created["state"] == "Forming" and created["curriculum_version"]["version_label"] == "CV 5.1"
+    assert created["state"] == "Forming" and "curriculum_version" not in created
     assert created["readiness"] == "Blocked"  # no lead trainer yet
     bid = created["batch_id"]
 
@@ -244,25 +138,21 @@ def test_allocation_review_allocate_transfer_deallocate(world, client, login, ma
     queue = data(call(client, login, people["ac"], "get", "/allocation-queue"), 200)
     assert [q["enrolment_id"] for q in queue] == [eid]
 
-    # The batch has no curriculum version yet: that never blocks a seat
+    # The course has no outline yet: that never blocks a seat
     review = data(call(client, login, people["ac"], "get", f"/batches/{batch.batch_id}/allocation-review?enrolment_id={eid}"), 200)
     assert review["result"] == "Ready to allocate" and not review["blocking"]
 
-    good = make_batch(1, trainers=[people["g2"]], capacity=1, state="Running", curriculum_version_id=_java_version())
+    good = make_batch(1, trainers=[people["g2"]], capacity=1, state="Running")
     review = data(call(client, login, people["ac"], "get", f"/batches/{good.batch_id}/allocation-review?enrolment_id={eid}"), 200)
     assert review["result"] == "Ready to allocate"
     allocation = data(call(client, login, people["ac"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid, "reason": "first seat"}), 201)
     assert allocation["status"] == "Active"
     assert data(call(client, login, student.student_code, "get", "/me/enrolments"), 200)[0]["status"] == "Allocated — awaiting first regular class"
-    from config.database import db
-    from models import Enrolment
-
-    assert db.session.get(Enrolment, eid).curriculum_version_id == _java_version()  # the student follows the version of the batch
     assert data(call(client, login, people["ac"], "get", f"/batches/{good.batch_id}"), 200)["state"] == "Full"  # derived from capacity
     assert data(call(client, login, people["ac"], "get", "/allocation-queue"), 200) == []
     assert call(client, login, people["ac"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid}).status_code == 422
 
-    other = make_batch(1, trainers=[people["g2"]], capacity=5, state="Running", curriculum_version_id=_java_version())
+    other = make_batch(1, trainers=[people["g2"]], capacity=5, state="Running")
     # a within-branch move is requested, then approved by the Branch Manager
     req = data(call(client, login, people["ac"], "post", f"/enrolments/{eid}/transfer-requests", json={"to_batch_id": other.batch_id, "reason": "timing"}), 201)
     assert req["status"] == "Pending" and req["from_batch"]["batch_id"] == good.batch_id
@@ -278,17 +168,11 @@ def test_allocation_review_allocate_transfer_deallocate(world, client, login, ma
     assert call(client, login, people["ac"], "post", f"/enrolments/{eid}/deallocate", json={"reason": "again"}).status_code == 409
 
 
-def _java_version():
-    from repositories import catalog as catalog_repo
-
-    return catalog_repo.active_curriculum_version_id(catalog_repo.get_course_by_code("NIT-CRS-047").course_id)
-
-
 def test_allocation_scope_and_version_warning(world, client, login, make_batch, make_student):
     people, batch, student = world
     eid = student.enrolments[0]["enrolment_id"]
-    good = make_batch(1, trainers=[people["g2"]], curriculum_version_id=_java_version())
-    vij = make_batch(2, trainers=[people["v1"]], curriculum_version_id=_java_version())
+    good = make_batch(1, trainers=[people["g2"]])
+    vij = make_batch(2, trainers=[people["v1"]])
     assert call(client, login, people["ac_vij"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid}).status_code == 404
     r = call(client, login, people["ac"], "post", f"/batches/{vij.batch_id}/allocations", json={"enrolment_id": eid})
     assert r.status_code == 404
@@ -296,7 +180,7 @@ def test_allocation_scope_and_version_warning(world, client, login, make_batch, 
     assert call(client, login, student.student_code, "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid}).status_code == 403
 
     # a different mode is a warning that must be acknowledged
-    hybrid_less = make_batch(1, trainers=[people["g2"]], mode="Live Online", curriculum_version_id=_java_version())
+    hybrid_less = make_batch(1, trainers=[people["g2"]], mode="Live Online")
     r = call(client, login, people["ac"], "post", f"/batches/{hybrid_less.batch_id}/allocations", json={"enrolment_id": eid})
     assert r.status_code == 422 and r.get_json()["error"]["details"]["warnings"]
     data(call(client, login, people["ac"], "post", f"/batches/{hybrid_less.batch_id}/allocations", json={"enrolment_id": eid, "acknowledge_warnings": True}), 201)
@@ -460,7 +344,7 @@ def test_trainer_substitute_needs_reason_and_assignment(world, client, login):
 def test_student_views_are_own_only_and_hide_the_meet_link(world, client, login, allocate, make_student, make_batch):
     people, batch, student = world
     other_student = make_student()
-    good = make_batch(1, trainers=[people["g2"]], curriculum_version_id=_java_version(), state="Running")
+    good = make_batch(1, trainers=[people["g2"]], state="Running")
     allocate(student, good)
     soon = datetime.now(IST) + timedelta(minutes=10)
     sess = data(call(client, login, people["ac"], "post", "/class-sessions", json={"batch_id": good.batch_id, "title": "Live", "mode": "Live Online", "starts_at": iso(soon), "ends_at": iso(soon + timedelta(hours=1))}), 201)[0]
@@ -498,20 +382,19 @@ def test_combo_course_tracks_modules_and_topics(world, client, login, make_stude
     people, _, _ = world
     student = make_student(course="NIT-CRS-018", enrolments=[{"course_code": "NIT-CRS-018", "kind": "Combo"}, {"course_code": "NIT-CRS-052", "kind": "Complimentary", "parent_course_code": "NIT-CRS-018", "benefit_gate": {"met": True}}], admission_id="A-COMBO")
     from repositories import catalog as catalog_repo
-    from models import CurriculumModule, CurriculumTopic
+    from models import CourseModule, CourseTopic
     from config.database import db
 
     course = catalog_repo.get_course_by_code("NIT-CRS-018")
     t2 = next(c for c in course.components if c.track_code == "NIT-CRS-018/T2")
-    version_id = catalog_repo.active_curriculum_version_id(course.course_id, t2.component_id)
-    module = CurriculumModule(curriculum_version_id=version_id, title="Supervised Learning", sort_order=1)
+    module = CourseModule(course_id=course.course_id, component_id=t2.component_id, title="Supervised Learning", sort_order=1)
     db.session.add(module)
     db.session.flush()
-    topic = CurriculumTopic(module_id=module.module_id, title="Regression", sort_order=1)
+    topic = CourseTopic(module_id=module.module_id, title="Regression", sort_order=1)
     db.session.add(topic)
     db.session.commit()
 
-    batch = make_batch(1, course_code="NIT-CRS-018", trainers=[people["g1"]], state="Running", curriculum_version_id=catalog_repo.active_curriculum_version_id(course.course_id))
+    batch = make_batch(1, course_code="NIT-CRS-018", trainers=[people["g1"]], state="Running")
     allocate(student, batch)
     start = future(2)
     sid = data(call(client, login, people["ac"], "post", "/class-sessions", json={"batch_id": batch.batch_id, "title": "Regression I", "topic_id": topic.topic_id, "starts_at": iso(start), "ends_at": iso(start + timedelta(hours=2))}), 201)[0]["session_id"]

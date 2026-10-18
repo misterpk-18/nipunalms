@@ -20,7 +20,7 @@ progress and published results. Certificates come from one LMS Certificate Regis
 | Leads, deals, fees, invoices, payments, receipts, admissions, refunds, collections | **CRM** | LMS keeps a read-only projection (admission, finance summary) |
 | Person identity and documents (ID proof, photo…) | **CRM** | LMS keeps one Student per CRM Person |
 | LMS login, activation, sessions | **LMS** | CRM shows `lms_user_id`, `lms_status` |
-| Curriculum (versions, mapping of an admission to a version), batches, trainers, allocation, joining date, class sessions, attendance, progress, completion | **LMS** (Modules 14, 15, 21) | CRM mirrors the columns it still has (enrolment status, batches, allocations, joining date, completion); it holds no curriculum (round 5) |
+| Course outline (modules, topics, hours, completion rules; no versions), batches, trainers, allocation, joining date, class sessions, attendance, progress, completion | **LMS** (Modules 14, 15, 21) | CRM mirrors the columns it still has (enrolment status, batches, allocations, joining date, completion); it holds no curriculum (round 5) |
 | Certificates | **LMS** Certificate Register (Module 22) | CRM `certificates` becomes a mirror |
 | Placement (employers, openings, applications) | **CRM** (decided in round 2, §4) | LMS Career screen reads and submits through the CRM (later round) |
 | Support | CRM `support_cases` for money / admission; LMS support requests for academic / LMS | Cross-link (§4) |
@@ -192,14 +192,15 @@ a course of the admission is running; **Inactive** — student suspended, or all
 ### 3.2 LMS
 
 - Every event is stored in `crm_events` (Super Admin → **CRM sync**, `/admin/crm-sync`, with retry). Rules in §2.1.
-- **Curriculum is the LMS's alone** (round 5, db 104): a new admission gets its course's Active curriculum version when
-  `AdmissionQualified` is applied, and activating a version moves every enrolment still waiting onto it. Allocation
-  never waits on the CRM, nor on a curriculum (UX phase U1, db 105): its rules are the batch allocation review (service
-  branch, course or track, a seat left). A course with no Active version gives its enrolments none and they are allocatable
-  all the same (an admission leaves *Awaiting Batch Allocation* as soon as a seat is given); a student follows the version of
-  the batch they join, and activating a version hands it to the batches and enrolments still without one. The CRM no longer
-  sends `AdmissionCurriculumMapped` (a 400 now) and the pull no longer carries `curriculum_versions[]`,
-  `curriculum_status` or `curriculum_version_label`.
+- **The outline is the LMS's alone** (round 5, db 104; course outlines, role separation R6, db 121): there are no curriculum
+  versions. Modules and topics hang off the course; a new admission needs nothing from them when `AdmissionQualified` is applied
+  (a combo enrolment gets one track per component) and a student follows the outline of their course as the LMS holds it.
+  Allocation never waits on the CRM, nor on an outline (UX phase U1, db 105): its rules are the batch allocation review (service
+  branch, course or track, a seat left), and an admission leaves *Awaiting Batch Allocation* as soon as a seat is given.
+  `CourseUpserted` still owns `course_code`, `title`, `category`, `status` and the tracks and never touches the outline, hours or
+  completion rules (only the Super Admin and Founder edit those in the LMS); a course the CRM removes a track from is refused
+  while enrolments or outline modules still use that track. The CRM no longer sends `AdmissionCurriculumMapped` (a 400 now)
+  and the pull carries no `curriculum_versions[]`, `curriculum_status` or `curriculum_version_label`. **No CRM contract change in R6.**
 - **Jobs** (`flask jobs run`): `allocation-escalation` raises an enrolment still without a batch 24 hours before its
   admission's planned start to the service branch's Branch Managers (it replaced the CRM's `batch-allocation` job).
 - **WhatsApp (round 6, db 107):** the LMS never calls Pinbot. It queues each message in `whatsapp_outbox` with the change that

@@ -9,7 +9,7 @@ from config.database import db
 from config.timezone import IST, today_ist
 from models import Notification, WhatsappMessage
 from services.jobs import JOBS
-from tests.test_delivery import _java_version, call, data, future, iso, world  # noqa: F401
+from tests.test_delivery import call, data, future, iso, world  # noqa: F401
 
 LINK = "https://meet.google.com/abc-defg-hij"
 
@@ -27,7 +27,7 @@ def ready_fields(**extra):
 
 def confirmed_batch(client, login, people, make_batch, **columns):
     """A confirmed (Starting) Java batch at Guntur led by g1, through proposal and the Branch Manager's confirmation."""
-    batch = make_batch(1, trainers=[people["g1"]], curriculum_version_id=_java_version(), **columns)
+    batch = make_batch(1, trainers=[people["g1"]], **columns)
     data(call(client, login, people["ac"], "patch", f"/batches/{batch.batch_id}", json=ready_fields()), 200)
     data(call(client, login, people["ac"], "post", f"/batches/{batch.batch_id}/proposal", json={}), 200)
     data(call(client, login, people["bm"], "post", f"/batches/{batch.batch_id}/confirmation", json={"decision": "Confirmed"}), 200)
@@ -44,7 +44,7 @@ def seat(client, login, people, batch, student):
 
 def test_proposal_and_confirmation_by_a_branch_manager(world, client, login, make_batch, make_user):
     people, _, _ = world
-    batch = make_batch(1, trainers=[people["g1"]], curriculum_version_id=_java_version())
+    batch = make_batch(1, trainers=[people["g1"]])
     bid = batch.batch_id
     blocked = call(client, login, people["ac"], "post", f"/batches/{bid}/proposal", json={})
     assert blocked.status_code == 422 and any("3." in b for b in blocked.get_json()["error"]["details"]["blocking"])
@@ -72,7 +72,7 @@ def test_proposal_and_confirmation_by_a_branch_manager(world, client, login, mak
     assert len(stored) == 7 and stored[-1]["status"] == "pass"
 
     # a room another batch already books at those times is an advisory warning: the Branch Manager records why
-    other = make_batch(1, trainers=[people["g2"]], curriculum_version_id=_java_version())
+    other = make_batch(1, trainers=[people["g2"]])
     data(call(client, login, people["ac"], "patch", f"/batches/{other.batch_id}", json=ready_fields(location="Lab 3")), 200)
     data(call(client, login, people["ac"], "post", f"/batches/{other.batch_id}/proposal", json={}), 200)
     r = call(client, login, people["bm"], "post", f"/batches/{other.batch_id}/confirmation", json={"decision": "Confirmed"})
@@ -80,7 +80,7 @@ def test_proposal_and_confirmation_by_a_branch_manager(world, client, login, mak
     data(call(client, login, people["bm"], "post", f"/batches/{other.batch_id}/confirmation",
               json={"decision": "Confirmed", "override_reason": "Lab 3 has two benches; split timings agreed"}), 200)
     # the same trainer at the same times is impossible, not a warning
-    clash = make_batch(1, trainers=[people["g1"]], curriculum_version_id=_java_version())
+    clash = make_batch(1, trainers=[people["g1"]])
     data(call(client, login, people["ac"], "patch", f"/batches/{clash.batch_id}", json=ready_fields(location="Lab 9")), 200)
     r = call(client, login, people["ac"], "post", f"/batches/{clash.batch_id}/proposal", json={})
     assert r.status_code == 422 and "trainer already teaches" in r.get_json()["error"]["message"]
@@ -196,7 +196,7 @@ def test_track_batches_and_component_placement_at_another_branch(world, client, 
 
     created = data(call(client, login, people["ac"], "post", "/batches", json={"course_id": course.course_id, "branch_id": 1, "capacity": 10,
                                                                               "component_id": t2.component_id}), 201)
-    assert created["component"]["track_code"] == "NIT-CRS-018/T2" and created["curriculum_version"]["version_label"] == "Track CV 2.4"
+    assert created["component"]["track_code"] == "NIT-CRS-018/T2"
     tb = created["batch_id"]
     call(client, login, people["ac"], "post", f"/batches/{tb}/trainers", json={"trainer_user_id": people["g1"].user_id, "role": "Lead"})
     whole = call(client, login, people["ac"], "post", f"/batches/{tb}/allocations", json={"enrolment_id": eid})
@@ -206,8 +206,7 @@ def test_track_batches_and_component_placement_at_another_branch(world, client, 
     assert seat_["enrolment_track_id"] == track_id
 
     # the same track placed in a Vijayawada track batch: the destination confirms, then the Guntur Branch Manager approves
-    vij = make_batch(2, course_code="NIT-CRS-018", trainers=[people["v1"]], component_id=t2.component_id,
-                     curriculum_version_id=catalog_repo.active_curriculum_version_id(course.course_id, t2.component_id))
+    vij = make_batch(2, course_code="NIT-CRS-018", trainers=[people["v1"]], component_id=t2.component_id)
     whole_move = call(client, login, people["ac"], "post", f"/enrolments/{eid}/transfer-requests", json={"to_batch_id": vij.batch_id, "reason": "Timing"})
     assert whole_move.status_code == 422 or whole_move.status_code == 404
     req = data(call(client, login, people["ac"], "post", f"/enrolments/{eid}/transfer-requests", json={
@@ -226,8 +225,8 @@ def test_track_batches_and_component_placement_at_another_branch(world, client, 
 
 def test_a_transfer_is_decided_by_a_branch_manager_alone_and_rejection_needs_a_reason(world, client, login, make_batch):
     people, _, student = world
-    a = make_batch(1, trainers=[people["g1"]], state="Running", curriculum_version_id=_java_version())
-    b = make_batch(1, trainers=[people["g2"]], state="Running", curriculum_version_id=_java_version())
+    a = make_batch(1, trainers=[people["g1"]], state="Running")
+    b = make_batch(1, trainers=[people["g2"]], state="Running")
     eid = seat(client, login, people, a, student)
     req = data(call(client, login, people["bm"], "post", f"/enrolments/{eid}/transfer-requests", json={"to_batch_id": b.batch_id, "reason": "x"}), 201)
     assert call(client, login, people["admin"], "post", f"/batch-transfer-requests/{req['request_id']}/decision", json={"decision": "Rejected"}).status_code == 400
@@ -240,11 +239,11 @@ def test_a_transfer_is_decided_by_a_branch_manager_alone_and_rejection_needs_a_r
 def test_split_and_merge_of_a_branch_managers_request_go_to_an_admin_and_need_a_matching_plan(world, client, login, make_batch, make_student):
     people, _, student = world
     other = make_student()
-    source = make_batch(1, trainers=[people["g1"]], state="Running", curriculum_version_id=_java_version(), schedule_days=[2, 4],
+    source = make_batch(1, trainers=[people["g1"]], state="Running", schedule_days=[2, 4],
                         start_time=datetime.strptime("15:00", "%H:%M").time(), end_time=datetime.strptime("17:00", "%H:%M").time())
-    same = make_batch(1, trainers=[people["g2"]], state="Running", curriculum_version_id=_java_version(), schedule_days=[2, 4],
+    same = make_batch(1, trainers=[people["g2"]], state="Running", schedule_days=[2, 4],
                       start_time=datetime.strptime("15:00", "%H:%M").time(), end_time=datetime.strptime("17:00", "%H:%M").time())
-    morning = make_batch(1, trainers=[people["g2"]], state="Running", curriculum_version_id=_java_version(), schedule_days=[1, 3],
+    morning = make_batch(1, trainers=[people["g2"]], state="Running", schedule_days=[1, 3],
                          start_time=datetime.strptime("09:00", "%H:%M").time(), end_time=datetime.strptime("11:00", "%H:%M").time())
     first, second = seat(client, login, people, source, student), seat(client, login, people, source, other)
     body = {"kind": "Split", "from_batch_id": source.batch_id, "to_batch_id": same.batch_id, "enrolment_ids": [second],
@@ -306,7 +305,7 @@ def test_class_log_partially_held_and_original_slot(world, client, login):
 def test_room_and_student_clashes_need_the_branch_managers_reason(world, client, login, make_batch, allocate, make_session):
     people, batch, student = world
     allocate(student, batch)
-    other = make_batch(1, trainers=[people["g2"]], state="Running", curriculum_version_id=_java_version())
+    other = make_batch(1, trainers=[people["g2"]], state="Running")
     when = future(5)
     data(call(client, login, people["ac"], "post", "/class-sessions", json={"batch_id": batch.batch_id, "title": "A", "room": "Lab 1",
                                                                          "starts_at": iso(when), "ends_at": iso(when + timedelta(hours=1))}), 201)
@@ -480,7 +479,7 @@ def test_shared_class_counts_once_and_reaches_both_batches(world, client, login,
 
 def test_slot_preference_reserves_nothing_until_a_seat(world, client, login, make_batch):
     people, _, student = world
-    good = make_batch(1, trainers=[people["g2"]], state="Running", curriculum_version_id=_java_version())
+    good = make_batch(1, trainers=[people["g2"]], state="Running")
     eid = student.enrolments[0]["enrolment_id"]
     options = data(call(client, login, student.student_code, "get", f"/me/slot-options?enrolment_id={eid}"), 200)
     assert good.batch_id in [o["batch_id"] for o in options]

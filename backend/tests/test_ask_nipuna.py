@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from config.database import db
-from models import AiQuery, Assignment, CurriculumModule, CurriculumTopic, Notification, Test
+from models import AiQuery, Assignment, CourseModule, CourseTopic, Notification, Test
 from repositories import catalog as catalog_repo
 from services import ai_facts
 from services import ask_nipuna as ask_service
@@ -32,19 +32,14 @@ class FakeClient:
 
 @pytest.fixture
 def curriculum(world, run_sql):
-    """A module with two topics on the Active Java curriculum, one of them the topic of the upcoming session."""
-    version = catalog_repo.get_course_by_code("NIT-CRS-047")
-    from models import CurriculumVersion
-
-    cv = db.session.execute(select(CurriculumVersion).where(CurriculumVersion.course_id == version.course_id)).scalars().first()
-    module = CurriculumModule(curriculum_version_id=cv.curriculum_version_id, title="Core Java", sort_order=1)
+    """A module with two topics on the Java course outline, one of them the topic of the upcoming session."""
+    course = catalog_repo.get_course_by_code("NIT-CRS-047")
+    module = CourseModule(course_id=course.course_id, title="Core Java", sort_order=1)
     db.session.add(module)
     db.session.flush()
-    topic = CurriculumTopic(module_id=module.module_id, title="Streams and lambdas", sort_order=1, is_required=True)
-    db.session.add_all([topic, CurriculumTopic(module_id=module.module_id, title="Generics", sort_order=2, is_required=False)])
+    topic = CourseTopic(module_id=module.module_id, title="Streams and lambdas", sort_order=1, is_required=True)
+    db.session.add_all([topic, CourseTopic(module_id=module.module_id, title="Generics", sort_order=2, is_required=False)])
     db.session.flush()
-    for enrolment_id in [e["enrolment_id"] for e in world.students.s1.enrolments]:
-        run_sql("UPDATE enrolments SET curriculum_version_id = :v WHERE enrolment_id = :e", v=cv.curriculum_version_id, e=enrolment_id)
     run_sql("UPDATE class_sessions SET topic_id = :t WHERE session_id = :s", t=topic.topic_id, s=world.sessions.upcoming.session_id)
 
 
@@ -81,7 +76,7 @@ class TestFallback:
         assert "1 of 2 planned sessions delivered" in progress["answer"]
         assert {s["type"] for s in progress["sources"]} <= {"batch", "enrolment"}
         topic = ask(client, world, world.students.s1, "Explain streams and lambdas")
-        assert "Core Java" in topic["answer"] and "required" in topic["answer"] and any(s["type"] == "curriculum_version" for s in topic["sources"])
+        assert "Core Java" in topic["answer"] and "required" in topic["answer"] and any(s["type"] == "course_outline" for s in topic["sources"])
         practice = ask(client, world, world.students.s1, "Generate practice questions on generics", "Generate practice questions")
         assert "ungraded" in practice["answer"] and "Generics" in practice["answer"]
         career = ask(client, world, world.students.s1, "Help with my resume")

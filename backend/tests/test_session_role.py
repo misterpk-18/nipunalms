@@ -316,7 +316,7 @@ def test_nav_counts_and_getting_started_read_the_role_from_the_session(client, h
         assert client.get(f"{API}/me/nav-counts?workspace=founder&branch_id=2", headers=heads[key]).status_code == 200, key
 
     founder_counts = client.get(f"{API}/me/nav-counts", headers=h["founder"]).get_json()["data"]
-    assert {"inbox", "curriculum", "certificates", "access", "home", "crm_sync", "issues", "users"} <= set(founder_counts)
+    assert {"inbox", "certificates", "access", "home", "crm_sync", "issues", "users"} <= set(founder_counts)
     steps = client.get(f"{API}/me/getting-started", headers=h["founder"]).get_json()["data"]["steps"]
     assert [s["key"] for s in steps] == ["staff", "setup"] and all(s["to"].startswith("/founder/") for s in steps)
     assert client.get(f"{API}/notifications/overview", headers=h["founder"]).status_code == 200

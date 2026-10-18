@@ -5,7 +5,8 @@ from types import SimpleNamespace
 
 from config.database import db
 from config.timezone import today_ist
-from models import CurriculumModule, CurriculumTopic
+from models import CourseModule, CourseTopic
+from tests.helpers import course_id
 
 API = "/api/v1"
 PDF = b"%PDF-1.4\n1 0 obj\n<< >>\nendobj\ntrailer\n<< >>\n%%EOF\n"
@@ -26,19 +27,18 @@ def build_world(catalog, make_user, make_student, make_batch, make_session, allo
         admin=make_user(roles=[("SUPER_ADMIN", None)], full_name="Super Admin"),
         founder=make_user(roles=[("FOUNDER_CEO", None)], full_name="Founder"),
     )
-    version_id = catalog.versions["CV 5.1"]
-    module = CurriculumModule(curriculum_version_id=version_id, title="Core Java", sort_order=1)
+    module = CourseModule(course_id=course_id(), title="Core Java", sort_order=1)
     db.session.add(module)
     db.session.flush()
     topics = SimpleNamespace(
-        oop=CurriculumTopic(module_id=module.module_id, title="OOP & Collections", sort_order=1),
-        streams=CurriculumTopic(module_id=module.module_id, title="Streams & Lambdas", sort_order=2),
+        oop=CourseTopic(module_id=module.module_id, title="OOP & Collections", sort_order=1),
+        streams=CourseTopic(module_id=module.module_id, title="Streams & Lambdas", sort_order=2),
     )
     db.session.add_all([topics.oop, topics.streams])
     db.session.commit()
 
-    g1 = make_batch(1, "NIT-CRS-047", trainers=[people.t1], state="Running", curriculum_version_id=version_id)
-    v1 = make_batch(2, "NIT-CRS-047", trainers=[people.tv], state="Running", curriculum_version_id=version_id)
+    g1 = make_batch(1, "NIT-CRS-047", trainers=[people.t1], state="Running")
+    v1 = make_batch(2, "NIT-CRS-047", trainers=[people.tv], state="Running")
     students = SimpleNamespace(
         s1=make_student(),
         s2=make_student(),
@@ -52,7 +52,7 @@ def build_world(catalog, make_user, make_student, make_batch, make_session, allo
     delivered = make_session(g1, people.t1, now - timedelta(days=3), title="OOP basics", topic_id=topics.oop.topic_id,
                              state="Delivered", delivered_at=now - timedelta(days=3, hours=-2))
     upcoming = make_session(g1, people.t1, now + timedelta(days=3), title="Streams intro", topic_id=topics.streams.topic_id)
-    return SimpleNamespace(people=people, module=module, topics=topics, g1=g1, v1=v1, students=students, version_id=version_id,
+    return SimpleNamespace(people=people, module=module, topics=topics, g1=g1, v1=v1, students=students,
                            delivered=delivered, upcoming=upcoming)
 
 

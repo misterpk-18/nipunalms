@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from config.database import db
 from models.access import User
 from models.batches import Batch, ClassSession
-from models.catalog import Course, CurriculumModule, CurriculumTopic, CurriculumVersion
+from models.catalog import Course, CourseModule, CourseTopic
 from models.enums import _pg_enum
 from models.masters import Branch
 from models.students import Enrolment, Student
@@ -53,9 +53,8 @@ class ContentItem(db.Model):
     content_type: Mapped[str] = mapped_column(ContentType)
     language: Mapped[str] = mapped_column(String(2), default="en")
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.course_id"))
-    curriculum_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_versions.curriculum_version_id"))
-    module_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_modules.module_id"))
-    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"))
+    module_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_modules.module_id"))
+    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_topics.topic_id"))
     branch_id: Mapped[int] = mapped_column(Integer, ForeignKey("branches.branch_id"))
     batch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("batches.batch_id"))
     download_allowed: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -69,9 +68,8 @@ class ContentItem(db.Model):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
     course: Mapped[Course] = relationship(lazy="joined")
-    curriculum_version: Mapped[CurriculumVersion | None] = relationship(lazy="joined")
-    module: Mapped[CurriculumModule | None] = relationship(lazy="joined")
-    topic: Mapped[CurriculumTopic | None] = relationship(lazy="joined")
+    module: Mapped[CourseModule | None] = relationship(lazy="joined")
+    topic: Mapped[CourseTopic | None] = relationship(lazy="joined")
     branch: Mapped[Branch] = relationship(lazy="joined")
     batch: Mapped[Batch | None] = relationship(lazy="joined")
     owner: Mapped[User] = relationship(foreign_keys=[owner_user_id], lazy="joined")
@@ -93,7 +91,6 @@ class ContentItem(db.Model):
     def placement(self) -> dict:
         return {
             "course": self.course.to_summary(),
-            "curriculum_version": self.curriculum_version.to_summary() if self.curriculum_version else None,
             "module": {"module_id": self.module.module_id, "title": self.module.title} if self.module else None,
             "topic": {"topic_id": self.topic.topic_id, "title": self.topic.title} if self.topic else None,
             "branch": self.branch.to_summary(),

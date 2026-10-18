@@ -2,7 +2,7 @@
 from sqlalchemy import Select, func, select
 
 from config.database import db
-from models import CurriculumModule, CurriculumTopic, CurriculumVersion, InterviewSlot, Test, TestAttempt, TestQuestion
+from models import CourseModule, CourseTopic, InterviewSlot, Test, TestAttempt, TestQuestion
 
 
 def get_test(test_id: int) -> Test | None:
@@ -30,18 +30,14 @@ def for_batches(batch_ids: set[int]) -> list[Test]:
 
 
 def course_of_module(module_id: int) -> int | None:
-    return db.session.execute(
-        select(CurriculumVersion.course_id).join(CurriculumModule, CurriculumModule.curriculum_version_id == CurriculumVersion.curriculum_version_id)
-        .where(CurriculumModule.module_id == module_id)
-    ).scalar()
+    return db.session.execute(select(CourseModule.course_id).where(CourseModule.module_id == module_id)).scalar()
 
 
 def course_of_topic(topic_id: int) -> int | None:
     return db.session.execute(
-        select(CurriculumVersion.course_id)
-        .join(CurriculumModule, CurriculumModule.curriculum_version_id == CurriculumVersion.curriculum_version_id)
-        .join(CurriculumTopic, CurriculumTopic.module_id == CurriculumModule.module_id)
-        .where(CurriculumTopic.topic_id == topic_id)
+        select(CourseModule.course_id)
+        .join(CourseTopic, CourseTopic.module_id == CourseModule.module_id)
+        .where(CourseTopic.topic_id == topic_id)
     ).scalar()
 
 

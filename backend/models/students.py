@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
-from models.catalog import Course, CourseComponent, CurriculumVersion
+from models.catalog import Course, CourseComponent
 from models.enums import (
     ActivationStatus, AdmissionStatus, CrmEventStatus, DeliveryMode, EnrolmentKind, EnrolmentStatus, LmsStatus,
     OutboxStatus,
@@ -163,7 +163,6 @@ class Enrolment(db.Model):
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.course_id"))
     kind: Mapped[str] = mapped_column(EnrolmentKind)
     parent_enrolment_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("enrolments.enrolment_id"))
-    curriculum_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_versions.curriculum_version_id"))
     service_branch_id: Mapped[int] = mapped_column(Integer, ForeignKey("branches.branch_id"))
     mode: Mapped[str] = mapped_column(DeliveryMode, default="Classroom")
     status: Mapped[str] = mapped_column(EnrolmentStatus)
@@ -179,7 +178,6 @@ class Enrolment(db.Model):
 
     admission: Mapped[Admission] = relationship(lazy="joined")
     course: Mapped[Course] = relationship(lazy="joined")
-    curriculum_version: Mapped[CurriculumVersion | None] = relationship(lazy="joined")
     service_branch: Mapped[Branch] = relationship(lazy="joined")
     parent: Mapped["Enrolment | None"] = relationship(remote_side=[enrolment_id])
     tracks: Mapped[list["EnrolmentTrack"]] = relationship(
@@ -202,7 +200,6 @@ class Enrolment(db.Model):
             "student_id": self.student_id,
             "admission": self.admission.to_summary(),
             "parent_enrolment_id": self.parent_enrolment_id,
-            "curriculum_version": self.curriculum_version.to_summary() if self.curriculum_version else None,
             "service_branch": self.service_branch.to_summary(),
             "collecting_branch": self.admission.collecting_branch.to_summary(),
             "mode": self.mode,
@@ -223,11 +220,9 @@ class EnrolmentTrack(db.Model):
     enrolment_track_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     enrolment_id: Mapped[int] = mapped_column(Integer, ForeignKey("enrolments.enrolment_id"))
     component_id: Mapped[int] = mapped_column(Integer, ForeignKey("course_components.component_id"))
-    curriculum_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_versions.curriculum_version_id"))
 
     enrolment: Mapped[Enrolment] = relationship(back_populates="tracks")
     component: Mapped[CourseComponent] = relationship(lazy="joined")
-    curriculum_version: Mapped[CurriculumVersion | None] = relationship(lazy="joined")
 
     def to_dict(self) -> dict:
         return {
@@ -235,7 +230,6 @@ class EnrolmentTrack(db.Model):
             "track_code": self.component.track_code,
             "track_name": self.component.track_name,
             "role": self.component.role,
-            "curriculum_version": self.curriculum_version.to_summary() if self.curriculum_version else None,
         }
 
 

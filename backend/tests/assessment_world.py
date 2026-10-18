@@ -1,6 +1,6 @@
 """A small world for the assessment tests: two Guntur batches (G1, G2), a Vijayawada batch (V1), their trainers, coordinators and students.
 
-    G1  Java Full Stack, trainer g1, students s1 and s2, with a module (2 topics) of curriculum version CV 5.1
+    G1  Java Full Stack, trainer g1, students s1 and s2, with a module (2 topics) on the Java course outline
     G2  Java Full Stack, trainer g2, student s3
     V1  Java Full Stack at Vijayawada, trainer v1, student s4
 Every login uses the shared test password.
@@ -11,8 +11,9 @@ from types import SimpleNamespace
 import pytest
 
 from config.database import db
-from models import CurriculumModule, CurriculumTopic
+from models import CourseModule, CourseTopic
 from tests.conftest import _commit
+from tests.helpers import course_id
 
 API = "/api/v1"
 
@@ -39,16 +40,15 @@ def world(make_user, make_student, make_batch, allocate, login, catalog):
         "admin": make_user(roles=[("SUPER_ADMIN", None)]),
         "founder": make_user(roles=[("FOUNDER_CEO", None)]),
     }
-    version_id = catalog.versions["CV 5.1"]
     batches = {
-        "G1": make_batch(1, trainers=[people["g1"]], state="Running", curriculum_version_id=version_id),
-        "G2": make_batch(1, trainers=[people["g2"]], state="Running", curriculum_version_id=version_id),
-        "V1": make_batch(2, trainers=[people["v1"]], state="Running", curriculum_version_id=version_id),
+        "G1": make_batch(1, trainers=[people["g1"]], state="Running"),
+        "G2": make_batch(1, trainers=[people["g2"]], state="Running"),
+        "V1": make_batch(2, trainers=[people["v1"]], state="Running"),
     }
-    module = CurriculumModule(curriculum_version_id=version_id, title="Core Java", sort_order=1)
+    module = CourseModule(course_id=course_id(), title="Core Java", sort_order=1)
     db.session.add(module)
     db.session.flush()
-    topics = [CurriculumTopic(module_id=module.module_id, title=t, sort_order=i) for i, t in enumerate(["OOP & Collections", "Streams"], 1)]
+    topics = [CourseTopic(module_id=module.module_id, title=t, sort_order=i) for i, t in enumerate(["OOP & Collections", "Streams"], 1)]
     db.session.add_all(topics)
     db.session.flush()
 

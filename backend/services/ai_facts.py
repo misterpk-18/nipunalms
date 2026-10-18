@@ -13,8 +13,9 @@ from typing import Any, Callable
 
 from config.database import db
 from config.timezone import IST
-from models import Batch, CurriculumVersion, Student
+from models import Batch, Course, Student
 from repositories import batches as batches_repo
+from repositories import catalog as catalog_repo
 from repositories import class_sessions as sessions_repo
 from repositories import students as students_repo
 from services import scope
@@ -47,11 +48,11 @@ def format_ist(moment: datetime) -> str:
     return moment.astimezone(IST).strftime("%a %d %b, %H:%M")
 
 
-def _version_facts(version: CurriculumVersion) -> dict:
+def _outline_facts(course: Course, modules) -> dict:
     return {
-        "version": version.version_label,
+        "course": course.course_code,
         "modules": [
-            {"title": m.title, "topics": [{"title": t.title, "required": t.is_required} for t in m.topics]} for m in version.modules
+            {"title": m.title, "topics": [{"title": t.title, "required": t.is_required} for t in m.topics]} for m in modules
         ],
     }
 
@@ -81,7 +82,7 @@ def student_facts(student: Student, now: datetime) -> Facts:
         facts.warnings.append("No active enrolment was found on this account.")
 
     facts.data["enrolments"] = []
-    versions: dict[int, CurriculumVersion] = {}
+    outlines: dict[int, Course] = {}
     for e in enrolments:
         allocation = allocations.get(e.enrolment_id)
         facts.data["enrolments"].append({
@@ -89,14 +90,12 @@ def student_facts(student: Student, now: datetime) -> Facts:
             "status": e.status, "mode": e.mode, "batch": allocation.batch.batch_code if allocation else None,
         })
         facts.sources.append({"type": "enrolment", "id": e.enrolment_id, "code": e.enrolment_code})
-        for version in [e.curriculum_version, *[t.curriculum_version for t in e.tracks]]:
-            if version is not None:
-                versions[version.curriculum_version_id] = version
-        if e.curriculum_version is None and not e.tracks:
-            facts.warnings.append(f"{e.course.title}: no curriculum version is mapped yet.")
+        outlines[e.course_id] = e.course
+        if not catalog_repo.outline_modules(e.course_id):
+            facts.warnings.append(f"{e.course.title}: the course has no modules yet.")
 
-    facts.data["curriculum"] = [_version_facts(v) for v in versions.values()]
-    facts.sources += [{"type": "curriculum_version", "id": v.curriculum_version_id, "code": v.version_label} for v in versions.values()]
+    facts.data["curriculum"] = [_outline_facts(c, catalog_repo.outline_modules(c.course_id)) for c in outlines.values()]
+    facts.sources += [{"type": "course_outline", "id": c.course_id, "code": c.course_code} for c in outlines.values()]
 
     sessions = sessions_repo.upcoming_in_window(
         sessions_repo.student_sessions_stmt({e.enrolment_id for e in enrolments}), now, now + timedelta(days=UPCOMING_DAYS), UPCOMING_LIMIT)
@@ -132,7 +131,7 @@ def staff_facts(user: CurrentUser, now: datetime) -> Facts:
             "batch": b.batch_code, "course": b.course.title, "state": b.state, "readiness": b.readiness, "capacity": b.capacity,
             "allocated_students": allocated.get(b.batch_id, 0),
             "sessions_delivered": _delivery(counts, b.batch_id)["delivered"], "sessions_planned": _delivery(counts, b.batch_id)["planned"],
-            "curriculum": _version_facts(b.curriculum_version) if b.curriculum_version else None,
+            "curriculum": _outline_facts(b.course, catalog_repo.outline_for(b.course_id, b.component_id)) if catalog_repo.outline_for(b.course_id, b.component_id) else None,
         }
         for b in batches
     ]

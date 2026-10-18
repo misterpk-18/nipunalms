@@ -368,7 +368,7 @@ class SessionRoster(db.Model):
 
     session_id: Mapped[int] = mapped_column(Integer, ForeignKey("class_sessions.session_id"), primary_key=True)
     batch_id: Mapped[int] = mapped_column(Integer, ForeignKey("batches.batch_id"), primary_key=True)
-    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("curriculum_topics.topic_id"))
+    topic_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("course_topics.topic_id"))
     coverage_note: Mapped[str] = mapped_column(Text)
     verified_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())

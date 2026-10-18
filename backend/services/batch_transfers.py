@@ -1,8 +1,7 @@
 """Batch transfer requests (Module 15 §13). Moving an allocated student, or one combo track, to another batch is requested and
 then approved by the Branch Manager of the student's service branch (or a Super Admin), never by the requester. A track can
 be placed in another branch's batch when the destination first confirms it can deliver (the admission, its payments and the
-other tracks stay where they are). A different curriculum version needs the receiving Branch Manager's academic mapping first
-(the review fails until then). Moving the whole admission to another branch comes from the CRM (AdmissionUpdated)."""
+other tracks stay where they are). Moving the whole admission to another branch comes from the CRM (AdmissionUpdated)."""
 from datetime import datetime, timezone
 
 from sqlalchemy import or_, select

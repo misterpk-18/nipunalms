@@ -64,7 +64,6 @@ def create_batch():
     v.integer("course_id", required=True, min_value=1)
     v.integer("branch_id", required=True, min_value=1)
     v.integer("component_id", nullable=True, min_value=1)
-    v.integer("curriculum_version_id", nullable=True, min_value=1)
     v.integer("capacity", required=True, min_value=1, max_value=500)
     v.choice("mode", DELIVERY_MODES)
     v.date("planned_start", nullable=True)
@@ -79,7 +78,6 @@ def create_batch():
 def update_batch(batch_id: int):
     v = Validator(json_body())
     v.integer("component_id", nullable=True, min_value=1)
-    v.integer("curriculum_version_id", nullable=True, min_value=1)
     v.integer("capacity", min_value=1, max_value=500)
     v.choice("mode", DELIVERY_MODES)
     v.date("planned_start", nullable=True)

@@ -69,6 +69,7 @@ Vijayawada).
 | `118_split_multi_role_accounts.sql` | Role separation R2: splits every multi-role user into one account per role; `split_account_handouts` | ✅ |
 | `119_one_role_per_account.sql` | Role separation R2: trigger `check_one_role_per_user` (one live role per user; only Branch Manager may hold several branches) | ✅ |
 | `120_session_role_branch.sql` | Role separation R3: `user_sessions.role_code` and `branch_id` (the session's role and a Branch Manager's picked branch); `active_sessions` view recreated | ✅ |
+| `121_course_outlines.sql` | Role separation R6: modules and topics hang off the course (no curriculum versions, drafts or approvals); hours, completion profile, required assessments and combo track pins move onto the course; equivalence rules, academic mappings and branch variations dropped | ✅ |
 
 ---
 
@@ -541,3 +542,22 @@ Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP
 | Backfill | Live sessions take the role and (Branch Manager) branch of the account's single live scope. A Branch Manager with several branches cannot be resolved, so that session is revoked (`role separation: sign in again`). Dev result: all 1,413 live sessions resolved, none revoked |
 
 Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/120_session_role_branch.sql`. Tests: `backend/tests/test_session_role.py`.
+
+---
+## 121 — Role separation R6: the curriculum becomes the course outline
+
+| Change | Meaning |
+|---|---|
+| `curriculum_modules`, `curriculum_topics`, `curriculum_topic_dependencies`, `curriculum_assessment_requirements` renamed `course_modules`, `course_topics`, `course_topic_dependencies`, `course_assessment_requirements` | Rows are kept and re-parented, so every foreign key from sessions, content, assignments, questions, tests, covered topics and class logs stays valid. `course_modules.course_id` (and `component_id` for the outline of one combo track) replaces `curriculum_version_id` |
+| Surviving outline | Per course (and per combo track) the Active version's modules and topics, or the latest version's when none is Active. Topics of other versions that something references are mapped by title and the referencing rows re-pointed; what is still referenced is kept as an archived module (`course_modules.is_archived`); the rest is deleted |
+| `courses.hours_verified_by / _at`, `courses.completion_profile` | Verified hours and the completion profile, taken from the surviving whole-course version |
+| `course_assessment_requirements` | Required assessments, now per course |
+| `course_components.pinned_course_id` | A combo track that follows another course's outline (replaces `curriculum_version_components`) |
+| `library_modules`, `library_module_versions`, `course_modules.library_version_id` | The reusable module library stays, without an approval step |
+| Views `topic_progress`, `enrolment_required_topics`, `enrolment_covered_topics` rewritten; `enrolment_outlines` added | They read the course outline each enrolment follows |
+| `curriculum_version_id` dropped from enrolments, enrolment_tracks, batches, content, assignments, questions, tests, attendance and related tables | Batches and enrolments simply follow the course |
+| Dropped | `curriculum_versions`, `curriculum_events`, `curriculum_version_components`, `equivalence_rules`, `academic_mappings`, `curriculum_variations`, `learning_credits` (the migration refuses to run if it holds rows), type `curriculum_status`, every draft-only trigger. Courses are never dropped |
+| Row-count checks | The migration records counts first and raises if any table that should be unchanged differs afterwards |
+
+Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/121_course_outlines.sql` (backup first). Dev result: courses 9, enrolments 237, enrolment_tracks 96, batches 29, class_sessions 136, content_items 35, assignments 17, questions 13 and tests 18 unchanged; modules 44 to 29 (15 deleted, none archived), topics 93 to 63, topic_progress rows 1,721 to 1,726 (a topic of a removed version now maps to the surviving outline).
+Tests: `backend/tests/test_course_outline.py`.

@@ -1,135 +1,17 @@
-"""UX phase U16: the Founder's inbox, "Approve & activate" for curriculum with an optional activation day, the summary of what a version
-changes, the AI budget, the Branch Managers' own requests that the Founder decides, and the CRM-connected flag."""
-from datetime import date, timedelta
+"""UX phase U16: the Founder's inbox, the AI budget, the Branch Managers' own requests that the Founder decides, and the CRM-connected flag."""
 
 import pytest
 from sqlalchemy import select
 
 from config.database import db
-from config.timezone import today_ist
-from models import AuditLog, CurriculumVersion
-from services import curriculum as curriculum_service
-from services import jobs
+from models import AuditLog
 from tests import attendance_world
 from tests.test_attendance import correction, decide as decide_correction
 from tests.test_certificates import change, complete, decide as decide_certificate, issued, post as post_as, w  # noqa: F401
 from tests.test_crm_branches_finance import snapshot
-from tests.test_delivery import call, complete_draft, data, future, iso, world  # noqa: F401
+from tests.test_delivery import call, data, future, iso, world  # noqa: F401
 
 API = attendance_world.API
-
-
-# ---------------------------------------------------------------- curriculum: Approve & activate
-
-def _submitted(client, login, people, label, topic="Basics"):
-    """A complete draft of a course with no active version of its own, submitted for review by the branch manager."""
-    course_id = next(c["course_id"] for c in client.get(f"{API}/reference/courses", headers=login(people["ac"].email)).get_json()["data"]
-                     if c["course_code"] == "NIT-CRS-052")
-    vid = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course_id, "version_label": label, "blank": True}), 201)["curriculum_version_id"]
-    module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": topic}), 201)
-    call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": f"{topic} one"})
-    complete_draft(client, login, people["ac"], vid)
-    data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit"), 200)
-    return vid
-
-
-def _version(vid) -> CurriculumVersion:
-    db.session.expire_all()
-    return db.session.get(CurriculumVersion, vid)
-
-
-def test_approve_alone_keeps_the_version_approved(world, client, login):
-    people, _, _ = world
-    vid = _submitted(client, login, people, "CV 7.0")
-    approved = data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve"), 200)
-    assert approved["status"] == "Approved" and approved["activate_on"] is None and approved["released"] is None
-
-
-def test_approve_and_activate_in_one_step_with_today(world, client, login):
-    people, _, _ = world
-    vid = _submitted(client, login, people, "CV 7.0")
-    done = data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve", json={"activate_on": today_ist().isoformat()}), 200)
-    assert done["status"] == "Active" and done["activate_on"] is None and set(done["released"]) == {"enrolments_released", "batches_mapped"}
-    assert [e["action"] for e in done["events"]][-2:] == ["Approved", "Activated"]
-    assert db.session.execute(select(AuditLog.action).where(AuditLog.action == "CURRICULUM_MAPPING_RELEASED")).first() is not None
-
-
-def test_a_later_day_schedules_the_activation_and_the_job_activates_it_that_day(world, client, login, run_sql):
-    people, _, _ = world
-    vid = _submitted(client, login, people, "CV 7.0")
-    tomorrow = (today_ist() + timedelta(days=1)).isoformat()
-    scheduled = data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve", json={"activate_on": tomorrow}), 200)
-    assert scheduled["status"] == "Approved" and scheduled["activate_on"] == tomorrow and scheduled["released"] is None
-    assert "Activates on" in scheduled["events"][-1]["note"]
-
-    inbox = data(call(client, login, people["founder"], "get", "/founder/inbox"), 200)
-    assert [i for i in inbox["items"] if i["kind"] == "curriculum"] == []  # nothing waits for the Founder any more
-    assert [s["curriculum_version_id"] for s in inbox["scheduled"]] == [vid]
-
-    assert jobs.curriculum_activate() == {"activated": []}  # tomorrow has not come
-    run_sql("UPDATE curriculum_versions SET activate_on = :d WHERE curriculum_version_id = :v", d=today_ist().isoformat(), v=vid)
-    assert jobs.curriculum_activate() == {"activated": ["CV 7.0"]}
-    version = _version(vid)
-    assert version.status == "Active" and version.activate_on is None
-    assert jobs.curriculum_activate() == {"activated": []}  # once only
-
-
-def test_the_day_cannot_be_in_the_past_and_a_retired_version_loses_its_day(world, client, login):
-    people, _, _ = world
-    vid = _submitted(client, login, people, "CV 7.0")
-    yesterday = (today_ist() - timedelta(days=1)).isoformat()
-    refused = call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve", json={"activate_on": yesterday})
-    assert refused.status_code == 400 and _version(vid).status == "Under Review"
-    assert call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve", json={"activate_on": "soon"}).status_code == 400
-
-    tomorrow = (today_ist() + timedelta(days=1)).isoformat()
-    data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/approve", json={"activate_on": tomorrow}), 200)
-    retired = data(call(client, login, people["founder"], "post", f"/curriculum-versions/{vid}/retire", json={"reason": "Changed our mind"}), 200)
-    assert retired["status"] == "Retired" and retired["activate_on"] is None
-
-
-def test_you_cannot_approve_and_activate_what_you_submitted(world, client, login):
-    people, _, _ = world
-    course_id = next(c["course_id"] for c in client.get(f"{API}/reference/courses", headers=login(people["admin"].email)).get_json()["data"]
-                     if c["course_code"] == "NIT-CRS-052")
-    vid = data(call(client, login, people["admin"], "post", "/curriculum-versions", json={"course_id": course_id, "version_label": "CV 8"}), 201)["curriculum_version_id"]
-    module = data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "M"}), 201)
-    call(client, login, people["admin"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "T"})
-    complete_draft(client, login, people["admin"], vid)
-    data(call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/submit"), 200)
-    assert call(client, login, people["admin"], "post", f"/curriculum-versions/{vid}/approve", json={"activate_on": today_ist().isoformat()}).status_code == 422
-    assert _version(vid).status == "Under Review"
-    # and it is not in the submitter's inbox, only in the other approver's
-    assert data(call(client, login, people["admin"], "get", "/founder/inbox?group=curriculum"), 200)["items"] == []
-    assert [i["id"] for i in data(call(client, login, people["founder"], "get", "/founder/inbox?group=curriculum"), 200)["items"]] == [vid]
-
-
-def test_the_summary_says_what_changes_and_who_is_affected(world, client, login, make_batch, allocate):
-    from repositories import catalog as catalog_repo
-    from tests.test_delivery import _java_version
-    people, _, student = world
-    course_id = catalog_repo.get_course_by_code("NIT-CRS-047").course_id
-    running = make_batch(1, trainers=[people["g1"]], state="Running", curriculum_version_id=_java_version())
-    allocate(student, running)
-    draft = data(call(client, login, people["ac"], "post", "/curriculum-versions", json={"course_id": course_id}), 201)  # copies the Active version
-    vid = draft["curriculum_version_id"]
-    module = data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/modules", json={"title": "Cloud basics"}), 201)
-    call(client, login, people["ac"], "post", f"/curriculum-modules/{module['module_id']}/topics", json={"title": "Deploying to the cloud"})
-    complete_draft(client, login, people["ac"], vid)
-    data(call(client, login, people["ac"], "post", f"/curriculum-versions/{vid}/submit"), 200)
-
-    impact = data(call(client, login, people["founder"], "get", f"/curriculum-versions/{vid}/impact"), 200)
-    assert impact["version_label"] == draft["version_label"] and impact["previous"]["version_label"] == "CV 5.1"
-    assert impact["submitted_by"]["full_name"] == "AC Guntur"
-    assert "Deploying to the cloud" in impact["added_topics"] and impact["removed_topics"] == []
-    assert impact["what_changes"][0].startswith("Compared with CV 5.1: 1 module added, 0 modules removed; 1 topic added, 0 topics removed")
-    assert impact["who_is_affected"] == ["1 batch with no curriculum yet (0 students) would get it as soon as it is active.",
-                                         "1 batch (1 student) stay on CV 5.1."]
-    assert impact["batches_getting_it"] == 1 and impact["batches_staying"] == 1
-    assert impact["outline"][-1] == {"module": "Cloud basics", "topics": ["Deploying to the cloud"]}
-    assert call(client, login, people["ac"], "get", f"/curriculum-versions/{vid}/impact").status_code == 403  # approvers only
-    assert call(client, login, people["admin"], "get", f"/curriculum-versions/{vid}/impact").status_code == 200
-    assert call(client, login, people["founder"], "get", "/curriculum-versions/999999/impact").status_code == 404
 
 
 # ---------------------------------------------------------------- the inbox
@@ -166,10 +48,12 @@ def test_the_inbox_lists_each_kind_oldest_first_and_feeds_the_nav_badges(client,
 
     assert [i["kind"] for i in inbox(client, w, "founder", "certificates")["items"]] == ["certificate", "fee_exception"]
     assert [i["kind"] for i in inbox(client, w, "founder", "other")["items"]] == ["ai_budget"]
-    assert inbox(client, w, "founder", "curriculum")["items"] == [] and inbox(client, w, "founder", "access")["items"] == []
+    assert inbox(client, w, "founder", "access")["items"] == []
+    assert client.get(f"{API}/founder/inbox?group=curriculum", headers=w.h["founder"]).status_code == 400  # the group is gone
 
     badges = client.get(f"{API}/me/nav-counts?workspace=founder", headers=w.h["founder"]).get_json()["data"]
-    assert {k: badges[k] for k in ("inbox", "curriculum", "certificates", "access")} == {"inbox": 3, "curriculum": 0, "certificates": 2, "access": 0}
+    assert {k: badges[k] for k in ("inbox", "certificates", "access")} == {"inbox": 3, "certificates": 2, "access": 0}
+    assert "curriculum" not in badges
     assert {"home", "users", "issues", "calendar", "crm_sync", "student_accounts", "setup"} <= set(badges)  # plus everything the Super Admin's nav counts
 
     # a decision takes the item out of the inbox

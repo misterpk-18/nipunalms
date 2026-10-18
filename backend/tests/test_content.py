@@ -469,12 +469,12 @@ def test_list_filters_and_pagination(client, login, world):
     assert client.get(f"{API}/content-items?status=Live", headers=trainer).status_code == 400
 
 
-def test_placement_options_list_batches_versions_and_topics(client, login, world):
+def test_placement_options_list_batches_outlines_and_topics(client, login, world):
     options = get(client, "/content-items/options", auth(login, world.people.t1))
     assert [o["batch"]["batch_code"] for o in options] == [world.g1.batch_code]
-    versions = options[0]["versions"]
-    assert versions[0]["version_label"] == "CV 5.1"
-    assert [t["title"] for t in versions[0]["modules"][0]["topics"]] == ["OOP & Collections", "Streams & Lambdas"]
+    outlines = options[0]["outlines"]
+    assert outlines[0]["component_id"] is None
+    assert [t["title"] for t in outlines[0]["modules"][0]["topics"]] == ["OOP & Collections", "Streams & Lambdas"]
     assert len(get(client, "/content-items/options", auth(login, world.people.admin))) == 2
     assert client.get(f"{API}/content-items/options", headers=auth(login, world.students.s1)).status_code == 403
 

@@ -8,7 +8,7 @@ Stages, in order:
   issue      approved and fee cleared: ready to issue
   issued     issued (or revoked, flagged)
 
-Evidence is shown against the course's own thresholds (the completion profile of the curriculum version) as ticks and crosses;
+Evidence is shown against the course's own thresholds (the completion rules of the course) as ticks and crosses;
 nothing is a single score. This module only reads: deciding, approving, issuing and the rare corrections stay in
 services/completion.py, services/certificates.py and services/certificate_requests.py, which the screen calls.
 """
@@ -34,7 +34,7 @@ PRE_ISSUE = ("Eligibility Review", "Awaiting Approval", "Approved for Issue")
 
 
 def _threshold(enrolment: Enrolment) -> int:
-    profile = (enrolment.curriculum_version.completion_profile if enrolment.curriculum_version_id else None) or {}
+    profile = enrolment.course.completion_profile or {}
     value = profile.get("attendance_minimum_pct")
     return int(value) if value not in (None, "") else settings_repo.get_int("attendance_alert_threshold", 75)
 
