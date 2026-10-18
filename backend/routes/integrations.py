@@ -29,7 +29,7 @@ def get_integration(integration_id: int):
 
 @integrations_bp.patch("/<int:integration_id>")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def update_integration(integration_id: int):
     return integrations_controller.update_integration(integration_id)

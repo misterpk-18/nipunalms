@@ -15,7 +15,7 @@ from services.context import current_user
 from services.curriculum import TOPIC_FIELDS, _editable, _version
 from services.errors import BusinessRule, NotFound, ValidationError
 
-EDITORS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+EDITORS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 def _snapshot(module: CurriculumModule) -> dict:

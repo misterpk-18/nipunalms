@@ -29,7 +29,7 @@ def get_event(crm_event_id: int):
 
 @crm_sync_bp.post("/events/<int:crm_event_id>/retry")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def retry_event(crm_event_id: int):
     return sync_controller.retry_event(crm_event_id)

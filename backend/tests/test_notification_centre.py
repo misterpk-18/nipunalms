@@ -114,7 +114,7 @@ def test_the_bell_works_for_staff_too(client, world):
     assert client.get(f"{API}/overview", headers=world.h(world.people.t1)).get_json()["data"]["action_required"] == 1
 
 
-def test_a_transfer_or_removed_role_hides_the_old_branch_notices(client, world, run_sql):
+def test_a_transfer_or_removed_role_hides_the_old_branch_notices(client, world, run_sql, login):
     """Module 26 §8: counts, lists and deep links follow the user's current role and branch, not who they were when sent."""
     ac = world.people.ac
     run_sql("DELETE FROM notifications")  # the world's own admissions notified the coordinator too
@@ -129,9 +129,12 @@ def test_a_transfer_or_removed_role_hides_the_old_branch_notices(client, world, 
     assert n1.role_code == "BRANCH_MANAGER"
 
     # Moved to Vijayawada as coordinator: Guntur's notices go; the one with no branch stays
+    # (the session carries the role it signed in with, so the old session ends and the person signs in again)
     run_sql("UPDATE user_role_scopes SET revoked_at = now() WHERE user_id = :u", u=ac.user_id)
-    run_sql("INSERT INTO user_role_scopes (user_id, role_id, branch_id) SELECT :u, role_id, 2 FROM roles WHERE role_code = 'ACADEMIC_COORDINATOR'",
+    assert client.get(API, headers=headers).status_code == 401
+    run_sql("INSERT INTO user_role_scopes (user_id, role_id, branch_id) SELECT :u, role_id, 2 FROM roles WHERE role_code = 'BRANCH_MANAGER'",
             u=ac.user_id)
+    headers = login(ac.email)
     assert titles(client.get(API, headers=headers)) == ["Company-wide notice"]
     assert client.get(f"{API}/overview", headers=headers).get_json()["data"]["action_required"] == 0
     assert client.post(f"{API}/{n1.notification_id}/read", headers=headers).status_code == 404
@@ -139,6 +142,7 @@ def test_a_transfer_or_removed_role_hides_the_old_branch_notices(client, world, 
     # Back at Guntur but as a trainer: the coordinator notice stays hidden, the named one returns
     run_sql("UPDATE user_role_scopes SET revoked_at = now() WHERE user_id = :u", u=ac.user_id)
     run_sql("INSERT INTO user_role_scopes (user_id, role_id, branch_id) SELECT :u, role_id, 1 FROM roles WHERE role_code = 'TRAINER'", u=ac.user_id)
+    headers = login(ac.email)
     assert sorted(titles(client.get(API, headers=headers))) == ["Class moved at Guntur", "Company-wide notice"]
 
 

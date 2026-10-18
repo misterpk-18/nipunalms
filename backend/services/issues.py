@@ -101,13 +101,13 @@ def list_issues(raw_filters: dict, page: int, per_page: int) -> tuple[list[dict]
     filters = _filters(raw_filters)
     rows, meta = paginate(exceptions_repo.list_stmt(filters, branch_ids), page, per_page)
     now = datetime.now(timezone.utc)
-    can_note = user.has_role("BRANCH_MANAGER", "SUPER_ADMIN")
+    can_note = user.has_role("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
     items = []
     for row in rows:
         data = row.to_dict(now)
         items.append({**data, "id": f"{row.source}:{row.source_id}", "type": SOURCE_TYPE.get(row.source, "system"),
                       "type_label": SOURCE_LABELS.get(row.source, row.queue), "go_fix": fix_link(row.source, row.source_id, row.branch_id),
-                      "can_note": can_note and (row.branch_id is not None or user.has_role("SUPER_ADMIN")), "can_assign": exceptions_service.can_assign(row.source, row.owner_user_id)})
+                      "can_note": can_note and (row.branch_id is not None or user.has_role("SUPER_ADMIN", "FOUNDER_CEO")), "can_assign": exceptions_service.can_assign(row.source, row.owner_user_id)})
     by_source = exceptions_repo.counts_by_source(filters, branch_ids)
     meta["counts"] = {key: sum(by_source.get(s, 0) for s in sources) for key, (_, sources) in TYPES.items()}
     meta["counts"]["all"] = sum(meta["counts"].values())

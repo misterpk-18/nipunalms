@@ -22,7 +22,7 @@ def get_student(student_id: int):
 
 @admin_students_bp.post("/<int:student_id>/suspend")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def suspend(student_id: int):
     return students_controller.suspend(student_id)
@@ -30,7 +30,7 @@ def suspend(student_id: int):
 
 @admin_students_bp.post("/<int:student_id>/reactivate")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def reactivate(student_id: int):
     return students_controller.reactivate(student_id)
@@ -38,7 +38,7 @@ def reactivate(student_id: int):
 
 @admin_students_bp.post("/<int:student_id>/revoke-sessions")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def revoke_sessions(student_id: int):
     return students_controller.revoke_sessions(student_id)

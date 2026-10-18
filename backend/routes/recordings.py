@@ -7,8 +7,8 @@ recordings_bp = Blueprint("recordings", __name__, url_prefix="/recordings")
 recording_exceptions_bp = Blueprint("recording_exceptions", __name__, url_prefix="/recording-exceptions")
 
 STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-MANAGERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
-EXCEPTION_HANDLERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+MANAGERS = ("BRANCH_MANAGER",)
+EXCEPTION_HANDLERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # Super Admin / Founder only for issues owned by Super Admin (the service refuses others)
 
 
 @recordings_bp.get("")

@@ -8,20 +8,21 @@ WORKSPACES = ("student", "trainer", "branch", "admin", "founder")
 
 
 def _args() -> dict:
+    """`workspace` and `branch_id` are accepted (the frontend still sends them until R4) but the session's role decides."""
     v = Validator(request.args.to_dict())
-    v.choice("workspace", WORKSPACES, required=True)
+    v.choice("workspace", WORKSPACES)
     v.integer("branch_id", min_value=1)
     return v.validate()
 
 
 def nav_counts():
-    args = _args()
-    return ok(nav_service.nav_counts(args["workspace"], args.get("branch_id")))
+    _args()
+    return ok(nav_service.nav_counts())
 
 
 def getting_started():
-    args = _args()
-    return ok(nav_service.getting_started(args["workspace"], args.get("branch_id")))
+    _args()
+    return ok(nav_service.getting_started())
 
 
 def search():

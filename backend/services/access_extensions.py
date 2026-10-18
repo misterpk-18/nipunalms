@@ -20,7 +20,7 @@ from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # who sees the requests; a routine one is decided by the Branch Manager only
 EXCEPTION_DECIDERS = ("SUPER_ADMIN", "FOUNDER_CEO")
 
 
@@ -73,7 +73,7 @@ def list_requests(filters: dict, page: int, per_page: int) -> tuple[list[AccessE
     user = current_user()
     if user.student_id is not None:
         stmt = extensions_repo.list_stmt(filters, None, user.student_id)
-    elif user.has_role(*DECIDERS, "FOUNDER_CEO"):
+    elif user.has_role(*DECIDERS):
         stmt = extensions_repo.list_stmt(filters, scope.visible_branch_ids(user), None)
     else:
         raise Forbidden("You don't have access to access-extension requests")
@@ -85,7 +85,7 @@ def get_request(request_id: int) -> AccessExtensionRequest:
     user = current_user()
     if request is not None:
         branch_ids = scope.visible_branch_ids(user)
-        if request.student_id == user.student_id or (user.has_role(*DECIDERS, "FOUNDER_CEO") and (branch_ids is None or request.branch_id in branch_ids)):
+        if request.student_id == user.student_id or (user.has_role(*DECIDERS) and (branch_ids is None or request.branch_id in branch_ids)):
             return request
     raise NotFound("Access extension request not found")
 
@@ -101,7 +101,7 @@ def decide(request_id: int, decision: str, note: str | None, new_expiry=None) ->
     if request.needs_exception:
         if not user.has_role(*EXCEPTION_DECIDERS):
             raise Forbidden("Requests after the second anniversary need a Founder / CEO or Super Admin exception")
-    elif not (user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=request.branch_id)):
+    elif not user.has_role("BRANCH_MANAGER", branch_id=request.branch_id):
         raise Forbidden("Only the Branch Manager of the service branch decides this")
 
     old = {"status": "Pending", "expiry": {k: str(v) for k, v in _current_expiry(request).items()}}
@@ -216,7 +216,7 @@ def present(request: AccessExtensionRequest) -> dict:
         "new_end_date": window.second_expiry if routine and request.status == "Pending" else request.approved_expiry,
         "can_decide": request.status == "Pending" and not is_student and (
             user.has_role(*EXCEPTION_DECIDERS) if request.needs_exception
-            else user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=request.branch_id)),
+            else user.has_role("BRANCH_MANAGER", branch_id=request.branch_id)),
         "can_recommend": request.status == "Pending" and request.needs_exception and not is_student
                          and user.has_role("BRANCH_MANAGER", branch_id=request.branch_id),
     })

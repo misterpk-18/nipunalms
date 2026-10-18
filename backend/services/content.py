@@ -40,9 +40,8 @@ def _now() -> datetime:
 # ---------------------------------------------------------------- who may see / manage
 
 def _is_reviewer(item: ContentItem) -> bool:
-    """Branch Manager of the item's branch, or Super Admin."""
-    user = current_user()
-    return user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=item.branch_id)
+    """Branch Manager of the item's branch."""
+    return current_user().has_role("BRANCH_MANAGER", branch_id=item.branch_id)
 
 
 def _staff_can_view(item: ContentItem) -> bool:

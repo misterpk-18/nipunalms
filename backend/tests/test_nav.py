@@ -4,14 +4,16 @@ from tests.services_fixtures import world  # noqa: F401
 API = "/api/v1"
 
 
-def counts(client, world, person, workspace, expect=200, extra=""):
-    response = client.get(f"{API}/me/nav-counts?workspace={workspace}{extra}", headers=world.h(person))
+def counts(client, world, person, workspace=None, expect=200, extra=""):
+    """The session's role decides; `workspace` and `branch_id` are still sent the way the old frontend did and are ignored."""
+    query = f"?workspace={workspace}{extra}" if workspace else (f"?{extra.lstrip('&')}" if extra else "")
+    response = client.get(f"{API}/me/nav-counts{query}", headers=world.h(person))
     assert response.status_code == expect, response.get_json()
     return response.get_json().get("data")
 
 
-def steps(client, world, person, workspace):
-    response = client.get(f"{API}/me/getting-started?workspace={workspace}", headers=world.h(person))
+def steps(client, world, person, workspace=None):
+    response = client.get(f"{API}/me/getting-started" + (f"?workspace={workspace}" if workspace else ""), headers=world.h(person))
     assert response.status_code == 200, response.get_json()
     return {s["key"]: s["done"] for s in response.get_json()["data"]["steps"]}
 
@@ -28,24 +30,27 @@ def test_each_role_gets_the_counts_of_its_own_workspace(client, world):
     assert set(counts(client, world, world.students.s1, "student")) == {"tasks", "support"}
     assert set(counts(client, world, world.people.t1, "trainer")) == {"to_grade", "support", "attendance", "class_logs"}
     assert {"waiting", "requests", "issues", "support", "attendance"} <= set(counts(client, world, world.people.bm, "branch"))
-    assert set(counts(client, world, world.people.admin, "admin")) == {"crm_sync", "issues", "users", "student_accounts", "calendar", "setup", "home"}
-    assert set(counts(client, world, world.people.founder, "founder")) == {"inbox", "curriculum", "certificates", "access"}
+    admin_keys = {"crm_sync", "issues", "users", "student_accounts", "calendar", "setup", "home"}
+    assert set(counts(client, world, world.people.admin, "admin")) == admin_keys
+    # the Founder does what the Super Admin does, plus the inbox
+    assert set(counts(client, world, world.people.founder, "founder")) == admin_keys | {"inbox", "curriculum", "certificates", "access"}
 
 
-def test_a_workspace_the_user_does_not_hold_is_refused(client, world):
-    counts(client, world, world.students.s1, "trainer", expect=403)
-    counts(client, world, world.people.t1, "branch", expect=403)
-    counts(client, world, world.people.bm, "admin", expect=403)
-    assert client.get(f"{API}/me/nav-counts?workspace=nonsense", headers=world.h(world.people.bm)).status_code == 400
-    assert client.get(f"{API}/me/nav-counts", headers=world.h(world.people.bm)).status_code == 400
+def test_the_session_role_decides_the_workspace_and_the_query_parameters_are_ignored(client, world):
+    # no parameter needed; a parameter naming another workspace changes nothing (it used to be a 403)
+    assert set(counts(client, world, world.students.s1)) == {"tasks", "support"}
+    assert set(counts(client, world, world.students.s1, "trainer")) == {"tasks", "support"}
+    assert set(counts(client, world, world.people.t1, "branch")) == {"to_grade", "support", "attendance", "class_logs"}
+    assert "waiting" in counts(client, world, world.people.bm, "admin")
+    assert client.get(f"{API}/me/nav-counts?workspace=nonsense", headers=world.h(world.people.bm)).status_code == 400  # still validated when given
 
 
 def test_branch_counts_follow_the_branch_and_its_scope(client, world):
     assert counts(client, world, world.people.bm, "branch")["support"] == 0
     # the second branch holds student three, waiting for a batch; the first branch's manager does not see it
     assert counts(client, world, world.people.bm_vij, "branch")["waiting"] >= counts(client, world, world.people.bm, "branch")["waiting"]
-    counts(client, world, world.people.bm, "branch", expect=404, extra="&branch_id=2")
-    assert counts(client, world, world.people.admin, "branch", extra="&branch_id=2")["waiting"] == counts(client, world, world.people.bm_vij, "branch")["waiting"]
+    # the branch is the session's: a branch_id for another branch is ignored, never a way to see it
+    assert counts(client, world, world.people.bm, "branch", extra="&branch_id=2") == counts(client, world, world.people.bm, "branch")
 
 
 def test_support_due_soon_counts_for_the_branch_manager(client, world, run_sql):
@@ -74,8 +79,8 @@ def test_getting_started_ticks_itself(client, world, run_sql):
     assert steps(client, world, world.people.bm_vij, "branch") == {"batch": False, "allocate": False, "classes": False}
 
     assert set(steps(client, world, world.people.admin, "admin")) == {"staff", "setup"}
-    assert steps(client, world, world.people.founder, "founder") == {}
-    assert client.get(f"{API}/me/getting-started?workspace=trainer", headers=world.h(world.students.s1)).status_code == 403
+    assert set(steps(client, world, world.people.founder, "founder")) == {"staff", "setup"}  # the Founder gets the Super Admin's card
+    assert steps(client, world, world.students.s1, "trainer") == s1  # a workspace parameter is ignored: the session's role decides
 
 
 # ---------------------------------------------------------------- search

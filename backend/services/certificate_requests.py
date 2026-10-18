@@ -28,7 +28,7 @@ NEEDED_STATUS = {"Correction": "Issued", "Revocation": "Issued", "Reinstatement"
 # Where each deciding role works on requests
 DECIDER_LINKS = {"BRANCH_MANAGER": "/branch/completion", "SUPER_ADMIN": "/branch/completion", "FOUNDER_CEO": "/founder/certificates"}
 
-EXCEPTION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+EXCEPTION_REQUESTERS = ("BRANCH_MANAGER",)
 EXCEPTION_DECIDERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 

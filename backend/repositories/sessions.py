@@ -41,6 +41,10 @@ def mark_reauthenticated(session_id: str) -> None:
     )
 
 
+def set_branch(session_id: str, branch_id: int) -> None:
+    db.session.execute(update(UserSession).where(UserSession.session_id == session_id).values(branch_id=branch_id))
+
+
 def revoke(session_id: str, reason: str) -> None:
     db.session.execute(
         update(UserSession)

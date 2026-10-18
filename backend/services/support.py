@@ -53,7 +53,7 @@ def _now() -> datetime:
 
 
 def _is_student(user: CurrentUser) -> bool:
-    return user.student_id is not None and user.has_role("STUDENT")
+    return user.student_id is not None and user.role_code == "STUDENT"
 
 
 # ---------------------------------------------------------------- scope
@@ -68,7 +68,7 @@ def _can_view(request: SupportRequest, user: CurrentUser) -> bool:
         return request.student_id == user.student_id
     if _can_manage(request, user):
         return True
-    return user.has_role("TRAINER") and request.raised_by_user_id == user.user_id
+    return user.role_code == "TRAINER" and request.raised_by_user_id == user.user_id
 
 
 def get_request(support_request_id: int) -> SupportRequest:
@@ -122,7 +122,7 @@ def view_counts(filters: dict) -> dict[str, int]:
     counts = {}
     for view in support_repo.VIEWS:
         stmt = support_repo.list_stmt({**filters, "view": view, "status": None}, student_id=None, branch_ids=branch_ids, user_id=user.user_id,
-                                      all_branches=branch_ids is None, trainer=user.has_role("TRAINER"))
+                                      all_branches=branch_ids is None, trainer=user.role_code == "TRAINER")
         counts[view] = support_repo.count_stmt(stmt)
     return counts
 
@@ -138,7 +138,7 @@ def list_requests(filters: dict, page: int, per_page: int) -> tuple[list[Support
         branch_ids=branch_ids,
         user_id=user.user_id,
         all_branches=branch_ids is None and not _is_student(user),
-        trainer=user.has_role("TRAINER"),
+        trainer=user.role_code == "TRAINER",
     )
     return paginate(stmt, page, per_page)
 

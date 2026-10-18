@@ -18,14 +18,15 @@ def _audit(action):
     return db.session.execute(select(AuditLog).where(AuditLog.action == action).order_by(AuditLog.audit_id.desc())).scalars().first()
 
 
-def test_only_super_admin_manages_users_and_the_founder_reads(client, make_user, login):
+def test_super_admin_and_founder_manage_users_and_nobody_else_does(client, make_user, login):
     founder = make_user(roles=[("FOUNDER_CEO", None)])
     manager = make_user(roles=[("BRANCH_MANAGER", 1)])
     target = make_user(roles=[("TRAINER", 1)])
 
     assert client.get("/api/v1/admin/users", headers=login(founder.email)).status_code == 200
     assert client.get("/api/v1/admin/users", headers=login(manager.email)).status_code == 403
-    assert client.post("/api/v1/admin/users", headers=login(founder.email), json=NEW_USER).status_code == 403
+    assert client.post("/api/v1/admin/users", headers=login(manager.email), json=NEW_USER).status_code == 403
+    assert client.post("/api/v1/admin/users", headers=login(founder.email), json=NEW_USER).status_code == 201  # the Founder does what the Super Admin does
     assert client.post(f"/api/v1/admin/users/{target.user_id}/deactivate", headers=login(manager.email), json={"reason": "x"}).status_code == 403
 
 

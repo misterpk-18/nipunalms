@@ -24,7 +24,11 @@ def test_staff_login_returns_token_and_the_exact_profile_shape(client, make_user
     data = response.get_json()["data"]
 
     assert response.status_code == 200
-    assert set(data) == {"token", "expires_at", "user", "scopes", "allowed_branches", "workspaces", "home_route", "student"}
+    assert set(data) == {"token", "expires_at", "user", "role", "workspace", "branch", "needs_branch", "branches", "scopes",
+                         "allowed_branches", "workspaces", "home_route", "student"}
+    assert data["role"] == {"role_code": "BRANCH_MANAGER", "role_name": "Branch Manager"}
+    assert data["workspace"] == "branch" and data["needs_branch"] is False and data["branches"] == []
+    assert data["branch"] == {"branch_id": 1, "branch_code": "NIT-GNT", "branch_name": "Guntur"}
     assert data["user"] == {"user_id": user.user_id, "full_name": "BM Guntur", "email": user.email,
                             "must_change_password": False, "student_id": None}
     assert set(data["scopes"][0]) == {"scope_id", "role_code", "role_name", "branch_id", "branch_code", "branch_name",
@@ -44,11 +48,11 @@ def test_staff_login_returns_token_and_the_exact_profile_shape(client, make_user
     [
         ([("TRAINER", 1)], ["trainer"], "/trainer", 1),
         ([("BRANCH_MANAGER", 2)], ["branch"], "/branch", 1),
-        ([("SUPER_ADMIN", None)], ["admin", "branch"], "/admin", 2),
-        ([("FOUNDER_CEO", None)], ["founder", "admin", "branch"], "/founder", 2),
+        ([("SUPER_ADMIN", None)], ["admin"], "/admin", 2),
+        ([("FOUNDER_CEO", None)], ["founder"], "/founder", 2),
     ],
 )
-def test_workspaces_home_route_and_branches_follow_the_roles(client, make_user, roles, workspaces, home_route, branch_count):
+def test_one_workspace_one_home_route_and_the_branches_follow_the_role(client, make_user, roles, workspaces, home_route, branch_count):
     user = make_user(roles=roles)
 
     data = login_response(client, user.email).get_json()["data"]

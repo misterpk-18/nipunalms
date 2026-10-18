@@ -169,7 +169,8 @@ def test_the_inbox_lists_each_kind_oldest_first_and_feeds_the_nav_badges(client,
     assert inbox(client, w, "founder", "curriculum")["items"] == [] and inbox(client, w, "founder", "access")["items"] == []
 
     badges = client.get(f"{API}/me/nav-counts?workspace=founder", headers=w.h["founder"]).get_json()["data"]
-    assert badges == {"inbox": 3, "curriculum": 0, "certificates": 2, "access": 0}
+    assert {k: badges[k] for k in ("inbox", "curriculum", "certificates", "access")} == {"inbox": 3, "curriculum": 0, "certificates": 2, "access": 0}
+    assert {"home", "users", "issues", "calendar", "crm_sync", "student_accounts", "setup"} <= set(badges)  # plus everything the Super Admin's nav counts
 
     # a decision takes the item out of the inbox
     assert decide_certificate(client, w, "founder", revocation["request_id"], "Rejected", "Evidence is not enough").status_code == 200
@@ -236,23 +237,22 @@ def test_a_branch_managers_own_attendance_correction_is_decided_by_the_founder(c
     assert [c["correction_id"] for c in listed] == [trainers]
 
 
-@pytest.mark.skip(reason="One role per account (R2): a Branch Manager no longer teaches classes of their own; revisit in R3")
-def test_a_branch_managers_own_reschedule_request_is_decided_by_the_founder(client, w, login, make_user, make_batch, make_session):
-    both = make_user(roles=[("TRAINER", 1), ("BRANCH_MANAGER", 1)], full_name="Trainer and Manager")
-    batch = make_batch(1, trainers=[both], state="Running", curriculum_version_id=None)
-    own_session = make_session(batch, both, future(3, 10), title="Own class")
+def test_a_branch_managers_own_reschedule_request_is_decided_by_the_founder(client, w, login, make_session, run_sql):
+    """A request a person raised while they held both roles (before the split) still has a Branch Manager as requester."""
+    own_session = make_session(w.b1, w.t1, future(3, 10), title="Own class")
     other_session = make_session(w.b1, w.t1, future(5, 10), title="Other class")
 
-    def ask(who_headers, session, day):
-        return client.post(f"{API}/class-sessions/{session.session_id}/reschedule-requests", headers=who_headers, json={
+    def ask(session, day):
+        return client.post(f"{API}/class-sessions/{session.session_id}/reschedule-requests", headers=w.h["t1"], json={
             "proposed_starts_at": iso(future(day, 10)), "proposed_ends_at": iso(future(day, 12)), "reason": "Away that day"}).get_json()["data"]
 
-    mine = ask(login(both.email), own_session, 4)
-    theirs = ask(w.h["t1"], other_session, 6)
+    mine = ask(own_session, 4)
+    theirs = ask(other_session, 6)
+    run_sql("UPDATE session_change_requests SET requested_by = :bm WHERE request_id = :r", bm=w.ac.user_id, r=mine["request_id"])
 
     items = bm_items(client, w)
     assert [(i["kind"], i["id"]) for i in items] == [("bm_reschedule", mine["request_id"])]
-    assert items[0]["title"] == "Trainer and Manager asks to move Own class" and items[0]["detail"]["can_decide"] is True
+    assert items[0]["title"] == "Coordinator Guntur asks to move Own class" and items[0]["detail"]["can_decide"] is True
     assert client.post(f"{API}/reschedule-requests/{theirs['request_id']}/reject", json={"note": "No"}, headers=w.h["founder"]).status_code == 403
     assert client.post(f"{API}/reschedule-requests/{mine['request_id']}/reject", json={"note": "No"}, headers=w.h["ac"]).status_code == 422
     done = client.post(f"{API}/reschedule-requests/{mine['request_id']}/reject", json={"note": "Please keep the date"}, headers=w.h["founder"])

@@ -75,8 +75,11 @@ Identical to the CRM:
 | `STUDENT` | Only their own student record, enrolments, sessions of batches they are allocated to, released content / recordings of those enrolments, own submissions / attempts / results / certificates / support / notifications |
 | `TRAINER` | Batches they are assigned to (`batch_trainers`), the students allocated to those batches, sessions they teach |
 | `BRANCH_MANAGER` | Everything at their branch (academic + operational + read-only finance summary). Since UX phase U2 (db 106) this is also everything the retired `ACADEMIC_COORDINATOR` role did |
-| `SUPER_ADMIN` | All branches; admin / integrations / security; can open the branch workspace |
-| `FOUNDER_CEO` | All branches, management overview; can open admin and branch workspaces (read-mostly) |
+| `SUPER_ADMIN` | All branches, read-only through the shared reads (batches, students, attendance, support, reports, issues, finance summaries; `?branch_id=` narrows them), plus admin / integrations / security and the decisions listed in §4.22. No branch day-to-day actions |
+| `FOUNDER_CEO` | Everything the Super Admin can do on the backend, plus the Founder's inbox and approvals. Reads across all branches; no branch day-to-day actions either |
+
+A login holds **one** role (db 119) and the session carries it (§4.22): every row above is the whole of what that login sees, never a union.
+A Branch Manager sees only the branch picked at sign-in, even if the account holds several.
 
 **Who decides** (UX phase U2: the Branch Manager does what the Academic Coordinator did). The Branch Manager decides alone for
 the steps that used to take a coordinator and then a Branch Manager: confirming a batch (a warning needs `override_reason`,
@@ -149,9 +152,11 @@ Codes follow the prototype: `NIT-STU-2026-004182`, `ADM-GNT-2026-000214`, `NIT-G
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | GET | `/health` | Public | DB check |
-| POST | `/auth/login` | Public | `{login, password}` — `login` is a staff email, a Student ID or a student email |
+| POST | `/auth/login` | Public | `{login, password, branch_id?}` — `login` is a staff email, a Student ID or a student email. `branch_id` is for a Branch Manager with several branches (§4.22); the answer is the profile below plus `token` and `expires_at` |
 | POST | `/auth/logout` | Signed in | Revokes the session |
-| GET | `/auth/me` | Signed in | User, scopes, student (if any), `home_route`, `workspaces` |
+| GET | `/auth/me` | Signed in | The session's profile (§4.22): `user`, `role`, `workspace`, `branch`, `needs_branch`, `branches`, `scopes`, `allowed_branches`, `workspaces` (one element), `home_route`, `student` |
+| POST | `/auth/branch` | Signed in (Branch Manager) | `{branch_id}` — picks the branch for a session that has `needs_branch`. Answer: the profile. 403 for a branch not on the account; 422 when a branch is already chosen |
+| POST | `/auth/change-branch` | Signed in (Branch Manager) | `204`. Ends the session; the person signs in again and picks a branch |
 | POST | `/auth/reauthenticate` | Signed in | Fresh auth |
 | POST | `/auth/change-password` | Signed in | Minimum length from `app_settings.password_min_length` (10) |
 | GET / DELETE | `/auth/sessions`, `/auth/sessions/{id}` | Signed in | Own sessions; sign out another device |
@@ -691,8 +696,8 @@ Nothing here calls an external system.
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/me/nav-counts` | Signed in | `?workspace=student\|trainer\|branch\|admin\|founder` (required, must be a workspace the user holds, else 403); `?branch_id=` narrows the branch workspace (404 outside scope). Returns `{badgeKey: n}`, cheap counts only, polled every minute with the bell |
-| GET | `/me/getting-started` | Signed in | Same query. `{workspace, steps: [{key, label, done, to}], complete}`; the Founder has no steps. Whether the card was dismissed is kept in the browser, not here |
+| GET | `/me/nav-counts` | Signed in | The workspace comes from the session's role. The old `?workspace=` and `?branch_id=` are accepted and ignored (the Branch Manager's branch is the session's). Returns `{badgeKey: n}`, cheap counts only, polled every minute with the bell. The Founder gets the Super Admin's keys (`home`, `users`, `issues`, `calendar`, `crm_sync`, `student_accounts`, `setup`) plus the inbox keys (`inbox`, `curriculum`, `certificates`, `access`) |
+| GET | `/me/getting-started` | Signed in | Same rule. `{workspace, steps: [{key, label, done, to}], complete}`. The Founder gets the Super Admin's two steps (Add a staff user, Review setup and health) with `/founder/...` links. Whether the card was dismissed is kept in the browser, not here |
 | GET | `/search` | Signed in | `?q=` (two characters or more). `[{kind: student\|batch\|certificate, id, title, subtitle}]`, at most 5 per kind, within the caller's scope: Branch Manager their branches, trainer the batches they teach and the students in them, Super Admin / Founder everything, a student nothing. Pages are not searched here (the client lists the pages of the user's workspaces). A record outside scope is simply absent |
 
 **Badge keys** (the `badgeKey` of a navigation item in `frontend/src/auth/access.ts`):
@@ -832,3 +837,51 @@ Everything here is Super Admin (the Founder reads where a GET is listed for both
 
 `GET /me/nav-counts?workspace=admin` now returns `home` (the sum of the others), `users` (locked), `student_accounts`, `issues` (nobody owns), `calendar` (closures waiting), `crm_sync` (needs attention) and `setup` (broken items).
 
+### 4.22 Role separation R3: the session role, branch pick and who may do what (`120`)
+
+**Session.** `user_sessions` carries `role_code` (the account's one role) and `branch_id` (a Branch Manager's branch for the session; `NULL` for every other role). `authenticate` builds `CurrentUser` from the session: `role_code`, `active_branch_id`, `needs_branch`, and `scopes` holding only the scope that role and branch map to. There is no union of roles and no implicit extra workspace. A session whose role or branch is no longer on the account is a 401 (the person signs in again).
+
+**Workspace and home route (one each).** Student `student` `/dashboard`; Trainer `trainer` `/trainer`; Branch Manager `branch` `/branch`; Super Admin `admin` `/admin`; Founder / CEO `founder` `/founder`.
+
+**Profile** (login, activation and `GET /auth/me` answer the same shape):
+
+```json
+{
+  "user": {"user_id": 7, "full_name": "…", "email": "…", "must_change_password": false, "student_id": null},
+  "role": {"role_code": "BRANCH_MANAGER", "role_name": "Branch Manager"},
+  "workspace": "branch",
+  "workspaces": ["branch"],
+  "home_route": "/branch",
+  "branch": {"branch_id": 1, "branch_code": "NIT-GNT", "branch_name": "Guntur"},
+  "needs_branch": false,
+  "branches": [],
+  "scopes": [ {"scope_id": 1, "role_code": "BRANCH_MANAGER", "branch_id": 1, "...": "..."} ],
+  "allowed_branches": [ {"branch_id": 1, "branch_code": "NIT-GNT", "branch_name": "Guntur"} ],
+  "student": null
+}
+```
+
+`branch` is the Branch Manager's session branch (`null` for every other role and while a pick is pending). `workspaces` and `allowed_branches` stay for the frontend that still reads them: `workspaces` always has one element; `allowed_branches` is the session's branch (Branch Manager), the account's branch (Student, Trainer) or every active branch (Super Admin, Founder). `scopes` is the one scope of the session.
+
+**Branch pick for a Branch Manager with several branches.**
+
+1. `POST /auth/login {login, password}` (or activation) answers `200` with a real `token` and `needs_branch: true`, `branch: null`, `branches: [{branch_id, branch_code, branch_name}, ...]` (the account's branches).
+2. Until a branch is picked every endpoint except `GET /auth/me`, `POST /auth/branch`, `POST /auth/change-branch` and `POST /auth/logout` answers `403 BRANCH_REQUIRED` ("Choose a branch to continue").
+3. `POST /auth/branch {"branch_id": 2}` (Bearer token) answers `200` with the profile (`needs_branch: false`, `branch` set). A branch not on the account is `403 FORBIDDEN` and nothing changes. A second pick on the same session is `422`.
+4. Shortcut: `POST /auth/login {login, password, branch_id}` picks in the same call. A `branch_id` the account does not hold is `403` and no session starts. `branch_id` is ignored for every role but Branch Manager.
+5. A Branch Manager with one branch gets it automatically (`needs_branch: false`).
+6. "Change branch": `POST /auth/change-branch` (`204`) ends the session. The frontend returns to the sign-in screen, where the person signs in again and picks. There is no way to switch branch inside a session.
+
+**Who may do what.**
+
+| Area | Branch Manager (session branch) | Super Admin | Founder / CEO |
+|---|---|---|---|
+| Branch day-to-day actions: batches (create, edit, state, confirm, trainers, generate classes), allocate / deallocate, class sessions (create, reschedule, cancel, start, Meet links, rosters, cover, guests), attendance marking and recovery decisions, results moderation and publishing, content review and approval, recordings release, completion decisions, certificate recommend / approve / issue, fee-release requests | yes | no (403) | no (403) |
+| Read across branches (`?branch_id=` narrows): `GET /batches`, batch detail and progress, `/admin/students`, `/attendance/*`, `/progress/*`, `/enrolments`, `/support-requests`, `/issues`, `/finance-summaries`, `/branch/completion`, `/academic/reports`, `/academic/summary` | own branch only (404 elsewhere) | all branches | all branches |
+| Reports | `GET /branch/reports` (and export), `GET /academic/reports` | `GET /academic/reports` with `?branch_id=` | same |
+| Support: reply, status, `assign` (reassign) | yes | yes (owner of LMS / Account / Device requests; reassigns any) | yes |
+| A Branch Manager's own requests (reschedule, attendance correction, batch capacity change, transfer, merge or split, material change, cover, guest) | cannot decide their own (422); decide other people's | decide | decide |
+| Founder inbox items (curriculum, certificate changes, fee exceptions, access extensions beyond the limit, AI budget, Branch Managers' own requests) | no | decide (not their own request) | decide (not their own request) |
+| Admin: users, scopes, hand-outs, CRM sync (including Retry), setup, integrations, security controls, AI controls, audit log, calendar decisions and company holidays, issue assign and notes, course outline, student suspend / reactivate, student activation links, branch payment instructions | no (payment instructions of their branch, calendar proposals and notes on issues of their branch only) | yes | yes |
+
+`@fresh_auth` stays on the same sensitive actions for Super Admin and Founder alike. The independence rule is unchanged: nobody decides their own request (`services/approvals.py`; `admin_may_decide` replaces `founder_may_decide`: the Founder and Super Admin both decide a Branch Manager's own request, and only that). Read-only roles get `403` on actions; a record outside the Branch Manager's branch is `404`.

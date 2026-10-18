@@ -37,22 +37,22 @@ Work top to bottom. R2 and R3 (data and backend) come before any frontend phase,
 
 ## R3. Backend: session role and enforcement
 
-- [ ] `backend/services/auth.py`: resolve the single role; delete the implicit `WORKSPACE_ROLES` fan-out (Super Admin to branch; Founder to admin and branch); one workspace and one home route per role
-- [ ] Add the active role (and, for Branch Manager, the active branch) to the session and to `CurrentUser` (`backend/services/context.py`)
-- [ ] Sign-in for a Branch Manager with several branches: return the list of branches, accept the chosen branch, store it on the session; a branch outside the account's scope is refused
-- [ ] "Change branch" ends the session and returns to the branch picker
-- [ ] `backend/services/scope.py`: `visible_branch_ids`, `require_branch`, `trainer_batch_ids` and the `assert_can_view_*` helpers use the single role and, for Branch Manager, the session's branch
-- [ ] Re-check the roughly 40 `require_roles(...)` patterns in `backend/routes/*` so none depends on a second role
-- [ ] Remove the union-dependent logic listed in 7.16: `backend/services/support.py` trainer flag, `my_requests.py:88`, `ask_nipuna.py:95`, `delivery_access.py:22`, `search.py:19`
-- [ ] `/me/nav-counts` and `/me/getting-started` read the role from the session, not a `workspace` query parameter (`backend/services/nav.py`)
-- [ ] `/me/nav-counts` and `/me/getting-started` work for the Founder (bell counts, Getting started card)
-- [ ] Keep `@fresh_auth` on the same sensitive actions as today, for Founder and Super Admin alike
-- [ ] Founder: allow the Founder everything the Super Admin can do on the backend (admin users, CRM Retry, setup edit, calendar decisions, issue assign, course outline edit) and the same inbox
-- [ ] Super Admin: allow the Super Admin to decide every Founder-inbox item, keeping the independence rule (nobody decides their own request)
-- [ ] Super Admin and Founder reports: serve `/admin/reports` and `/founder/reports` from `GET /academic/reports` with a branch filter (removes the Founder 403 on `/branch/reports`)
-- [ ] Super Admin and Founder read-only cross-branch endpoints with a branch filter: batches, students, attendance, support (read and reassign)
-- [ ] Update `backend/tests/test_auth.py`; add tests: each role reaches only its own workspace, a split user cannot reach the other role's data, Branch Manager cannot see another branch, Super Admin has no branch actions, Founder has Super Admin's actions
-- [ ] Run the full backend test suite and a staging pass before starting R4
+- [x] `backend/services/auth.py`: resolve the single role; delete the implicit `WORKSPACE_ROLES` fan-out (Super Admin to branch; Founder to admin and branch); one workspace and one home route per role (`WORKSPACE_OF_ROLE` and `HOME_OF_WORKSPACE`, one workspace and one home route per role; `workspaces` in the API is a one-element list)
+- [x] Add the active role (and, for Branch Manager, the active branch) to the session and to `CurrentUser` (`backend/services/context.py`) (db/120 adds `user_sessions.role_code` and `branch_id`; `CurrentUser.role_code`, `active_branch_id`, `needs_branch`; `scopes` holds only the session's scope)
+- [x] Sign-in for a Branch Manager with several branches: return the list of branches, accept the chosen branch, store it on the session; a branch outside the account's scope is refused (login returns a real token plus `needs_branch: true` and `branches`; `POST /auth/branch {branch_id}` fixes the branch, or send `branch_id` on login; outside the account is 403; other endpoints answer 403 `BRANCH_REQUIRED` until picked; see API.md 4.22)
+- [x] "Change branch" ends the session and returns to the branch picker (`POST /auth/change-branch`, 204; the frontend returns to sign-in and picks again)
+- [x] `backend/services/scope.py`: `visible_branch_ids`, `require_branch`, `trainer_batch_ids` and the `assert_can_view_*` helpers use the single role and, for Branch Manager, the session's branch (`visible_branch_ids` is all for Super Admin and Founder, the session's branch for a Branch Manager, empty otherwise; `trainer_batch_ids` reads the session role; notices also follow the session's branch)
+- [x] Re-check the roughly 40 `require_roles(...)` patterns in `backend/routes/*` so none depends on a second role (each route reviewed: branch actions are Branch Manager only through `MANAGE_ROLES`, `MODERATOR_ROLES`, `ASSESSMENT_AUTHOR_ROLES` and the per-route tuples; Super Admin-only guards now also admit the Founder; the table is in API.md 4.22)
+- [x] Remove the union-dependent logic listed in 7.16: `backend/services/support.py` trainer flag, `my_requests.py:88`, `ask_nipuna.py:95`, `delivery_access.py:22`, `search.py:19` (support trainer flag and student check, `my_requests`, `ask_nipuna`, `delivery_access`, `search` now read `role_code`)
+- [x] `/me/nav-counts` and `/me/getting-started` read the role from the session, not a `workspace` query parameter (`backend/services/nav.py`) (`workspace` and `branch_id` query parameters accepted and ignored)
+- [x] `/me/nav-counts` and `/me/getting-started` work for the Founder (bell counts, Getting started card) (Founder counts = Super Admin counts plus inbox keys; Getting started = the Super Admin's two steps with `/founder/...` links; notification endpoints are role-neutral)
+- [x] Keep `@fresh_auth` on the same sensitive actions as today, for Founder and Super Admin alike (unchanged on every route; Founder and Super Admin share the same guards)
+- [x] Founder: allow the Founder everything the Super Admin can do on the backend (admin users, CRM Retry, setup edit, calendar decisions, issue assign, course outline edit) and the same inbox (admin users, CRM Retry, setup/integrations/security edits, calendar decisions, issue assign and notes, student suspend and activation links, course outline edit, inbox)
+- [x] Super Admin: allow the Super Admin to decide every Founder-inbox item, keeping the independence rule (nobody decides their own request) (unchanged inbox for both; nobody decides their own request; `approvals.admin_may_decide` replaces `founder_may_decide`, and batch capacity, transfer, merge or split, material change, cover, guest and reschedule requests of a Branch Manager are decided by an admin)
+- [x] Super Admin and Founder reports: serve `/admin/reports` and `/founder/reports` from `GET /academic/reports` with a branch filter (removes the Founder 403 on `/branch/reports`) (`GET /academic/reports?branch_id=` serves both; `/branch/reports` is Branch Manager only)
+- [x] Super Admin and Founder read-only cross-branch endpoints with a branch filter: batches, students, attendance, support (read and reassign) (batches, students, attendance, progress, support, issues and finance summaries already take `?branch_id=` and are open to both; allocate, attendance marking, class operations, results publishing, content review stay Branch Manager only)
+- [x] Update `backend/tests/test_auth.py`; add tests: each role reaches only its own workspace, a split user cannot reach the other role's data, Branch Manager cannot see another branch, Super Admin has no branch actions, Founder has Super Admin's actions (`test_auth.py` updated; new `test_session_role.py`, 19 tests; the two skipped reschedule tests rewritten; about 20 tests in other files updated to the new model)
+- [x] Run the full backend test suite and a staging pass before starting R4 (full suite green; staging pass on a temporary API at :5061 against `nipunalms-dev`, sign-in plus one request per role; see the R3 report)
 
 ## R4. Frontend shell: remove "Acting as"
 

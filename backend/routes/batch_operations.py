@@ -2,11 +2,11 @@ from flask import Blueprint
 
 from controllers import batch_operations as controller
 from routes.decorators import login_required, require_roles
-from services.context import STAFF_ROLES
+from services.context import ADMIN_ROLES, STAFF_ROLES
 from services.delivery_access import MANAGE_ROLES
 
 batch_operations_bp = Blueprint("batch_operations", __name__)
-DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # the Founder / Super Admin only for a Branch Manager's own request (the service refuses others)
 
 
 # ---------------------------------------------------------------- capacity increases
@@ -20,7 +20,7 @@ def request_capacity(batch_id: int):
 
 @batch_operations_bp.get("/batch-capacity-requests")
 @login_required
-@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")
+@require_roles(*MANAGE_ROLES, *ADMIN_ROLES)
 def list_capacity_requests():
     return controller.list_capacity_requests()
 
@@ -43,7 +43,7 @@ def request_transfer(enrolment_id: int):
 
 @batch_operations_bp.get("/batch-transfer-requests")
 @login_required
-@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")
+@require_roles(*MANAGE_ROLES, *ADMIN_ROLES)
 def list_transfer_requests():
     return controller.list_transfer_requests()
 
@@ -138,7 +138,7 @@ def request_succession():
 
 @batch_operations_bp.get("/batch-successions")
 @login_required
-@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")
+@require_roles(*MANAGE_ROLES, *ADMIN_ROLES)
 def list_successions():
     return controller.list_successions()
 
@@ -182,7 +182,7 @@ def withdraw_preference(preference_id: int):
 
 @batch_operations_bp.get("/slot-preferences")
 @login_required
-@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")
+@require_roles(*MANAGE_ROLES, *ADMIN_ROLES)
 def list_preferences():
     return controller.list_preferences()
 

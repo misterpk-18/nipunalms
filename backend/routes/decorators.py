@@ -9,10 +9,10 @@ from flask import current_app, request
 
 from services import auth as auth_service
 from services.context import current_user
-from services.errors import Forbidden, FreshAuthRequired, PasswordChangeRequired, Unauthenticated
+from services.errors import BranchRequired, Forbidden, FreshAuthRequired, PasswordChangeRequired, Unauthenticated
 
 # Endpoints a user with a pending forced password change may still call
-PASSWORD_CHANGE_ALLOWED = {"auth.me", "auth.logout", "auth.change_password"}
+PASSWORD_CHANGE_ALLOWED = {"auth.me", "auth.logout", "auth.change_password", "auth.select_branch", "auth.change_branch"}
 
 
 def login_required(view):
@@ -25,13 +25,15 @@ def login_required(view):
         user = auth_service.authenticate(token.strip())
         if user.must_change_password and request.endpoint not in PASSWORD_CHANGE_ALLOWED:
             raise PasswordChangeRequired("Change your temporary password to continue")
+        if user.needs_branch and request.endpoint not in auth_service.BRANCH_PICK_ALLOWED:
+            raise BranchRequired("Choose a branch to continue")
         return view(*args, **kwargs)
 
     return wrapper
 
 
 def require_roles(*role_codes: str):
-    """Allow if the user holds any of these roles at any branch; branch-level checks happen in services."""
+    """Allow if the session's role (a login holds one) is any of these; branch-level checks happen in services."""
 
     def decorator(view):
         @wraps(view)

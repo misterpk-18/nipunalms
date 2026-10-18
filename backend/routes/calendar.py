@@ -30,7 +30,7 @@ def create_closure():
 
 @calendar_bp.post("/closures/<int:closure_id>/decision")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 def decide_closure(closure_id: int):
     return calendar_controller.decide_closure(closure_id)
 

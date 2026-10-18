@@ -141,6 +141,8 @@ class UserSession(db.Model):
     user_agent: Mapped[str | None] = mapped_column(Text)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoke_reason: Mapped[str | None] = mapped_column(String(100))
+    role_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("roles.role_code"))  # the account's one role
+    branch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("branches.branch_id"))  # a Branch Manager's branch
 
 
 class ActiveSession(db.Model):
@@ -155,6 +157,8 @@ class ActiveSession(db.Model):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ip_address: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(Text)
+    role_code: Mapped[str | None] = mapped_column(String(50))
+    branch_id: Mapped[int | None] = mapped_column(Integer)
     has_fresh_auth: Mapped[bool] = mapped_column(Boolean)
 
     def to_dict(self, current_session_id: str | None = None) -> dict:

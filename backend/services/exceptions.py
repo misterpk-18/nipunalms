@@ -16,10 +16,10 @@ from models.exceptions import EXCEPTION_SOURCES
 from repositories import exceptions as exceptions_repo
 from repositories.common import paginate
 from services import audit, scope
-from services.context import current_user
+from services.context import ADMIN_ROLES, current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 
-STEP_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
+STEP_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 def _now() -> datetime:
@@ -47,7 +47,7 @@ def _visible_item(source: str, source_id: int) -> ExceptionItem:
 
 def _can_log(item: ExceptionItem) -> bool:
     user = current_user()
-    if user.has_role("SUPER_ADMIN"):
+    if user.has_role(*ADMIN_ROLES):
         return True
     return item.branch_id is not None and user.has_role("BRANCH_MANAGER", branch_id=item.branch_id)
 
@@ -78,8 +78,8 @@ OWN_OWNER_SOURCES = ("SUPPORT", "RECORDING", "DISRUPTION")
 
 
 def can_assign(source: str, owner_user_id: int | None) -> bool:
-    """A Super Admin may assign an issue unless its own screen already names its owner."""
-    return current_user().has_role("SUPER_ADMIN") and (source not in OWN_OWNER_SOURCES or owner_user_id is None)
+    """A Super Admin or the Founder / CEO may assign an issue unless its own screen already names its owner."""
+    return current_user().has_role(*ADMIN_ROLES) and (source not in OWN_OWNER_SOURCES or owner_user_id is None)
 
 
 def assign(source: str, source_id: int, assignee_user_id: int, note: str | None) -> dict:
@@ -89,8 +89,8 @@ def assign(source: str, source_id: int, assignee_user_id: int, note: str | None)
     from services.notifications import notify
 
     user = current_user()
-    if not user.has_role("SUPER_ADMIN"):
-        raise Forbidden("Only a Super Admin assigns issues")
+    if not user.has_role(*ADMIN_ROLES):
+        raise Forbidden("Only a Super Admin or the Founder / CEO assigns issues")
     item = _visible_item(source, source_id)
     if not can_assign(item.source, item.owner_user_id):
         raise BusinessRule("This issue's owner is set on the screen that handles it (for example Student support); change it there")
@@ -103,7 +103,9 @@ def assign(source: str, source_id: int, assignee_user_id: int, note: str | None)
                  old={"owner_user_id": item.owner_user_id}, new={"reference": item.reference, "title": item.title, "assigned_to": assignee.user_id,
                                                                   "step_id": step.step_id}, reason=note, branch_id=item.branch_id)
     if assignee.user_id != user.user_id:
-        home = "/admin/issues" if "SUPER_ADMIN" in {s.role.role_code for s in assignee.scopes if s.revoked_at is None} else "/branch/issues"
+        assignee_roles = {s.role.role_code for s in assignee.scopes if s.revoked_at is None}
+        home = ("/founder/issues" if "FOUNDER_CEO" in assignee_roles else "/admin/issues" if "SUPER_ADMIN" in assignee_roles
+                else "/branch/issues")
         notify(category="Issues", title=f"An issue was assigned to you: {item.title}", body=note or item.detail, link=home,
                recipient_user_ids=[assignee.user_id], event_key=f"issue-assigned:{item.source}:{item.source_id}:{step.step_id}", action_required=True)
     db.session.expire(item)

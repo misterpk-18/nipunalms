@@ -105,8 +105,8 @@ def my_work(workspace_branch_id: int | None = None) -> dict:
 
 
 def attendance_summary(branch_id: int | None = None) -> dict:
-    """The counts on the tabs of Attendance & progress: students below the attendance alert, recovery requests and corrections waiting."""
-    require_workspace("branch")
+    """The counts on the tabs of Attendance & progress: students below the attendance alert, recovery requests and corrections waiting.
+    Super Admin and Founder read it across branches (with the branch filter)."""
     branch_ids = _branches(branch_id)
     filters = {"branch_id": branch_id} if branch_id else {}
     return {"students_at_risk": progress_repo.alert_count(filters, progress_service.visible_enrolment_condition()),

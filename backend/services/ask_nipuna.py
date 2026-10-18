@@ -92,7 +92,7 @@ def _now() -> datetime:
 
 
 def _audience(user: CurrentUser) -> str:
-    return "Student" if user.student_id is not None and user.has_role("STUDENT") else "Staff"
+    return "Student" if user.student_id is not None and user.role_code == "STUDENT" else "Staff"
 
 
 # ---------------------------------------------------------------- status and quota

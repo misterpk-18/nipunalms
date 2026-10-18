@@ -60,11 +60,10 @@ def test_students_and_the_founder_cannot_author(client, login, world):
     assert create_item(client, auth(login, world.people.founder), world, expect=403)["error"]["code"] == "FORBIDDEN"
 
 
-def test_super_admin_names_the_branch_when_there_is_no_batch(client, login, world):
-    headers = auth(login, world.people.admin)
-    body = create_item(client, headers, world, fields={"batch_id": ""}, expect=400)
-    assert "branch_id" in body["error"]["details"]
-    item = create_item(client, headers, world, fields={"batch_id": "", "branch_id": 1})
+def test_super_admin_does_not_author_content_and_a_branch_manager_names_nothing_when_there_is_no_batch(client, login, world):
+    """Authoring is a branch day-to-day action: Super Admin (and Founder) are refused, the Branch Manager's branch is the session's."""
+    assert create_item(client, auth(login, world.people.admin), world, fields={"batch_id": "", "branch_id": 1}, expect=403)["error"]["code"] == "FORBIDDEN"
+    item = create_item(client, auth(login, world.people.ac), world, fields={"batch_id": ""})
     assert item["branch"]["branch_id"] == 1
 
 
@@ -222,7 +221,9 @@ def test_reviewers_cannot_review_their_own_upload_or_other_branches(client, logi
                        json={"decision": "approve"}).status_code == 403
     assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.founder),
                        json={"decision": "approve"}).status_code == 403
-    assert post(client, f"/content-items/{theirs['content_item_id']}/review", auth(login, world.people.admin), json={"decision": "approve"})["status"] == "Approved"
+    assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.admin),
+                       json={"decision": "approve"}).status_code == 403  # Super Admin does not approve content (a Branch Manager job)
+    assert post(client, f"/content-items/{theirs['content_item_id']}/review", auth(login, world.people.ac), json={"decision": "approve"})["status"] == "Approved"
 
 
 def test_only_submitted_content_can_be_reviewed_and_only_approved_can_be_released(client, login, world):

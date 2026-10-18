@@ -8,7 +8,7 @@ attendance_bp = Blueprint("attendance", __name__)
 
 STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 EVERYONE = ("STUDENT",) + STAFF
-MARKERS = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
+MARKERS = ("TRAINER", "BRANCH_MANAGER")
 
 
 @attendance_bp.get("/attendance/sessions")
@@ -62,7 +62,7 @@ def request_recovery():
 
 @attendance_bp.post("/attendance/recoveries/<int:recovery_id>/decision")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def decide_recovery(recovery_id: int):
     return attendance_controller.decide_recovery(recovery_id)
 

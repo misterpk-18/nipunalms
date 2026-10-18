@@ -161,13 +161,14 @@ def test_mark_unavailable_needs_a_reason_and_raises_an_exception(client, login, 
     assert get(client, "/recording-exceptions?issue_type=Unavailable", coordinator)[0]["issue"] == "File deleted"
 
 
-def test_only_the_branch_manager_or_super_admin_manages_recordings(client, login, world, register):
+def test_only_the_branch_manager_manages_recordings(client, login, world, register):
     recording = register()
     rid = recording["recording_id"]
     for who, expected in ((world.people.t1, 403), (world.people.founder, 403), (world.people.ac_vij, 404),
                           (world.students.s1, 403)):
         assert client.post(f"{API}/recordings/{rid}/release", headers=auth(login, who)).status_code == expected
-    assert post(client, f"/recordings/{rid}/release", auth(login, world.people.admin))["status"] == "Released"
+    assert client.post(f"{API}/recordings/{rid}/release", headers=auth(login, world.people.admin)).status_code == 403  # Super Admin does not run a branch
+    assert post(client, f"/recordings/{rid}/release", auth(login, world.people.ac))["status"] == "Released"
 
 
 # ---------------------------------------------------------------- watching

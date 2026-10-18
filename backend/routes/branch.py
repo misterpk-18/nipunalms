@@ -10,7 +10,7 @@ branch_bp = Blueprint("branch", __name__)
 
 @branch_bp.get("/branch/my-work")
 @login_required
-@require_roles(*ACADEMIC_ROLES)
+@require_roles("BRANCH_MANAGER")
 def my_work():
     return branch_controller.my_work()
 

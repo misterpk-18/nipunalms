@@ -26,7 +26,7 @@ from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import allocations, approvals, audit, delivery_access, delivery_notices, scope, whatsapp_messages
-from services.batches import CAPACITY_SIDES, CLOSED_STATES, CONFIRM_ROLES, check_capacity_sides, load_managed_batch, sync_full
+from services.batches import CAPACITY_SIDES, CLOSED_STATES, check_capacity_sides, load_managed_batch, sync_full
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
@@ -45,9 +45,9 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _require_confirmer(branch_id: int) -> None:
-    if not current_user().has_role(*CONFIRM_ROLES, branch_id=branch_id):
-        raise Forbidden("Only the Branch Manager of this branch or a Super Admin decides this")
+def _require_confirmer(branch_id: int, requester: int | None = None) -> None:
+    """The branch's Branch Manager decides; the Founder / Super Admin only a Branch Manager's own request."""
+    approvals.require_decider(branch_id, requester, "Only the Branch Manager of this branch decides this")
 
 
 def _visible(batch) -> None:
@@ -89,8 +89,8 @@ def decide_capacity(request_id: int, decision: str, note: str | None) -> BatchCa
     request = db.session.get(BatchCapacityRequest, request_id)
     if request is None:
         raise NotFound("Capacity request not found")
-    batch = load_managed_batch(request.batch_id)
-    _require_confirmer(batch.branch_id)
+    batch = load_managed_batch(request.batch_id, requester=request.requested_by)
+    _require_confirmer(batch.branch_id, request.requested_by)
     if request.status != "Pending":
         raise BusinessRule(f"The request is already {request.status}")
     if decision == "Rejected" and not note:
@@ -207,7 +207,7 @@ def list_changes(filters: dict, page: int, per_page: int):
 def decide_change(change_id: int, decision: str, note: str | None) -> MaterialChange:
     """The Branch Manager approves the change independently; the students are then asked to agree."""
     change = _load_change(change_id)
-    _require_confirmer(change.batch.branch_id)
+    _require_confirmer(change.batch.branch_id, change.requested_by)
     if change.status != "Pending Approval":
         raise BusinessRule(f"The change is {change.status}")
     approvals.require_independent(change.requested_by, message="The person who proposed the change cannot approve it",
@@ -368,9 +368,9 @@ def decide_succession(succession_id: int, decision: str, note: str | None) -> Ba
     succession = db.session.get(BatchSuccession, succession_id)
     if succession is None:
         raise NotFound("Merge / split request not found")
-    source = load_managed_batch(succession.from_batch_id)
-    target = load_managed_batch(succession.to_batch_id)
-    _require_confirmer(source.branch_id)
+    source = load_managed_batch(succession.from_batch_id, requester=succession.requested_by)
+    target = load_managed_batch(succession.to_batch_id, requester=succession.requested_by)
+    _require_confirmer(source.branch_id, succession.requested_by)
     if succession.status != "Pending":
         raise BusinessRule(f"The request is already {succession.status}")
     approvals.require_independent(succession.requested_by, message="The requester cannot approve their own merge or split",

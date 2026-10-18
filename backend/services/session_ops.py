@@ -24,13 +24,12 @@ from repositories import settings as settings_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import approvals, audit, delivery_access, delivery_notices, meet, scope, working_days
-from services.batches import CONFIRM_ROLES
 from services.class_sessions import _load_for_change, _notify_students, _require_open, _slot, assert_can_view_session
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
 OPEN = ("Scheduled", "Rescheduled")
-STAFF_ROLES_FOR_HOSTING = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
+STAFF_ROLES_FOR_HOSTING = ("TRAINER", "BRANCH_MANAGER")
 DELAY_LOOKBACK = timedelta(hours=12)
 
 
@@ -38,9 +37,8 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _require_confirmer(branch_id: int) -> None:
-    if not current_user().has_role(*CONFIRM_ROLES, branch_id=branch_id):
-        raise Forbidden("Only the Branch Manager of this branch or a Super Admin decides this")
+def _require_confirmer(branch_id: int, requester: int | None = None) -> None:
+    approvals.require_decider(branch_id, requester, "Only the Branch Manager of this branch decides this")
 
 
 def _holds_any(user_id: int, roles: tuple[str, ...]) -> bool:
@@ -123,7 +121,7 @@ def decide_guest(person_id: int, decision: str, note: str | None) -> SessionPers
     person = db.session.get(SessionPerson, person_id)
     if person is None or person.role != "Guest":
         raise NotFound("Guest not found")
-    session = _load_for_change(person.session_id)
+    session = _load_for_change(person.session_id, requester=person.added_by)
     if person.status != "Pending":
         raise BusinessRule(f"The guest is already {person.status}")
     approvals.require_independent(person.added_by, message="The person who proposed the guest cannot approve them", requester=person.added_by)
@@ -405,7 +403,7 @@ def _load_cover(request_id: int) -> SessionCoverRequest:
     request = db.session.get(SessionCoverRequest, request_id)
     if request is None:
         raise NotFound("Cover request not found")
-    _load_for_change(request.session_id)
+    _load_for_change(request.session_id, requester=request.requested_by)
     if request.status not in ("Pending", "Approved"):
         raise BusinessRule(f"The request is already {request.status}")
     return request
@@ -414,7 +412,7 @@ def _load_cover(request_id: int) -> SessionCoverRequest:
 def decide_cover(request_id: int, decision: str, note: str | None) -> SessionCoverRequest:
     """The Branch Manager (or Super Admin), not the requester, approves the cover assignment."""
     request = _load_cover(request_id)
-    _require_confirmer(request.session.batch.branch_id)
+    _require_confirmer(request.session.batch.branch_id, request.requested_by)
     if request.approved_at is not None:
         raise BusinessRule("The cover is already approved")
     approvals.require_independent(request.requested_by, message="The requester cannot approve their own cover request",
@@ -433,8 +431,8 @@ def decide_cover(request_id: int, decision: str, note: str | None) -> SessionCov
 def verify_cover(request_id: int, note: str) -> SessionCoverRequest:
     """The Branch Manager (or Super Admin) verifies the cover's competence, scope and handover."""
     request = _load_cover(request_id)
-    if not current_user().has_role("BRANCH_MANAGER", "SUPER_ADMIN", branch_id=request.session.batch.branch_id):
-        raise Forbidden("Only the Branch Manager of this branch or a Super Admin verifies cover")
+    if not current_user().has_role("BRANCH_MANAGER", branch_id=request.session.batch.branch_id):
+        raise Forbidden("Only the Branch Manager of this branch verifies cover")
     if request.verified_at is not None:
         raise BusinessRule("The cover is already verified")
     request.verified_by, request.verified_at, request.verification_note = actor_id(), _now(), note
@@ -505,7 +503,7 @@ def add_roster(session_id: int, data: dict) -> SessionRoster:
     one attendance entry per person, hours and trainer time counted once."""
     session = _load_for_change(session_id)
     _require_open(session, "shared")
-    if not current_user().has_role("BRANCH_MANAGER", "SUPER_ADMIN", branch_id=session.batch.branch_id):
+    if not current_user().has_role("BRANCH_MANAGER", branch_id=session.batch.branch_id):
         raise Forbidden("The Branch Manager verifies the coverage of a shared class")
     batch = batches_repo.get_batch(data["batch_id"])
     if batch is None:

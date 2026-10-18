@@ -122,9 +122,8 @@ def test_steps_are_permission_checked_and_branch_scoped(client, login, world):
     item = next(r for r in rows_of(client, login, world.people.ac_g) if r["source"] == "ALLOCATION")
     path = f"{API}/exceptions/ALLOCATION/{item['source_id']}/steps"
     body = {"json": {"reason": "Trying to log a step"}}
-    # read-only roles
     assert client.post(path, headers=auth(login, world.people.bm_g), **body).status_code == 201   # every Branch Manager of the branch may
-    assert client.post(path, headers=auth(login, world.people.founder), **body).status_code == 403
+    assert client.post(path, headers=auth(login, world.people.founder), **body).status_code == 201  # and the Founder, like the Super Admin
     assert client.post(path, headers=auth(login, world.people.trainer), **body).status_code == 403
     # another branch's coordinator cannot see the item, so it is a 404 (reading its steps too)
     assert client.post(path, headers=auth(login, world.people.ac_v), **body).status_code == 404

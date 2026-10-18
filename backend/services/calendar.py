@@ -16,8 +16,8 @@ from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
 CENTRAL = ("FOUNDER_CEO", "SUPER_ADMIN")
-BRANCH_PROPOSERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
-BRANCH_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+BRANCH_PROPOSERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+BRANCH_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 def _now() -> datetime:

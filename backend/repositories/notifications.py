@@ -23,7 +23,18 @@ def _mine(user_id: int, scoped: bool):
             or_(Notification.role_code.is_(None), Role.role_code == Notification.role_code),
         )
     )
-    return condition & (Notification.branch_id.is_(None) | in_scope)
+    scoped_to = condition & (Notification.branch_id.is_(None) | in_scope)
+    branch_id = _session_branch(user_id)
+    if branch_id is not None:  # a Branch Manager with several branches sees only the session's branch
+        scoped_to &= Notification.branch_id.is_(None) | (Notification.branch_id == branch_id)
+    return scoped_to
+
+
+def _session_branch(user_id: int) -> int | None:
+    from services.context import current_user  # the one place a repository reads the signed-in session: notices follow its branch
+
+    user = current_user()
+    return user.active_branch_id if user is not None and user.user_id == user_id else None
 
 
 def get_for_recipient(notification_id: int, user_id: int, scoped: bool) -> Notification | None:

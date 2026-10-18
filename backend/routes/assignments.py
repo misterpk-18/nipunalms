@@ -64,7 +64,7 @@ def submit_assignment(assignment_id: int):
 
 @assignments_bp.get("/submissions")
 @login_required
-@require_roles(*ASSESSMENT_AUTHOR_ROLES, "BRANCH_MANAGER", "FOUNDER_CEO")
+@require_roles(*ASSESSMENT_AUTHOR_ROLES, "SUPER_ADMIN", "FOUNDER_CEO")
 def list_submissions():
     return controller.list_submissions()
 

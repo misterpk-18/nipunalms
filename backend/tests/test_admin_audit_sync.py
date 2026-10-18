@@ -65,7 +65,7 @@ def test_pagination_and_facets(client, make_user, login):
 
 # ---------------------------------------------------------------- CRM sync
 
-def test_crm_sync_monitor_is_for_super_admin_and_founder_and_retry_only_for_super_admin(client, make_user, login, catalog, crm_event):
+def test_crm_sync_monitor_and_retry_are_for_super_admin_and_founder_alike(client, make_user, login, catalog, crm_event):
     event = _failed_event(crm_event)
     founder = make_user(roles=[("FOUNDER_CEO", None)])
     manager = make_user(roles=[("BRANCH_MANAGER", 1)])
@@ -74,7 +74,8 @@ def test_crm_sync_monitor_is_for_super_admin_and_founder_and_retry_only_for_supe
     assert client.get("/api/v1/admin/crm-sync/events", headers=login(founder.email)).status_code == 200
     assert client.get("/api/v1/admin/crm-sync/outbox", headers=login(founder.email)).status_code == 200
     assert client.get("/api/v1/admin/crm-sync/summary", headers=login(manager.email)).status_code == 403
-    assert client.post(retry, headers=login(founder.email)).status_code == 403
+    assert client.post(retry, headers=login(manager.email)).status_code == 403
+    assert client.post(retry, headers=login(founder.email)).status_code != 403  # the Founder can do what the Super Admin can (this event cannot be retried: 422)
 
 
 def test_summary_counts_events_and_outbox(client, make_user, login, make_student, crm_event):

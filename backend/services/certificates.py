@@ -23,11 +23,11 @@ from services.notifications import notify
 COMPLETION_CERTIFICATE = "Course Completion Certificate"
 COMPLIMENTARY_PENDING = "Configuration Pending: completion rule not configured for complimentary offer"
 
-REVIEWERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
-APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
-ISSUERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+REVIEWERS = ("BRANCH_MANAGER",)
+APPROVERS = ("BRANCH_MANAGER",)
+ISSUERS = ("BRANCH_MANAGER",)
 # Change requests (Module 22 §7, §8): who may ask, and who decides (never the person who asked)
-CORRECTION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+CORRECTION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 CORRECTION_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # a Branch Manager's own request goes to the last two
 REVOCATION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 REVOCATION_APPROVERS = ("FOUNDER_CEO", "SUPER_ADMIN")

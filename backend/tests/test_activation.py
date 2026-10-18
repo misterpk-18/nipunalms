@@ -132,7 +132,8 @@ def test_other_branch_managers_and_unauthorised_roles_cannot_issue(client, make_
     student_user = issue(client, login(make_student().student_code), student.student_id)
 
     assert other_branch.status_code == 404  # outside scope looks like a missing record
-    assert (trainer.status_code, founder.status_code, student_user.status_code) == (403, 403, 403)
+    assert (trainer.status_code, student_user.status_code) == (403, 403)
+    assert founder.status_code == 201  # the Founder can do what the Super Admin can (issue an activation link)
     assert issue(client, login(make_user(roles=[("SUPER_ADMIN", None)]).email), 999999).status_code == 404
 
 

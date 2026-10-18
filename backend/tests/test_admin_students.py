@@ -14,7 +14,7 @@ def _student_login(client, student, password=PASSWORD):
     return client.post("/api/v1/auth/login", json={"login": student.student_code, "password": password})
 
 
-def test_only_super_admin_administers_and_the_founder_reads(client, make_user, login, make_student):
+def test_super_admin_and_founder_administer_students_and_nobody_else_does(client, make_user, login, make_student):
     student = make_student()
     founder = make_user(roles=[("FOUNDER_CEO", None)])
     coordinator = make_user(roles=[("BRANCH_MANAGER", 1)])
@@ -22,7 +22,8 @@ def test_only_super_admin_administers_and_the_founder_reads(client, make_user, l
 
     assert client.get("/api/v1/admin/students", headers=login(founder.email)).status_code == 200
     assert client.get("/api/v1/admin/students", headers=login(coordinator.email)).status_code == 403
-    assert client.post(f"{url}/suspend", headers=login(founder.email), json={"reason": "x"}).status_code == 403
+    assert client.post(f"{url}/suspend", headers=login(coordinator.email), json={"reason": "x"}).status_code == 403
+    assert client.post(f"{url}/suspend", headers=login(founder.email), json={"reason": "x"}).status_code == 200  # the Founder does what the Super Admin does
     assert client.post(f"{url}/revoke-sessions", headers=login(coordinator.email), json={}).status_code == 403
 
 

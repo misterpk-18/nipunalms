@@ -95,10 +95,7 @@ def my_summaries() -> list[tuple[Admission, FinanceSummary | None]]:
 
 def _branch_scope() -> set[int] | None:
     """Branches whose finance the user may read: None = all. Only Branch Managers (and admins) qualify."""
-    user = current_user()
-    if user.is_admin:
-        return None
-    return {s.branch_id for s in user.scopes if s.role_code == "BRANCH_MANAGER"}
+    return scope.visible_branch_ids()
 
 
 def list_summaries(filters: dict, page: int, per_page: int) -> tuple[list[tuple[Admission, FinanceSummary]], dict]:

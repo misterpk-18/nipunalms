@@ -7,7 +7,7 @@ from routes.decorators import login_required, require_roles
 exceptions_bp = Blueprint("exceptions", __name__, url_prefix="/exceptions")
 
 READERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-LOGGERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+LOGGERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 @exceptions_bp.get("")
@@ -33,7 +33,7 @@ def log_step(source: str, source_id: int):
 
 @exceptions_bp.post("/<string:source>/<int:source_id>/assign")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def assign(source: str, source_id: int):
     """Hand an issue to a member of staff (a recovery step that names its new owner)."""
     return exceptions_controller.assign(source.upper(), source_id)

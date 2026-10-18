@@ -85,7 +85,7 @@ def _recovery(recovery: AttendanceRecovery, decides: str) -> dict:
 def list_mine() -> dict:
     user = current_user()
     # A Branch Manager's own requests go to the Founder / Super Admin; everyone else's to the Branch Manager
-    decides = "Founder or Super Admin" if user.has_role("BRANCH_MANAGER") else "Branch Manager"
+    decides = "Founder or Super Admin" if user.role_code == "BRANCH_MANAGER" else "Branch Manager"
     rows = ([_reschedule(r, decides) for r in sessions_repo.requests_by_user(user.user_id, PAGE)]
             + [_correction(c, decides) for c in attendance_repo.corrections_by_user(user.user_id, PAGE)]
             + [_recovery(r, decides) for r in attendance_repo.recoveries_by_user(user.user_id, PAGE)])

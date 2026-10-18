@@ -18,7 +18,7 @@ def list_candidates():
 
 @completion_bp.post("")
 @login_required
-@require_roles("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("TRAINER", "BRANCH_MANAGER")
 def open_review():
     return completion_controller.open_review()
 
@@ -32,14 +32,14 @@ def get_review(review_id: int):
 
 @completion_bp.post("/<int:review_id>/recommendation")
 @login_required
-@require_roles("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("TRAINER", "BRANCH_MANAGER")
 def recommend(review_id: int):
     return completion_controller.recommend(review_id)
 
 
 @completion_bp.post("/<int:review_id>/decision")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 @fresh_auth
 def decide(review_id: int):
     return completion_controller.decide(review_id)

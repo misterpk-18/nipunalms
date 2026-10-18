@@ -15,7 +15,7 @@ from repositories import users as users_repo
 from repositories import staff_invites as invites_repo
 from services import audit, whatsapp_messages
 from services.auth import LoginResult, check_password_policy, open_session
-from services.context import BRANCH_ROLES, current_user
+from services.context import ADMIN_ROLES, BRANCH_ROLES, current_user
 from services.errors import BusinessRule, NotFound
 from services.security import hash_password, hash_token, new_activation_token
 
@@ -61,12 +61,12 @@ def issue(student: Student, *, channel: str, issued_by: int | None) -> IssuedAct
 
 
 def issue_as_staff(student_id: int) -> IssuedActivation:
-    """POST /students/{id}/activation: Super Admin, or Branch Manager at the student's service branch."""
+    """POST /students/{id}/activation: Super Admin, Founder / CEO, or Branch Manager at the student's service branch."""
     actor = current_user()
     student = students_repo.get_student(student_id)
     if student is None:
         raise NotFound("Student not found")
-    allowed = actor.has_role("SUPER_ADMIN") or actor.has_role(*BRANCH_ROLES, branch_id=student.service_branch_id)
+    allowed = actor.has_role(*ADMIN_ROLES) or actor.has_role(*BRANCH_ROLES, branch_id=student.service_branch_id)
     if not allowed:
         raise NotFound("Student not found")  # outside scope: same answer as a missing record
 

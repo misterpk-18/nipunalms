@@ -1,6 +1,6 @@
 """Search for the Ctrl/Cmd+K palette (`GET /search?q=`): the records a person may open, by name or code.
 
-Pages are not searched here: the client lists the pages of the workspaces the user holds. A student gets no records. Records
+Pages are not searched here: the client lists the pages of the one workspace the session holds. A student gets no records. Records
 are limited the way every list is: a Branch Manager sees their branches, a trainer the batches they teach and the students in
 them, a Super Admin / Founder everything. Nothing outside that scope is returned, and nothing is a 403: it is simply absent.
 """
@@ -16,7 +16,7 @@ PER_KIND = 5
 def search(text: str) -> list[dict]:
     text = text.strip()
     user = current_user()
-    if len(text) < MIN_LENGTH or user.student_id is not None and not user.role_codes - {"STUDENT"}:
+    if len(text) < MIN_LENGTH or user.role_code == "STUDENT":
         return []
     branch_ids = scope.visible_branch_ids(user)
     batch_ids = scope.trainer_batch_ids(user)

@@ -56,8 +56,8 @@ def test_my_work_follows_the_branch_and_the_role(world, client, login):
     people, _, _ = world
     assert rows_of(client, login, people["ac_vij"]) == {}                                  # nothing waits at Vijayawada
     assert call(client, login, people["ac"], "get", "/branch/my-work?branch_id=2").status_code == 404
-    assert "waiting" in rows_of(client, login, people["admin"], "?branch_id=1")
-    assert rows_of(client, login, people["admin"], "?branch_id=2") == {}
+    assert call(client, login, people["admin"], "get", "/branch/my-work?branch_id=1").status_code == 403  # no branch workspace for Super Admin
+    assert call(client, login, people["founder"], "get", "/branch/my-work").status_code == 403
     assert call(client, login, people["g1"], "get", "/branch/my-work").status_code == 403
     assert call(client, login, "NIT-STU-2026-000001", "get", "/branch/my-work").status_code in (401, 403)
     # the navigation badges come from the same rows

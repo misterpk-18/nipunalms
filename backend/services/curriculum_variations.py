@@ -17,7 +17,7 @@ from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
 CONSTRAINT = "Required topic constraint"
-LOCAL_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+LOCAL_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 CONSTRAINT_APPROVERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
@@ -25,7 +25,7 @@ def create(data: dict) -> CurriculumVariation:
     user = current_user()
     branch_id = data["branch_id"]
     scope.require_branch(branch_id)
-    if not user.has_role("BRANCH_MANAGER", "SUPER_ADMIN", branch_id=branch_id):
+    if not user.has_role("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO", branch_id=branch_id):
         raise Forbidden("Variations are recorded by the branch's Branch Manager")
     version = catalog_repo.get_curriculum_version(data["curriculum_version_id"])
     if version is None or version.status not in ("Approved", "Active"):

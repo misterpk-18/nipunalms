@@ -16,7 +16,7 @@ from repositories import users as users_repo
 from repositories.common import paginate
 from services import allocations, approvals, audit, delivery_access, delivery_notices, scope
 from services.batch_allocations import _enforce, _notify_seat, review
-from services.batches import CONFIRM_ROLES, sync_full
+from services.batches import sync_full
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
@@ -90,12 +90,11 @@ def _load(request_id: int) -> tuple[BatchTransferRequest, object]:
 
 
 def confirm_destination(request_id: int, decision: str, note: str | None) -> BatchTransferRequest:
-    """The destination branch (its Branch Manager or a Super Admin) confirms it can deliver a placed track."""
+    """The destination branch (its Branch Manager) confirms it can deliver a placed track."""
     request, enrolment = _load(request_id)
     if not request.interbranch:
         raise BusinessRule("Only a track placed at another branch needs the destination's confirmation")
-    if not delivery_access.can_manage_branch(request.to_batch.branch_id):
-        raise Forbidden("Only the destination branch confirms delivery")
+    approvals.require_decider(request.to_batch.branch_id, request.requested_by, "Only the destination branch confirms delivery")
     approvals.require_independent(request.requested_by, message="The requester cannot confirm their own request")
     if decision == "Rejected":
         return _reject(request, enrolment, note)
@@ -108,11 +107,11 @@ def confirm_destination(request_id: int, decision: str, note: str | None) -> Bat
 
 
 def decide(request_id: int, decision: str, note: str | None) -> BatchTransferRequest:
-    """The Branch Manager of the student's service branch (or a Super Admin) decides alone. Approving re-runs the review and
+    """The Branch Manager of the student's service branch decides alone. Approving re-runs the review and
     moves the seat; the earlier allocation stays as history."""
     request, enrolment = _load(request_id)
-    if not current_user().has_role(*CONFIRM_ROLES, branch_id=enrolment.service_branch_id):
-        raise Forbidden("Only the Branch Manager of the student's branch or a Super Admin decides a transfer")
+    approvals.require_decider(enrolment.service_branch_id, request.requested_by,
+                              "Only the Branch Manager of the student's branch decides a transfer")
     if decision == "Rejected":
         return _reject(request, enrolment, note)
     if request.interbranch and request.destination_confirmed_at is None:

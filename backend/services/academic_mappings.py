@@ -22,8 +22,8 @@ from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-REQUESTERS = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
-DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+REQUESTERS = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 RULE_DECIDERS = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
@@ -41,7 +41,7 @@ def _version(version_id: int) -> CurriculumVersion:
 # ---------------------------------------------------------------- equivalence rules
 
 def request_rule(from_version_id: int, to_version_id: int, description: str) -> EquivalenceRule:
-    if not current_user().has_role("BRANCH_MANAGER", "SUPER_ADMIN"):
+    if not current_user().has_role("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"):
         raise Forbidden("Equivalence rules are proposed by a Branch Manager after academic review")
     source, target = _version(from_version_id), _version(to_version_id)
     if source.curriculum_version_id == target.curriculum_version_id:

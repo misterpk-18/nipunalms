@@ -57,7 +57,7 @@ def test_only_people_who_run_the_batch_can_create_assignments(client, world):
     assert client.post(f"{API}/assignments", json=body, headers=world.h["g2"]).status_code == 404  # another batch's trainer
     assert client.post(f"{API}/assignments", json=body, headers=world.h["ac_vij"]).status_code == 404  # another branch
     assert client.post(f"{API}/assignments", json=body, headers=world.h["ac"]).status_code == 201
-    assert client.post(f"{API}/assignments", json=body, headers=world.h["admin"]).status_code == 201
+    assert client.post(f"{API}/assignments", json=body, headers=world.h["admin"]).status_code == 403  # Super Admin does not run a branch
     assert client.post(f"{API}/assignments", json=body).status_code == 401
 
 

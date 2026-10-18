@@ -139,15 +139,16 @@ def sessions_for_enrolment(enrolment_id: int) -> list[ClassSession]:
 
 # ---------------------------------------------------------------- loading for a change
 
-def _load_for_change(session_id: int, *, allow_own_trainer: bool = False) -> ClassSession:
-    """The session, row-locked: 404 outside the user's scope; 403 unless they manage its branch (or, when allowed, teach it)."""
+def _load_for_change(session_id: int, *, allow_own_trainer: bool = False, requester: int | None = None) -> ClassSession:
+    """The session, row-locked: 404 outside the user's scope; 403 unless they manage its branch (or, when allowed, teach it).
+    `requester`: the person whose request is being decided, so the Founder / Super Admin may act on a Branch Manager's own."""
     session = sessions_repo.get_session_for_update(session_id)
     if session is None:
         raise NotFound("Class session not found")
     assert_can_view_session(session)
     user = current_user()
     teaches = allow_own_trainer and user.has_role("TRAINER") and session.trainer_user_id == user.user_id
-    if not (delivery_access.can_manage_branch(session.batch.branch_id) or teaches):
+    if not (delivery_access.can_manage_branch(session.batch.branch_id) or teaches or approvals.admin_may_decide(requester)):
         raise Forbidden("You don't have access to this action")
     return session
 
@@ -190,7 +191,7 @@ def _check_conflicts(batch: Batch, trainer_user_id: int, starts_at: datetime, en
         if not override_reason:
             raise BusinessRule("; ".join(warnings) + ". The Branch Manager may override with a recorded reason", {"warnings": warnings})
         if not current_user().has_role(*batches_service.CONFIRM_ROLES, branch_id=batch.branch_id):
-            raise Forbidden("Only the Branch Manager of this branch or a Super Admin can override a scheduling warning")
+            raise Forbidden("Only the Branch Manager of this branch can override a scheduling warning")
     return warnings
 
 
@@ -359,7 +360,7 @@ def decide_purpose(session_id: int, decision: str, note: str | None) -> ClassSes
     class, alone: the Branch Manager may propose and approve the same class. A rejected proposal is cancelled and owes nothing."""
     session = _load_for_change(session_id)
     if not current_user().has_role(*batches_service.CONFIRM_ROLES, branch_id=session.batch.branch_id):
-        raise Forbidden("Only the Branch Manager of this branch or a Super Admin approves this class")
+        raise Forbidden("Only the Branch Manager of this branch approves this class")
     if session.approval_status != "Pending":
         raise BusinessRule(f"Session {session.session_code} is not waiting for approval")
     session.approved_by, session.approved_at = actor_id(), _now()
@@ -668,7 +669,7 @@ def _load_request(request_id: int) -> SessionChangeRequest:
     if request is None:
         raise NotFound("Reschedule request not found")
     assert_can_view_session(request.session)
-    if not approvals.founder_may_decide(request.requested_by):  # a Branch Manager's own request goes to the Founder / Super Admin
+    if not approvals.admin_may_decide(request.requested_by):  # a Branch Manager's own request goes to the Founder / Super Admin
         delivery_access.assert_can_manage_branch(request.session.batch.branch_id)
     if request.status != "Open":
         raise BusinessRule(f"The request is already {request.status}")

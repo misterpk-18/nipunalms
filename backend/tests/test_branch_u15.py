@@ -36,13 +36,13 @@ def test_issues_are_one_paged_role_aware_list_with_go_fix_links(client, login, c
     assert item["type"] == "students" and item["go_fix"] == {"to": "/branch/waiting", "search": {}} and item["can_note"] is True
     assert page["meta"]["counts"]["students"] == 3 and page["meta"]["counts"]["system"] == 0 and page["meta"]["counts"]["all"] == 3
 
-    # company-wide items belong to the Super Admin; the Founder reads but cannot add notes
+    # company-wide items belong to the Super Admin (the Founder can do what the Super Admin can, notes included)
     everything = client.get(f"{API}/issues?type=system", headers=login(sa.email)).get_json()
     assert everything["meta"]["total"] == 1 and everything["data"][0]["go_fix"]["to"] == "/admin/crm-sync"
     assert client.get(f"{API}/issues?type=system", headers=login(ac.email)).get_json()["meta"]["total"] == 0
     assert client.get(f"{API}/issues", headers=login(other.email)).get_json()["meta"]["total"] == 0
     read_only = client.get(f"{API}/issues?type=students", headers=login(founder.email)).get_json()["data"][0]
-    assert read_only["can_note"] is False
+    assert read_only["can_note"] is True
     assert client.get(f"{API}/issues", headers=login(trainer.email)).status_code == 403
     assert client.get(f"{API}/issues?type=nope", headers=login(ac.email)).status_code == 400
 
@@ -300,25 +300,31 @@ def test_report_export_is_csv_and_never_a_formula(world, client, login):
 
 # ---------------------------------------------------------------- the buttons follow the independence rule
 
-@pytest.mark.skip(reason="One role per account (R2): a Branch Manager no longer teaches classes of their own; revisit in R3")
-def test_a_branch_managers_own_reschedule_request_is_decided_by_an_admin(world, client, login, make_user, make_session, make_batch):
+def test_a_branch_managers_own_reschedule_request_is_decided_by_an_admin(world, client, login, make_session, run_sql):
+    """After the role split a Branch Manager no longer raises reschedule requests (only a trainer does), but requests raised earlier by a
+    person who then held both roles still wait: nobody at the branch may decide them, the Super Admin and Founder do. Every other
+    request stays with the branch's Branch Manager, and the Super Admin and Founder only read it."""
     from tests.test_delivery import future, iso
     people, batch, _ = world
-    both = make_user(roles=[("TRAINER", 1), ("BRANCH_MANAGER", 1)], full_name="Trainer and Manager")
-    own_batch = make_batch(1, trainers=[both], state="Running", curriculum_version_id=None)
-    session = make_session(own_batch, both, future(3, 10))
-    asked = data(call(client, login, both, "post", f"/class-sessions/{session.session_id}/reschedule-requests", json={
-        "proposed_starts_at": iso(future(4, 10)), "proposed_ends_at": iso(future(4, 12)), "reason": "Away that day"}), 201)
+    own = make_session(batch, people["g1"], future(3, 10))
     other = make_session(batch, people["g1"], future(5, 10))
+    asked = data(call(client, login, people["g1"], "post", f"/class-sessions/{own.session_id}/reschedule-requests", json={
+        "proposed_starts_at": iso(future(4, 10)), "proposed_ends_at": iso(future(4, 12)), "reason": "Away that day"}), 201)
     plain = data(call(client, login, people["g1"], "post", f"/class-sessions/{other.session_id}/reschedule-requests", json={
         "proposed_starts_at": iso(future(6, 10)), "proposed_ends_at": iso(future(6, 12)), "reason": "Clinic visit"}), 201)
+    run_sql("UPDATE session_change_requests SET requested_by = :bm WHERE request_id = :r", bm=people["ac"].user_id, r=asked["request_id"])
+    assert call(client, login, people["ac"], "post", f"/class-sessions/{own.session_id}/reschedule-requests", json={}).status_code == 403  # no longer raises them
 
     def decide_flags(who):
         rows = data(call(client, login, who, "get", "/reschedule-requests?status=Open"), 200)
         return {r["request_id"]: r["can_decide"] for r in rows}
 
     assert decide_flags(people["ac"]) == {asked["request_id"]: False, plain["request_id"]: True}
-    assert decide_flags(people["admin"]) == {asked["request_id"]: True, plain["request_id"]: True}
-    assert call(client, login, people["ac"], "post", f"/reschedule-requests/{asked['request_id']}/reject", json={"note": "No"}).status_code == 422
-    assert call(client, login, people["ac"], "post", f"/reschedule-requests/{plain['request_id']}/reject", json={"note": "No"}).status_code == 200
-    assert call(client, login, people["admin"], "post", f"/reschedule-requests/{asked['request_id']}/reject", json={"note": "No"}).status_code == 200
+    assert decide_flags(people["ac2"]) == {asked["request_id"]: False, plain["request_id"]: True}  # not another Branch Manager's either
+    assert decide_flags(people["admin"]) == {asked["request_id"]: True, plain["request_id"]: False}
+    assert decide_flags(people["founder"]) == {asked["request_id"]: True, plain["request_id"]: False}
+    reject = lambda who, request: call(client, login, people[who], "post", f"/reschedule-requests/{request['request_id']}/reject", json={"note": "No"})  # noqa: E731
+    assert reject("ac", asked).status_code == 422 and reject("ac2", asked).status_code == 422
+    assert reject("admin", plain).status_code == 403 and reject("founder", plain).status_code == 403
+    assert reject("ac", plain).status_code == 200
+    assert reject("admin", asked).status_code == 200

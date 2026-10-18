@@ -63,7 +63,8 @@ def test_visible_branch_ids_per_role():
     assert scope.visible_branch_ids(as_user(1, [("SUPER_ADMIN", None)])) is None
     assert scope.visible_branch_ids(as_user(1, [("FOUNDER_CEO", None)])) is None
     assert scope.visible_branch_ids(as_user(1, [("BRANCH_MANAGER", 1)])) == {1}
-    assert scope.visible_branch_ids(as_user(1, [("BRANCH_MANAGER", 1), ("BRANCH_MANAGER", 2)])) == {1, 2}
+    assert scope.visible_branch_ids(as_user(1, [("BRANCH_MANAGER", 2)])) == {2}  # a manager of several branches holds the one picked at sign-in
+    assert scope.visible_branch_ids(as_user(1, [])) == set()  # a Branch Manager who has not picked a branch yet sees nothing
     assert scope.visible_branch_ids(as_user(1, [("TRAINER", 1)])) == set()
     assert scope.visible_branch_ids(as_user(1, [("STUDENT", 1)], student_id=5)) == set()
 

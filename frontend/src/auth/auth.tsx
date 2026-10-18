@@ -60,6 +60,11 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
       const { token: _token, expires_at: _expires, ...rest } = result;
       const profile: Profile = {
         user: rest.user,
+        role: rest.role,
+        workspace: rest.workspace,
+        branch: rest.branch,
+        needs_branch: rest.needs_branch,
+        branches: rest.branches,
         scopes: rest.scopes,
         allowed_branches: rest.allowed_branches,
         workspaces: rest.workspaces,

@@ -114,7 +114,7 @@ def generate(batch_id: int, data: dict) -> dict:
         if not data.get("override_reason"):
             raise BusinessRule("; ".join(result["warnings"]) + ". The Branch Manager may override with a recorded reason", {"warnings": result["warnings"]})
         if not current_user().has_role(*batches_service.CONFIRM_ROLES, branch_id=batch.branch_id):
-            raise Forbidden("Only the Branch Manager of this branch or a Super Admin can override a scheduling warning")
+            raise Forbidden("Only the Branch Manager of this branch can override a scheduling warning")
     items = [(c["starts_at"], c["ends_at"], c["title"], c["topic_id"]) for c in result["classes"]]
     created = class_sessions.create_series(batch, result["trainer"]["user_id"], items,
                                             {"room": result["room"], "override_reason": data.get("override_reason")})

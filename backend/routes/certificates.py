@@ -44,28 +44,28 @@ def get_certificate(certificate_id: int):
 
 @certificates_bp.post("/certificates")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def create_entry():
     return certificates_controller.create_entry()
 
 
 @certificates_bp.post("/certificates/<int:certificate_id>/recommendation")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def recommend(certificate_id: int):
     return certificates_controller.recommend(certificate_id)
 
 
 @certificates_bp.post("/certificates/<int:certificate_id>/return")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def return_to_review(certificate_id: int):
     return certificates_controller.return_to_review(certificate_id)
 
 
 @certificates_bp.post("/certificates/<int:certificate_id>/approval")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 @fresh_auth
 def approve(certificate_id: int):
     return certificates_controller.approve(certificate_id)
@@ -73,7 +73,7 @@ def approve(certificate_id: int):
 
 @certificates_bp.post("/certificates/<int:certificate_id>/issue")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 @fresh_auth
 def issue(certificate_id: int):
     return certificates_controller.issue(certificate_id)
@@ -103,7 +103,7 @@ def decide_request(request_id: int):
 
 @certificates_bp.post("/certificates/<int:certificate_id>/financial-exception")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def request_exception(certificate_id: int):
     return certificates_controller.request_exception(certificate_id)
 

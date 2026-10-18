@@ -6,13 +6,14 @@ Scope rules (docs/API.md §2):
   ACADEMIC_COORDINATOR  everything academic at their branch
   BRANCH_MANAGER        everything at their branch
   SUPER_ADMIN / FOUNDER_CEO  all branches
-A user holding several roles gets the union. A record outside scope is a 404, never a 403.
+A login holds one role (db/119) and the session carries it: there is no union. A Branch Manager sees only the branch picked at
+sign-in, even if their account holds several. A record outside scope is a 404, never a 403.
 """
 from config.timezone import today_ist
 from models import Batch, Enrolment, Student
 from repositories import batches as batches_repo
 from repositories import students as students_repo
-from services.context import ADMIN_ROLES, BRANCH_ROLES, CurrentUser, current_user
+from services.context import ADMIN_ROLES, CurrentUser, current_user
 from services.errors import NotFound
 
 
@@ -21,12 +22,14 @@ def _resolve(user: CurrentUser | None) -> CurrentUser:
 
 
 def visible_branch_ids(user: CurrentUser | None = None) -> set[int] | None:
-    """Branches whose records the user sees in full: None = all branches, else the branches where they are
-    Branch Manager (empty for a trainer or student, who see specific records instead)."""
+    """Branches whose records the user sees in full: None = all branches (Super Admin, Founder), the session's branch for a
+    Branch Manager, empty for a trainer or student (who see specific records instead)."""
     user = _resolve(user)
-    if user.has_role(*ADMIN_ROLES):
+    if user.role_code in ADMIN_ROLES:
         return None
-    return {s.branch_id for s in user.scopes if s.role_code in BRANCH_ROLES}
+    if user.role_code == "BRANCH_MANAGER" and user.active_branch_id is not None:
+        return {user.active_branch_id}
+    return set()
 
 
 def require_branch(branch_id: int, user: CurrentUser | None = None) -> None:
@@ -39,7 +42,7 @@ def require_branch(branch_id: int, user: CurrentUser | None = None) -> None:
 def trainer_batch_ids(user: CurrentUser | None = None) -> set[int]:
     """Batches the user is currently assigned to as a trainer."""
     user = _resolve(user)
-    if not user.has_role("TRAINER"):
+    if user.role_code != "TRAINER":
         return set()
     return batches_repo.batch_ids_for_trainer(user.user_id, today_ist())
 

@@ -21,7 +21,7 @@ from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+DECIDERS = ("BRANCH_MANAGER",)
 
 
 def evidence_of(enrolment: Enrolment) -> dict:

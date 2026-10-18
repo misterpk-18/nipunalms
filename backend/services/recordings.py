@@ -56,7 +56,7 @@ def _visible_session(session_id: int) -> ClassSession:
 
 def _is_manager(session: ClassSession) -> bool:
     user = current_user()
-    return user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=session.batch.branch_id)
+    return user.has_role("BRANCH_MANAGER", branch_id=session.batch.branch_id)
 
 
 def _require_manager(session: ClassSession) -> None:
@@ -153,9 +153,9 @@ def _resolve_open(session: ClassSession, issue_types: tuple[str, ...], note: str
 
 def _can_act_on(exception: RecordingException) -> bool:
     user = current_user()
-    if user.has_role("SUPER_ADMIN"):
-        return True
-    return exception.owner_role != "SUPER_ADMIN" and user.has_role("BRANCH_MANAGER", branch_id=exception.branch_id)
+    if exception.owner_role == "SUPER_ADMIN":  # integration problems belong to Super Admin (and the Founder / CEO, who can do all they can)
+        return user.has_role("SUPER_ADMIN", "FOUNDER_CEO")
+    return user.has_role("BRANCH_MANAGER", branch_id=exception.branch_id)
 
 
 def _get_exception(exception_id: int) -> RecordingException:

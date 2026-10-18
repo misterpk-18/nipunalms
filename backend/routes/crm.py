@@ -14,14 +14,14 @@ def receive_event():
 
 @crm_bp.get("/events")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def list_events():
     return crm_controller.list_events()
 
 
 @crm_bp.post("/events/<int:crm_event_id>/retry")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def retry_event(crm_event_id: int):
     return crm_controller.retry_event(crm_event_id)
 

@@ -3,18 +3,19 @@ at the record's branch (403 when the record is visible but the user may not chan
 from services.context import CurrentUser, current_user
 from services.errors import Forbidden
 
-# Branch Managers of the branch, and Super Admin (all branches). The Founder / CEO reads only.
-MANAGE_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
-# Curriculum is global (not per branch): Branch Managers and Super Admin draft, submit and review it
-CURRICULUM_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
+# Branch Managers of their session's branch only. Super Admin and Founder / CEO read across branches (and decide Branch Managers'
+# own requests) but do not run a branch's day-to-day work (role separation, decisions 15 and 16).
+MANAGE_ROLES = ("BRANCH_MANAGER",)
+# Curriculum is global (not per branch): Branch Managers, Super Admin and Founder / CEO draft, submit and review it
+CURRICULUM_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 # ... and the Founder / CEO or Super Admin approve, activate and retire it (Module 14 §5, §11)
 CURRICULUM_APPROVER_ROLES = ("FOUNDER_CEO", "SUPER_ADMIN")
 
 
 def is_student_only(user: CurrentUser | None = None) -> bool:
-    """A learner: the login has the Student role and nothing else."""
+    """A learner: the session's role is Student."""
     user = user or current_user()
-    return user.role_codes == {"STUDENT"}
+    return user.role_code == "STUDENT"
 
 
 def can_manage_branch(branch_id: int, user: CurrentUser | None = None) -> bool:

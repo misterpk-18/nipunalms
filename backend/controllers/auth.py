@@ -9,6 +9,11 @@ from services.context import current_user
 def _profile(profile: auth_service.Profile) -> dict:
     return {
         "user": profile.user.to_dict(),
+        "role": {"role_code": profile.role_code, "role_name": profile.role_name},
+        "workspace": profile.workspace,
+        "branch": profile.branch.to_summary() if profile.branch else None,
+        "needs_branch": profile.needs_branch,
+        "branches": [b.to_summary() for b in profile.pick_branches],
         "scopes": [s.to_dict() for s in profile.scopes],
         "allowed_branches": [b.to_summary() for b in profile.branches],
         "workspaces": profile.workspaces,
@@ -21,11 +26,24 @@ def login():
     v = Validator(json_body())
     v.string("login", required=True, max_length=255)
     v.string("password", required=True, max_length=200, strip=False)
+    v.integer("branch_id", nullable=True)
     data = v.validate()
 
-    result = auth_service.login(data["login"], data["password"])
+    result = auth_service.login(data["login"], data["password"], data.get("branch_id"))
     return ok({"token": result.token, "expires_at": result.session.expires_at,
                **_profile(auth_service.profile(result.current))})
+
+
+def select_branch():
+    v = Validator(json_body())
+    v.integer("branch_id", required=True)
+    current = auth_service.select_branch(v.validate()["branch_id"])
+    return ok(_profile(auth_service.profile(current)))
+
+
+def change_branch():
+    auth_service.change_branch()
+    return no_content()
 
 
 def logout():

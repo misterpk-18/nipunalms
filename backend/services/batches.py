@@ -25,7 +25,7 @@ from repositories import class_sessions as sessions_repo
 from repositories import settings as settings_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import audit, delivery_access, delivery_notices, meet, scope
+from services import approvals, audit, delivery_access, delivery_notices, meet, scope
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
@@ -33,7 +33,7 @@ CLOSED_STATES = ("Completed", "Cancelled", "Archived")
 PUBLISHED_STATUSES = ("Approved", "Active")
 NO_CURRICULUM = "No approved curriculum yet. Classes can be scheduled without topics, and the batch picks up the curriculum when one is activated"
 # The Branch Manager confirms, holds and archives; Super Admin covers every branch (Module 15 §5, §19)
-CONFIRM_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
+CONFIRM_ROLES = ("BRANCH_MANAGER",)
 # Enrolments that still owe teaching when a batch completes: each needs a named owner, plan and destination (§19)
 OWING_STATUSES = ("Paused", "Allocation Pending", "Allocated — awaiting first regular class")
 MATERIAL_FIELDS = ("planned_start", "mode", "schedule_days", "start_time", "end_time")
@@ -90,13 +90,15 @@ def _successions_of(batch_id: int) -> list[BatchSuccession]:
     return list(db.session.execute(stmt).scalars())
 
 
-def load_managed_batch(batch_id: int) -> Batch:
-    """The batch, row-locked, for a change: 404 outside the user's scope, 403 when they may only look."""
+def load_managed_batch(batch_id: int, *, requester: int | None = None) -> Batch:
+    """The batch, row-locked, for a change: 404 outside the user's scope, 403 when they may only look. `requester`: the person
+    whose request is being decided, so the Founder / Super Admin may act on a Branch Manager's own request."""
     batch = batches_repo.get_batch_for_update(batch_id)
     if batch is None:
         raise NotFound("Batch not found")
     scope.assert_can_view_batch(batch)
-    delivery_access.assert_can_manage_branch(batch.branch_id)
+    if not approvals.admin_may_decide(requester):
+        delivery_access.assert_can_manage_branch(batch.branch_id)
     return batch
 
 
@@ -515,7 +517,7 @@ def _set_state(batch: Batch, state: str, reason: str | None, event: str = "State
 
 def _require_confirmer(batch: Batch) -> None:
     if not current_user().has_role(*CONFIRM_ROLES, branch_id=batch.branch_id):
-        raise Forbidden("Only the Branch Manager of this branch or a Super Admin can do this")
+        raise Forbidden("Only the Branch Manager of this branch can do this")
 
 
 def propose(batch_id: int, note: str | None) -> Batch:

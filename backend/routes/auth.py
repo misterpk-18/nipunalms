@@ -17,6 +17,18 @@ def logout():
     return auth_controller.logout()
 
 
+@auth_bp.post("/branch")
+@login_required
+def select_branch():
+    return auth_controller.select_branch()
+
+
+@auth_bp.post("/change-branch")
+@login_required
+def change_branch():
+    return auth_controller.change_branch()
+
+
 @auth_bp.get("/me")
 @login_required
 def me():

@@ -21,9 +21,9 @@ def is_student(user: CurrentUser | None = None) -> bool:
 
 
 def can_manage_batch(batch: Batch, user: CurrentUser | None = None) -> bool:
-    """Author, release and review work for this batch: an assigned trainer, the branch's Branch Manager, Super Admin."""
+    """Author, release and review work for this batch: an assigned trainer or the branch's Branch Manager."""
     user = user or current_user()
-    if user.has_role("SUPER_ADMIN") or user.has_role("BRANCH_MANAGER", branch_id=batch.branch_id):
+    if user.has_role("BRANCH_MANAGER", branch_id=batch.branch_id):
         return True
     return user.has_role("TRAINER") and batch.batch_id in scope.trainer_batch_ids(user)
 

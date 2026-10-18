@@ -492,7 +492,7 @@ def test_assigning_needs_a_super_admin_an_active_staff_member_and_an_issue_witho
     allocation = next(r for r in get(client, sa, "/issues?per_page=50") if r["source"] == "ALLOCATION")
     path = f"/exceptions/ALLOCATION/{allocation['source_id']}/assign"
     send(client, "post", login(people.ac_g.email), path, {"assignee_user_id": people.bm_g.user_id}, expect=403)
-    send(client, "post", login(people.founder.email), path, {"assignee_user_id": people.bm_g.user_id}, expect=403)
+    send(client, "post", login(people.founder.email), path, {"assignee_user_id": people.bm_g.user_id}, expect=200)  # the Founder can do what the Super Admin can
     send(client, "post", sa, path, {"assignee_user_id": make_user(is_active=False).user_id}, expect=400)
     send(client, "post", sa, path, {}, expect=400)
     send(client, "post", sa, "/exceptions/ALLOCATION/999999/assign", {"assignee_user_id": people.bm_g.user_id}, expect=404)

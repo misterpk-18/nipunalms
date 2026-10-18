@@ -2,7 +2,7 @@ from flask import Blueprint
 
 from controllers import class_sessions as class_sessions_controller
 from routes.decorators import login_required, require_roles
-from services.context import STAFF_ROLES
+from services.context import ADMIN_ROLES, STAFF_ROLES
 from services.delivery_access import MANAGE_ROLES
 
 class_sessions_bp = Blueprint("class_sessions", __name__)
@@ -129,14 +129,14 @@ def list_requests():
 
 @class_sessions_bp.post("/reschedule-requests/<int:request_id>/approve")
 @login_required
-@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")  # the Founder only for a Branch Manager's own request (the service refuses others)
+@require_roles(*MANAGE_ROLES, *ADMIN_ROLES)  # the Founder only for a Branch Manager's own request (the service refuses others)
 def approve_request(request_id: int):
     return class_sessions_controller.approve_request(request_id)
 
 
 @class_sessions_bp.post("/reschedule-requests/<int:request_id>/reject")
 @login_required
-@require_roles(*MANAGE_ROLES, "FOUNDER_CEO")  # the Founder only for a Branch Manager's own request (the service refuses others)
+@require_roles(*MANAGE_ROLES, *ADMIN_ROLES)  # the Founder only for a Branch Manager's own request (the service refuses others)
 def reject_request(request_id: int):
     return class_sessions_controller.reject_request(request_id)
 
@@ -150,7 +150,7 @@ def confirm(session_id: int):
 
 @class_sessions_bp.post("/class-sessions/<int:session_id>/approval")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def decide_purpose(session_id: int):
     return class_sessions_controller.decide_purpose(session_id)
 

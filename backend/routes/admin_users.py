@@ -45,7 +45,7 @@ def get_user(user_id: int):
 
 @admin_users_bp.post("")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def create_user():
     return users_controller.create_user()
@@ -53,7 +53,7 @@ def create_user():
 
 @admin_users_bp.patch("/<int:user_id>")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def update_user(user_id: int):
     return users_controller.update_user(user_id)
@@ -61,7 +61,7 @@ def update_user(user_id: int):
 
 @admin_users_bp.post("/<int:user_id>/scopes")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def grant_scope(user_id: int):
     return users_controller.grant_scope(user_id)
@@ -69,7 +69,7 @@ def grant_scope(user_id: int):
 
 @admin_users_bp.post("/<int:user_id>/scopes/<int:scope_id>/revoke")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def revoke_scope(user_id: int, scope_id: int):
     return users_controller.revoke_scope(user_id, scope_id)
@@ -77,7 +77,7 @@ def revoke_scope(user_id: int, scope_id: int):
 
 @admin_users_bp.post("/<int:user_id>/deactivate")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def deactivate(user_id: int):
     return users_controller.deactivate(user_id)
@@ -85,7 +85,7 @@ def deactivate(user_id: int):
 
 @admin_users_bp.post("/<int:user_id>/reactivate")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def reactivate(user_id: int):
     return users_controller.reactivate(user_id)
@@ -93,7 +93,7 @@ def reactivate(user_id: int):
 
 @admin_users_bp.post("/<int:user_id>/reset-password")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def reset_password(user_id: int):
     return users_controller.reset_password(user_id)
@@ -101,7 +101,7 @@ def reset_password(user_id: int):
 
 @admin_users_bp.post("/<int:user_id>/invite")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def send_invite(user_id: int):
     return users_controller.send_invite(user_id)
@@ -109,7 +109,7 @@ def send_invite(user_id: int):
 
 @admin_users_bp.post("/<int:user_id>/unlock")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def unlock(user_id: int):
     return users_controller.unlock(user_id)

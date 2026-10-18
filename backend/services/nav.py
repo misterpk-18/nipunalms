@@ -2,8 +2,8 @@
 started" steps of each workspace (`GET /me/getting-started`).
 
 Badges are cheap counts of what waits for the person, read from the slice that owns the record and limited to what they see.
-A workspace the user does not hold is a 403; a branch outside their scope is a 404. The dismissed state of a Getting started
-card lives in the browser, not here.
+Both read the workspace from the session's role (one role, one workspace); the `workspace` and `branch_id` query parameters the
+frontend used to send are accepted and ignored. The dismissed state of a Getting started card lives in the browser, not here.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -16,7 +16,7 @@ from repositories import questions as questions_repo
 from services import founder_inbox, scope, setup_health, student_work, trainer_todo
 from services import exceptions as exceptions_service
 from services import crm_sync
-from services.auth import workspaces_for
+from services.auth import workspace_of
 from services.context import current_user
 from services.errors import Forbidden
 
@@ -28,19 +28,19 @@ CERTIFICATE_TO_ACT_ON = CERTIFICATE_REVIEW + ("Approved for Issue",)
 SUPPORT_WARNING = timedelta(hours=4)
 
 
-def _require_workspace(workspace: str) -> None:
-    if workspace not in workspaces_for(current_user().role_codes):
+def _workspace() -> str:
+    """The one workspace of the session's role."""
+    return workspace_of(current_user().role_code)
+
+
+def require_workspace(workspace: str) -> None:
+    """403 unless the session's role is the one this workspace belongs to."""
+    if _workspace() != workspace:
         raise Forbidden("You don't have access to this workspace")
 
 
-require_workspace = _require_workspace
-
-
-def _branches(branch_id: int | None) -> set[int] | None:
-    """The branches to count: the chosen one (404 outside the user's scope), else everything the user sees."""
-    if branch_id is not None:
-        scope.require_branch(branch_id)
-        return {branch_id}
+def _branches(branch_id: int | None = None) -> set[int] | None:
+    """The branches to count: what the session sees (a Branch Manager's picked branch; everything for Super Admin and Founder)."""
     return scope.visible_branch_ids()
 
 
@@ -61,11 +61,11 @@ def _trainer_counts() -> dict[str, int]:
     }
 
 
-def _branch_counts(branch_id: int | None) -> dict[str, int]:
+def _branch_counts() -> dict[str, int]:
     from services import branch_work  # it reads this module's helpers
 
-    branch_ids = _branches(branch_id)
-    work = branch_work.my_work(branch_id)
+    branch_ids = _branches()
+    work = branch_work.my_work(None)
     by_key = {row["key"]: row["count"] for row in work["rows"]}
     now = datetime.now(timezone.utc)
     enrolments = dash_repo.enrolment_counts(branch_ids)
@@ -104,19 +104,21 @@ def _admin_counts() -> dict[str, int]:
 
 
 def _founder_counts() -> dict[str, int]:
-    """The Founder's inbox as a whole and its three pages (curriculum, certificate decisions, access extensions)."""
-    return founder_inbox.counts()
+    """The Founder does everything the Super Admin does (the admin counts) plus the inbox as a whole and its three pages
+    (curriculum, certificate decisions, access extensions)."""
+    return {**_admin_counts(), **founder_inbox.counts()}
 
 
-def nav_counts(workspace: str, branch_id: int | None = None) -> dict[str, int]:
-    """`{key: n}` for one workspace; the keys are the `badgeKey`s of that workspace's navigation items."""
-    _require_workspace(workspace)
+def nav_counts(workspace: str | None = None, branch_id: int | None = None) -> dict[str, int]:
+    """`{key: n}` for the session's workspace; the keys are the `badgeKey`s of that workspace's navigation items.
+    `workspace` and `branch_id` are accepted for the old callers and ignored."""
+    workspace = _workspace()
     if workspace == "student":
         return _student_counts()
     if workspace == "trainer":
         return _trainer_counts()
     if workspace == "branch":
-        return _branch_counts(branch_id)
+        return _branch_counts()
     if workspace == "admin":
         return _admin_counts()
     return _founder_counts()
@@ -147,8 +149,8 @@ def _trainer_steps() -> list[dict]:
     ]
 
 
-def _branch_steps(branch_id: int | None) -> list[dict]:
-    branch_ids = _branches(branch_id)
+def _branch_steps() -> list[dict]:
+    branch_ids = _branches()
     return [
         _step("batch", "Create a batch", nav_repo.branch_has_batches(branch_ids), "/branch/batches"),
         _step("allocate", "Allocate students", nav_repo.branch_has_allocations(branch_ids), "/branch/waiting"),
@@ -156,21 +158,21 @@ def _branch_steps(branch_id: int | None) -> list[dict]:
     ]
 
 
-def _admin_steps() -> list[dict]:
+def _admin_steps(prefix: str = "/admin") -> list[dict]:
     return [
-        _step("staff", "Add a staff user", nav_repo.user_added_staff(current_user().user_id), "/admin/users"),
-        _step("setup", "Review setup and health", nav_repo.setup_reviewed(), "/admin/setup"),
+        _step("staff", "Add a staff user", nav_repo.user_added_staff(current_user().user_id), f"{prefix}/users"),
+        _step("setup", "Review setup and health", nav_repo.setup_reviewed(), f"{prefix}/setup"),
     ]
 
 
-def getting_started(workspace: str, branch_id: int | None = None) -> dict:
-    """The first steps for a workspace and whether each is done. The Founder has none."""
-    _require_workspace(workspace)
-    steps = {"student": _student_steps, "trainer": _trainer_steps, "admin": _admin_steps}.get(workspace)
+def getting_started(workspace: str | None = None, branch_id: int | None = None) -> dict:
+    """The first steps for the session's workspace and whether each is done. The Founder has the Super Admin's two.
+    `workspace` and `branch_id` are accepted for the old callers and ignored."""
+    workspace = _workspace()
     if workspace == "branch":
-        items = _branch_steps(branch_id)
-    elif steps is not None:
-        items = steps()
+        items = _branch_steps()
+    elif workspace == "founder":
+        items = _admin_steps("/founder")
     else:
-        items = []
+        items = {"student": _student_steps, "trainer": _trainer_steps, "admin": _admin_steps}[workspace]()
     return {"workspace": workspace, "steps": items, "complete": bool(items) and all(s["done"] for s in items)}

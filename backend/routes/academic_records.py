@@ -5,7 +5,7 @@ from routes.decorators import fresh_auth, login_required, require_roles
 from services.context import STAFF_ROLES
 
 academic_records_bp = Blueprint("academic_records", __name__)
-EDITORS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+EDITORS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 
 
 @academic_records_bp.get("/equivalence-rules")
@@ -61,7 +61,7 @@ def list_variations():
 
 @academic_records_bp.post("/curriculum-variations")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 def create_variation():
     return controller.create_variation()
 

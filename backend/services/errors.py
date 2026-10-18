@@ -36,6 +36,12 @@ class PasswordChangeRequired(AppError):
     code = "PASSWORD_CHANGE_REQUIRED"
 
 
+class BranchRequired(AppError):
+    """A Branch Manager with several branches has signed in but not picked one yet."""
+    status = 403
+    code = "BRANCH_REQUIRED"
+
+
 class NotFound(AppError):
     status = 404
     code = "NOT_FOUND"

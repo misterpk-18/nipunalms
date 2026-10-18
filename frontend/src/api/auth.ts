@@ -31,6 +31,15 @@ export type StudentProfile = {
 
 export type Profile = {
   user: SessionUser;
+  /** The session's one role (role separation R3). */
+  role?: { role_code: RoleCode; role_name: string };
+  /** The one workspace of that role; `workspaces` below always holds just this. */
+  workspace?: Workspace;
+  /** A Branch Manager's branch for this session; null for every other role and while a pick is pending. */
+  branch?: BranchRef | null;
+  /** A Branch Manager with several branches has signed in but not picked one: `branches` lists the choices and nothing else works. */
+  needs_branch?: boolean;
+  branches?: BranchRef[];
   scopes: RoleScope[];
   allowed_branches: BranchRef[];
   workspaces: Workspace[];
@@ -57,7 +66,11 @@ export type ActivationResult = LoginResult & { activated: true; student_code: st
 
 export const authApi = {
   /** `login` is a staff email, a Student ID (NIT-STU-2026-004182) or a student email. */
-  login: (login: string, password: string) => post<LoginResult>("/auth/login", { login, password }),
+  login: (login: string, password: string, branch_id?: number) => post<LoginResult>("/auth/login", { login, password, ...(branch_id ? { branch_id } : {}) }),
+  /** Branch Manager with several branches: pick the branch for this session (answers the profile). */
+  selectBranch: (branch_id: number) => post<Profile>("/auth/branch", { branch_id }),
+  /** Ends the session; the person signs in again and picks a branch. */
+  changeBranch: () => post<null>("/auth/change-branch"),
   logout: () => post<null>("/auth/logout"),
   me: () => get<Profile>("/auth/me"),
   reauthenticate: (password: string) => post<null>("/auth/reauthenticate", { password }),

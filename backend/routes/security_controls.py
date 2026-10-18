@@ -22,7 +22,7 @@ def get_control(control_id: int):
 
 @security_controls_bp.patch("/<int:control_id>")
 @login_required
-@require_roles("SUPER_ADMIN")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 @fresh_auth
 def update_control(control_id: int):
     return controls_controller.update_control(control_id)

@@ -15,9 +15,9 @@ ACADEMIC_ROLES = ADMIN_ROLES + BRANCH_ROLES
 # Anyone on staff (everyone except students)
 STAFF_ROLES = ACADEMIC_ROLES + TRAINER_ROLES
 # Assessments: who authors and reviews work for a batch (a trainer only for batches they teach), and who moderates and
-# publishes results (the branch's Branch Manager; Super Admin across branches)
-ASSESSMENT_AUTHOR_ROLES = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
-MODERATOR_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN")
+# publishes results (the branch's Branch Manager only: Super Admin and Founder read across branches but do not run them)
+ASSESSMENT_AUTHOR_ROLES = ("TRAINER", "BRANCH_MANAGER")
+MODERATOR_ROLES = ("BRANCH_MANAGER",)
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,10 @@ class Scope:
 
 @dataclass(frozen=True)
 class CurrentUser:
+    """The signed-in person for one request. A login holds exactly one role (db/119), stored on the session as `role_code`; `scopes`
+    holds only the scope that role is exercised through: a Branch Manager's session branch, never their other branches.
+    `needs_branch` is a Branch Manager with several branches who has not picked one yet (no scopes, nothing reachable)."""
+
     user_id: int
     email: str | None
     full_name: str
@@ -39,10 +43,25 @@ class CurrentUser:
     must_change_password: bool
     has_fresh_auth: bool
     scopes: tuple[Scope, ...]
+    role_code: str | None = None
+    active_branch_id: int | None = None  # a Branch Manager's branch for this session
+    needs_branch: bool = False
+
+    def __post_init__(self):
+        # Built from scopes alone (tests, scripts): the first scope is the session's role and branch
+        if self.role_code is None and self.scopes:
+            object.__setattr__(self, "role_code", self.scopes[0].role_code)
+            if self.role_code == "BRANCH_MANAGER":
+                object.__setattr__(self, "active_branch_id", self.scopes[0].branch_id)
 
     @property
     def role_codes(self) -> set[str]:
+        """The one role as a set (empty until a Branch Manager has picked a branch)."""
         return {s.role_code for s in self.scopes}
+
+    @property
+    def role_name(self) -> str | None:
+        return self.scopes[0].role_name if self.scopes else None
 
     @property
     def is_admin(self) -> bool:
@@ -56,7 +75,8 @@ class CurrentUser:
         )
 
     def branch_ids(self) -> set[int] | None:
-        """Branches the user holds any role at; None means all branches (company-wide role)."""
+        """Branches of the session: the Branch Manager's picked branch, the Trainer's or Student's own; None = all branches
+        (Super Admin, Founder)."""
         if any(s.branch_id is None for s in self.scopes):
             return None
         return {s.branch_id for s in self.scopes}

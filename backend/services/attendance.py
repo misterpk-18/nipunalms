@@ -27,9 +27,9 @@ from services.errors import BusinessRule, Conflict, Forbidden, NotFound, Validat
 from services.notifications import notify
 
 ATTENDED = ("Present", "Late")
-MARKERS = ("BRANCH_MANAGER", "SUPER_ADMIN")       # besides the batch's trainers
-DECIDERS = ("BRANCH_MANAGER", "SUPER_ADMIN")  # correction reviewers (independent of the requester)
-RECOVERY_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+MARKERS = ("BRANCH_MANAGER",)       # besides the batch's trainers
+DECIDERS = ("BRANCH_MANAGER",)  # correction reviewers (independent of the requester); the Founder / Super Admin decide a Branch Manager's own
+RECOVERY_APPROVERS = ("BRANCH_MANAGER",)
 
 
 def lock_days() -> int:
@@ -409,7 +409,7 @@ def can_decide_correction(correction: AttendanceCorrection) -> bool:
     """Whether the current user may decide it (the screen hides the buttons otherwise): a Branch Manager of the branch who is not the
     requester or the person who marked the entry, and an admin when the requester is a Branch Manager."""
     if correction.status != "Pending" or not (current_user().has_role(*DECIDERS, branch_id=correction.enrolment.service_branch_id)
-                                              or approvals.founder_may_decide(correction.requested_by)):
+                                              or approvals.admin_may_decide(correction.requested_by)):
         return False
     record = attendance_repo.find_record(correction.session_id, correction.enrolment_id)
     if record is not None and record.marked_by == current_user().user_id:
@@ -449,7 +449,7 @@ def decide_correction(correction_id: int, decision: str, note: str | None) -> At
     correction = _get_correction(correction_id)
     enrolment = correction.enrolment
     user = current_user()
-    if not (user.has_role(*DECIDERS, branch_id=enrolment.service_branch_id) or approvals.founder_may_decide(correction.requested_by)):
+    if not (user.has_role(*DECIDERS, branch_id=enrolment.service_branch_id) or approvals.admin_may_decide(correction.requested_by)):
         raise Forbidden("Only the Branch Manager can decide an attendance correction")
     if correction.status != "Pending":
         raise BusinessRule(f"This correction is already {correction.status}")

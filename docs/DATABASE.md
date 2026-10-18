@@ -68,6 +68,7 @@ Vijayawada).
 | `117_retire_curriculum_mapped_events.sql` | CRM round 7: deletes old `AdmissionCurriculumMapped` events, abandons the `NIT-CRS-999` seed event, validates `crm_events_event_type_check` | ✅ |
 | `118_split_multi_role_accounts.sql` | Role separation R2: splits every multi-role user into one account per role; `split_account_handouts` | ✅ |
 | `119_one_role_per_account.sql` | Role separation R2: trigger `check_one_role_per_user` (one live role per user; only Branch Manager may hold several branches) | ✅ |
+| `120_session_role_branch.sql` | Role separation R3: `user_sessions.role_code` and `branch_id` (the session's role and a Branch Manager's picked branch); `active_sessions` view recreated | ✅ |
 
 ---
 
@@ -527,3 +528,16 @@ Two files, applied in this order. The split (118) runs before the constraint (11
 | 119: trigger `trg_user_role_scopes_one_role` (`check_one_role_per_user`) on `user_role_scopes` | A user cannot hold a second live (unrevoked) scope unless both are Branch Manager. This also gives Student and Trainer exactly one branch; Super Admin and Founder take no branch (`check_role_scope_branch`, db/001) |
 
 Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/118_split_multi_role_accounts.sql` and then `db/119_one_role_per_account.sql`. Dev result: 6 e2e users (Trainer + Branch Manager at Guntur) became 6 Branch Managers plus 6 new Trainer accounts (`*.trainer@nipuna.test`). Tests: `backend/tests/test_one_role_per_account.py` (the split runs against synthetic multi-role data, the constraint, the Users & access rule and the hand-out endpoints).
+
+---
+
+## 120 — Role separation R3: the session carries its role and branch
+
+| Change | Meaning |
+|---|---|
+| `user_sessions.role_code` (FK `roles.role_code`) | The account's one role, set when the session starts. Authorization reads it; a session whose role is no longer held is a 401 |
+| `user_sessions.branch_id` (FK `branches`) | A Branch Manager's branch for the session. `NULL` for every other role, and `NULL` while a Branch Manager with several branches has not picked yet (`POST /auth/branch` sets it once) |
+| `active_sessions` view dropped and recreated | `s.*` now includes the two columns; the fresh-auth column stays last |
+| Backfill | Live sessions take the role and (Branch Manager) branch of the account's single live scope. A Branch Manager with several branches cannot be resolved, so that session is revoked (`role separation: sign in again`). Dev result: all 1,413 live sessions resolved, none revoked |
+
+Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/120_session_role_branch.sql`. Tests: `backend/tests/test_session_role.py`.

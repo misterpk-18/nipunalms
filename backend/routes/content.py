@@ -6,8 +6,8 @@ from routes.decorators import login_required, require_roles
 content_bp = Blueprint("content", __name__, url_prefix="/content-items")
 
 STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-AUTHORS = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
-REVIEWERS = ("BRANCH_MANAGER", "SUPER_ADMIN")
+AUTHORS = ("TRAINER", "BRANCH_MANAGER")
+REVIEWERS = ("BRANCH_MANAGER",)
 
 
 @content_bp.get("")

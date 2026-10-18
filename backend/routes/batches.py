@@ -85,7 +85,7 @@ def propose(batch_id: int):
 
 @batches_bp.post("/<int:batch_id>/confirmation")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def decide_confirmation(batch_id: int):
     return batches_controller.decide_confirmation(batch_id)
 
@@ -106,7 +106,7 @@ def get_progress(batch_id: int):
 
 @batches_bp.post("/<int:batch_id>/confirm")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN")
+@require_roles("BRANCH_MANAGER")
 def confirm_batch(batch_id: int):
     return batches_controller.confirm_batch(batch_id)
 

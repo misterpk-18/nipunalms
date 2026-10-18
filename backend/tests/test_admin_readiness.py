@@ -56,14 +56,15 @@ def test_integration_status_service_reads_the_register(app, make_user, login, cl
     assert integrations_service.integration_status("GOOGLE_MEET").state == "Verified"
 
 
-def test_only_a_super_admin_can_update_and_the_update_is_audited(client, make_user, login):
+def test_only_a_super_admin_or_the_founder_can_update_and_the_update_is_audited(client, make_user, login):
     admin = make_user()
     founder = make_user(roles=[("FOUNDER_CEO", None)])
     headers = login(admin.email)
     drive = _code(client, headers, "GOOGLE_DRIVE_RECORDINGS")
     url = f"/api/v1/integrations/{drive['integration_id']}"
 
-    assert client.patch(url, headers=login(founder.email), json={"notes": "x"}).status_code == 403
+    manager = make_user(roles=[("BRANCH_MANAGER", 1)])
+    assert client.patch(url, headers=login(manager.email), json={"notes": "x"}).status_code == 403
     response = client.patch(url, headers=headers, json={"configuration_status": "Misconfigured", "notes": "Wrong shared drive"})
 
     data = response.get_json()["data"]
@@ -73,6 +74,7 @@ def test_only_a_super_admin_can_update_and_the_update_is_audited(client, make_us
     assert entry.entity_id == "GOOGLE_DRIVE_RECORDINGS" and entry.actor_user_id == admin.user_id
     assert entry.old_values == {"configuration_status": "Not Configured", "notes": "Recording capability must be verified per organizer"}
     assert entry.new_values["configuration_status"] == "Misconfigured"
+    assert client.patch(url, headers=login(founder.email), json={"notes": "Founder note"}).status_code == 200  # the Founder can do what the Super Admin can
 
 
 def test_update_needs_fresh_authentication(client, make_user, login, run_sql):
@@ -171,14 +173,16 @@ def test_a_control_is_verified_with_evidence_and_audited(client, make_user, logi
     assert db.session.execute(select(SecurityControl.verified_by).where(SecurityControl.control_code == "AUDIT_IMMUTABLE")).scalar() == admin.user_id
 
 
-def test_control_updates_are_super_admin_only(client, make_user, login):
+def test_control_updates_are_for_super_admin_and_founder_only(client, make_user, login):
     founder = make_user(roles=[("FOUNDER_CEO", None)])
     admin_headers = login(make_user().email)
     control = client.get("/api/v1/security-controls", headers=admin_headers).get_json()["data"][0]
 
-    response = client.patch(f"/api/v1/security-controls/{control['control_id']}", headers=login(founder.email), json={"notes": "x"})
+    manager = make_user(roles=[("BRANCH_MANAGER", 1)])
+    url = f"/api/v1/security-controls/{control['control_id']}"
 
-    assert response.status_code == 403
+    assert client.patch(url, headers=login(manager.email), json={"notes": "x"}).status_code == 403
+    assert client.patch(url, headers=login(founder.email), json={"notes": "x"}).status_code == 200  # the Founder can do what the Super Admin can
     assert client.get("/api/v1/security-controls/9999", headers=admin_headers).status_code == 404
 
 
