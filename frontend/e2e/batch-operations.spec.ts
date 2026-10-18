@@ -24,7 +24,7 @@ test("a coordinator sees state labels and the 7-point readiness record on a batc
   await expect(page.getByRole("tab", { name: "Requests" })).toBeVisible();
   await page.getByRole("tab", { name: "Checks" }).click();
   await expect(page.getByRole("heading", { name: "Checklist before confirming (7 points)" })).toBeVisible();
-  await expect(page.getByText("1. Course and curriculum version")).toBeVisible();
+  await expect(page.getByText("1. Course and outline")).toBeVisible();
   await expect(page.getByText(/^[1-7]\. /)).toHaveCount(7);
 
   // The Requests tab lists the batch's capacity, transfer, material-change and merge / split records

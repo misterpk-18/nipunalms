@@ -25,7 +25,7 @@ def test_staff_login_returns_token_and_the_exact_profile_shape(client, make_user
 
     assert response.status_code == 200
     assert set(data) == {"token", "expires_at", "user", "role", "workspace", "branch", "needs_branch", "branches", "scopes",
-                         "allowed_branches", "workspaces", "home_route", "student"}
+                         "allowed_branches", "can_change_branch", "workspaces", "home_route", "student"}
     assert data["role"] == {"role_code": "BRANCH_MANAGER", "role_name": "Branch Manager"}
     assert data["workspace"] == "branch" and data["needs_branch"] is False and data["branches"] == []
     assert data["branch"] == {"branch_id": 1, "branch_code": "NIT-GNT", "branch_name": "Guntur"}

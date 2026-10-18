@@ -50,6 +50,8 @@ STAFF = {
     "bm_vij": ("Branch Manager (VIJ)", "bm.vij", [("BRANCH_MANAGER", VIJ)]),
     # The Academic Coordinator role was merged into the Branch Manager (db/106): the former accounts exist only as deactivated
     # examples (see seed_former_coordinators); everything they once did in the seed is attributed to the Branch Managers.
+    # A Branch Manager of both branches: picks one at sign-in (decision 4); exercises the branch picker in e2e
+    "bm_multi": ("Branch Manager (both branches)", "bm.multi", [("BRANCH_MANAGER", GNT), ("BRANCH_MANAGER", VIJ)]),
     "trainer_g1": ("Trainer R. Sample", "trainer.g1", [(TRAINER_ROLE, GNT)]),
     "trainer_g2": ("Trainer M. Demo", "trainer.g2", [(TRAINER_ROLE, GNT)]),
     "trainer_g3": ("Trainer K. Sample", "trainer.g3", [(TRAINER_ROLE, GNT)]),

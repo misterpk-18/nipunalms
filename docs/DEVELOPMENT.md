@@ -98,12 +98,12 @@ databases and stop the two servers when done. Never use :5060 / :5174 (the owner
 `seed-dev` builds the prototype's sample world through the same code paths the CRM integration uses (`CourseUpserted`,
 `AdmissionQualified`, `FinanceSummaryUpdated` events):
 
-- 11 staff accounts.
+- 10 staff accounts, one role each (including `bm.multi@nipuna.test`, a Branch Manager of both branches for the branch picker), plus the two deactivated former Academic Coordinators.
 - The CRM's eight courses (codes, titles and categories as in the CRM, all single courses) plus the seed-only combo
   **NIT-CRS-900** (3 + 1: tracks T1–T3 and the Power BI booster NIT-CRS-019; the CRM has no combo yet).
-- Curriculum versions with modules and topics for every course except NIT-CRS-028 and NIT-CRS-052. NIT-CRS-052 has a
-  `CV 3.0` draft under review, so its enrolments are allocatable and its batch (NIT-GNT-BAT-2026-000003) has no curriculum until
-  that draft is activated.
+- A course outline (modules and topics on the course itself; there are no curriculum versions) for every course except
+  NIT-CRS-028 and NIT-CRS-052. NIT-CRS-052 has no outline yet, so its enrolments are allocatable and its batch
+  (NIT-GNT-BAT-2026-000003) shows "No course outline yet" until a Super Admin or Founder builds one on `/admin/courses`.
 - Five batches across both branches and class sessions for Sep–Oct 2026, with display names, type and pattern, verified
   capacity and recording provision; a sixth, the weekend Java batch NIT-GNT-BAT-2026-000004, is **Proposed** and waits for
   the Guntur Branch Manager's confirmation.
@@ -132,7 +132,10 @@ Created by `seed-dev` in `nipunalms-dev`. **Never use these in production.** Pas
 | Founder / CEO | `founder@nipuna.test` (company-wide) | |
 | Super Admin | `admin@nipuna.test` (company-wide) | |
 | Branch Manager | `bm.gnt@nipuna.test` | `bm.vij@nipuna.test` |
+| Branch Manager of both branches | `bm.multi@nipuna.test`: after sign-in it shows "Choose a branch" (Guntur or Vijayawada); the header then reads `Branch Manager · <branch>` and "Change branch" in the account menu returns to the picker | |
 | Trainer | `trainer.g1@nipuna.test` (Trainer R. Sample), `trainer.g2@nipuna.test` (Trainer M. Demo), `trainer.g3@nipuna.test` (Trainer K. Sample) | `trainer.v1@nipuna.test` (Trainer S. Example), `trainer.v2@nipuna.test` (Trainer P. Demo) |
+
+**One account per role** (role separation, db 118–119): a login carries exactly one role, and the database refuses a second active role on one user (trigger `check_one_role_per_user`). Every staging user above already holds a single role, so no staging user needed splitting. On a database that had multi-role users, `db/118` kept the highest role on the existing account and created `name.<role>@…` accounts for the rest; Users & access has the hand-out section that lists them and issues their one-time activation links. To test one person with two roles, create two accounts with different emails.
 
 The two former Academic Coordinator accounts (`coordinator.gnt@nipuna.test`, `coordinator.vij@nipuna.test`) exist only as **deactivated** examples: the role was merged into the Branch Manager (UX phase U2, db 106).
 
@@ -178,7 +181,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | Lint | `cd frontend && npm run lint` | |
 | End-to-end | `cd frontend && npx playwright test` (or `npm run e2e`) | Needs the API (dev DB) and Vite running; desktop + `@mobile` projects |
 
-E2E specs live in `frontend/e2e/` (one per area: `shell`, `sign-in`, `admin`, `admin-u17`, `delivery`, `batch-operations`, `content`, `assessments`,
+E2E specs live in `frontend/e2e/` (one per area: `shell` (one nav per account, cross-role denial, branch picker, Founder bell), `sign-in`, `admin`, `admin-u17`, `delivery`, `batch-operations`, `content`, `assessments`,
 `attendance`, `services`, `calendar`, `governance`, `student-u10`, `student-u11`, `trainer-u12`, `trainer-u13`, `branch-u14`, `branch-u15`,
 `founder-u16`, `dashboards-learning`, `dashboards-staff`, `staff-account`, and `sweep-u18`); `e2e/helpers.ts` has the staging users and
 `login()`. `sweep-u18` is the final sweep: it opens every link of every role's navigation at desktop and phone width, in light and
@@ -215,11 +218,11 @@ React SPA in `frontend/`, built to mirror **nipuna-crm/frontend**. The product i
 | Stack | Vite 8, React 19, TanStack Router (file routes, auto code splitting), TanStack Query, shadcn `new-york` + Radix, Tailwind 4, react-hook-form + zod, sonner toasts | Identical to the CRM; a change to one repo can be copied to the other |
 | Dev ports | SPA `:5174` (preview `:4174`), API `:5060` via Vite proxy `/api` (`VITE_API_TARGET` overrides) | CRM uses 5173 / 5050; both stacks can run side by side. No CORS |
 | Workspace from URL | `workspaceForPath(path)` — `/trainer*` trainer, `/branch*` branch, `/admin*` admin, `/founder*` founder, everything else student (except `/login`, `/activate`, `/change-password`; `/account/*` has no workspace of its own and is framed by the user's home workspace) | Same rule as the prototype |
-| Who may open a workspace | `profile.workspaces` from `/auth/me` (already expanded per role: Super Admin also holds branch, Founder also admin and branch); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
+| Who may open a workspace | `profile.workspaces` from `/auth/me` (exactly one workspace: the account's role; no role expands to another); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
 | Guard | Root route: public paths (`/login`, `/activate`) → anonymous → `/login?redirect=` → `must_change_password` → `/change-password` → workspace not permitted → **Permission Restricted** view (link home) → `/` redirects to `home_route`. Not a security boundary; every endpoint re-checks scope | Same as the CRM |
 | Static role label, no "Acting as" | Header shows a static `Role · Branch` label (Super Admin and Founder: `Role · All branches`). One account has one role (role separation); a Branch Manager with several branches picks the branch on the sign-in screen (`components/lms/branch-pick.tsx`, `POST /auth/branch`) and the branch is fixed on the session; the account menu has "Change branch" (`POST /auth/change-branch`, back to sign-in). Pages read `useAuth().branchId`; nav counts and the Getting started card take role and branch from the session | The "Acting as" switcher and the `localStorage` branch pick are removed (R4) |
 | Navigation | `NavItem` has `group` (heading in the sidebar and the More sheet) and `badgeKey` (the count shown from `GET /me/nav-counts`, polled every minute). The count is a visual badge plus a screen-reader description outside the link, so a link's name stays the page name. Trainer, Branch Manager, Super Admin and Founder navs are grouped; the student nav is Home · My Learning · Schedule · Tasks & Tests · Class Materials · My Progress · Certificates · Career · Ask Nipuna · Support (Fees & Receipts and Profile are tabs of **My Account**, opened from the avatar menu and the phone More sheet) | One place that says what waits for you |
-| Search | Ctrl/Cmd+K or the header search button opens `command-palette.tsx`: the pages of every workspace the user holds, plus `GET /search` records (students, batches, certificates) within scope. A record opens the list that holds it in the current workspace (record pages arrive with their screens) | Find a screen or a person without remembering where it is |
+| Search | Ctrl/Cmd+K or the header search button opens `command-palette.tsx`: the pages of the account's own workspace, plus `GET /search` records (students, batches, certificates) within scope. A record opens the list that holds it in the current workspace (record pages arrive with their screens) | Find a screen or a person without remembering where it is |
 | Getting started | `getting-started.tsx` on the Student, Trainer, Branch Manager and Super Admin homes, from `GET /me/getting-started`; hidden once every step is done; dismissal kept in `localStorage` | First-run guidance that ticks itself |
 | Session | Bearer token in memory + `sessionStorage` (`nipuna-lms-session`); `["me"]` query holds the profile; `FRESH_AUTH_REQUIRED` opens a password dialog and retries once | Same as the CRM |
 | Language | `en` / `te`, dictionary in `src/lib/i18n.ts`; choice stored per user in `localStorage` (`nipuna-lms-lang:<user_id>`), default `profile.student.preferred_language`; sets `<html lang>` (Telugu switches font and line height). Only student-workspace labels and the sign-in / activation screens are translated | Same scope as the prototype |
@@ -616,7 +619,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 |---|---|
 | Fees & Receipts fields | The screen shows fee, verified paid, balance and receipts per course and one instalment schedule per invoice, and the amount still being checked (`pending_verification`). `waived`, `refunded` and `payment_completion` are stored but not shown |
 | Staff profile details | `/account/profile` is read-only: no phone number (the API does not return one for staff), MFA shown as Not Configured, staff cannot edit their name or email |
-| Founder notifications | A few events are addressed to the Founder (a new curriculum to approve, a recommendation on an access extension, certificate requests), but the Founder has no bell: the Home inbox and the nav counts stand in (U16) |
+| Founder notifications | The Founder has a bell and `/founder/notifications` (role separation R6); the Home inbox and the nav counts remain the place to act |
 | Placement Team | Module 23 names a Placement Team role; there is none, so Branch Manager and Super Admin run career staff work. Employer-sharing per opportunity (individual consent references) and interview reminders are not built |
 | Support SLA | One `support_sla_hours` for all categories and priorities |
 | External channels | Email, quiet hours and delivery status for WhatsApp (Module 26) are not built; WhatsApp and email appear in preferences only when live |

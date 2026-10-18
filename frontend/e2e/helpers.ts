@@ -9,6 +9,8 @@ export const USERS = {
   admin: "admin@nipuna.test",
   bmGnt: "bm.gnt@nipuna.test",
   bmVij: "bm.vij@nipuna.test",
+  // a Branch Manager of both branches: picks one after sign-in (the staging seed adds this account)
+  bmMulti: "bm.multi@nipuna.test",
   // The Academic Coordinator role was merged into the Branch Manager (db 106): these keep the specs that used to sign in as one
   coordGnt: "bm.gnt@nipuna.test",
   coordVij: "bm.vij@nipuna.test",

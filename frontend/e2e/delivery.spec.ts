@@ -3,7 +3,7 @@ import { USERS, login } from "./helpers";
 
 /**
  * Delivery slice (S1) across roles: learner course navigation, batch creation and allocation, scheduling, the trainer's
- * class flow / reschedule request, and curriculum activation releasing waiting enrolments.
+ * class flow / reschedule request, and a Super Admin building a course outline.
  * Tests mutate data and run in order: they assume a freshly seeded staging database (create-dev-db --yes && seed-dev).
  */
 
@@ -128,7 +128,7 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   await page.goto("/branch/schedule?view=list");
   await page.getByRole("button", { name: "New class" }).click();
   await choose(dialog(page).getByLabel("Batch"), /Data Science/);
-  await expect(dialog(page).getByLabel("Curriculum topic")).not.toHaveValue(""); // the dialog fills itself in from the batch (and starts again once it has): wait for it before typing
+  await expect(dialog(page).getByLabel("Course topic")).not.toHaveValue(""); // the dialog fills itself in from the batch (and starts again once it has): wait for it before typing
   await dialog(page).getByLabel("Title *").fill("E2E live class");
   await dialog(page).getByLabel("Starts (IST) *").fill(istInput(15));
   await dialog(page).getByLabel("Ends (IST) *").fill(istInput(75));
@@ -139,7 +139,7 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   // A weekly series for a later day
   await page.getByRole("button", { name: "New class" }).click();
   await choose(dialog(page).getByLabel("Batch"), /Data Science/);
-  await expect(dialog(page).getByLabel("Curriculum topic")).not.toHaveValue(""); // the dialog fills itself in from the batch (and starts again once it has): wait for it before typing
+  await expect(dialog(page).getByLabel("Course topic")).not.toHaveValue(""); // the dialog fills itself in from the batch (and starts again once it has): wait for it before typing
   await dialog(page).getByLabel("Title *").fill("E2E weekly revision");
   await dialog(page)
     .getByLabel("Starts (IST) *")
@@ -190,25 +190,47 @@ test("coordinator approves the request; the session is rescheduled with history"
     .getByRole("listitem")
     .filter({ hasText: /PCA lab.*Lab clash with an exam/ });
   await request.getByRole("button", { name: "Approve", exact: true }).click();
+  // a class that starts within 24 hours needs an emergency reason and a next step for the students
+  for (const [label, text] of [
+    ["Emergency reason", "Lab clash with an exam"],
+    ["What happens next for the students", "Attend the new time"],
+  ] as const) {
+    const field = dialog(page).getByLabel(label);
+    if (await field.count()) await field.fill(text);
+  }
   await dialog(page).getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved. The class moved")).toBeVisible();
   await expect(page.getByRole("row", { name: /PCA lab/ }).first()).toContainText("Moved");
 });
 
-test("super admin approves and activates the curriculum; the batch and its students pick it up", async ({ page }) => {
+test("super admin builds the outline of a course that has none; the Branch Manager reads it, the student's course page stays", async ({ page }) => {
   await login(page, USERS.admin);
-  await page.goto("/branch/curriculum");
-  await expect(page.getByRole("heading", { level: 1, name: "Curriculum" })).toBeVisible();
-  const row = page.getByRole("row", { name: /NIT-CRS-052/ });
-  await expect(row).toContainText("No Active version yet");
-  await row.getByRole("button", { name: "Manage versions" }).click();
-  await page.getByRole("button", { name: /CV 3\.0 · Under Review/ }).click();
-  await expect(page.getByText("Django & REST APIs")).toBeVisible();
-  await page.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByRole("button", { name: /CV 3\.0 · Approved/ })).toBeVisible();
-  await page.getByRole("button", { name: "Activate" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Activate" }).click(); // activating asks first (U15)
-  await expect(page.getByRole("row", { name: /NIT-CRS-052/ })).toContainText("Have a curriculum");
+  await page.goto("/admin/courses");
+  await expect(page.getByRole("heading", { level: 1, name: "Courses" })).toBeVisible();
+  await page
+    .getByRole("link", { name: /Python Full Stack Developer/ })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { level: 1, name: /Python Full Stack Developer/ })).toBeVisible();
+  await page.getByRole("button", { name: "Add module" }).first().click();
+  await page.getByRole("dialog").getByLabel("Module title").fill("Django & REST APIs");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Add|Save|Create/ })
+    .last()
+    .click();
+  await expect(page.getByText("Django & REST APIs").first()).toBeVisible();
+
+  await page.evaluate(() => window.sessionStorage.clear());
+  await page.goto("/login");
+  await login(page, USERS.bmGnt);
+  await page.goto("/branch/courses");
+  await page
+    .getByRole("link", { name: /Python Full Stack Developer/ })
+    .first()
+    .click();
+  await expect(page.getByText("Django & REST APIs").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add module" })).toHaveCount(0);
 
   await page.evaluate(() => window.sessionStorage.clear());
   await page.goto("/login");

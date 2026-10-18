@@ -93,6 +93,7 @@ def test_a_branch_manager_with_two_branches_signs_in_then_picks_one(client, peop
     me = picked.get_json()["data"]
     assert picked.status_code == 200 and me["needs_branch"] is False and me["branch"]["branch_id"] == 2
     assert [b["branch_id"] for b in me["allowed_branches"]] == [2] and [s["branch_id"] for s in me["scopes"]] == [2]
+    assert me["can_change_branch"] is True
     assert client.get(f"{API}/auth/me", headers=headers).get_json()["data"]["branch"]["branch_id"] == 2
 
     # one pick per session

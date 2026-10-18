@@ -40,6 +40,8 @@ export type Profile = {
   /** A Branch Manager with several branches has signed in but not picked one: `branches` lists the choices and nothing else works. */
   needs_branch?: boolean;
   branches?: BranchRef[];
+  /** The account holds more than one branch, so the account menu offers "Change branch". */
+  can_change_branch?: boolean;
   scopes: RoleScope[];
   allowed_branches: BranchRef[];
   workspaces: Workspace[];

@@ -54,7 +54,7 @@ async function crawl(page: Page, paths: string[], opts: { phone?: boolean } = {}
     if (await page.getByText(/could not be loaded|Something went wrong/i).count()) problems.push(`${path}: shows an error card`);
     const text = await page.locator("main").innerText();
     // the Setup & health notes for the two Meet organizers are written by migrations 001 / 060 (history, not edited)
-    const hit = (path === "/admin/setup" ? text.replace(/Pending Verification/g, "") : text).match(LEFTOVER);
+    const hit = (path.endsWith("/setup") ? text.replace(/Pending Verification/g, "") : text).match(LEFTOVER);
     if (hit) problems.push(`${path}: leftover wording "${hit[0]}"`);
     if (opts.phone) {
       const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

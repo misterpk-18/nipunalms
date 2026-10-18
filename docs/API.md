@@ -254,13 +254,8 @@ Working days (`services/working_days.py`): a day counts when its ISO weekday is 
 default; Module 15 §9 assumes no weekend is closed) and no approved company holiday or closure at the branch covers it.
 
 **Rules:**
-- Submitting a version needs (Module 14 §5): every Required topic with an outcome, an instructional estimate, a weight and
-  evidence; verified hours; a completion profile; and, for a combo parent, a pinned version for every track and the booster.
-  A borrowed booster outline needs the component's equivalence review. A
-  batch never refuses a student over the version: the student follows the version of the batch they are allocated to,
-  and an academic mapping (with credit) is how a student on one version is credited when moving to another.
-- Curriculum versions are snapshots: modules and topics change only while the version is a Draft (database trigger);
-  an Active version is retired only when another takes over or with a reason. Approval by the submitter is refused.
+- There are no curriculum versions, drafts or approvals (dropped in db 121): the course owns its outline. Modules and topics
+  are edited by a Super Admin or Founder, apply at once, are audited and notify the affected Branch Managers (see `/courses/{id}/outline` above).
 - Allocation is the only path to a seat: the review returns per-check results, a blocked check cannot be overridden, a
   warning needs the acknowledgement; transfers and deallocations keep the allocation row (history) and free the seat. A
   student is told of every seat change.
@@ -513,7 +508,7 @@ for mini projects, 7 for final projects; Module 19 §8), from `services/review_c
 | GET / POST | `/placement-outcomes` | BM, Super Admin | Recorded as Pending Verification |
 | POST | `/placement-outcomes/{id}/verify` | BM, Super Admin | `{decision: Verified or Rejected, evidence_note}`; not by the recorder |
 | GET | `/placement-outcomes/summary` | BM, Super Admin | Verified outcomes and distinct students per type (reports read this) |
-| GET / PATCH | `/me/profile` | Signed in (PATCH: student) | Identity with masked mobile, devices, language. Staff get role, branch, devices, last sign-in |
+| GET / PATCH | `/me/profile` | Signed in (PATCH: student) | Identity with masked mobile, devices, language. Staff get their one scope (`scopes`), `allowed_branches`, devices, last sign-in; the session's `role` and `branch` come from `/auth/me` (§4.22) |
 | POST | `/me/email/request-code` | Student | `{email}`. Sends a 6-digit code to the student's WhatsApp number (template 1, the generic verification-code message). Answers `{sent, channel, expires_in_minutes, reason}`; `sent: false` says why nothing went out (WhatsApp switched off, no number on file). 422 for an address already in use or the same as now; 429 after 5 codes in an hour |
 | POST | `/me/email/confirm` | Student | `{code}`. The newest unused code of the last 10 minutes; only its hash is stored (it covers the address too), single use, burned after 5 wrong tries. On success `students.email` and `users.email` become the new address (audited) and the profile is returned |
 | POST | `/me/devices/sign-out-others` | Signed in | Revokes every other session |
@@ -694,7 +689,7 @@ Nothing here calls an external system.
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/me/nav-counts` | Signed in | The workspace comes from the session's role. The old `?workspace=` and `?branch_id=` are accepted and ignored (the Branch Manager's branch is the session's). Returns `{badgeKey: n}`, cheap counts only, polled every minute with the bell. The Founder gets the Super Admin's keys (`home`, `users`, `issues`, `calendar`, `crm_sync`, `student_accounts`, `setup`) plus the inbox keys (`inbox`, `curriculum`, `certificates`, `access`) |
+| GET | `/me/nav-counts` | Signed in | The workspace comes from the session's role. The old `?workspace=` and `?branch_id=` are accepted and ignored (the Branch Manager's branch is the session's). Returns `{badgeKey: n}`, cheap counts only, polled every minute with the bell. The Founder gets the Super Admin's keys (`home`, `users`, `issues`, `calendar`, `crm_sync`, `student_accounts`, `setup`) plus the inbox keys (`inbox`, `certificates`, `access`; the `curriculum` key is gone). The Super Admin gets the admin keys plus `approvals` (the same inbox count); a Branch Manager's keys include `content_review`, `questions`, `extensions` and `certificate_requests` |
 | GET | `/me/getting-started` | Signed in | Same rule. `{workspace, steps: [{key, label, done, to}], complete}`. The Founder gets the Super Admin's two steps (Add a staff user, Review setup and health) with `/founder/...` links. Whether the card was dismissed is kept in the browser, not here |
 | GET | `/search` | Signed in | `?q=` (two characters or more). `[{kind: student\|batch\|certificate, id, title, subtitle}]`, at most 5 per kind, within the caller's scope: Branch Manager their branches, trainer the batches they teach and the students in them, Super Admin / Founder everything, a student nothing. Pages are not searched here (the client lists the pages of the user's workspaces). A record outside scope is simply absent |
 
@@ -830,7 +825,7 @@ Everything here is Super Admin (the Founder reads where a GET is listed for both
 | GET | `/audit-log/export` | SA, Founder | The same filters as a CSV (newest first, at most 5,000 rows; cells that would run as a formula are guarded) |
 | POST | `/exceptions/{source}/{id}/assign` | SA | `{assignee_user_id, note?}`: hands an issue to an active staff member. It is a recovery step with `assigned_to`, so the owner, the owner filter and the counts follow; the person is told. Refused (422) for support requests, recordings and class disruptions that already have an owner set on their own screen. `GET /issues` rows add `can_assign`; recovery steps add `assigned_to` |
 
-`GET /me/nav-counts?workspace=admin` now returns `home` (the sum of the others), `users` (locked), `student_accounts`, `issues` (nobody owns), `calendar` (closures waiting), `crm_sync` (needs attention) and `setup` (broken items).
+`GET /me/nav-counts` (as a Super Admin; the `?workspace=` is ignored) returns `home` (the sum of the others), `users` (locked), `student_accounts`, `issues` (nobody owns), `calendar` (closures waiting), `crm_sync` (needs attention) and `setup` (broken items).
 
 ### 4.22 Role separation R3: the session role, branch pick and who may do what (`120`)
 
@@ -852,11 +847,12 @@ Everything here is Super Admin (the Founder reads where a GET is listed for both
   "branches": [],
   "scopes": [ {"scope_id": 1, "role_code": "BRANCH_MANAGER", "branch_id": 1, "...": "..."} ],
   "allowed_branches": [ {"branch_id": 1, "branch_code": "NIT-GNT", "branch_name": "Guntur"} ],
+  "can_change_branch": false,
   "student": null
 }
 ```
 
-`branch` is the Branch Manager's session branch (`null` for every other role and while a pick is pending). `workspaces` and `allowed_branches` stay for the frontend that still reads them: `workspaces` always has one element; `allowed_branches` is the session's branch (Branch Manager), the account's branch (Student, Trainer) or every active branch (Super Admin, Founder). `scopes` is the one scope of the session.
+`can_change_branch` is true for a Branch Manager whose account holds more than one branch (the account menu then offers Change branch). `branch` is the Branch Manager's session branch (`null` for every other role and while a pick is pending). `workspaces` and `allowed_branches` stay for the frontend that still reads them: `workspaces` always has one element; `allowed_branches` is the session's branch (Branch Manager), the account's branch (Student, Trainer) or every active branch (Super Admin, Founder). `scopes` is the one scope of the session.
 
 **Branch pick for a Branch Manager with several branches.**
 

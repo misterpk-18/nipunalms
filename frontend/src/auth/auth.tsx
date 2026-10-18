@@ -75,6 +75,7 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
         branch: rest.branch,
         needs_branch: rest.needs_branch,
         branches: rest.branches,
+        can_change_branch: rest.can_change_branch,
         scopes: rest.scopes,
         allowed_branches: rest.allowed_branches,
         workspaces: rest.workspaces,
@@ -103,7 +104,8 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
       signIn: async (login, password) => startSession(await authApi.login(login, password)),
       selectBranch: async (branchId) => {
         const picked = await authApi.selectBranch(branchId);
-        queryClient.clear();
+        // drop what was cached for the pending session, but keep the "me" query the shell observes
+        queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
         queryClient.setQueryData(["me"], picked);
         return picked;
       },

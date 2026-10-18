@@ -16,6 +16,7 @@ def _profile(profile: auth_service.Profile) -> dict:
         "branches": [b.to_summary() for b in profile.pick_branches],
         "scopes": [s.to_dict() for s in profile.scopes],
         "allowed_branches": [b.to_summary() for b in profile.branches],
+        "can_change_branch": profile.can_change_branch,
         "workspaces": profile.workspaces,
         "home_route": profile.home_route,
         "student": profile.student.to_profile() if profile.student else None,

@@ -223,22 +223,24 @@ test.describe("Super Admin", () => {
 });
 
 test.describe("boundaries", () => {
-  test("the Founder reads but cannot change; a Branch Manager cannot open the admin screens", async ({ page }) => {
+  test("the Founder has its own admin pages and cannot open /admin; a Branch Manager cannot open either", async ({ page }) => {
     await login(page, USERS.founder);
-    await page.goto("/admin/users");
+    await page.goto("/founder/users");
     await expect(page.getByRole("heading", { name: "Staff accounts" })).toBeVisible();
     await expect(page.getByRole("row", { name: /Super Admin/ }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add staff user" })).toHaveCount(0);
-    await page.goto("/admin/setup");
+    await page.goto("/founder/setup");
     await expect(page.locator('[data-setup="MEET_ORGANIZER_GNT"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Update / })).toHaveCount(0);
-    await page.goto("/admin/audit");
+    await page.goto("/founder/audit");
     await expect(page.getByRole("heading", { name: "Audit log", level: 1 })).toBeVisible();
+    await page.goto("/admin/users");
+    await expect(page.getByText(/cannot open this page/)).toBeVisible();
     await signOut(page);
 
     await login(page, USERS.bmGnt);
-    await page.goto("/admin/users");
-    await expect(page.getByText(/cannot open this workspace/)).toBeVisible();
+    for (const path of ["/admin/users", "/founder/users"]) {
+      await page.goto(path);
+      await expect(page.getByText(/cannot open this page/)).toBeVisible();
+    }
   });
 });
 

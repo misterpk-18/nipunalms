@@ -56,7 +56,11 @@ const badgeId = (area: string, item: NavItem) => `nav-count-${area}-${item.to.re
 
 /** The one-line "what is this for" under a label, for pages that could be mistaken for each other. */
 function ItemHint({ item }: { item: NavItem }) {
-  return item.hint ? <span className="block text-xs font-normal leading-snug text-muted-foreground">{item.hint}</span> : null;
+  return item.hint ? (
+    <span aria-hidden className="block text-xs font-normal leading-snug text-muted-foreground">
+      {item.hint}
+    </span>
+  ) : null;
 }
 
 /** Group heading above the first item of each group. */
@@ -70,7 +74,7 @@ function GroupHeading({ items, index }: { items: NavItem[]; index: number }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { profile, workspace, branchId, allowedBranches, signOut, changeBranch } = useAuth();
+  const { profile, workspace, branchId, signOut, changeBranch } = useAuth();
   const t = useT();
   const [moreOpen, setMoreOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -84,7 +88,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // A Branch Manager's branch is fixed for the session; Super Admin and Founder see every branch
   const branchLabel = profile?.branch?.branch_name ?? (workspace === "admin" || workspace === "founder" ? "All branches" : null);
   const headerLabel = branchLabel ? `${roleLabel} · ${branchLabel}` : roleLabel;
-  const canChangeBranch = workspace === "branch" && allowedBranches.length > 1;
+  const canChangeBranch = workspace === "branch" && Boolean(profile?.can_change_branch);
   const fullName = profile?.user.full_name ?? "";
   const bell = NOTIFICATIONS[workspace];
   const counts: NavCounts = useNavCounts().data ?? {};

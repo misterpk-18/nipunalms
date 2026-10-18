@@ -172,24 +172,24 @@ Frontend
 
 ## R8. Tests and docs
 
-- [ ] Rewrite `frontend/e2e/shell.spec.ts`: no switcher; one nav per account; cross-role denial; branch picker at sign-in; Founder bell
-- [ ] Add e2e: Founder opens `/founder/reports` with no 403
-- [ ] Add e2e: Branch Manager cannot decide a closure; Super Admin can
-- [ ] Seed data (`frontend/e2e/helpers.ts:7-17` and staging seed): one account per role for every existing staging user
-- [ ] Update `docs/UX_PLAN.md` (line 55 decision and U4 notes), `docs/DEVELOPMENT.md` (workspace and acting-as rows, nav-by-role table), `docs/API.md` (role table, nav-counts, `/me/profile`), `docs/DATABASE.md` (new migrations, dropped curriculum tables), `docs/GAPS.md`
-- [ ] Update `docs/CRM_INTEGRATION.md` if the CRM role assumptions change
+- [x] Rewrite `frontend/e2e/shell.spec.ts`: no switcher; one nav per account; cross-role denial; branch picker at sign-in; Founder bell (per role: sidebar equals `access.ts` and has no link into another role's home, no switcher; every role opening each other role's home sees "cannot open this page"; `bm.multi@nipuna.test` gets the picker, header `Branch Manager · Guntur`, Change branch ends the session and the next sign-in offers the picker again; Founder bell opens `/founder/notifications`))
+- [x] Add e2e: Founder opens `/founder/reports` with no 403 (`founder-u16.spec.ts`: no 4xx/5xx API response and no access-denied text))
+- [x] Add e2e: Branch Manager cannot decide a closure; Super Admin can (`calendar.spec.ts`: the Branch Manager proposes, sees "Waiting for a decision" and no Decide button, the API answers 403; the Super Admin decides it))
+- [x] Seed data (`frontend/e2e/helpers.ts:7-17` and staging seed): one account per role for every existing staging user (every existing staging user already holds one role (the seed never created multi-role users), so the change is one new account: `bm.multi@nipuna.test`, a Branch Manager of both branches (`backend/cli/seed.py`, accepted by the db 119 trigger); `USERS.bmMulti` in `helpers.ts`; `DEVELOPMENT.md` documents the accounts))
+- [x] Update `docs/UX_PLAN.md` (line 55 decision and U4 notes), `docs/DEVELOPMENT.md` (workspace and acting-as rows, nav-by-role table), `docs/API.md` (role table, nav-counts, `/me/profile`), `docs/DATABASE.md` (new migrations, dropped curriculum tables), `docs/GAPS.md` (UX_PLAN (superseded notes on the decision and U4), DEVELOPMENT (accounts, workspace row, search row, Founder bell row, seed text), API (curriculum rules removed, nav-counts, `/me/profile`, `can_change_branch`), DATABASE (118 to 121 were present; dropped-table notes added to the schema list), GAPS (both gaps verified present)))
+- [x] Update `docs/CRM_INTEGRATION.md` if the CRM role assumptions change (the outline section already said no CRM contract change; fixed the `CourseUpserted` row (no curriculum version needed; outline modules, not versions, block removing a track)))
 
 ## Final acceptance (walk each role through staging)
 
-- [ ] Student: sign in, see only student pages, finish a task from Home
-- [ ] Trainer: sign in, see only trainer pages, no Branch or Admin links anywhere
-- [ ] Branch Manager with two branches: picks a branch at sign-in, header shows `Branch Manager · <branch>`, no other branch's data appears, "Change branch" works
-- [ ] Super Admin: no Branch workspace, read-only cross-branch views, Approvals works, closures approved, courses editable, hand-out page works
-- [ ] Founder: everything above plus Founder-only approvals, bell works, reports load
-- [ ] A user who held two roles signs in with each account and sees only that role
-- [ ] No page anywhere changes shape depending on another role
-- [ ] Curriculum screens are gone; Courses pages exist for all five roles as specified
-- [ ] Backend and e2e suites green
+- [x] Student: sign in, see only student pages, finish a task from Home (`student-u10`, `student-u11`, `sweep-u18` (every student nav link, light and dark, phone width) and `shell.spec.ts` on a scratch database))
+- [x] Trainer: sign in, see only trainer pages, no Branch or Admin links anywhere (`shell.spec.ts` (sidebar has no Branch or Admin link; every other workspace is refused), `trainer-u12/u13`, `sweep-u18`))
+- [x] Branch Manager with two branches: picks a branch at sign-in, header shows `Branch Manager · <branch>`, no other branch's data appears, "Change branch" works (`shell.spec.ts` with `bm.multi@nipuna.test`: picker, header, Change branch. "No other branch's data" is covered by the backend tests (`test_session_role.py`), not by e2e))
+- [ ] Super Admin: no Branch workspace, read-only cross-branch views, Approvals works, closures approved, courses editable, hand-out page works (not ticked: no Branch workspace, Approvals (`governance`), closures (`calendar`), courses editable (`branch-u15`, `delivery`) are verified by e2e; the hand-out page has no e2e and was not exercised on the scratch stack, because the seed has no split accounts)
+- [ ] Founder: everything above plus Founder-only approvals, bell works, reports load (not ticked as a whole: bell, reports and Approvals are verified by e2e (`shell`, `founder-u16`, `governance`), but the Founder's hand-out page is not)
+- [x] A user who held two roles signs in with each account and sees only that role (the seed has no multi-role user; accounts are one-role by the db 119 trigger and `test_session_role.py` / `shell.spec.ts` show each role sees only its own pages. The db 118 split itself was checked on `nipunalms-dev` in R2))
+- [x] No page anywhere changes shape depending on another role (`sweep-u18` walks every nav link of all five roles and `shell.spec.ts` denies cross-role URLs; components take a config per role))
+- [x] Curriculum screens are gone; Courses pages exist for all five roles as specified (`shell.spec.ts` (old `/academic/curriculum` lands on Courses), `branch-u15` (Courses read-only for the Branch Manager, Super Admin adds a module), `delivery` (outline built on `/admin/courses`), `founder-u16` (no Curriculum nav link), `sweep-u18`))
+- [x] Backend and e2e suites green (backend 932 passed; e2e 195 passed, 0 failed, 13 skipped (mobile-only or data-conditional) on a clean scratch database, one spec file per fresh copy))
 
 ---
 

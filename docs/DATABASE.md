@@ -97,8 +97,8 @@ Vijayawada).
 |---|---|
 | `courses` | Mirror of the CRM Course Master (`CourseUpserted`): code, title, `is_combo`, status |
 | `course_components` | Combo tracks: `<combo>/T1`… (Main track) and the included booster, which keeps its own course code (e.g. NIT-CRS-019) |
-| `curriculum_versions` | Per course or per track: label, status Draft → Under Review → Approved → Active → Retired |
-| `curriculum_modules`, `curriculum_topics` | Ordered modules and topics; topics have `is_required` |
+| `curriculum_versions` | **Dropped in 121** (see below; the outline hangs off the course). Was: per course or per track, label, status Draft → Under Review → Approved → Active → Retired |
+| `curriculum_modules`, `curriculum_topics` | (Renamed `course_modules`, `course_topics` in 121.) Ordered modules and topics; topics have `is_required` |
 
 **Rules enforced:** only a combo has components (090 adds a trigger for the reverse direction); a track version must
 belong to its course; one Active version per course / track; labels unique per course / track.

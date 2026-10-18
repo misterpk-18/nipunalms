@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
-import { USERS, login } from "./helpers";
+import { expect, test, type Page } from "@playwright/test";
+import { PASSWORD, USERS, login } from "./helpers";
 
-/** Shell, per-role navigation and workspace guard (Phase 1b). Needs the API on :5060 with the staging users. */
+/** Shell, per-role navigation and workspace guard (role separation). One account per role; needs the API with the staging users. */
 
 const ROLES = [
   {
@@ -109,44 +109,74 @@ const ROLES = [
 ];
 
 for (const role of ROLES) {
-  test(`${role.name} lands on ${role.home}, sees its navigation and cannot open another workspace`, async ({ page }, info) => {
+  test(`${role.name} lands on ${role.home} and its sidebar is exactly its own navigation`, async ({ page }, info) => {
     test.skip(info.project.name === "mobile", "sidebar is desktop only");
     await login(page, role.user);
     await expect(page).toHaveURL(new RegExp(`${role.home}$`));
     const nav = page.getByRole("navigation", { name: "Main" });
     for (const item of role.nav) await expect(nav.getByRole("link", { name: item, exact: true }).first()).toBeVisible();
+    // one nav per account: no link into any other role's workspace, and no switcher
+    for (const other of ROLES.filter((r) => r.name !== role.name))
+      await expect(nav.locator(`a[href="${other.home}"]`), `${role.name} has no link to ${other.home}`).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Acting as" })).toHaveCount(0);
+  });
 
-    await page.goto(role.other);
-    await expect(page.getByText(/cannot open this workspace/)).toBeVisible();
+  test(`${role.name} is refused every other role's pages`, async ({ page }, info) => {
+    test.skip(info.project.name === "mobile", "desktop flow");
+    await login(page, role.user);
+    for (const other of ROLES.filter((r) => r.name !== role.name)) {
+      await page.goto(other.home);
+      await expect(page.getByText(/cannot open this page/), `${role.name} opening ${other.home}`).toBeVisible();
+    }
     await page.getByRole("link", { name: "Go to your home" }).click();
     await expect(page).toHaveURL(new RegExp(`${role.home}$`));
   });
 }
 
-test("only users with several workspaces get the Acting as switcher", async ({ page }, info) => {
+/** Sign in without waiting to leave /login: a Branch Manager of several branches stays on it for the branch picker. */
+async function signInOnly(page: Page, loginId: string) {
+  if (!new URL(page.url()).pathname.startsWith("/login")) await page.goto("/login");
+  await page.getByLabel("Student ID or email", { exact: true }).fill(loginId);
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+test("a Branch Manager of two branches picks one at sign-in, works in it, and can change it", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "header layout is checked on desktop");
-  await login(page, USERS.trainerG1);
-  await expect(page.getByRole("button", { name: "Acting as" })).toHaveCount(0);
+  // signing in stays on /login: the second step of sign-in is the branch picker
+  await signInOnly(page, USERS.bmMulti);
+  await expect(page.getByRole("heading", { name: "Choose a branch" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "My work", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: /Guntur/ }).click();
+  await expect(page).toHaveURL(/\/branch$/);
+  await expect(page.getByTestId("role-label")).toHaveText("Branch Manager · Guntur");
+
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Change branch" }).click();
+  // the session ends; signing in again offers the picker
+  await expect(page).toHaveURL(/\/login/);
+  await signInOnly(page, USERS.bmMulti);
+  await expect(page.getByRole("heading", { name: "Choose a branch" })).toBeVisible();
+  await page.getByRole("button", { name: /Vijayawada/ }).click();
+  await expect(page).toHaveURL(/\/branch$/);
+  await expect(page.getByTestId("role-label")).toHaveText("Branch Manager · Vijayawada");
+
+  // a Branch Manager of one branch has no picker and no Change branch
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/);
-
-  await login(page, USERS.admin);
-  const switcher = page.getByRole("button", { name: "Acting as" });
-  await expect(switcher).toBeVisible();
-  await switcher.click();
-  await expect(page.getByRole("menuitem", { name: /Branch Manager/ })).toContainText("Run a branch");
-  await page.getByRole("menuitem", { name: /Branch Manager/ }).click();
+  await login(page, USERS.bmGnt);
   await expect(page).toHaveURL(/\/branch$/);
-  await expect(page.getByRole("button", { name: "Acting as" })).toContainText("Branch Manager");
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await expect(page.getByRole("menuitem", { name: "Change branch" })).toHaveCount(0);
+});
 
-  // a person who may see several branches picks one; the pill says which
-  await page.getByRole("button", { name: "Acting as" }).click();
-  await page.getByRole("menuitem", { name: "Guntur" }).click();
-  await expect(page.getByRole("button", { name: "Acting as" })).toContainText("Guntur");
-  await page.getByRole("button", { name: "Acting as" }).click();
-  await page.getByRole("menuitem", { name: "All branches" }).click();
-  await expect(page.getByRole("button", { name: "Acting as" })).not.toContainText("Guntur");
+test("the Founder's bell opens the Founder notifications page", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "header layout is checked on desktop");
+  await login(page, USERS.founder);
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+  await page.getByRole("link", { name: "Open inbox" }).click();
+  await expect(page).toHaveURL(/\/founder\/notifications$/);
 });
 
 test("navigation items show how many things wait there, without changing the link name", async ({ page }, info) => {
@@ -163,12 +193,12 @@ test("Ctrl+K finds pages and records the person may open", async ({ page }, info
   await page.keyboard.press("Control+k");
   const search = page.getByRole("dialog").getByLabel("Search");
   await expect(search).toBeFocused();
-  await search.fill("curric");
+  await search.fill("courses");
   await page
-    .getByRole("option", { name: /Curriculum/ })
+    .getByRole("option", { name: /Courses/ })
     .first()
     .click();
-  await expect(page).toHaveURL(/\/branch\/curriculum$/);
+  await expect(page).toHaveURL(/\/branch\/courses$/);
 
   await page.getByRole("button", { name: "Search" }).click();
   await page.getByRole("dialog").getByLabel("Search").fill("Sample");
@@ -237,7 +267,7 @@ test("old /academic links land on the matching Branch Manager screen", async ({ 
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.bmGnt);
   await page.goto("/academic/curriculum");
-  await expect(page).toHaveURL(/\/branch\/curriculum$/);
+  await expect(page).toHaveURL(/\/branch\/courses$/);
   await page.goto("/academic/reports");
   await expect(page).toHaveURL(/\/branch\/reports$/);
   await page.goto("/academic");

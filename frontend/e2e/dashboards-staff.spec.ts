@@ -118,17 +118,18 @@ test.describe("Super Admin home and issues", () => {
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Issues", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Issues", level: 1 })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Assign / }).first()).toBeVisible();
-    await expect(page.getByText("Guntur").first()).toBeVisible();
-    await expect(page.getByText("Vijayawada").first()).toBeVisible();
+    const list = page.getByRole("list", { name: "Issues" });
+    await expect(list.getByRole("listitem").filter({ hasText: "Guntur" }).first()).toBeVisible();
+    await expect(list.getByRole("listitem").filter({ hasText: "Vijayawada" }).first()).toBeVisible();
   });
 
-  test("the Founder reads the issues but cannot assign or log notes", async ({ page }) => {
+  test("the Founder works the issues in its own workspace and is kept out of /admin", async ({ page }) => {
     await login(page, USERS.founder);
-    await page.goto("/admin/exceptions");
-    await expect(page).toHaveURL(/\/admin\/issues/);
+    await page.goto("/founder/issues");
     await expect(page.getByRole("heading", { name: "Issues", level: 1 })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Assign / })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Add note" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Assign / }).first()).toBeVisible();
+    await page.goto("/admin/issues");
+    await expect(page.getByText(/cannot open this page/)).toBeVisible();
   });
 });
 
@@ -171,7 +172,7 @@ test.describe("@mobile staff dashboards", () => {
     await login(page, USERS.founder);
     await expect(page.getByRole("heading", { name: "Founder / CEO home" })).toBeVisible();
     await noHorizontalScroll(page);
-    await page.goto("/admin/issues");
+    await page.goto("/founder/issues");
     await expect(page.getByRole("heading", { name: "Issues", level: 1 })).toBeVisible();
     await noHorizontalScroll(page);
   });

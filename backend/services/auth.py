@@ -63,6 +63,7 @@ class Profile:
     branch: Branch | None  # a Branch Manager's branch for this session
     needs_branch: bool
     pick_branches: list[Branch]  # what a Branch Manager with several branches chooses from (empty once chosen)
+    can_change_branch: bool = False  # a Branch Manager whose account holds more than one branch
 
 
 # ---------------------------------------------------------------- per-request authentication
@@ -233,6 +234,7 @@ def profile(current: CurrentUser | None = None) -> Profile:
         branch=branches_repo.get_by_id(current.active_branch_id) if current.active_branch_id else None,
         needs_branch=current.needs_branch,
         pick_branches=pick,
+        can_change_branch=current.role_code == "BRANCH_MANAGER" and len({s.branch_id for s in held if s.role.role_code == "BRANCH_MANAGER"}) > 1,
     )
 
 

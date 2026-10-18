@@ -83,7 +83,8 @@ test("My work leads the Branch home, with a button on every row and the new navi
   const nav = page.getByRole("navigation", { name: "Main" });
   for (const item of ["My work", "Class day", "Batches", "Waiting for a batch", "Schedule & calendar", "Attendance & progress"])
     await expect(nav.getByRole("link", { name: item, exact: true })).toBeVisible();
-  for (const gone of ["Meet Operations", "Batches, Schedule & People", "Dashboard"]) await expect(nav.getByRole("link", { name: gone, exact: true })).toHaveCount(0);
+  for (const gone of ["Meet Operations", "Batches, Schedule & People", "Dashboard"])
+    await expect(nav.getByRole("link", { name: gone, exact: true })).toHaveCount(0);
 
   await list.getByRole("link", { name: "Allocate" }).click();
   await expect(page).toHaveURL(/\/branch\/waiting$/);
@@ -101,14 +102,13 @@ test("old routes land on the new screens", async ({ page }, info) => {
   await expect(page).toHaveURL(/\/branch\/class-day$/);
 });
 
-test("a multi-branch person picks the branch on My work", async ({ page }, info) => {
+test("a Branch Manager works in one branch: My work has no branch picker", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
-  await login(page, USERS.admin);
+  await login(page, USERS.bmGnt);
   await page.goto("/branch");
   await expect(page.getByRole("heading", { level: 1, name: "My work" })).toBeVisible();
-  await page.getByLabel("Branch", { exact: true }).selectOption({ label: "Vijayawada" });
-  await expect(page.getByText("Vijayawada · what needs you today")).toBeVisible();
-  await page.getByLabel("Branch", { exact: true }).selectOption({ label: "All branches" });
+  await expect(page.getByLabel("Branch", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("role-label")).toHaveText("Branch Manager · Guntur");
 });
 
 test("the new batch wizard asks for Course, then Mode, dates and timetable, then Trainer, and opens the batch page", async ({ page, request }, info) => {
@@ -376,13 +376,12 @@ test("the Meet checks moved to the Super Admin's integration screen", async ({ p
 test("the Branch Manager sets how students pay at the branch", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.bmGnt);
-  await page.getByRole("button", { name: "How students pay fees" }).click();
-  await page.getByLabel("Payment instructions").fill(PAYMENT);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Payment instructions", exact: true }).click();
+  await page.getByLabel("Payment instructions", { exact: true }).fill(PAYMENT);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "How students pay fees" }).click();
-  await expect(page.getByLabel("Payment instructions")).toHaveValue(PAYMENT);
+  await expect(page.getByLabel("Payment instructions", { exact: true })).toHaveValue(PAYMENT);
 });
 
 test("@mobile Branch screens fit the phone", async ({ page, request }, info) => {

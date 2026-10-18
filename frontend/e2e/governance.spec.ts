@@ -2,19 +2,20 @@ import { expect, test } from "@playwright/test";
 import { USERS, login } from "./helpers";
 
 /**
- * Governance (gap fix plan phase 3): the Founder / CEO approves curriculum and decides certificate requests; a correction is
+ * Governance (gap fix plan phase 3): the Founder / CEO decides certificate requests (there is no curriculum approval any more); a correction is
  * requested by the Branch Manager and decided by the Super Admin; the Super Admin can switch AI off.
  * Mutates data: run against a freshly seeded staging database, after attendance.spec.ts.
  */
 
 test.describe.configure({ mode: "serial" });
 
-test("the founder has curriculum approvals and certificate decisions", async ({ page }, info) => {
+test("the founder has one Approvals inbox, and its certificate decisions page", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.founder);
-  await page.getByRole("link", { name: "Curriculum approvals", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Curriculum approvals" })).toBeVisible();
-  await page.getByRole("link", { name: "Certificate decisions", exact: true }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Approvals", exact: true }).click();
+  await expect(page).toHaveURL(/\/founder\/approvals/);
+  await expect(page.getByRole("heading", { level: 1, name: "Approvals" })).toBeVisible();
+  await page.goto("/founder/certificates");
   await expect(page.getByRole("heading", { name: "Certificate decisions" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Waiting for you" })).toBeVisible();
 });
@@ -39,15 +40,22 @@ test("a branch manager's correction request is approved by the super admin", asy
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await login(page, USERS.admin);
-  await page.goto("/branch/completion");
-  await page.getByRole("button", { name: /Requests and fee releases/ }).click();
-  const request = page
-    .getByRole("row")
-    .filter({ has: page.getByRole("button", { name: "Decide" }) })
-    .first();
-  await request.getByRole("button", { name: "Decide" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Record decision" }).click();
-  await expect(page.getByText("Correction approved.")).toBeVisible();
+  await page.goto("/admin/approvals");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: /Correction to certificate NIT-CERT-2026-000001/ })
+    .getByRole("link", { name: "Review" })
+    .click();
+  await page.getByRole("dialog").getByTestId("decision-bar").getByRole("button", { name: "Approve" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /Approve/ })
+    .click();
+  await expect(page.getByText("Correction approved")).toBeVisible();
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await login(page, USERS.bmGnt);
   await page.goto("/branch/completion?stage=issued");
   await expect(page.getByRole("listitem").filter({ hasText: "NIT-CERT-2026-000001" })).toContainText("version");
 });
