@@ -93,6 +93,19 @@ DEV_DATABASE_URL=postgresql+psycopg://<you>@localhost:5432/nipunalms_sweep-dev .
 The `WHATSAPP_*` overrides keep the temporary API from sending anything to the real test number. `e2e/handouts.spec.ts` inserts a split-account row with `psql`, so run it with `E2E_DB_NAME=nipunalms_sweep-dev` (it skips without it). Drop both scratch
 databases and stop the two servers when done. Never use :5060 / :5174 (the owner's servers).
 
+### Batches for the CRM's own students
+
+`seed-dev` batches are `seed_data` and stay out of the CRM pull. When `nipunalms-dev` instead holds what the CRM sent
+(`flask lms backfill` on the CRM side), give those students real batches with:
+
+```bash
+APP_ENV=development ../venv/bin/flask --app app seed-crm-batches
+```
+
+One confirmed, Ready Classroom batch per course and branch with students waiting (timetable, location, lead trainer),
+plus `bm.<branch>` and `trainer.<branch>` logins (`Nipuna-staging-1`) when missing. It allocates nobody; a Branch
+Manager does that on the "Waiting for a batch" screen. Running it again only adds what is missing. `*-dev` only.
+
 ### 4. Staging data
 
 `seed-dev` builds the prototype's sample world through the same code paths the CRM integration uses (`CourseUpserted`,
@@ -168,7 +181,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-admin` | First Super Admin on a fresh database |
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
-| `jobs list`, `jobs run [name]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally nothing runs them on a schedule |
+| `jobs list`, `jobs run [name] [--loop]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally, `jobs run --loop` (every 60 s, `--interval` to change) stands in for cron |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 
 ### 6. Testing
@@ -543,7 +556,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Sign-in | One login form, self-service reset code (WhatsApp; no email fallback yet), activation and staff invite links that sign the person in (UX phase U7, API.md §4.14). Templates 1–3 are queued like 4–9 and also stay off until the CRM endpoint exists |
 | WhatsApp | Built and switched off (UX phase U6): messages are queued in `whatsapp_outbox` and handed to the CRM's `POST /lms/whatsapp`, which does not exist yet; needs `CRM_BASE_URL`, `whatsapp_enabled` and approved templates (API.md §4.13) |
 | Email / telephony | None; in-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server, but nothing runs them locally. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server; locally `flask jobs run --loop` does. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 

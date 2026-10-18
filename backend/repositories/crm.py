@@ -5,7 +5,7 @@ pull query takes an optional PullScope: the records of one CRM admission or pers
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select
 
 from config.database import db
 from models import (
@@ -69,10 +69,12 @@ def pull_as_of() -> datetime:
 
 
 def students_provisioned_since(since: datetime, scope: PullScope | None = None) -> list[Student]:
-    stmt = select(Student).where(Student.provisioned_at > since, Student.seed_data.is_(False))
+    """Students created (provisioned) or activated after `since`."""
+    changed = func.greatest(Student.provisioned_at, Student.activated_at)
+    stmt = select(Student).where(or_(Student.provisioned_at > since, Student.activated_at > since), Student.seed_data.is_(False))
     if scope is not None:
         stmt = stmt.where(Student.student_id.in_(scope.student_ids))
-    return list(db.session.execute(stmt.order_by(Student.provisioned_at, Student.student_id)).scalars())
+    return list(db.session.execute(stmt.order_by(changed, Student.student_id)).scalars())
 
 
 def _admission_states(since_column, since: datetime, scope: PullScope | None) -> list[AdmissionLmsState]:

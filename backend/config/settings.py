@@ -60,6 +60,7 @@ class TestingConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = os.getenv("TEST_DATABASE_URL") or _derive_test_database_url(os.getenv("DATABASE_URL"))
     LOG_LEVEL = "WARNING"
     CRM_SERVICE_KEY = "test-crm-service-key"
+    CRM_BASE_URL = None  # tests never hand WhatsApp to a real CRM; a test that needs it sets it
     UPLOAD_DIR = Path(os.getenv("TEST_UPLOAD_DIR", "/tmp/nipunalms-test-uploads"))
     ANTHROPIC_API_KEY = None  # tests never call the real API
 

@@ -25,6 +25,8 @@ class Student(db.Model):
     crm_person_code: Mapped[str | None] = mapped_column(String(30))  # the CRM's readable code, display only
     lms_user_id: Mapped[str] = mapped_column(String(100), unique=True, server_default=FetchedValue())  # trigger
     provisioned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=FetchedValue(),
+                                                          server_onupdate=FetchedValue())  # trigger, db 122
     full_name: Mapped[str] = mapped_column(String(150))
     name_te: Mapped[str | None] = mapped_column(String(200))
     email: Mapped[str | None] = mapped_column(String(255))
@@ -63,6 +65,7 @@ class Student(db.Model):
             "crm_person_code": self.crm_person_code,
             "lms_user_id": self.lms_user_id,
             "provisioned_at": self.provisioned_at,
+            "activated_at": self.activated_at,
             "email": self.email,
             "mobile": self.mobile,
             "original_branch": self.original_branch.to_summary(),

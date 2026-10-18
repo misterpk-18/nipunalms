@@ -139,6 +139,7 @@ the transport. Rows written by the dev seed
 | CRM column | LMS source | Pull key / outbox event |
 |---|---|---|
 | `persons.lms_user_id`, `lms_provisioned_at` | Student ID (`students.student_code`, e.g. `NIT-STU-2026-004182`; stable, never reused), time the login was first created | `persons[]` / `LmsAccountProvisioned` |
+| `persons.lms_activated_at` | When the student first set their own password (activation link used); null until then. The CRM's `nipuna_lms_account_activated_u_v1` waits for this, not for `lms_provisioned_at`, when the LMS sends the activation link (db 122) | `persons[]` |
 | `admissions.lms_status`, `lms_last_activity_at`, `lms_last_synced_at` | `lms_status` (below); latest `activity_events.occurred_at` for the admission's enrolments; pull time | `admissions[]` / `AdmissionLmsStatusChanged` |
 | `admissions.enrolment_status` | LMS enrolment status → Awaiting Batch Allocation / Scheduled / In Progress / Paused / Completed / Cancelled | `academics[]` / `AdmissionAcademicsChanged` |
 | `batch_allocations` (batch, status, `joining_date`, `ended_at`, `end_reason`) | `allocations[]` = `{course_code, track_code, lms_course_id, crm_batch_id, status (Active / Moved / Withdrawn / Completed), joining_date, allocated_on, ended_on, end_reason}`. A combo has one per track: `track_code` is the LMS track (`null` for a single course), `course_code` its component course or the combo's own code, and `lms_course_id` a batch of the combo course | same |

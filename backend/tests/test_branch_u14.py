@@ -39,9 +39,10 @@ def test_my_work_lists_what_waits_in_the_decided_order(world, client, login, mak
                        headers=login(student.student_code))
     assert sent.status_code == 201, sent.get_json()
     run_sql("UPDATE support_requests SET sla_due_at = now() - interval '1 hour'")
-    soon = datetime.now(IST).replace(microsecond=0) + timedelta(hours=2)
-    if soon.date() != datetime.now(IST).date():
-        soon = soon.replace(hour=23, minute=0) - timedelta(minutes=1)
+    now = datetime.now(IST).replace(microsecond=0)
+    soon = now + timedelta(hours=2)
+    if soon.date() != now.date():  # late evening: keep the class on today's date
+        soon = now.replace(hour=23, minute=59, second=0)
     make_session(batch, people["g1"], soon, hours=1, mode="Live Online", meet_status="Pending Verification", title="Online today")
 
     keys = [r["key"] for r in get(client, login, people["ac"], "/branch/my-work")["rows"]]

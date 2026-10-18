@@ -216,15 +216,33 @@ def test_status_endpoint_returns_what_changed_since(client, catalog, crm_event, 
 
     data = client.get(STATUS, headers=HEADERS, query_string={"since": before}).get_json()["data"]
 
-    assert data["persons"] == [{"crm_person_id": "CRM-P-5", "lms_user_id": student.student_code,
-                                "lms_provisioned_at": data["persons"][0]["lms_provisioned_at"]}]
-    assert data["persons"][0]["lms_provisioned_at"]
+    (person,) = data["persons"]
+    assert person == {"crm_person_id": "CRM-P-5", "lms_user_id": student.student_code,
+                      "lms_provisioned_at": person["lms_provisioned_at"], "lms_activated_at": person["lms_activated_at"]}
+    assert person["lms_provisioned_at"] and person["lms_activated_at"]
     (admission,) = data["admissions"]
     assert admission["crm_admission_id"] == "CRM-A-5" and admission["lms_status"] == "Active"
     assert admission["lms_last_activity_at"] is None and admission["lms_last_synced_at"]
     (batch,) = [b for b in data["batches"] if b["crm_batch_id"] == "CRM-B-5"]
     assert batch["lms_course_id"] == db.session.execute(select(Batch.batch_code).where(Batch.crm_batch_id == "CRM-B-5")).scalar_one()
     assert batch["course_code"] and batch["branch_code"] and batch["status"] in ("Planned", "Open", "In Progress")
+
+
+def test_status_endpoint_reports_the_activation_separately_from_the_provisioning(client, catalog, make_student, run_sql):
+    student = make_student(person_id="CRM-P-7", admission_id="CRM-A-7", activate=False)
+    before = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    (person,) = client.get(STATUS, headers=HEADERS, query_string={"since": before}).get_json()["data"]["persons"]
+    assert person["lms_provisioned_at"] and person["lms_activated_at"] is None  # login created, link sent, not activated
+
+    # Provisioned long ago: only the activation brings the person back into the pull
+    run_sql("UPDATE students SET provisioned_at = now() - interval '1 hour'")
+    since = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    assert client.get(STATUS, headers=HEADERS, query_string={"since": since}).get_json()["data"]["persons"] == []
+    assert client.post("/api/v1/auth/activate", json={"token": student.token, "password": "My-own-passw0rd"}).status_code == 200
+
+    (person,) = client.get(STATUS, headers=HEADERS, query_string={"since": since}).get_json()["data"]["persons"]
+    assert person["crm_person_id"] == "CRM-P-7" and person["lms_activated_at"]
+    assert person["lms_activated_at"] > person["lms_provisioned_at"]
 
 
 def test_status_endpoint_is_empty_when_nothing_changed_and_reports_new_activity(client, catalog, make_student, run_sql):

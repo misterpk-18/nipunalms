@@ -107,7 +107,7 @@ belong to its course; one Active version per course / track; labels unique per c
 
 | Table | Purpose |
 |---|---|
-| `students` | Student Master, one per CRM Person (`crm_person_id` unique); `student_code` = `lms_user_id`; optional email; mobile never unique; original / service branch; language; activation status; `provisioned_at` |
+| `students` | Student Master, one per CRM Person (`crm_person_id` unique); `student_code` = `lms_user_id`; optional email; mobile never unique; original / service branch; language; activation status; `provisioned_at`; `activated_at` (first activation, set by trigger, db 122) |
 | `student_activations` | Single-use activation tokens (hash, expiry, used, channel); one outstanding token per student |
 | `admissions` | CRM projection: `crm_admission_id` unique, `admission_code`, **one course**, original / service / collecting branch, `source_version` |
 | `enrolments` | Paid standalone, separately purchased, combo, complimentary; status from *Provisioning Pending* to *Completed*; joining date; access window; certificate status |

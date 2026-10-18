@@ -707,8 +707,8 @@ HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
 
 def status_since(since: datetime, crm_admission_id: str | None = None, crm_person_id: str | None = None) -> dict:
     """The values the CRM stores about the LMS that changed after `since` (see docs/CRM_INTEGRATION.md):
-    persons.lms_user_id / lms_provisioned_at; admissions.lms_status / lms_last_activity_at; the academic columns
-    the LMS now owns (enrolment_status, allocations and joining date, completion); batches; certificates from the
+    persons.lms_user_id / lms_provisioned_at / lms_activated_at; admissions.lms_status / lms_last_activity_at; the academic
+    columns the LMS now owns (enrolment_status, allocations and joining date, completion); batches; certificates from the
     LMS Certificate Register. Curriculum stays in the LMS: the CRM no longer holds it (db 104).
 
     `as_of` is read before the rows, so storing it as the next `since` can repeat a row but never skip one. There is
@@ -719,7 +719,8 @@ def status_since(since: datetime, crm_admission_id: str | None = None, crm_perso
     filters = {k: v for k, v in (("crm_admission_id", crm_admission_id), ("crm_person_id", crm_person_id)) if v is not None}
     scope = crm_repo.pull_scope(crm_admission_id, crm_person_id) if filters else None
     body = {
-        "persons": [{"crm_person_id": s.crm_person_id, "lms_user_id": s.lms_user_id, "lms_provisioned_at": s.provisioned_at}
+        "persons": [{"crm_person_id": s.crm_person_id, "lms_user_id": s.lms_user_id, "lms_provisioned_at": s.provisioned_at,
+                 "lms_activated_at": s.activated_at}
                     for s in crm_repo.students_provisioned_since(since, scope)],
         "admissions": [{"crm_admission_id": st.admission.crm_admission_id, "lms_status": st.lms_status,
                         "lms_last_activity_at": st.last_activity_at, "lms_last_synced_at": now}

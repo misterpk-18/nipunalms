@@ -1,4 +1,6 @@
-"""flask --app app jobs run [NAME ...]: run background jobs (all by default). Schedule with cron, e.g. every 30 minutes."""
+"""flask --app app jobs run [NAME ...]: run background jobs (all by default). Schedule with cron, e.g. every 30 minutes.
+Locally, `jobs run --loop` stands in for cron."""
+import time
 from datetime import datetime, timezone
 
 import click
@@ -20,13 +22,28 @@ def list_jobs() -> None:
 
 @jobs_cli.command("run")
 @click.argument("names", nargs=-1)
-def run_jobs(names: tuple[str, ...]) -> None:
+@click.option("--loop", is_flag=True, help="Keep running until stopped (Ctrl+C), in place of cron for local use.")
+@click.option("--interval", default=60, show_default=True, help="Seconds between runs with --loop.")
+def run_jobs(names: tuple[str, ...], loop: bool, interval: int) -> None:
     """Run the named jobs (or all). Each job commits on its own, so one failure doesn't undo the others."""
     unknown = set(names) - set(JOBS)
     if unknown:
         raise click.BadParameter(f"Unknown job(s): {', '.join(sorted(unknown))}. See `flask jobs list`.")
+    if not loop:
+        if _run_once(names or tuple(JOBS)):
+            raise SystemExit(1)
+        return
+    while True:  # a failed job is logged and retried on the next run, like cron would
+        click.echo(f"-- {datetime.now().astimezone():%Y-%m-%d %H:%M:%S}")
+        _run_once(names or tuple(JOBS))
+        db.session.remove()
+        time.sleep(interval)
+
+
+def _run_once(names: tuple[str, ...]) -> bool:
+    """Run each job once; True when any of them failed."""
     failed = False
-    for name in names or JOBS:
+    for name in names:
         started = datetime.now(timezone.utc)
         try:
             result = JOBS[name]()
@@ -39,8 +56,7 @@ def run_jobs(names: tuple[str, ...]) -> None:
             _record_run(name, started, error=str(exc)[:2000])
             db.session.commit()
             click.echo(f"{name}: FAILED ({exc})", err=True)
-    if failed:
-        raise SystemExit(1)
+    return failed
 
 
 def _record_run(name: str, started: datetime, *, result: str | None = None, error: str | None = None) -> None:
