@@ -39,7 +39,7 @@ function Row({ item, canEdit, onEdit }: { item: SetupItem; canEdit: boolean; onE
   );
 }
 
-/** Branches: how students pay at each one. Branch Managers set their own branch's text too; here any branch can be set. */
+/** Branches: how students pay at each one. Only the Super Admin and Founder edit it; the Branch Manager sees it read-only. */
 function BranchesSection() {
   const branches = useBranchOptions();
   return (

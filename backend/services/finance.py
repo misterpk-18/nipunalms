@@ -189,7 +189,7 @@ def get_payment_instructions(branch_id: int) -> Branch:
 
 
 def set_payment_instructions(branch_id: int, instructions: str | None) -> Branch:
-    """How and where students pay at this branch. A Branch Manager sets it for their own branches; a Super Admin for any."""
+    """How and where students pay at this branch. Only the Super Admin and Founder set it (the route enforces that); a Branch Manager reads their own branch's text."""
     branch = get_payment_instructions(branch_id)
     old = branch.payment_instructions
     branch.payment_instructions = instructions or None

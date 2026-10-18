@@ -90,7 +90,7 @@ DEV_DATABASE_URL=postgresql+psycopg://<you>@localhost:5432/nipunalms_sweep-dev .
 # E2E_BASE_URL=http://localhost:5175 npx playwright test e2e/<spec>
 ```
 
-The `WHATSAPP_*` overrides keep the temporary API from sending anything to the real test number. Drop both scratch
+The `WHATSAPP_*` overrides keep the temporary API from sending anything to the real test number. `e2e/handouts.spec.ts` inserts a split-account row with `psql`, so run it with `E2E_DB_NAME=nipunalms_sweep-dev` (it skips without it). Drop both scratch
 databases and stop the two servers when done. Never use :5060 / :5174 (the owner's servers).
 
 ### 4. Staging data

@@ -326,13 +326,19 @@ def test_creating_classes_tells_the_students_and_the_trainer_once(world, client,
 
 # ---------------------------------------------------------------- how students pay
 
-def test_a_branch_manager_reads_and_sets_how_students_pay_at_their_branch(world, client, login):
+def test_a_branch_manager_reads_how_students_pay_but_only_the_super_admin_and_founder_set_it(world, client, login, make_user):
     people, _, _ = world
-    assert get(client, login, people["ac"], "/branches/1/payment-instructions")["payment_instructions"] is None
-    data(call(client, login, people["ac"], "put", "/branches/1/payment-instructions", json={"payment_instructions": "Pay at the front desk"}), 200)
-    assert get(client, login, people["ac"], "/branches/1/payment-instructions")["payment_instructions"] == "Pay at the front desk"
+    path = "/branches/1/payment-instructions"
+    assert get(client, login, people["ac"], path)["payment_instructions"] is None
+    # the Branch Manager is read-only
+    assert call(client, login, people["ac"], "put", path, json={"payment_instructions": "Pay at the front desk"}).status_code == 403
+    assert get(client, login, people["ac"], path)["payment_instructions"] is None
+    for role in ("SUPER_ADMIN", "FOUNDER_CEO"):
+        who = make_user(roles=[(role, None)])
+        data(call(client, login, who, "put", path, json={"payment_instructions": f"Pay at the front desk ({role})"}), 200)
+        assert get(client, login, people["ac"], path)["payment_instructions"] == f"Pay at the front desk ({role})"
     assert call(client, login, people["ac"], "get", "/branches/2/payment-instructions").status_code == 404
-    assert call(client, login, people["g1"], "get", "/branches/1/payment-instructions").status_code == 403
+    assert call(client, login, people["g1"], "get", path).status_code == 403
 
 
 def test_waiting_marks_the_batch_the_crm_counsellor_preferred(world, client, login, make_batch, run_sql):

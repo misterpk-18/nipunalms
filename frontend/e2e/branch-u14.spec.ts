@@ -373,15 +373,24 @@ test("the Meet checks moved to the Super Admin's integration screen", async ({ p
   await expect(page.getByRole("heading", { name: "Meet integration" })).toHaveCount(0);
 });
 
-test("the Branch Manager sets how students pay at the branch", async ({ page }, info) => {
+test("the Super Admin sets how students pay at a branch and the Branch Manager only reads it", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
-  await login(page, USERS.bmGnt);
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Payment instructions", exact: true }).click();
+  await login(page, USERS.admin);
+  await page.goto("/admin/setup");
+  await page.getByLabel("Branch for the payment instructions").selectOption({ label: "Guntur" });
   await page.getByLabel("Payment instructions", { exact: true }).fill(PAYMENT);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-  await page.reload();
-  await expect(page.getByLabel("Payment instructions", { exact: true })).toHaveValue(PAYMENT);
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await login(page, USERS.bmGnt);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Payment instructions", exact: true }).click();
+  await expect(page.getByText("Set by the Super Admin in Setup & health")).toBeVisible();
+  await expect(page.getByLabel("Payment instructions", { exact: true })).toHaveText(PAYMENT);
+  await expect(page.getByRole("textbox", { name: "Payment instructions" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
 });
 
 test("@mobile Branch screens fit the phone", async ({ page, request }, info) => {

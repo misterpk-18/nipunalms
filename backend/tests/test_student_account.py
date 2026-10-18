@@ -207,13 +207,15 @@ class TestReceiptPdf:
 # ---------------------------------------------------------------- the branch setting
 
 class TestPaymentInstructions:
-    def test_a_branch_manager_sets_it_for_their_own_branch_only(self, client, world):
+    def test_only_the_super_admin_and_founder_set_it_and_a_branch_manager_reads_their_own_branch(self, client, world):
         url = f"{API}/branches/1/payment-instructions"
-        ok = client.put(url, headers=world.h(world.people.bm), json={"payment_instructions": "  UPI to nipuna@bank, then show the screen.  "})
+        assert client.put(url, headers=world.h(world.people.bm), json={"payment_instructions": "x"}).status_code == 403
+        ok = client.put(url, headers=world.h(world.people.admin), json={"payment_instructions": "  UPI to nipuna@bank, then show the screen.  "})
         assert ok.status_code == 200 and ok.get_json()["data"]["payment_instructions"] == "UPI to nipuna@bank, then show the screen."
-        assert client.put(url, headers=world.h(world.people.bm_vij), json={"payment_instructions": "x"}).status_code == 404
+        assert client.get(url, headers=world.h(world.people.bm)).get_json()["data"]["payment_instructions"] == "UPI to nipuna@bank, then show the screen."
+        assert client.get(url, headers=world.h(world.people.bm_vij)).status_code == 404
         assert client.put(url, headers=world.h(world.people.admin), json={"payment_instructions": None}).get_json()["data"]["payment_instructions"] is None
-        assert client.put(url, headers=world.h(world.people.bm), json={}).status_code == 400
+        assert client.put(url, headers=world.h(world.people.admin), json={}).status_code == 400
         assert "BRANCH_PAYMENT_INSTRUCTIONS_CHANGED" in db.session.execute(select(AuditLog.action)).scalars().all()
 
     def test_students_and_trainers_cannot(self, client, world):

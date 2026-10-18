@@ -1,4 +1,4 @@
-/** How and where students pay at a branch: the text the student's "Next payment" card shows. A Branch Manager sets it for the branch of the session; Super Admin and Founder pick any branch. */
+/** How and where students pay at a branch: the text the student's "Next payment" card shows. Super Admin and Founder edit it for any branch (Setup & health); the Branch Manager sees it read-only. */
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { branchApi } from "@/api/branch";
@@ -11,7 +11,15 @@ import { useApiMutation } from "@/lib/mutation";
 type BranchChoice = { branch_id: number; branch_name: string };
 
 /** `branches` are the branches this person may edit; with more than one a picker shows. */
-export function PaymentInstructions({ branches, initialBranchId }: { branches: BranchChoice[]; initialBranchId?: number | null }) {
+export function PaymentInstructions({
+  branches,
+  initialBranchId,
+  readOnly = false,
+}: {
+  branches: BranchChoice[];
+  initialBranchId?: number | null;
+  readOnly?: boolean;
+}) {
   const [picked, setPicked] = useState<number | null>(null);
   const target = picked ?? initialBranchId ?? branches[0]?.branch_id ?? null;
   const query = useQuery({
@@ -31,7 +39,9 @@ export function PaymentInstructions({ branches, initialBranchId }: { branches: B
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Tell students where and how to pay at this branch. It shows on their Next payment card. Leave it empty to say "pay at the branch office".
+        {readOnly
+          ? "This is what students at your branch see on their Next payment card. Set by the Super Admin in Setup & health."
+          : 'Tell students where and how to pay at this branch. It shows on their Next payment card. Leave it empty to say "pay at the branch office".'}
       </p>
       {branches.length > 1 && (
         <div className="max-w-xs">
@@ -44,21 +54,27 @@ export function PaymentInstructions({ branches, initialBranchId }: { branches: B
         </div>
       )}
       <QueryView query={query} skeleton="cards">
-        {() => (
-          <>
-            <Textarea
-              aria-label="Payment instructions"
-              rows={4}
-              maxLength={1500}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="For example: UPI to nipuna@bank, or cash at the front desk 10:00 to 18:00"
-            />
-            <Button size="sm" disabled={save.isPending || unchanged} onClick={() => save.mutate(text.trim() || null)}>
-              Save
-            </Button>
-          </>
-        )}
+        {() =>
+          readOnly ? (
+            <p aria-label="Payment instructions" className="whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-sm">
+              {query.data?.payment_instructions || "Not set yet: students are told to pay at the branch office."}
+            </p>
+          ) : (
+            <>
+              <Textarea
+                aria-label="Payment instructions"
+                rows={4}
+                maxLength={1500}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="For example: UPI to nipuna@bank, or cash at the front desk 10:00 to 18:00"
+              />
+              <Button size="sm" disabled={save.isPending || unchanged} onClick={() => save.mutate(text.trim() || null)}>
+                Save
+              </Button>
+            </>
+          )
+        }
       </QueryView>
     </div>
   );

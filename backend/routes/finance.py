@@ -29,7 +29,7 @@ def get_payment_instructions(branch_id: int):
 
 @finance_bp.put("/branches/<int:branch_id>/payment-instructions")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def set_payment_instructions(branch_id: int):
     return finance_controller.set_payment_instructions(branch_id)
 

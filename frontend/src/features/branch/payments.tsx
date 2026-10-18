@@ -10,7 +10,7 @@ export function BranchPayments() {
     <div className="mx-auto max-w-3xl space-y-4">
       <PageHead title="Payment instructions" description="Where and how students pay fees at your branch." />
       <Section title="How students pay fees">
-        <PaymentInstructions branches={branches} initialBranchId={branchId} />
+        <PaymentInstructions branches={branches} initialBranchId={branchId} readOnly />
       </Section>
     </div>
   );
