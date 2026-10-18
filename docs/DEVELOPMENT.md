@@ -182,6 +182,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
 | `jobs list`, `jobs run [name] [--loop]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally, `jobs run --loop` (every 60 s, `--interval` to change) stands in for cron |
+| `seed-crm-batches` | Batches (and `bm.*` / `trainer.*` logins) for the students the CRM sent; `*-dev` only, allocates nobody ([details](#batches-for-the-crms-own-students)) |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 
 ### 6. Testing
@@ -469,8 +470,9 @@ Both systems on one laptop, each with its own dev database: CRM `nipunacrm-dev` 
 ### 2. Start
 
 ```bash
-# LMS (from nipunalms/backend)
+# LMS (from nipunalms/backend), two terminals
 APP_ENV=development ../venv/bin/flask --app app run --port 5060
+APP_ENV=development ../venv/bin/flask --app app jobs run --loop    # stands in for cron: whatsapp-send, reminders, escalations
 
 # CRM (from nipuna-crm/backend, APP_ENV=development)
 flask --app app lms backfill            # events for everything that exists, branches first (--force after an LMS rebuild)
@@ -479,6 +481,26 @@ flask --app app lms pull [--full]       # one pull now
 flask --app app lms reconcile           # compare both sides per admission (--admission ID, --fix)
 flask --app app lms outbox --failed     # counts and errors; lms holds lists pulled records waiting to apply
 ```
+
+Neither server reloads on its own: restart :5060 after a backend change, and start both loops again after a restart.
+The CRM's own `flask whatsapp deliver --loop` sends WhatsApp only; events and status updates to the LMS need `lms worker`.
+
+**After a rebuild, when the CRM has backfilled:** `flask seed-crm-batches` gives its students batches
+([Batches for the CRM's own students](#batches-for-the-crms-own-students)). A Branch Manager (`bm.gnt` / `bm.vij`)
+then allocates on **Waiting for a batch**, and the CRM's next pull sends `batch_allocated`.
+
+**WhatsApp in dev.** Three switches, all set in `nipunalms-dev` since 18 Oct 2026:
+
+| Switch | Value |
+|---|---|
+| `CRM_BASE_URL` in `backend/.env` | `http://127.0.0.1:5050/api/v1` (read at start-up; the `jobs` CLI reads it fresh) |
+| `app_settings.whatsapp_enabled` | `true` |
+| `app_settings.whatsapp_approved_templates` | All nine `nipuna_lms_*` names, ahead of Pinbot's approval |
+
+The CRM sends only to its `WHATSAPP_TEST_NUMBERS`, which in dev is the single owner's number, `+919392329248`; every other number
+is Skipped. Never put a student on another number. Until Pinbot approves a template, its messages end `Failed` with
+`#132001`. `flask whatsapp status` and `flask whatsapp list` show the LMS side; the `WhatsappStatusUpdated` events are on
+**CRM sync**. A fresh `create-dev-db` turns the two `app_settings` values off again; `.env` is not touched.
 
 ### 3. Smoke test
 
@@ -507,8 +529,9 @@ Expect `201` with `"status":"Applied"`. Run it again: `200` with `"replayed":tru
 
 Every screen in the prototype is built on `main`, and every screen has been redesigned in the UX plan (U0–U18, [UX_PLAN.md](UX_PLAN.md)):
 the shell and navigation, notifications, sign-in and accounts, and the Student, Trainer, Branch Manager, Founder and Super Admin
-workspaces. CRM integration rounds 1–5 are done on both sides (db 090–104; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds));
-round 6 (WhatsApp through the CRM) is built on the LMS side and switched off until the CRM endpoint and the Pinbot templates exist.
+workspaces. CRM integration rounds 1–8 are done on both sides (db 090–110, 116, 122; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+The last three cover WhatsApp through the CRM, the preferred batch, and the batch / allocation / WhatsApp alignment. WhatsApp is on in dev
+and waits only on Pinbot approving the nine templates.
 
 **Gap fix plan** ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md), register [GAPS.md](GAPS.md)): the app was checked against the
 approved modules 14–27, which found 109 gaps.
@@ -553,8 +576,8 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Item | Notes |
 |---|---|
 | Google Workspace / Meet / Drive | Meet association and recording import are recorded as states against the `integrations` register; no Google API calls |
-| Sign-in | One login form, self-service reset code (WhatsApp; no email fallback yet), activation and staff invite links that sign the person in (UX phase U7, API.md §4.14). Templates 1–3 are queued like 4–9 and also stay off until the CRM endpoint exists |
-| WhatsApp | Built and switched off (UX phase U6): messages are queued in `whatsapp_outbox` and handed to the CRM's `POST /lms/whatsapp`, which does not exist yet; needs `CRM_BASE_URL`, `whatsapp_enabled` and approved templates (API.md §4.13) |
+| Sign-in | One login form, self-service reset code (WhatsApp; no email fallback yet), activation and staff invite links that sign the person in (UX phase U7, API.md §4.14). Templates 1–3 are queued like 4–9 and reach the phone once Pinbot approves them |
+| WhatsApp | Built (UX phase U6) and connected (rounds 6, 8): messages are queued in `whatsapp_outbox`, handed to the CRM's `POST /lms/whatsapp`, and their outcome comes back as `WhatsappStatusUpdated`. Ships switched off; on in dev (Part C). Waiting on Pinbot approval of the nine templates (API.md §4.13) |
 | Email / telephony | None; in-app notifications only |
 | Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server; locally `flask jobs run --loop` does. New jobs go in `services/jobs.JOBS` |
 

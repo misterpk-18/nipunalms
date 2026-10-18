@@ -70,6 +70,7 @@ Vijayawada).
 | `119_one_role_per_account.sql` | Role separation R2: trigger `check_one_role_per_user` (one live role per user; only Branch Manager may hold several branches) | ✅ |
 | `120_session_role_branch.sql` | Role separation R3: `user_sessions.role_code` and `branch_id` (the session's role and a Branch Manager's picked branch); `active_sessions` view recreated | ✅ |
 | `121_course_outlines.sql` | Role separation R6: modules and topics hang off the course (no curriculum versions, drafts or approvals); hours, completion profile, required assessments and combo track pins move onto the course; equivalence rules, academic mappings and branch variations dropped | ✅ |
+| `122_student_activated_at.sql` | CRM round 8: `students.activated_at`, the first activation, so the pull tells the CRM when to confirm an account | ✅ |
 
 ---
 
@@ -561,3 +562,15 @@ Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP
 
 Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/121_course_outlines.sql` (backup first). Dev result: courses 9, enrolments 237, enrolment_tracks 96, batches 29, class_sessions 136, content_items 35, assignments 17, questions 13 and tests 18 unchanged; modules 44 to 29 (15 deleted, none archived), topics 93 to 63, topic_progress rows 1,721 to 1,726 (a topic of a removed version now maps to the surviving outline).
 Tests: `backend/tests/test_course_outline.py`.
+
+## 122 — CRM round 8: when a student activated
+
+| Change | Why |
+|---|---|
+| `students.activated_at` | `provisioned_at` is when the LMS created the login and sent the activation link. The CRM's "account activated" WhatsApp must wait for the student to set a password |
+| Trigger `trg_students_activated_at` (BEFORE INSERT OR UPDATE OF `activation_status`) | Stamps `CURRENT_TIMESTAMP` the first time the status becomes `Activated` and never moves it afterwards. It uses the database clock, like every other change stamp the pull reads, so `as_of` still holds |
+| Index `students_activated_at_idx` | The pull filters persons on `provisioned_at > since OR activated_at > since` |
+| Backfill | Already-activated students take the student login's `password_changed_at` (else `updated_at`) |
+
+The pull returns it as `persons[].lms_activated_at` ([CRM_INTEGRATION.md §2.2](CRM_INTEGRATION.md)). Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/122_student_activated_at.sql`; no student had activated, so the backfill updated 0 rows.
+Tests: `backend/tests/test_lms_sync.py` (`test_status_endpoint_reports_the_activation_separately_from_the_provisioning`).
