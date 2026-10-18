@@ -300,6 +300,7 @@ def test_report_export_is_csv_and_never_a_formula(world, client, login):
 
 # ---------------------------------------------------------------- the buttons follow the independence rule
 
+@pytest.mark.skip(reason="One role per account (R2): a Branch Manager no longer teaches classes of their own; revisit in R3")
 def test_a_branch_managers_own_reschedule_request_is_decided_by_an_admin(world, client, login, make_user, make_session, make_batch):
     from tests.test_delivery import future, iso
     people, batch, _ = world

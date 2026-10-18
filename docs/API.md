@@ -563,9 +563,12 @@ Nothing here calls an external system.
 | GET | `/security-controls`, `/security-controls/{id}` | Super Admin, Founder | Same shape as the integrations register (`control_code`, `category`, `title`) |
 | PATCH | `/security-controls/{id}` | Super Admin (fresh auth) | Same rules as integrations |
 | GET | `/admin/users?q=&role_code=&branch_id=&is_active=` | Super Admin, Founder | Staff logins (never students) with live role scopes |
-| POST | `/admin/users` | Super Admin | `{full_name, email, phone?, scopes: [{role_code, branch_id?, expires_at?}]}` → 201 with `temporary_password` (once); `must_change_password` set |
+| POST | `/admin/users` | Super Admin | `{full_name, email, phone?, scopes: [{role_code, branch_id?, expires_at?}]}` (one role; several scopes only for a Branch Manager, one per branch) → 201 with `temporary_password` (once); `must_change_password` set |
 | GET, PATCH | `/admin/users/{id}` | Super Admin (PATCH) | PATCH `full_name`, `email`, `phone` |
-| POST | `/admin/users/{id}/scopes` | Super Admin | Grant a role scope; company-wide roles take no branch, branch roles need one; `expires_at` (temporary access) at most 7 days ahead |
+| POST | `/admin/users/{id}/scopes` | Super Admin | Another branch for a Branch Manager only (one role per account; any other role is refused with 422); `expires_at` (temporary access) at most 7 days ahead |
+| GET | `/admin/users/handouts` | Super Admin, Founder | Accounts created by the role split: role, branches, link status, handed-out state (never the raw link) |
+| POST | `/admin/users/handouts/{id}/link` | Super Admin, Founder, fresh auth | New one-time activation link (first issue or re-issue; replaces the old one); `invite_path` is returned once |
+| POST | `/admin/users/handouts/{id}/handed-out` | Super Admin, Founder | Marks the account handed out |
 | POST | `/admin/users/{id}/scopes/{scope_id}/revoke` | Super Admin | `{reason}`; not your own access; not the last active Super Admin |
 | POST | `/admin/users/{id}/deactivate`, `/reactivate` | Super Admin | Deactivate `{reason}` ends all sessions; not yourself, not the last Super Admin |
 | POST | `/admin/users/{id}/reset-password` | Super Admin | New `temporary_password` (once), sessions ended, lockout cleared, must change at next sign-in |

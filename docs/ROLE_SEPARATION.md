@@ -25,15 +25,15 @@ Work top to bottom. R2 and R3 (data and backend) come before any frontend phase,
 
 ## R2. Data model: one role per account
 
-- [ ] Migration: for each user holding several roles, keep the highest role on the existing account (order Founder > Super Admin > Branch Manager > Trainer > Student) and create a new account for each other role, with its own email (for example `name.trainer@...`)
-- [ ] Migration: move each non-primary scope (role and branch) onto its new account and revoke it on the old one
-- [ ] Migration: end the sessions of every user that was split
-- [ ] Migration: record every new account in a table the hand-out page reads (account, role, branch, one-time activation link, created at, handed out at)
-- [ ] Constraint on `user_role_scopes`: one active role per user; branch scopes only for Branch Manager; company-wide roles take no branch
-- [ ] Backend: stop `admin_users` accepting several scopes per user (`backend/routes/admin_users.py`, `backend/services/admin_users.py`); remove `POST /admin/users/<id>/scopes` (grant) behaviour that adds a second role
-- [ ] Users & access screen (`features/admin/users.tsx`): create one account per role; remove the "Add role" form (`:210,282,362-400`) and `adminApi.grantScope`; change the Founder description at `:36`
-- [ ] Hand-out page in Users & access, visible to Super Admin and Founder: list of accounts created by the split, one-time activation link per account, mark as handed out
-- [ ] Migration test on a copy of staging data: row counts before and after, no user left with two roles, no orphaned scopes
+- [x] Migration: for each user holding several roles, keep the highest role on the existing account (order Founder > Super Admin > Branch Manager > Trainer > Student) and create a new account for each other role, with its own email (for example `name.trainer@...`) (`db/118_split_multi_role_accounts.sql`)
+- [x] Migration: move each non-primary scope (role and branch) onto its new account and revoke it on the old one (`db/118`)
+- [x] Migration: end the sessions of every user that was split (`db/118`)
+- [x] Migration: record every new account in a table the hand-out page reads (account, role, branch, one-time activation link, created at, handed out at) (`db/118`: `split_account_handouts`; the link itself is issued from the hand-out page, because only a token hash is stored)
+- [x] Constraint on `user_role_scopes`: one active role per user; branch scopes only for Branch Manager; company-wide roles take no branch (`db/119_one_role_per_account.sql`, trigger `check_one_role_per_user`)
+- [x] Backend: stop `admin_users` accepting several scopes per user (`backend/routes/admin_users.py`, `backend/services/admin_users.py`); remove `POST /admin/users/<id>/scopes` (grant) behaviour that adds a second role (`services/admin_users.py`; `POST /admin/users/<id>/scopes` now only adds a branch to a Branch Manager; hand-out endpoints in `routes/admin_users.py`, `services/handouts.py`)
+- [x] Users & access screen (`features/admin/users.tsx`): create one account per role; remove the "Add role" form (`:210,282,362-400`) and `adminApi.grantScope`; change the Founder description at `:36` (`features/admin/users.tsx`, `api/admin.ts`; no add-branch control, the API route remains; e2e `admin.spec.ts` updated)
+- [x] Hand-out page in Users & access, visible to Super Admin and Founder: list of accounts created by the split, one-time activation link per account, mark as handed out (section at the foot of Users & access)
+- [x] Migration test on a copy of staging data: row counts before and after, no user left with two roles, no orphaned scopes (dry run on a pg_dump copy, then applied to `nipunalms-dev`: users 266 to 272, live scopes 115 to 115, 0 multi-role users, 0 orphaned scopes)
 
 ## R3. Backend: session role and enforcement
 

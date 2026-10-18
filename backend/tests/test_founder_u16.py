@@ -236,6 +236,7 @@ def test_a_branch_managers_own_attendance_correction_is_decided_by_the_founder(c
     assert [c["correction_id"] for c in listed] == [trainers]
 
 
+@pytest.mark.skip(reason="One role per account (R2): a Branch Manager no longer teaches classes of their own; revisit in R3")
 def test_a_branch_managers_own_reschedule_request_is_decided_by_the_founder(client, w, login, make_user, make_batch, make_session):
     both = make_user(roles=[("TRAINER", 1), ("BRANCH_MANAGER", 1)], full_name="Trainer and Manager")
     batch = make_batch(1, trainers=[both], state="Running", curriculum_version_id=None)

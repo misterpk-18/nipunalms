@@ -1,4 +1,4 @@
-"""Super Admin: staff accounts and their role scopes (create, grant / revoke scopes, deactivate, reset password).
+"""Super Admin: staff accounts, one role each, and their role scopes (create, add a branch to a Branch Manager, revoke scopes, deactivate, reset password).
 
 Students are never created here; their logins come from the CRM (Admission Qualified) and are handled in
 services/admin_students.py. Every change is audited with the acting Super Admin.
@@ -75,6 +75,13 @@ def _add_scope(user: User, role: Role, branch_id: int | None, expires_at: dateti
     return scope
 
 
+def _assert_one_role(user: User, role: Role) -> None:
+    """One role per account: only a Branch Manager may hold several scopes (one per branch)."""
+    if any(s.role_id != role.role_id or role.role_code != "BRANCH_MANAGER" for s in users_repo.active_scopes(user.user_id)):
+        raise BusinessRule("An account holds one role. Create a separate account for this role; only a Branch Manager can cover more than one branch",
+                           {"role_code": ["The user already holds a role"]})
+
+
 def _invite_wording(user: User) -> tuple[str, str]:
     """The role and branch the invite message names: the person's first live role."""
     scope = next((s for s in users_repo.active_scopes(user.user_id)), None)
@@ -112,6 +119,9 @@ def create_user(data: dict) -> tuple[User, str, activation.IssuedInvite]:
     if users_repo.email_taken(email):
         raise Conflict("A user with this email already exists", {"email": ["Already in use"]})
     resolved = [(_resolve_scope(s["role_code"], s.get("branch_id")), s.get("expires_at")) for s in data["scopes"]]
+    if len({r.role_id for (r, _), _ in resolved}) > 1 or (len(resolved) > 1 and resolved[0][0][0].role_code != "BRANCH_MANAGER"):
+        raise BusinessRule("An account holds one role. Create a separate account for each role; only a Branch Manager can cover more than one branch",
+                           {"scopes": ["One role per account"]})
     for _, expires_at in resolved:
         _check_expiry(expires_at)
 
@@ -144,9 +154,11 @@ def update_user(user_id: int, changes: dict) -> User:
 
 
 def grant_scope(user_id: int, role_code: str, branch_id: int | None, expires_at: datetime | None) -> User:
+    """Another branch for a Branch Manager. Any other role is refused: one role per account."""
     user = get_user(user_id)
     role, branch_id = _resolve_scope(role_code, branch_id)
     _check_expiry(expires_at)
+    _assert_one_role(user, role)
     _add_scope(user, role, branch_id, expires_at)
     audit.record("SCOPE_GRANTED", "user", user.user_id, branch_id=branch_id,
                  new={"role_code": role_code, "branch_id": branch_id, "expires_at": expires_at})

@@ -1,6 +1,7 @@
 from flask import Blueprint
 
 from controllers import admin_users as users_controller
+from controllers import handouts as handouts_controller
 from routes.decorators import fresh_auth, login_required, require_roles
 
 admin_users_bp = Blueprint("admin_users", __name__, url_prefix="/admin/users")
@@ -11,6 +12,28 @@ admin_users_bp = Blueprint("admin_users", __name__, url_prefix="/admin/users")
 @require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def list_users():
     return users_controller.list_users()
+
+
+@admin_users_bp.get("/handouts")
+@login_required
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
+def list_handouts():
+    return handouts_controller.list_handouts()
+
+
+@admin_users_bp.post("/handouts/<int:handout_id>/link")
+@login_required
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
+@fresh_auth
+def issue_handout_link(handout_id: int):
+    return handouts_controller.issue_link(handout_id)
+
+
+@admin_users_bp.post("/handouts/<int:handout_id>/handed-out")
+@login_required
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
+def mark_handed_out(handout_id: int):
+    return handouts_controller.mark_handed_out(handout_id)
 
 
 @admin_users_bp.get("/<int:user_id>")

@@ -385,7 +385,7 @@ def test_the_list_puts_what_is_ahead_first_and_pages_properly(client, world):
 
 def test_the_audit_log_reads_as_sentences_with_links_and_a_fallback(client, make_user, login):
     admin = make_user(full_name="Asha Admin")
-    staff = make_user(roles=[("TRAINER", 1)], full_name="Tara Trainer", email="tara@nipuna.test")
+    staff = make_user(roles=[("BRANCH_MANAGER", 2)], full_name="Tara Trainer", email="tara@nipuna.test")
     headers = login(admin.email)
     send(client, "post", headers, f"/admin/users/{staff.user_id}/scopes", {"role_code": "BRANCH_MANAGER", "branch_id": 1}, expect=201)
     db.session.add(AuditLog(actor_user_id=admin.user_id, action="SOMETHING_NEW_HAPPENED", entity_type="widget", entity_id="9"))
@@ -435,7 +435,7 @@ def test_preset_filters_and_the_actor_list_cover_everyone(client, make_user, log
 
 def test_the_audit_log_exports_as_csv_with_plain_sentences_and_guarded_cells(client, make_user, login):
     admin = make_user(full_name="=Evil Admin")
-    staff = make_user(roles=[("TRAINER", 1)], full_name="Tara Trainer")
+    staff = make_user(roles=[("BRANCH_MANAGER", 2)], full_name="Tara Trainer")
     headers = login(admin.email)
     send(client, "post", headers, f"/admin/users/{staff.user_id}/scopes", {"role_code": "BRANCH_MANAGER", "branch_id": 1}, expect=201)
     response = client.get(f"{API}/audit-log/export?preset=roles", headers=headers)

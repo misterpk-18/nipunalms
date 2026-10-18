@@ -79,27 +79,28 @@ def test_create_validates_email_role_and_branch(client, make_user, login):
     assert post(scopes=[{"role_code": "TRAINER", "branch_id": 99}]).status_code == 400
     assert post(scopes=[{"role_code": "SUPER_ADMIN", "branch_id": 1}]).status_code == 400
     assert post(email="not-an-email").status_code == 400
-    assert post(scopes=[{"role_code": "TRAINER", "branch_id": 1}, {"role_code": "TRAINER", "branch_id": 1}]).status_code == 409
-    both = post(scopes=[{"role_code": "TRAINER", "branch_id": 1}, {"role_code": "BRANCH_MANAGER", "branch_id": 2}])
-    assert both.status_code == 201 and len(both.get_json()["data"]["scopes"]) == 2
+    assert post(scopes=[{"role_code": "TRAINER", "branch_id": 1}, {"role_code": "TRAINER", "branch_id": 1}]).status_code == 422  # one role per account
+    assert post(scopes=[{"role_code": "TRAINER", "branch_id": 1}, {"role_code": "BRANCH_MANAGER", "branch_id": 2}]).status_code == 422  # one role
+    managers = post(scopes=[{"role_code": "BRANCH_MANAGER", "branch_id": 1}, {"role_code": "BRANCH_MANAGER", "branch_id": 2}])
+    assert managers.status_code == 201 and len(managers.get_json()["data"]["scopes"]) == 2
 
 
 def test_grant_and_revoke_a_scope_with_audit(client, make_user, login):
     admin = make_user()
-    target = make_user(roles=[("TRAINER", 1)])
+    target = make_user(roles=[("BRANCH_MANAGER", 2)])
     headers = login(admin.email)
 
     granted = client.post(f"/api/v1/admin/users/{target.user_id}/scopes", headers=headers, json={"role_code": "BRANCH_MANAGER", "branch_id": 1})
     scopes = granted.get_json()["data"]["scopes"]
-    assert granted.status_code == 201 and {s["role_code"] for s in scopes} == {"TRAINER", "BRANCH_MANAGER"}
+    assert granted.status_code == 201 and {(s["role_code"], s["branch_id"]) for s in scopes} == {("BRANCH_MANAGER", 2), ("BRANCH_MANAGER", 1)}
     assert client.post(f"/api/v1/admin/users/{target.user_id}/scopes", headers=headers,
                        json={"role_code": "BRANCH_MANAGER", "branch_id": 1}).status_code == 409
 
-    coordinator = next(s for s in scopes if s["role_code"] == "BRANCH_MANAGER")
+    coordinator = next(s for s in scopes if s["branch_id"] == 1)
     revoke_url = f"/api/v1/admin/users/{target.user_id}/scopes/{coordinator['scope_id']}/revoke"
     assert client.post(revoke_url, headers=headers, json={}).status_code == 400  # a reason is required
     revoked = client.post(revoke_url, headers=headers, json={"reason": "Moved back to teaching"})
-    assert [s["role_code"] for s in revoked.get_json()["data"]["scopes"]] == ["TRAINER"]
+    assert [s["branch_id"] for s in revoked.get_json()["data"]["scopes"]] == [2]
     assert client.post(revoke_url, headers=headers, json={"reason": "again"}).status_code == 404
     assert _audit("SCOPE_GRANTED").new_values["role_code"] == "BRANCH_MANAGER"
     assert _audit("SCOPE_REVOKED").reason == "Moved back to teaching"
@@ -121,7 +122,7 @@ def test_a_revoked_scope_can_be_granted_again(client, make_user, login):
 
 def test_temporary_access_is_limited_to_seven_days(client, make_user, login):
     admin = make_user()
-    target = make_user(roles=[("TRAINER", 1)])
+    target = make_user(roles=[("BRANCH_MANAGER", 2)])
     headers = login(admin.email)
     url = f"/api/v1/admin/users/{target.user_id}/scopes"
     body = {"role_code": "BRANCH_MANAGER", "branch_id": 1}

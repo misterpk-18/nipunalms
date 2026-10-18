@@ -114,6 +114,25 @@ export type StaffUserWithPassword = StaffUser & {
   whatsapp?: WhatsappOutcome;
 };
 
+/** An account created by the role-separation split; the raw link comes back once, from issuing it. */
+export type SplitHandout = {
+  handout_id: number;
+  user_id: number;
+  full_name: string;
+  email: string;
+  split_from_email: string;
+  role_code: RoleCode;
+  role_name: string;
+  branches: { branch_id: number; branch_name: string }[];
+  activated: boolean;
+  link_status: "none" | "valid" | "expired" | "used" | "revoked";
+  link_expires_at: DateTime | null;
+  created_at: DateTime;
+  handed_out_at: DateTime | null;
+  handed_out_by: string | null;
+  invite_path?: string;
+};
+
 export type ScopeInput = { role_code: RoleCode; branch_id?: number | null; expires_at?: DateTime | null };
 export type UserFilters = { q?: string; role_code?: string; branch_id?: string; is_active?: string; locked?: string; page?: number };
 
@@ -309,6 +328,7 @@ export const adminKeys = {
   controls: ["admin", "security-controls"] as const,
   users: (filters: UserFilters) => ["admin", "users", filters] as const,
   usersAll: ["admin", "users"] as const,
+  handouts: (page: number) => ["admin", "users", "handouts", page] as const,
   students: (filters: StudentFilters) => ["admin", "students", filters] as const,
   studentsAll: ["admin", "students"] as const,
   student: (id: number) => ["admin", "student", id] as const,
@@ -334,7 +354,9 @@ export const adminApi = {
   users: (filters: UserFilters): Promise<Page<StaffUser>> => list<StaffUser>("/admin/users", { ...filters, per_page: 25 }),
   createUser: (body: { full_name: string; email: string; phone?: string; scopes: ScopeInput[] }) => post<StaffUserWithPassword>("/admin/users", body),
   updateUser: (id: number, body: { full_name?: string; email?: string; phone?: string | null }) => patch<StaffUser>(`/admin/users/${id}`, body),
-  grantScope: (id: number, body: ScopeInput) => post<StaffUser>(`/admin/users/${id}/scopes`, body),
+  handouts: (page = 1): Promise<Page<SplitHandout>> => list<SplitHandout>("/admin/users/handouts", { page, per_page: 25 }),
+  issueHandoutLink: (id: number) => post<SplitHandout>(`/admin/users/handouts/${id}/link`),
+  markHandedOut: (id: number) => post<SplitHandout>(`/admin/users/handouts/${id}/handed-out`),
   revokeScope: (id: number, scopeId: number, reason: string) => post<StaffUser>(`/admin/users/${id}/scopes/${scopeId}/revoke`, { reason }),
   deactivateUser: (id: number, reason: string) => post<StaffUser>(`/admin/users/${id}/deactivate`, { reason }),
   reactivateUser: (id: number, reason?: string) => post<StaffUser>(`/admin/users/${id}/reactivate`, { reason }),

@@ -103,14 +103,8 @@ test.describe("Super Admin", () => {
     await expect(other).toHaveURL(/\/change-password/);
     await other.close();
 
-    // Add a second role, then deactivate: sign-in stops working
-    await page.getByRole("button", { name: `Add role to Trainer E2E ${RUN}` }).click();
-    const addRole = page.getByRole("dialog", { name: /Add role for/ });
-    await addRole.getByLabel("Role", { exact: true }).selectOption("BRANCH_MANAGER");
-    await addRole.getByLabel("Branch", { exact: true }).selectOption({ label: "Guntur (NIT-GNT)" });
-    await addRole.getByRole("button", { name: "Add role" }).click();
-    await expect(page.getByText(`Role added for Trainer E2E ${RUN}`)).toBeVisible();
-    await expect(row).toContainText("Branch Manager · NIT-GNT");
+    // There is no "Add role": an account holds one role. Then deactivate: sign-in stops working
+    await expect(page.getByRole("button", { name: `Add role to Trainer E2E ${RUN}` })).toHaveCount(0);
 
     await page.getByRole("button", { name: `Deactivate Trainer E2E ${RUN}` }).click();
     const deactivate = page.getByRole("dialog", { name: "Deactivate account" });

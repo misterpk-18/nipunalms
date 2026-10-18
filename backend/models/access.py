@@ -221,3 +221,25 @@ class StaffInvite(db.Model):
         if self.revoked_at is not None:
             return "revoked"
         return "expired" if self.expires_at <= now else "valid"
+
+
+class SplitAccountHandout(db.Model):
+    """An account created by the role-separation split (db/118); the hand-out page lists these for the Super Admin and Founder."""
+
+    __tablename__ = "split_account_handouts"
+
+    handout_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"), unique=True)
+    split_from_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
+    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.role_id"))
+    branch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("branches.branch_id"))
+    invite_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("staff_invites.invite_id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+    handed_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    handed_out_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id], lazy="joined")
+    split_from: Mapped["User"] = relationship(foreign_keys=[split_from_user_id], lazy="joined")
+    role: Mapped["Role"] = relationship(lazy="joined")
+    invite: Mapped["StaffInvite | None"] = relationship(foreign_keys=[invite_id], lazy="joined")
+    handed_out_by_user: Mapped["User | None"] = relationship(foreign_keys=[handed_out_by], lazy="joined")

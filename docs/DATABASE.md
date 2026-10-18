@@ -66,6 +66,8 @@ Vijayawada).
 | `115_super_admin_setup_calendar_assign.sql` | UX phase U17: Setup owners, cancelled closures, assigned issues | ✅ |
 | `116_preferred_batch.sql` | CRM round 4 (D19): `admissions.preferred_batch_code`, the counsellor's preferred batch from `AdmissionQualified` | ✅ |
 | `117_retire_curriculum_mapped_events.sql` | CRM round 7: deletes old `AdmissionCurriculumMapped` events, abandons the `NIT-CRS-999` seed event, validates `crm_events_event_type_check` | ✅ |
+| `118_split_multi_role_accounts.sql` | Role separation R2: splits every multi-role user into one account per role; `split_account_handouts` | ✅ |
+| `119_one_role_per_account.sql` | Role separation R2: trigger `check_one_role_per_user` (one live role per user; only Branch Manager may hold several branches) | ✅ |
 
 ---
 
@@ -510,3 +512,18 @@ Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN
 
 Applied in place to `nipunalms-dev` (`psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/115_super_admin_setup_calendar_assign.sql`). Gap-fix phase 7 starts at `db/118`.
 
+## 118, 119 — Role separation R2: one role per account
+
+Two files, applied in this order. The split (118) runs before the constraint (119), which refuses to install while any user still holds two live roles.
+
+| Change | Why |
+|---|---|
+| 118: every user with several live scopes keeps the highest role (Founder > Super Admin > Branch Manager > Trainer > Student, then the lowest scope id) on the existing account | The split rule |
+| 118: each other role gets a new `users` row: same name, phone and active flag, email `localpart.<role>@domain` (`trainer`, `branchmanager`, `superadmin`, `founder`, `student`; a number is added when taken), no password, `must_change_password = TRUE` | One sign-in per role. A moved Student role takes the `student_id` with it |
+| 118: the scope is revoked on the old account and re-created (same branch, grant and expiry) on the new one; a user's Branch Manager scopes move together, any other role with several branches gets one account per extra scope | Branch Manager is the only role that may span branches |
+| 118: the live `user_sessions` of every split user are revoked (`revoke_reason = 'account split by role separation'`) | The old sessions carried the old roles |
+| 118: `split_account_handouts` (account, `split_from_user_id`, role, branch, `invite_id`, `created_at`, `handed_out_at`, `handed_out_by`) | The hand-out page (Users & access) reads it |
+| 118: **no activation link is created in SQL** | Only the SHA-256 of a token is stored (`staff_invites`), so a link made in SQL could never be shown. The hand-out page issues the link on request (`POST /admin/users/handouts/{id}/link`, which replaces any earlier link, so it is also the re-issue after expiry) and shows it once |
+| 119: trigger `trg_user_role_scopes_one_role` (`check_one_role_per_user`) on `user_role_scopes` | A user cannot hold a second live (unrevoked) scope unless both are Branch Manager. This also gives Student and Trainer exactly one branch; Super Admin and Founder take no branch (`check_role_scope_branch`, db/001) |
+
+Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/118_split_multi_role_accounts.sql` and then `db/119_one_role_per_account.sql`. Dev result: 6 e2e users (Trainer + Branch Manager at Guntur) became 6 Branch Managers plus 6 new Trainer accounts (`*.trainer@nipuna.test`). Tests: `backend/tests/test_one_role_per_account.py` (the split runs against synthetic multi-role data, the constraint, the Users & access rule and the hand-out endpoints).

@@ -2,7 +2,7 @@
 
 Models map existing tables (schema lives in db/*.sql); they never create tables.
 """
-from models.access import ActiveSession, EmailChangeCode, PasswordResetCode, Role, StaffInvite, User, UserRoleScope, UserSession
+from models.access import ActiveSession, EmailChangeCode, PasswordResetCode, Role, SplitAccountHandout, StaffInvite, User, UserRoleScope, UserSession
 from models.admin import SecurityControl
 from models.batches import Batch, BatchAllocation, BatchCrmState, BatchTrainer, ClassSession
 from models.assessments import (
@@ -21,7 +21,7 @@ from models.delivery import BatchEvent, ClassFlowProgress, ClassSessionTopic, Cu
 __all__ = [
     "Assignment", "AssignmentSubmission", "AttemptAnswer", "InterviewSlot", "Question", "Result", "SubmissionReview", "Test",
     "TestAttempt", "TestQuestion",
-    "ActiveSession", "EmailChangeCode", "PasswordResetCode", "StaffInvite", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
+    "ActiveSession", "EmailChangeCode", "PasswordResetCode", "StaffInvite", "SplitAccountHandout", "ActivityEvent", "Admission", "AdmissionLmsState", "AppSetting", "AuditLog", "Batch",
     "BatchAllocation", "BatchCrmState", "BatchTrainer", "Branch", "BranchFinanceSnapshot", "ClassSession", "Course", "CourseComponent", "CrmEvent", "CrmOutbox",
     "CurriculumModule", "CurriculumTopic", "CurriculumVersion", "Enrolment", "EnrolmentTrack", "FinanceSummary",
     "Integration", "Notification", "Role", "SecurityControl", "Student", "StudentActivation", "User", "UserRoleScope", "UserSession",

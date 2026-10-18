@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { KeyRound, LockOpen, Plus, Send, UserCheck, UserMinus, X } from "lucide-react";
-import { adminApi, adminKeys, type StaffScope, type StaffUser, type StaffUserWithPassword, type UserFilters } from "@/api/admin";
+import { adminApi, adminKeys, type SplitHandout, type StaffScope, type StaffUser, type StaffUserWithPassword, type UserFilters } from "@/api/admin";
 import type { RoleCode } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ const STAFF_ROLES: { value: RoleCode; label: string; companyWide: boolean; descr
     value: "FOUNDER_CEO",
     label: "Founder / CEO",
     companyWide: true,
-    description: "Decides curriculum, certificate exceptions and access extensions, and sees every branch.",
+    description: "Everything the Super Admin can do, plus approvals, across all branches.",
   },
 ];
 
@@ -41,11 +41,7 @@ const roleOptions = STAFF_ROLES.map((r) => ({ value: r.value, label: `${r.label}
 const roleHint = (role: RoleCode | "") => STAFF_ROLES.find((r) => r.value === role)?.description;
 
 type Action =
-  | { kind: "create" }
-  | { kind: "add-role"; user: StaffUser }
-  | { kind: "revoke"; user: StaffUser; scope: StaffScope }
-  | { kind: "deactivate"; user: StaffUser }
-  | { kind: "unlock"; user: StaffUser };
+  { kind: "create" } | { kind: "revoke"; user: StaffUser; scope: StaffScope } | { kind: "deactivate"; user: StaffUser } | { kind: "unlock"; user: StaffUser };
 
 /** What to show once after a create, invite or reset: the invite link, the temporary password, or both. */
 function secretsOf(user: StaffUserWithPassword): Secret[] {
@@ -101,7 +97,7 @@ export function AdminUsers() {
     <>
       <PageHead
         title="Users & access"
-        description="Add staff, give or take away roles, unlock accounts and send invites. Students are created by the CRM and looked after under Student accounts."
+        description="Add staff (one account per role), take away access, unlock accounts and send invites. Students are created by the CRM and looked after under Student accounts."
         actions={
           canEdit && (
             <Button onClick={() => setAction({ kind: "create" })}>
@@ -203,14 +199,6 @@ export function AdminUsers() {
                             h: "Actions",
                             c: (u: StaffUser) => (
                               <div className="flex flex-wrap gap-1.5">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setAction({ kind: "add-role", user: u })}
-                                  aria-label={`Add role to ${u.full_name}`}
-                                >
-                                  <Plus className="size-3.5" /> Role
-                                </Button>
                                 {u.is_locked && (
                                   <Button size="sm" onClick={() => setAction({ kind: "unlock", user: u })} aria-label={`Unlock ${u.full_name}`}>
                                     <LockOpen className="size-3.5" /> Unlock
@@ -265,9 +253,10 @@ export function AdminUsers() {
           </QueryView>
         </Section>
         <Note>
-          Role changes, password resets, unlocking and deactivation ask for your password again and are written to the audit log. Temporary access lasts at most
-          7 days.
+          Each account holds one role. Someone who works in two roles has two accounts, each with its own email and sign-in. Role changes, password resets,
+          unlocking and deactivation ask for your password again and are written to the audit log.
         </Note>
+        <HandoutSection />
       </div>
 
       {action?.kind === "create" && (
@@ -279,7 +268,6 @@ export function AdminUsers() {
           }}
         />
       )}
-      {action?.kind === "add-role" && <AddRoleDialog user={action.user} onClose={() => setAction(null)} />}
       {action?.kind === "revoke" && (
         <ReasonDialog title={`Revoke ${action.scope.role_name}`} user={action.user} scope={action.scope} onClose={() => setAction(null)} />
       )}
@@ -357,53 +345,6 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
   );
 }
 
-type RoleForm = { role_code: RoleCode; branch_id: string; expires_at: string };
-
-function AddRoleDialog({ user, onClose }: { user: StaffUser; onClose: () => void }) {
-  const form = useForm<RoleForm>({ defaultValues: { role_code: "BRANCH_MANAGER", branch_id: "", expires_at: "" } });
-  const roleCode = form.watch("role_code");
-  const grant = useApiMutation(
-    (v: RoleForm) =>
-      adminApi.grantScope(user.user_id, {
-        role_code: v.role_code,
-        branch_id: v.branch_id ? Number(v.branch_id) : null,
-        expires_at: v.expires_at ? new Date(v.expires_at).toISOString() : null,
-      }),
-    {
-      success: `Role added for ${user.full_name}`,
-      invalidate: [[...IDS]],
-      onSuccess: onClose,
-      silentValidation: true,
-      onError: (e) => applyServerErrors(form, e),
-    },
-  );
-  const errors = form.formState.errors;
-  return (
-    <FormDialog
-      title={`Add role for ${user.full_name}`}
-      submitLabel="Add role"
-      onClose={onClose}
-      busy={grant.isPending}
-      onSubmit={form.handleSubmit((v) => grant.mutate(v))}
-    >
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Role" htmlFor="ar-role" error={errors.role_code?.message} hint={roleHint(roleCode)} className="sm:col-span-2">
-          <NativeSelect id="ar-role" options={roleOptions} {...form.register("role_code")} />
-        </Field>
-        <BranchSelect id="ar-branch" roleCode={roleCode} error={errors.branch_id?.message} {...form.register("branch_id")} />
-      </div>
-      <Field
-        label="Temporary access until (optional)"
-        htmlFor="ar-expires"
-        error={errors.expires_at?.message}
-        hint="Leave empty for standing access; temporary access is limited to 7 days"
-      >
-        <Input id="ar-expires" type="datetime-local" {...form.register("expires_at")} />
-      </Field>
-    </FormDialog>
-  );
-}
-
 /** Revoke one role scope (with `scope`) or deactivate the whole account: both need a reason for the audit log. */
 function ReasonDialog({ title, user, scope, unlock, onClose }: { title: string; user: StaffUser; scope?: StaffScope; unlock?: boolean; onClose: () => void }) {
   const form = useForm<{ reason: string }>({ defaultValues: { reason: "" } });
@@ -437,5 +378,95 @@ function ReasonDialog({ title, user, scope, unlock, onClose }: { title: string; 
         <Input id="reason" {...form.register("reason", { required: "Give a reason for the audit log" })} />
       </Field>
     </FormDialog>
+  );
+}
+
+const LINK_LABEL: Record<string, string> = { none: "No link yet", valid: "Link active", expired: "Link expired", used: "Activated", revoked: "Link replaced" };
+
+/** Accounts created when people who held two roles were split; the Super Admin or Founder gives each person their link. */
+function HandoutSection() {
+  const [page, setPage] = useState(1);
+  const [secret, setSecret] = useState<{ title: string; handout: SplitHandout } | null>(null);
+  const query = useQuery({ queryKey: adminKeys.handouts(page), queryFn: () => adminApi.handouts(page) });
+  const issue = useApiMutation((h: SplitHandout) => adminApi.issueHandoutLink(h.handout_id), {
+    invalidate: [[...IDS]],
+    onSuccess: (h) => setSecret({ title: `Activation link for ${h.full_name}`, handout: h }),
+  });
+  const handedOut = useApiMutation((h: SplitHandout) => adminApi.markHandedOut(h.handout_id), {
+    success: (h) => `${h.full_name} marked as handed out`,
+    invalidate: [[...IDS]],
+  });
+  if (!query.data || query.data.meta.total === 0) return null;
+  return (
+    <>
+      <Section title="Accounts to hand out">
+        <p className="mb-3 text-sm text-muted-foreground">
+          People who held two roles now have one account per role. Give each new account's one-time activation link to the person, then mark it handed out.
+        </p>
+        <DataTable
+          caption="Accounts created by the role split"
+          rows={query.data.data}
+          getKey={(h) => h.handout_id}
+          cols={[
+            {
+              h: "Account",
+              c: (h) => (
+                <>
+                  <div className="font-medium">{h.full_name}</div>
+                  <div className="text-xs text-muted-foreground">{h.email}</div>
+                  <div className="text-xs text-muted-foreground">Split from {h.split_from_email}</div>
+                </>
+              ),
+            },
+            { h: "Role", c: (h) => `${h.role_name}${h.branches.length ? ` · ${h.branches.map((b) => b.branch_name).join(", ")}` : " · all branches"}` },
+            {
+              h: "Link",
+              c: (h) => (
+                <>
+                  <div>{LINK_LABEL[h.link_status] ?? h.link_status}</div>
+                  {h.link_status === "valid" && h.link_expires_at && (
+                    <div className="text-xs text-muted-foreground">until {istDateTime(h.link_expires_at)}</div>
+                  )}
+                </>
+              ),
+            },
+            { h: "Handed out", c: (h) => (h.handed_out_at ? `${istDateTime(h.handed_out_at)}${h.handed_out_by ? ` by ${h.handed_out_by}` : ""}` : "Not yet") },
+            {
+              h: "Actions",
+              c: (h) => (
+                <div className="flex flex-wrap gap-1.5">
+                  {!h.activated && (
+                    <ConfirmDialog
+                      title={`${h.link_status === "none" ? "Create" : "Create a new"} activation link for ${h.full_name}?`}
+                      consequence="The link works once and is shown only now. Any earlier link for this account stops working."
+                      confirmLabel="Create link"
+                      onConfirm={() => issue.mutateAsync(h).then(() => undefined)}
+                    >
+                      <Button variant="outline" size="sm" aria-label={`Create activation link for ${h.email}`}>
+                        <Send className="size-3.5" /> {h.link_status === "none" ? "Get link" : "New link"}
+                      </Button>
+                    </ConfirmDialog>
+                  )}
+                  {!h.handed_out_at && (
+                    <Button size="sm" onClick={() => handedOut.mutate(h)} aria-label={`Mark ${h.email} as handed out`}>
+                      <UserCheck className="size-3.5" /> Mark handed out
+                    </Button>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+        <Pager meta={query.data.meta} onPage={setPage} />
+      </Section>
+      {secret?.handout.invite_path && (
+        <SecretDialog
+          title={secret.title}
+          description={`Give this link to ${secret.handout.full_name} (${secret.handout.email}). It works once, then they choose their own password. Shown only now.`}
+          secrets={[{ label: "Activation link", value: `${window.location.origin}${secret.handout.invite_path}` }]}
+          onClose={() => setSecret(null)}
+        />
+      )}
+    </>
   );
 }
