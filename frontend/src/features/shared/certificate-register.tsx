@@ -29,10 +29,10 @@ export function CertificateActions({ certificate }: { certificate: Certificate }
     ...opts,
     success: "Returned for review.",
   });
-  const ask = useApiMutation(
-    (v: { id: number; body: Parameters<typeof certificatesApi.requestChange>[1] }) => certificatesApi.requestChange(v.id, v.body),
-    { ...opts, success: (r) => `${r.kind} requested; an independent approver decides it.` },
-  );
+  const ask = useApiMutation((v: { id: number; body: Parameters<typeof certificatesApi.requestChange>[1] }) => certificatesApi.requestChange(v.id, v.body), {
+    ...opts,
+    success: (r) => `${r.kind} requested; an independent approver decides it.`,
+  });
   const exception = useApiMutation((v: { id: number; reason: string }) => certificatesApi.requestException(v.id, v.reason), {
     ...opts,
     success: "Exception requested; the Founder / CEO or Super Admin decides it.",
@@ -99,9 +99,7 @@ export function CertificateActions({ certificate }: { certificate: Certificate }
             { name: "reason", label: "Reason (for example name correction)", kind: "textarea", required: true },
             { name: "name", label: "Name to print", kind: "text", initial: certificate.holder_name },
           ]}
-          onSubmit={(v) =>
-            ask.mutateAsync({ id, body: { kind: "Correction", reason: v["reason"]!, holder_name: v["name"]!.trim() || undefined } })
-          }
+          onSubmit={(v) => ask.mutateAsync({ id, body: { kind: "Correction", reason: v["reason"]!, holder_name: v["name"]!.trim() || undefined } })}
         />
       )}
       {certificate.actions.includes("request_revocation") && (
@@ -177,104 +175,6 @@ function feeLabel(c: Certificate) {
   const fee = c.fee_clearance;
   if (!fee) return "—";
   return fee.state === "Outstanding" ? `Outstanding ₹${fee.balance}` : fee.state;
-}
-
-/** Change requests and fee exceptions waiting for the signed-in approver, with the recent decisions. */
-export function CertificateDecisions() {
-  const requests = useQuery({ queryKey: ["certificates", "requests"], queryFn: () => certificatesApi.requests({ status: "Pending", per_page: 100 }) });
-  const exceptions = useQuery({
-    queryKey: ["certificates", "exceptions"],
-    queryFn: () => certificatesApi.exceptions({ status: "Pending", per_page: 100 }),
-  });
-  const opts = { invalidate: REGISTER_KEYS };
-  const decideRequest = useApiMutation(
-    (v: { id: number; decision: "Approved" | "Rejected"; note?: string }) => certificatesApi.decideRequest(v.id, v.decision, v.note),
-    { ...opts, success: (r) => `${r.kind} ${r.status.toLowerCase()}.` },
-  );
-  const decideException = useApiMutation(
-    (v: { id: number; decision: "Approved" | "Rejected"; note: string }) => certificatesApi.decideException(v.id, v.decision, v.note),
-    { ...opts, success: (e) => `Exception ${e.status.toLowerCase()}.` },
-  );
-  const decisionFields = [
-    { name: "decision", label: "Decision", kind: "select" as const, options: ["Approved", "Rejected"], required: true, initial: "Approved" },
-    { name: "note", label: "Note (required to reject)", kind: "textarea" as const },
-  ];
-  return (
-    <div className="space-y-4">
-      <QueryView query={requests} isEmpty={(p) => p.data.length === 0} empty="No certificate request is waiting for a decision.">
-        {(page) => (
-          <DataTable
-            caption="Certificate requests waiting for a decision"
-            rows={page.data}
-            getKey={(r: CertificateRequest) => r.request_id}
-            cols={[
-              { h: "Certificate", c: (r) => `${r.certificate.certificate_number ?? "—"} v${r.certificate.version} · ${r.certificate.holder_name}` },
-              { h: "Request", c: (r) => <Tag tone="info">{r.kind}</Tag> },
-              {
-                h: "Reason",
-                c: (r) =>
-                  [r.reason, r.evidence && `Evidence: ${r.evidence}`, ...Object.entries(r.changes).map(([k, v]) => `${k}: ${v.from} → ${v.to}`)]
-                    .filter(Boolean)
-                    .join(" · "),
-              },
-              { h: "Asked by", c: (r) => `${r.requested_by.full_name}, ${fmtDate(r.requested_at)}` },
-              {
-                h: "Decision",
-                c: (r) =>
-                  r.actions.includes("decide") ? (
-                    <FormDialog
-                      trigger={<Button size="sm">Decide</Button>}
-                      title={`${r.kind} of ${r.certificate.certificate_number}`}
-                      submitLabel="Record decision"
-                      fields={decisionFields}
-                      onSubmit={(v) =>
-                        decideRequest.mutateAsync({ id: r.request_id, decision: v["decision"] as "Approved" | "Rejected", note: v["note"] || undefined })
-                      }
-                    />
-                  ) : (
-                    "Another approver decides"
-                  ),
-              },
-            ]}
-          />
-        )}
-      </QueryView>
-      <QueryView query={exceptions} isEmpty={(p) => p.data.length === 0} empty="No fee exception is waiting for a decision.">
-        {(page) => (
-          <DataTable
-            caption="Certificate release exceptions (unpaid fee) waiting for a decision"
-            rows={page.data}
-            getKey={(e: FinancialException) => e.exception_id}
-            cols={[
-              { h: "Admission", c: (e) => e.admission.admission_code },
-              { h: "Outstanding", c: (e) => `₹${e.outstanding_amount}` },
-              { h: "Certificates", c: (e) => e.certificate_types.join(", ") },
-              { h: "Reason", c: (e) => e.reason },
-              { h: "Asked by", c: (e) => `${e.requested_by.full_name}, ${fmtDate(e.requested_at)}` },
-              {
-                h: "Decision",
-                c: (e) =>
-                  e.actions.includes("decide") ? (
-                    <FormDialog
-                      trigger={<Button size="sm">Decide</Button>}
-                      title={`Release exception for ${e.admission.admission_code}`}
-                      description="Approving lets the certificate go ahead; the debt is not waived."
-                      submitLabel="Record decision"
-                      fields={[decisionFields[0]!, { name: "note", label: "Basis of the decision", kind: "textarea" as const, required: true }]}
-                      onSubmit={(v) =>
-                        decideException.mutateAsync({ id: e.exception_id, decision: v["decision"] as "Approved" | "Rejected", note: v["note"]! })
-                      }
-                    />
-                  ) : (
-                    "The Founder / CEO or Super Admin decides"
-                  ),
-              },
-            ]}
-          />
-        )}
-      </QueryView>
-    </div>
-  );
 }
 
 /** Filterable register for staff screens. */

@@ -322,9 +322,11 @@ def test_edit_checks_the_dates_and_who_may_change_what(client, world):
 
     branch = send(client, "post", bm, "/calendar/closures", {"kind": "Branch Closure", "branch_id": 1, "starts_on": start.isoformat(),
                                                              "ends_on": start.isoformat(), "title": "Branch day"}, expect=201)
-    assert send(client, "patch", bm, f"/calendar/closures/{branch['closure_id']}", {"title": "Branch day (moved)"})["title"] == "Branch day (moved)"
+    assert branch["status"] == "Pending"                                                                                  # a Branch Manager proposes
+    send(client, "patch", bm, f"/calendar/closures/{branch['closure_id']}", {"title": "Branch day (moved)"}, expect=403)   # and cannot edit or cancel
+    assert send(client, "patch", admin, f"/calendar/closures/{branch['closure_id']}", {"title": "Branch day (moved)"})["title"] == "Branch day (moved)"
     other = world.h(world.people.bm_vij)
-    send(client, "patch", other, f"/calendar/closures/{branch['closure_id']}", {"title": "Not mine"}, expect=404)
+    send(client, "patch", other, f"/calendar/closures/{branch['closure_id']}", {"title": "Not mine"}, expect=403)
 
 
 def test_cancel_shows_the_classes_it_frees_then_cancels_and_working_days_return(client, world):

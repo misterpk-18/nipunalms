@@ -15,7 +15,7 @@ const LINKS = [
 ] as const;
 
 /** The Branch Manager's home: My work first, then how the branch is doing. */
-export function BranchDashboard() {
+export function BranchDashboard({ manage }: { manage: boolean }) {
   const { branchId } = useAuth();
   const query = useBranchDashboard(branchId);
   return (
@@ -67,7 +67,7 @@ export function BranchDashboard() {
         )}
       </QueryView>
       <AcademicDashboard embedded />
-      <PaymentInstructions />
+      <PaymentInstructions manage={manage} />
     </div>
   );
 }

@@ -30,14 +30,14 @@ def create_closure():
 
 @calendar_bp.post("/closures/<int:closure_id>/decision")
 @login_required
-@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def decide_closure(closure_id: int):
     return calendar_controller.decide_closure(closure_id)
 
 
 @calendar_bp.patch("/closures/<int:closure_id>")
 @login_required
-@require_roles("SUPER_ADMIN", "FOUNDER_CEO", "BRANCH_MANAGER")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def update_closure(closure_id: int):
     """Edit the title, reason or dates; `dry_run: true` answers with the impact (affected classes) and saves nothing."""
     return calendar_controller.update_closure(closure_id)
@@ -45,7 +45,7 @@ def update_closure(closure_id: int):
 
 @calendar_bp.post("/closures/<int:closure_id>/cancel")
 @login_required
-@require_roles("SUPER_ADMIN", "FOUNDER_CEO", "BRANCH_MANAGER")
+@require_roles("SUPER_ADMIN", "FOUNDER_CEO")
 def cancel_closure(closure_id: int):
     """Cancel an entry that is not over (reason required); `dry_run: true` answers with the impact and cancels nothing."""
     return calendar_controller.cancel_closure(closure_id)

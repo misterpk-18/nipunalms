@@ -120,7 +120,8 @@ def nav_counts(workspace: str | None = None, branch_id: int | None = None) -> di
     if workspace == "branch":
         return _branch_counts()
     if workspace == "admin":
-        return _admin_counts()
+        # Approvals: everything the Super Admin can decide in the shared inbox
+        return {**_admin_counts(), "approvals": founder_inbox.counts()["inbox"]}
     return _founder_counts()
 
 

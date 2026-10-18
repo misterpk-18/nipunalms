@@ -38,6 +38,7 @@ export type IssueNote = { step_id: number; reason: string; logged_by: UserRef; l
 export const issuesApi = {
   // client.list() passes the whole meta through, so the type counts arrive with the page.
   list: (query: Query) => list<Issue>("/issues", query) as unknown as Promise<IssuePage>,
+  get: (source: string, sourceId: number) => get<Issue>(`/issues/${source}/${sourceId}`),
   notes: (issue: Pick<Issue, "source" | "source_id">) => get<IssueNote[]>(`/exceptions/${issue.source}/${issue.source_id}/steps`),
   assign: (issue: Pick<Issue, "source" | "source_id">, assignee_user_id: number, note?: string) =>
     post<unknown>(`/exceptions/${issue.source}/${issue.source_id}/assign`, { assignee_user_id, ...(note ? { note } : {}) }),

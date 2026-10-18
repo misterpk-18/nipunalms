@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { notificationsApi, type NotificationItem, type NotificationView } from "@/api/notifications";
-import { useAuth } from "@/auth/auth";
 import { NativeSelect } from "@/components/lms/forms";
 import { Note, PageHead, PillTabs, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
@@ -86,9 +85,9 @@ export function NotificationRow({ n, onOpen, compact }: { n: NotificationItem; o
   );
 }
 
-export function NotificationCentre({ title }: { title: string }) {
-  const { hasRole } = useAuth();
-  const tabs = hasRole("SUPER_ADMIN") ? TABS : TABS.filter((t) => t !== "System issues");
+/** `showSystemIssuesTab` is set by the route (Super Admin and Founder only). */
+export function NotificationCentre({ title, showSystemIssuesTab = false }: { title: string; showSystemIssuesTab?: boolean }) {
+  const tabs = showSystemIssuesTab ? TABS : TABS.filter((t) => t !== "System issues");
   const overview = useQuery({ queryKey: ["notifications", "overview"], queryFn: notificationsApi.overview });
   const [picked, setPicked] = useState<Tab | null>(null);
   // Opens on what needs the person when there is anything, else on everything

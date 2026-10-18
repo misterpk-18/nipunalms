@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { fmtDate } from "@/features/shared/format";
-import { CertificateDecisions } from "@/features/shared/certificate-register";
+import { ApprovalsInbox } from "@/features/shared/approvals/inbox";
+import { useFounderInbox } from "@/api/founder";
 import { ApproveButtons, DecideButton, IssueButton, MoreActions } from "./completion-actions";
 import { rupees } from "./completion-format";
 import { EvidenceList } from "./completion-evidence";
@@ -159,21 +160,27 @@ function Pager({ page, pages, total, onPage }: { page: number; pages: number; to
 
 /** Certificate changes and fee releases waiting for a decision, folded away so nothing that used to be reachable is lost. */
 function RequestsSection() {
-  const requests = useQuery({ queryKey: ["certificates", "requests"], queryFn: () => certificatesApi.requests({ status: "Pending", per_page: 100 }) });
-  const exceptions = useQuery({ queryKey: ["certificates", "exceptions"], queryFn: () => certificatesApi.exceptions({ status: "Pending", per_page: 100 }) });
-  const waiting = (requests.data?.data.length ?? 0) + (exceptions.data?.data.length ?? 0);
+  const waiting = useFounderInbox("certificates").data?.counts.certificate ?? 0;
   return (
     <Collapsible className="rounded-xl border bg-card px-4 py-3">
       <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 text-left text-sm font-medium">
         <span>
-          Requests and fee releases
+          Certificate requests
           {waiting > 0 && <span className="ml-2 rounded-full bg-primary/10 px-1.5 text-xs text-primary">{waiting}</span>}
-          <span className="block text-xs font-normal text-muted-foreground">Certificate corrections, revocations and fee releases waiting for a decision.</span>
+          <span className="block text-xs font-normal text-muted-foreground">
+            Certificate corrections, revocations and reinstatements, and who decides them.
+          </span>
         </span>
         <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" aria-hidden />
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-3">
-        <CertificateDecisions />
+        <ApprovalsInbox
+          page="/branch/completion"
+          group="certificates"
+          kinds={["certificate"]}
+          title="Certificate requests"
+          empty="No certificate request is waiting for a decision."
+        />
       </CollapsibleContent>
     </Collapsible>
   );

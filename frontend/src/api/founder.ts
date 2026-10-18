@@ -36,6 +36,8 @@ type Base<K extends InboxKind, D> = {
   /** The Founder page that lists this kind. */
   to: string;
   from_branch_manager: boolean;
+  /** False when the person could decide this kind but raised the request themselves: an independent approver decides it. */
+  can_decide: boolean;
   detail: D;
 };
 

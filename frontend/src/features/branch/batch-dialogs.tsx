@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ActionDialog, fmtDate, fmtDay, fmtTime, issuesOf, useIsManager, type DialogField } from "@/features/shared/delivery-ui";
+import { ActionDialog, fmtDate, fmtDay, fmtTime, issuesOf, type DialogField } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 import { useApiMutation } from "@/lib/mutation";
 import { WaitingStudent } from "./waiting";
@@ -150,8 +150,17 @@ export function FinishSetupDialog({ batch, progress, trigger }: { batch: BatchDe
 }
 
 /** Confirm in one step. Warnings are shown first and need a written reason, which is kept on record. */
-export function ConfirmBatchDialog({ batch, progress, trigger }: { batch: BatchDetail; progress: BatchProgress; trigger: ReactNode }) {
-  const approver = useIsManager();
+export function ConfirmBatchDialog({
+  batch,
+  progress,
+  trigger,
+  approve: approver,
+}: {
+  batch: BatchDetail;
+  progress: BatchProgress;
+  trigger: ReactNode;
+  approve: boolean;
+}) {
   const confirm = useApiMutation((v: { note?: string; override_reason?: string }) => branchApi.confirmBatch(batch.batch_id, v), {
     success: `${batch.display_name ?? batch.batch_code} is confirmed`,
     next: "Next: add students from the waiting list, then create the classes.",

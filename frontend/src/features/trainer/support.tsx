@@ -20,6 +20,8 @@ export function TrainerSupport() {
       />
       <SupportDesk
         simple
+        canReassign={false}
+        canEscalate
         caption="Support requests"
         empty="No support request is open for your students. To raise one, use Raise a request, or Flag on a student's row in Students."
         base={{ mine: true }}

@@ -133,8 +133,11 @@ const BRANCH_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   { to: "/admin", label: "Home", icon: House, badgeKey: "home" },
+  { to: "/admin/approvals", label: "Approvals", icon: CircleCheck, group: "Approvals", badgeKey: "approvals" },
   { to: "/admin/users", label: "Users & access", icon: UserCog, group: "People", badgeKey: "users" },
   { to: "/admin/students", label: "Student accounts", icon: GraduationCap, group: "People", badgeKey: "student_accounts" },
+  { to: "/admin/batches", label: "Batches", icon: Users, group: "Operations" },
+  { to: "/admin/support", label: "Support", icon: LifeBuoy, group: "Operations" },
   { to: "/admin/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
   { to: "/admin/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
   { to: "/admin/crm-sync", label: "CRM sync", icon: RefreshCw, group: "Operations", badgeKey: "crm_sync" },
@@ -148,6 +151,10 @@ const FOUNDER_NAV: NavItem[] = [
   { to: "/founder/curriculum", label: "Curriculum approvals", icon: Library, group: "Approvals", badgeKey: "curriculum" },
   { to: "/founder/certificates", label: "Certificate decisions", icon: Award, group: "Approvals", badgeKey: "certificates" },
   { to: "/founder/access", label: "Access extensions", icon: Hourglass, group: "Approvals", badgeKey: "access" },
+  { to: "/founder/batches", label: "Batches", icon: Users, group: "Operations" },
+  { to: "/founder/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
+  { to: "/founder/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
+  { to: "/founder/support", label: "Support", icon: LifeBuoy, group: "Operations" },
   { to: "/founder/ai-controls", label: "AI controls", icon: Sparkles, group: "Safety" },
 ];
 

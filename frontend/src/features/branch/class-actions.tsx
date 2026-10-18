@@ -9,7 +9,7 @@ import { QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ActionDialog, MeetBadge, StateBadge, fmtRange, fromIstInput, toIstInput, useCanManage, useIsManager } from "@/features/shared/delivery-ui";
+import { ActionDialog, MeetBadge, StateBadge, fmtRange, fromIstInput, toIstInput } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 
 const START_OPENS_MS = 60 * 60 * 1000;
@@ -64,14 +64,17 @@ export function ClassActions({
   session,
   onReplace,
   withDetails = true,
+  manage: manager,
+  approve: approver,
 }: {
   session: ClassSession;
+  /** Set by the route: true only for the Branch Manager. */
+  manage: boolean;
+  approve: boolean;
   /** Opens "New class" for a replacement of this cancelled class. */
   onReplace?: (session: ClassSession) => void;
   withDetails?: boolean;
 }) {
-  const manager = useCanManage();
-  const approver = useIsManager();
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const close = (open: boolean) => !open && setDialog(null);
 
@@ -301,7 +304,7 @@ export function ClassActions({
           }
         />
       )}
-      {dialog === "details" && <ClassDetails session={session} onClose={() => setDialog(null)} onReplace={onReplace} />}
+      {dialog === "details" && <ClassDetails session={session} onClose={() => setDialog(null)} onReplace={onReplace} manage={manager} approve={approver} />}
     </div>
   );
 }
@@ -309,7 +312,19 @@ export function ClassActions({
 const fmt = (iso: string | null | undefined) => (iso ? fmtRange(iso, iso).split(" · ")[0] : "—");
 
 /** One class in full: when, who, where, what changed; the IDs of other systems sit under Advanced. */
-export function ClassDetails({ session, onClose, onReplace }: { session: ClassSession; onClose: () => void; onReplace?: (s: ClassSession) => void }) {
+export function ClassDetails({
+  session,
+  onClose,
+  onReplace,
+  manage,
+  approve,
+}: {
+  session: ClassSession;
+  onClose: () => void;
+  onReplace?: (s: ClassSession) => void;
+  manage: boolean;
+  approve: boolean;
+}) {
   const detail = useQuery({ queryKey: ["delivery", "session", session.session_id], queryFn: () => deliveryApi.session(session.session_id) });
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -396,7 +411,7 @@ export function ClassDetails({ session, onClose, onReplace }: { session: ClassSe
                   <dd className="font-mono">{d.conference_record_id ?? "—"}</dd>
                 </dl>
               </details>
-              <ClassActions session={d} onReplace={onReplace} withDetails={false} />
+              <ClassActions session={d} onReplace={onReplace} withDetails={false} manage={manage} approve={approve} />
             </div>
           )}
         </QueryView>

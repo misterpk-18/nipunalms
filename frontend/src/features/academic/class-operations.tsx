@@ -13,11 +13,10 @@ import {
   type SessionRoster,
 } from "@/api/delivery";
 import type { BranchRef } from "@/api/types";
-import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DataTable, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
-import { ActionDialog, fmtDate, fmtRange, fromIstInput, toIstInput, useCanManage, useIsManager } from "@/features/shared/delivery-ui";
+import { ActionDialog, fmtDate, fmtRange, fromIstInput, toIstInput } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 import { useStaffOptions } from "@/features/shared/staff-picker";
 
@@ -31,8 +30,7 @@ const who = (u: { full_name: string } | null) => u?.full_name ?? "—";
 
 // ---------------------------------------------------------------- people
 
-function People({ target, ops }: { target: ClassTarget; ops: SessionOperations }) {
-  const manager = useCanManage();
+function People({ target, ops, manage: manager }: { target: ClassTarget; ops: SessionOperations; manage: boolean }) {
   const staff = useStaffOptions(target.branch.branch_id, HOSTING_ROLES);
   const add = useDelivery((body: Record<string, unknown>) => deliveryApi.addPerson(target.session_id, body), "Person added");
   const decide = useDelivery(
@@ -172,20 +170,20 @@ export function ResolveDisruptionDialog({ disruption }: { disruption: Disruption
         { name: "cause", label: "Cause", type: "select", options: DISRUPTION_CAUSES, value: disruption.cause },
       ]}
       submitLabel="Resolve"
-      onSubmit={(v) =>
-        resolve.mutateAsync({ recovery_plan: v["recovery_plan"]!, undelivered_minutes: Number(v["undelivered_minutes"]), cause: v["cause"]! })
-      }
+      onSubmit={(v) => resolve.mutateAsync({ recovery_plan: v["recovery_plan"]!, undelivered_minutes: Number(v["undelivered_minutes"]), cause: v["cause"]! })}
     />
   );
 }
 
-function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperations }) {
-  const manager = useCanManage();
+function Incidents({ target, ops, manage: manager }: { target: ClassTarget; ops: SessionOperations; manage: boolean }) {
   const incident = useDelivery(
     (body: Parameters<typeof deliveryApi.reportIncident>[1]) => deliveryApi.reportIncident(target.session_id, body),
     "Incident reported — the Branch Managers are alerted",
   );
-  const disrupt = useDelivery((body: Parameters<typeof deliveryApi.recordDisruption>[1]) => deliveryApi.recordDisruption(target.session_id, body), "Disruption recorded");
+  const disrupt = useDelivery(
+    (body: Parameters<typeof deliveryApi.recordDisruption>[1]) => deliveryApi.recordDisruption(target.session_id, body),
+    "Disruption recorded",
+  );
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -201,7 +199,12 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
           ]}
           submitLabel="Report"
           onSubmit={(v) =>
-            incident.mutateAsync({ kind: v["kind"]!, description: v["description"]!, actions_taken: v["actions_taken"]!, replace_link: v["replace_link"] === "true" })
+            incident.mutateAsync({
+              kind: v["kind"]!,
+              description: v["description"]!,
+              actions_taken: v["actions_taken"]!,
+              replace_link: v["replace_link"] === "true",
+            })
           }
         />
         {manager && (
@@ -214,14 +217,24 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
             title="Record a disruption"
             description="A delayed or failed start, a connection failure or a compromised link. It stays open until it is resolved with a recovery plan."
             fields={[
-              { name: "kind", label: "Kind", type: "select", options: opt(["Delayed start", "Failed start", "Connection failure", "Compromised link", "Other"]) },
+              {
+                name: "kind",
+                label: "Kind",
+                type: "select",
+                options: opt(["Delayed start", "Failed start", "Connection failure", "Compromised link", "Other"]),
+              },
               { name: "cause", label: "Cause", type: "select", options: DISRUPTION_CAUSES, value: "Unknown" },
               { name: "delay_minutes", label: "Delay in minutes", type: "number", min: 0 },
               { name: "detail", label: "Detail", type: "textarea" },
             ]}
             submitLabel="Record"
             onSubmit={(v) =>
-              disrupt.mutateAsync({ kind: v["kind"]!, cause: v["cause"], delay_minutes: v["delay_minutes"] ? Number(v["delay_minutes"]) : null, detail: v["detail"] || undefined })
+              disrupt.mutateAsync({
+                kind: v["kind"]!,
+                cause: v["cause"],
+                delay_minutes: v["delay_minutes"] ? Number(v["delay_minutes"]) : null,
+                detail: v["detail"] || undefined,
+              })
             }
           />
         )}
@@ -233,7 +246,15 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
         empty="No link incidents for this class."
         cols={[
           { h: "When", c: (i: MeetIncident) => fmtDate(i.reported_at) },
-          { h: "Incident", c: (i: MeetIncident) => <><strong>{i.kind}</strong><div>{i.description}</div></> },
+          {
+            h: "Incident",
+            c: (i: MeetIncident) => (
+              <>
+                <strong>{i.kind}</strong>
+                <div>{i.description}</div>
+              </>
+            ),
+          },
           { h: "Actions taken", c: (i: MeetIncident) => i.actions_taken },
           { h: "Link", c: (i: MeetIncident) => (i.link_replaced ? "Replaced" : "Kept") },
           { h: "By", c: (i: MeetIncident) => who(i.reported_by) },
@@ -245,7 +266,15 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
         getKey={(d) => d.disruption_id}
         empty="No disruption recorded for this class."
         cols={[
-          { h: "Kind", c: (d: Disruption) => <><strong>{d.kind}</strong>{d.detail && <div>{d.detail}</div>}</> },
+          {
+            h: "Kind",
+            c: (d: Disruption) => (
+              <>
+                <strong>{d.kind}</strong>
+                {d.detail && <div>{d.detail}</div>}
+              </>
+            ),
+          },
           { h: "Delay", c: (d: Disruption) => (d.delay_minutes != null ? `${d.delay_minutes} min` : "—") },
           { h: "Cause", c: (d: Disruption) => d.cause },
           { h: "Status", c: (d: Disruption) => <StatusBadge domain="approval" code={d.status} /> },
@@ -271,11 +300,8 @@ function Incidents({ target, ops }: { target: ClassTarget; ops: SessionOperation
 
 // ---------------------------------------------------------------- cover
 
-function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations }) {
-  const { hasRole } = useAuth();
-  const manager = useCanManage();
-  const approver = useIsManager();
-  const verifier = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
+function Cover({ target, ops, manage: manager, approve: approver }: { target: ClassTarget; ops: SessionOperations; manage: boolean; approve: boolean }) {
+  const verifier = approver;
   const trainers = useStaffOptions(target.branch.branch_id, ["TRAINER"]);
   const request = useDelivery((body: Parameters<typeof deliveryApi.requestCover>[1]) => deliveryApi.requestCover(target.session_id, body), "Cover requested");
   const decide = useDelivery(
@@ -291,15 +317,33 @@ function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations })
         getKey={(c) => c.request_id}
         empty="No cover has been requested for this class."
         cols={[
-          { h: "Cover", c: (c: CoverRequest) => <><strong>{c.cover_role}</strong>: {who(c.cover)}<div className="text-xs text-muted-foreground">for {who(c.planned_trainer)}</div></> },
-          { h: "Why", c: (c: CoverRequest) => <>{c.reason}<div className="text-xs text-muted-foreground">Scope: {c.scope}</div><div className="text-xs text-muted-foreground">Handover: {c.handover}</div></> },
+          {
+            h: "Cover",
+            c: (c: CoverRequest) => (
+              <>
+                <strong>{c.cover_role}</strong>: {who(c.cover)}
+                <div className="text-xs text-muted-foreground">for {who(c.planned_trainer)}</div>
+              </>
+            ),
+          },
+          {
+            h: "Why",
+            c: (c: CoverRequest) => (
+              <>
+                {c.reason}
+                <div className="text-xs text-muted-foreground">Scope: {c.scope}</div>
+                <div className="text-xs text-muted-foreground">Handover: {c.handover}</div>
+              </>
+            ),
+          },
           {
             h: "Status",
             c: (c: CoverRequest) => (
               <>
                 <StatusBadge domain="approval" code={c.status} />
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {c.approved_at ? `Approved by ${who(c.approved_by)}` : "Not approved yet"} · {c.verified_at ? `Verified by ${who(c.verified_by)}` : "Not verified yet"}
+                  {c.approved_at ? `Approved by ${who(c.approved_by)}` : "Not approved yet"} ·{" "}
+                  {c.verified_at ? `Verified by ${who(c.verified_by)}` : "Not verified yet"}
                 </div>
               </>
             ),
@@ -366,7 +410,13 @@ function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations })
           ]}
           submitLabel="Request cover"
           onSubmit={(v) =>
-            request.mutateAsync({ cover_role: v["cover_role"]!, cover_user_id: Number(v["cover_user_id"]), reason: v["reason"]!, scope: v["scope"]!, handover: v["handover"]! })
+            request.mutateAsync({
+              cover_role: v["cover_role"]!,
+              cover_user_id: Number(v["cover_user_id"]),
+              reason: v["reason"]!,
+              scope: v["scope"]!,
+              handover: v["handover"]!,
+            })
           }
         />
       )}
@@ -376,11 +426,12 @@ function Cover({ target, ops }: { target: ClassTarget; ops: SessionOperations })
 
 // ---------------------------------------------------------------- shared batches
 
-function Shared({ target, ops }: { target: ClassTarget; ops: SessionOperations }) {
-  const { hasRole } = useAuth();
-  const allowed = hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
+function Shared({ target, ops, manage: allowed }: { target: ClassTarget; ops: SessionOperations; manage: boolean }) {
   const batches = useQuery({ queryKey: ["delivery", "batches", "open"], queryFn: () => deliveryApi.batches({}), enabled: allowed });
-  const add = useDelivery((body: { batch_id: number; topic_id?: number | null; coverage_note: string }) => deliveryApi.addRoster(target.session_id, body), "Batch added to the class");
+  const add = useDelivery(
+    (body: { batch_id: number; topic_id?: number | null; coverage_note: string }) => deliveryApi.addRoster(target.session_id, body),
+    "Batch added to the class",
+  );
   const remove = useDelivery((batchId: number) => deliveryApi.removeRoster(target.session_id, batchId), "Batch removed from the class");
   const joined = new Set([target.batch.batch_id, ...ops.rosters.map((r) => r.batch.batch_id)]);
   const options = (batches.data?.data ?? [])
@@ -389,8 +440,8 @@ function Shared({ target, ops }: { target: ClassTarget; ops: SessionOperations }
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        A shared class is one class for several batches: one attendance entry per person, hours and trainer time counted once. Together they may not exceed the class's verified
-        seats.
+        A shared class is one class for several batches: one attendance entry per person, hours and trainer time counted once. Together they may not exceed the
+        class's verified seats.
       </p>
       <DataTable
         caption="Batches in this class"
@@ -426,7 +477,9 @@ function Shared({ target, ops }: { target: ClassTarget; ops: SessionOperations }
             { name: "topic_id", label: "Topic ID (optional)", type: "number", min: 1 },
           ]}
           submitLabel="Add batch"
-          onSubmit={(v) => add.mutateAsync({ batch_id: Number(v["batch_id"]), coverage_note: v["coverage_note"]!, topic_id: v["topic_id"] ? Number(v["topic_id"]) : null })}
+          onSubmit={(v) =>
+            add.mutateAsync({ batch_id: Number(v["batch_id"]), coverage_note: v["coverage_note"]!, topic_id: v["topic_id"] ? Number(v["topic_id"]) : null })
+          }
         />
       )}
       {!allowed && <p className="text-xs text-muted-foreground">Branch Managers and Super Admins manage shared classes.</p>}
@@ -451,13 +504,25 @@ export function ReviewParticipationDialog({ row }: { row: Participation }) {
       title="Review an unmatched participant"
       description={`${row.participant_name ?? "Unnamed"}${row.participant_email ? ` · ${row.participant_email}` : ""}. Participation is evidence only; it is never attendance.`}
       fields={[
-        { name: "match_status", label: "Decision", type: "select", options: [{ value: "Matched", label: "Match to a person" }, { value: "Dismissed", label: "Dismiss" }] },
+        {
+          name: "match_status",
+          label: "Decision",
+          type: "select",
+          options: [
+            { value: "Matched", label: "Match to a person" },
+            { value: "Dismissed", label: "Dismiss" },
+          ],
+        },
         { name: "user_id", label: "User ID to match", type: "number", min: 1, required: true, showIf: (v) => v["match_status"] === "Matched" },
         { name: "note", label: "Note", type: "textarea" },
       ]}
       submitLabel="Save review"
       onSubmit={(v) =>
-        review.mutateAsync({ match_status: v["match_status"] as "Matched" | "Dismissed", user_id: v["user_id"] ? Number(v["user_id"]) : null, note: v["note"] || undefined })
+        review.mutateAsync({
+          match_status: v["match_status"] as "Matched" | "Dismissed",
+          user_id: v["user_id"] ? Number(v["user_id"]) : null,
+          note: v["note"] || undefined,
+        })
       }
     />
   );
@@ -476,7 +541,15 @@ function ParticipationTab({ target, ops }: { target: ClassTarget; ops: SessionOp
         getKey={(p) => p.participation_id}
         empty="No participation recorded for this class."
         cols={[
-          { h: "Participant", c: (p: Participation) => <>{p.participant_name ?? "—"}<div className="text-xs text-muted-foreground">{p.participant_email}</div></> },
+          {
+            h: "Participant",
+            c: (p: Participation) => (
+              <>
+                {p.participant_name ?? "—"}
+                <div className="text-xs text-muted-foreground">{p.participant_email}</div>
+              </>
+            ),
+          },
           { h: "Joined", c: (p: Participation) => fmtDate(p.joined_at) },
           { h: "Source", c: (p: Participation) => p.source },
           {
@@ -523,10 +596,24 @@ function ParticipationTab({ target, ops }: { target: ClassTarget; ops: SessionOp
 
 // ---------------------------------------------------------------- the dialog
 
-export function ClassOperationsDialog({ target, trigger }: { target: ClassTarget; trigger?: React.ReactNode }) {
+export function ClassOperationsDialog({
+  target,
+  trigger,
+  manage,
+  approve,
+}: {
+  target: ClassTarget;
+  trigger?: React.ReactNode;
+  manage: boolean;
+  approve: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]>("People");
-  const query = useQuery({ queryKey: ["delivery", "session-operations", target.session_id], queryFn: () => deliveryApi.sessionOperations(target.session_id), enabled: open });
+  const query = useQuery({
+    queryKey: ["delivery", "session-operations", target.session_id],
+    queryFn: () => deliveryApi.sessionOperations(target.session_id),
+    enabled: open,
+  });
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -547,10 +634,10 @@ export function ClassOperationsDialog({ target, trigger }: { target: ClassTarget
         <QueryView query={query}>
           {(ops) => (
             <>
-              {tab === "People" && <People target={target} ops={ops} />}
-              {tab === "Incidents and disruptions" && <Incidents target={target} ops={ops} />}
-              {tab === "Cover" && <Cover target={target} ops={ops} />}
-              {tab === "Shared batches" && <Shared target={target} ops={ops} />}
+              {tab === "People" && <People target={target} ops={ops} manage={manage} />}
+              {tab === "Incidents and disruptions" && <Incidents target={target} ops={ops} manage={manage} />}
+              {tab === "Cover" && <Cover target={target} ops={ops} manage={manage} approve={approve} />}
+              {tab === "Shared batches" && <Shared target={target} ops={ops} manage={manage} />}
               {tab === "Participation" && <ParticipationTab target={target} ops={ops} />}
             </>
           )}

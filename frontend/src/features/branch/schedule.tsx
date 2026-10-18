@@ -11,9 +11,9 @@ import { NativeSelect } from "@/components/lms/forms";
 import { DataTable, PageHead, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ActionDialog, StateBadge, fmtRange, fmtTime, useCanManage, useIsManager } from "@/features/shared/delivery-ui";
+import { ActionDialog, StateBadge, fmtRange, fmtTime } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
-import { AcademicCalendar } from "@/features/shared/academic-calendar";
+import { AcademicCalendar, calendarForBranchManager } from "@/features/shared/academic-calendar";
 import { todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ClassActions, ClassDetails } from "./class-actions";
@@ -39,8 +39,7 @@ const batchName = (b: { display_name?: string | null; batch_code: string }) => b
 
 // ---------------------------------------------------------------- Needs decision
 
-function RequestRow({ request }: { request: RescheduleRequest }) {
-  const manager = useIsManager();
+function RequestRow({ request, approve: manager }: { request: RescheduleRequest; approve: boolean }) {
   // The API says when someone else must decide (a Branch Manager's own request goes to the Founder or a Super Admin)
   const approver = manager && (request as RescheduleRequest & { can_decide?: boolean }).can_decide !== false;
   const approve = useDelivery(
@@ -127,7 +126,7 @@ function RequestRow({ request }: { request: RescheduleRequest }) {
 }
 
 /** Trainers' reschedule requests and proposed extra, remedial or replacement classes, with the count. */
-export function NeedsDecision({ branchId, highlight }: { branchId: number | null; highlight?: boolean }) {
+export function NeedsDecision({ branchId, highlight, manage, approve }: { branchId: number | null; highlight?: boolean; manage: boolean; approve: boolean }) {
   const requests = useQuery({
     queryKey: ["delivery", "requests", "open", branchId],
     queryFn: () => deliveryApi.requests({ status: "Open", branch_id: branchId }),
@@ -155,7 +154,7 @@ export function NeedsDecision({ branchId, highlight }: { branchId: number | null
       </h2>
       <ul className="divide-y">
         {list.map((r) => (
-          <RequestRow key={`r${r.request_id}`} request={r} />
+          <RequestRow key={`r${r.request_id}`} request={r} approve={approve} />
         ))}
         {classes.map((s) => (
           <li key={`c${s.session_id}`} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
@@ -168,7 +167,7 @@ export function NeedsDecision({ branchId, highlight }: { branchId: number | null
                 {s.purpose_reference ? ` · ${s.purpose_reference}` : ""}
               </p>
             </div>
-            <ClassActions session={s} />
+            <ClassActions session={s} manage={manage} approve={approve} />
           </li>
         ))}
       </ul>
@@ -286,9 +285,10 @@ function WeekCalendar({ sessions, monday, by, onOpen }: { sessions: ClassSession
 
 // ---------------------------------------------------------------- the screen
 
-export function BranchSchedule() {
-  const manager = useCanManage();
-  const { branchId } = useAuth();
+/** `manage` and `approve` come from the route (true only for the Branch Manager); the calendar section follows the Branch Manager's config. */
+export function BranchSchedule({ manage: manager, approve }: { manage: boolean; approve: boolean }) {
+  const { branchId, allowedBranches } = useAuth();
+  const branch = allowedBranches.find((b) => b.branch_id === branchId) ?? null;
   const search = useSearch({ from: "/branch/schedule" });
   const navigate = useNavigate({ from: "/branch/schedule" });
   const view: View = search.view ?? "week";
@@ -329,6 +329,7 @@ export function BranchSchedule() {
   const newClass = (
     <NewClassDialog
       batches={openBatches}
+      approve={approve}
       {...(search.batch ? { batchId: search.batch } : {})}
       trigger={<Button disabled={openBatches.length === 0}>New class</Button>}
     />
@@ -341,7 +342,7 @@ export function BranchSchedule() {
         description="See every class by week or as a list, decide what is waiting, and schedule new classes."
         actions={<>{manager && newClass}</>}
       />
-      <NeedsDecision branchId={branchId} highlight={!!search.decide} />
+      <NeedsDecision branchId={branchId} highlight={!!search.decide} manage={manager} approve={approve} />
 
       <div className="flex flex-wrap items-center gap-3">
         <PillTabs label="View" tabs={VIEWS} value={view === "week" ? "Week" : "List"} onChange={(tab) => set({ view: tab === "Week" ? "week" : "list" })} />
@@ -458,7 +459,7 @@ export function BranchSchedule() {
                       </div>
                     ),
                   },
-                  { h: "", c: (s) => <ClassActions session={s} onReplace={setReplacing} /> },
+                  { h: "", c: (s) => <ClassActions session={s} onReplace={setReplacing} manage={manager} approve={approve} /> },
                 ]}
               />
             )}
@@ -474,12 +475,14 @@ export function BranchSchedule() {
             setOpen(null);
             setReplacing(s);
           }}
+          manage={manager}
+          approve={approve}
         />
       )}
-      {replacing && <NewClassDialog batches={openBatches} replaces={replacing} open onOpenChange={(o) => !o && setReplacing(null)} />}
+      {replacing && <NewClassDialog batches={openBatches} approve={approve} replaces={replacing} open onOpenChange={(o) => !o && setReplacing(null)} />}
 
       <Section title="Holidays and closures" className="mt-2">
-        <AcademicCalendar />
+        <AcademicCalendar config={calendarForBranchManager(branch)} />
       </Section>
       <HowThisWorks>
         <p>A class moves or is cancelled only by you; trainers ask, and you decide. Students and the trainer are told each time.</p>
@@ -487,7 +490,7 @@ export function BranchSchedule() {
           A trainer who already teaches at that time stops a class from being scheduled. A booked room or a student clash is a warning you can accept with a
           reason.
         </p>
-        <p>Holidays and closures you record under Holidays and closures are skipped when classes are created from a batch's timetable.</p>
+        <p>Holidays and closures that are approved under Holidays and closures are skipped when classes are created from a batch's timetable.</p>
       </HowThisWorks>
     </div>
   );

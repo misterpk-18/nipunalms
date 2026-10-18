@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { DataTable, QueryView, StatusBadge, Tag, type Column } from "@/components/lms/ui";
 import { useAuth } from "@/auth/auth";
 import { useApiMutation } from "@/lib/mutation";
-import { ActionDialog, MeetBadge, StateBadge, fmtDay, fmtRange, fromIstInput, mono, toIstInput, useIsManager } from "./delivery-ui";
+import { ActionDialog, MeetBadge, StateBadge, fmtDay, fmtRange, fromIstInput, mono, toIstInput } from "./delivery-ui";
 
 /** A mutation that refreshes every delivery query afterwards, and the Branch Manager's lists and the navigation counts built on them. */
 export function useDelivery<TVars, TResult>(fn: (vars: TVars) => Promise<TResult>, success: string) {
@@ -23,7 +23,7 @@ const OUTCOMES = [
 
 export function SessionActions({ session, manager, trainer: isTrainer }: { session: ClassSession; manager: boolean; trainer: boolean }) {
   const { profile } = useAuth();
-  const approver = useIsManager();
+  const approver = manager; // the manager config is the Branch Manager: the one who decides and may override a warning
   const trainer = isTrainer && session.trainer.user_id === profile?.user.user_id; // only the trainer who teaches it
   const start = useDelivery((id: number) => deliveryApi.startSession(id), "Class started");
   const deliver = useDelivery((v: { id: number; log: ClassLog }) => deliveryApi.deliverSession(v.id, v.log), "Marked as delivered");

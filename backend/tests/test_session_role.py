@@ -289,9 +289,13 @@ def test_the_founder_adds_a_company_holiday_and_decides_branch_closures_like_the
     for who in ("admin", "founder"):
         added = client.post(f"{API}/calendar/closures", json={**body, "title": f"Company day {who}"}, headers=h[who])
         assert added.status_code == 201, (who, added.get_json())
-    # a branch closure proposed by a Branch Manager is decided by either of them (the Branch Manager's own proposal is approved as recorded)
+    # a branch closure proposed by a Branch Manager waits; either of them decides it, the Branch Manager cannot (decision 18)
     proposal = {**body, "kind": "Branch Closure", "branch_id": 1, "title": "Flooding"}
-    assert client.post(f"{API}/calendar/closures", json=proposal, headers=h["bm1"]).status_code == 201
+    proposed = client.post(f"{API}/calendar/closures", json=proposal, headers=h["bm1"])
+    assert proposed.status_code == 201 and proposed.get_json()["data"]["status"] == "Pending"
+    closure_id = proposed.get_json()["data"]["closure_id"]
+    assert client.post(f"{API}/calendar/closures/{closure_id}/decision", json={"decision": "Approved"}, headers=h["bm1"]).status_code == 403
+    assert client.post(f"{API}/calendar/closures/{closure_id}/decision", json={"decision": "Approved"}, headers=h["founder"]).status_code == 200
     assert client.post(f"{API}/calendar/closures", json={**proposal, "branch_id": 2}, headers=h["bm1"]).status_code == 404  # another branch
 
 

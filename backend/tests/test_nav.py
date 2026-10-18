@@ -31,7 +31,7 @@ def test_each_role_gets_the_counts_of_its_own_workspace(client, world):
     assert set(counts(client, world, world.people.t1, "trainer")) == {"to_grade", "support", "attendance", "class_logs"}
     assert {"waiting", "requests", "issues", "support", "attendance"} <= set(counts(client, world, world.people.bm, "branch"))
     admin_keys = {"crm_sync", "issues", "users", "student_accounts", "calendar", "setup", "home"}
-    assert set(counts(client, world, world.people.admin, "admin")) == admin_keys
+    assert set(counts(client, world, world.people.admin, "admin")) == admin_keys | {"approvals"}  # approvals: the shared inbox
     # the Founder does what the Super Admin does, plus the inbox
     assert set(counts(client, world, world.people.founder, "founder")) == admin_keys | {"inbox", "curriculum", "certificates", "access"}
 

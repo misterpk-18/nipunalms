@@ -26,7 +26,7 @@ DECIDERS = {"Correction": certificates.CORRECTION_APPROVERS, "Revocation": certi
             "Reinstatement": certificates.REVOCATION_APPROVERS}
 NEEDED_STATUS = {"Correction": "Issued", "Revocation": "Issued", "Reinstatement": "Revoked"}
 # Where each deciding role works on requests
-DECIDER_LINKS = {"BRANCH_MANAGER": "/branch/completion", "SUPER_ADMIN": "/branch/completion", "FOUNDER_CEO": "/founder/certificates"}
+DECIDER_LINKS = {"BRANCH_MANAGER": "/branch/completion", "SUPER_ADMIN": "/admin/approvals", "FOUNDER_CEO": "/founder/certificates"}
 
 EXCEPTION_REQUESTERS = ("BRANCH_MANAGER",)
 EXCEPTION_DECIDERS = ("FOUNDER_CEO", "SUPER_ADMIN")

@@ -52,6 +52,8 @@ export function BranchSupport() {
           )}
           <SupportDesk
             views
+            canReassign
+            canEscalate={false}
             caption="Support requests"
             empty="No support requests for your branch."
             branchId={branchId}

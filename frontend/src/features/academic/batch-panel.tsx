@@ -5,7 +5,7 @@ import { deliveryApi, type BatchDetail, type Check } from "@/api/delivery";
 import { Button } from "@/components/ui/button";
 import { DataTable, KeyValue, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { statusInfo } from "@/lib/status";
-import { ActionDialog, StateBadge, fmtDate, fmtDay, useCanManage } from "@/features/shared/delivery-ui";
+import { ActionDialog, StateBadge, fmtDate, fmtDay } from "@/features/shared/delivery-ui";
 import { timetableLabel } from "@/features/academic/timetable";
 import { useDelivery } from "@/features/shared/sessions";
 import { EditBatchDialog, HandoverDialog, LifecycleActions, RequestTransferDialog } from "./batch-operations";
@@ -29,7 +29,7 @@ export function CheckList({ checks }: { checks: Check[] }) {
   );
 }
 
-export function Overview({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function Overview({ batch, manage, approve }: { batch: BatchDetail; manage: boolean; approve: boolean }) {
   const closed = ["Completed", "Cancelled", "Archived"].includes(batch.state);
   const sides = [
     batch.classroom_capacity != null && `classroom ${batch.classroom_capacity}`,
@@ -76,17 +76,17 @@ export function Overview({ batch, manager }: { batch: BatchDetail; manager: bool
           ["Checks", <StatusBadge key="r" domain="readiness" code={batch.readiness} />],
         ]}
       />
-      {manager && !closed && (
+      {manage && !closed && (
         <div className="mt-4">
           <EditBatchDialog batch={batch} />
         </div>
       )}
-      <LifecycleActions batch={batch} />
+      <LifecycleActions batch={batch} manage={manage} approve={approve} />
     </>
   );
 }
 
-export function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function ReadinessTab({ batch, manage }: { batch: BatchDetail; manage: boolean }) {
   const query = useQuery({ queryKey: ["delivery", "readiness", batch.batch_id, batch.readiness], queryFn: () => deliveryApi.readiness(batch.batch_id) });
   const set = useDelivery(
     (body: { readiness: string; readiness_reason?: string | null; recovery_owner?: string | null }) => deliveryApi.setReadiness(batch.batch_id, body),
@@ -108,7 +108,7 @@ export function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: 
           <p className="text-sm">
             The checks suggest: <StatusBadge domain="readiness" code={r.suggested.readiness} />
           </p>
-          {manager && (
+          {manage && (
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -146,11 +146,11 @@ export function ReadinessTab({ batch, manager }: { batch: BatchDetail; manager: 
   );
 }
 
-export function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function TrainersTab({ batch, manage }: { batch: BatchDetail; manage: boolean }) {
   const staff = useQuery({
     queryKey: ["delivery", "trainers", batch.branch.branch_id],
     queryFn: () => deliveryApi.staff("TRAINER", batch.branch.branch_id),
-    enabled: manager,
+    enabled: manage,
   });
   const assign = useDelivery((v: { trainer_user_id: number; role: string }) => deliveryApi.assignTrainer(batch.batch_id, v), "Trainer assigned");
   const role = useDelivery((v: { id: number; role: string }) => deliveryApi.trainerRole(batch.batch_id, v.id, v.role), "Trainer role updated");
@@ -167,7 +167,7 @@ export function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: b
           { h: "Trainer", c: (t) => t.full_name },
           { h: "Role", c: (t) => <Tag tone={t.role === "Lead" ? "info" : "neutral"}>{t.role}</Tag> },
           { h: "Since", c: (t) => fmtDay(t.from_date) },
-          ...(manager
+          ...(manage
             ? [
                 {
                   h: "Actions",
@@ -190,7 +190,7 @@ export function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: b
             : []),
         ]}
       />
-      {manager && (
+      {manage && (
         <div className="mt-3">
           <ActionDialog
             trigger={<Button size="sm">Assign trainer</Button>}
@@ -223,7 +223,7 @@ export function TrainersTab({ batch, manager }: { batch: BatchDetail; manager: b
   );
 }
 
-export function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: boolean }) {
+export function StudentsTab({ batch, manage }: { batch: BatchDetail; manage: boolean }) {
   const [history, setHistory] = useState(false);
   const roster = useQuery({
     queryKey: ["delivery", "roster", batch.batch_id, history],
@@ -232,7 +232,7 @@ export function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: b
   const others = useQuery({
     queryKey: ["delivery", "batches", "same-course", batch.course.course_id, batch.branch.branch_id],
     queryFn: () => deliveryApi.batches({ course_id: batch.course.course_id, branch_id: batch.branch.branch_id }),
-    enabled: manager,
+    enabled: manage,
   });
   const deallocate = useDelivery(
     (v: { enrolmentId: number; reason: string; trackId: number | null }) => deliveryApi.deallocate(v.enrolmentId, v.reason, v.trackId),
@@ -241,7 +241,7 @@ export function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: b
   const enrolments = useQuery({
     queryKey: ["delivery", "enrolments", "batch", batch.batch_id],
     queryFn: () => deliveryApi.enrolments({ batch_id: batch.batch_id }),
-    enabled: manager,
+    enabled: manage,
   });
   const targets = (others.data?.data ?? []).filter((b) => b.batch_id !== batch.batch_id && !["Completed", "Cancelled", "Archived"].includes(b.state));
   return (
@@ -272,7 +272,7 @@ export function StudentsTab({ batch, manager }: { batch: BatchDetail; manager: b
                   </>
                 ),
               },
-              ...(manager
+              ...(manage
                 ? [
                     {
                       h: "Actions",

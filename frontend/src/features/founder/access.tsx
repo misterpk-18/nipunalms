@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useUrlParams } from "@/features/branch/attendance-url";
 import { Pager } from "@/features/branch/attendance-pager";
 import { fmtDate } from "@/features/shared/format";
-import { AccessPanel } from "./panel-access";
+import { AccessPanel } from "@/features/shared/approvals/panel-access";
 
 const KIND = { Recording: "recordings", Material: "materials", Both: "recordings and materials" } as const;
 const PER_PAGE = 15;

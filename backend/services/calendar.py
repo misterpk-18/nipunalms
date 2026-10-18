@@ -1,6 +1,6 @@
 """The Nipuna Academic Calendar (Module 15 §9). The Founder / CEO or Super Admin set company holidays; branch closures are
-proposed by the Branch Manager and approved by the Branch Manager (a Branch Manager's own entry is approved as it is
-recorded). An approved closure that falls on scheduled classes lists them and asks the branch's Branch Managers to prepare
+proposed by the Branch Manager (created pending) and decided only by the Super Admin or Founder / CEO (decision 18: the
+proposer and the decider are never the same person); a Super Admin or Founder entry takes effect at once. An approved closure that falls on scheduled classes lists them and asks the branch's Branch Managers to prepare
 replacements for the Branch Manager's schedule approval; nothing is cancelled or moved automatically."""
 from datetime import date, datetime, time, timedelta, timezone
 
@@ -17,7 +17,7 @@ from services.notifications import notify
 
 CENTRAL = ("FOUNDER_CEO", "SUPER_ADMIN")
 BRANCH_PROPOSERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-BRANCH_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
+BRANCH_APPROVERS = CENTRAL  # a Branch Manager proposes and cannot decide
 
 
 def _now() -> datetime:
@@ -113,7 +113,7 @@ def create_closure(data: dict) -> CalendarClosure:
         scope.require_branch(branch_id)
         if not user.has_role(*BRANCH_PROPOSERS, branch_id=branch_id):
             raise Forbidden("Branch closures are proposed by the branch's Branch Manager")
-        approved_now = user.has_role(*BRANCH_APPROVERS, branch_id=branch_id)
+        approved_now = user.has_role(*BRANCH_APPROVERS)  # Super Admin / Founder: at once; a Branch Manager's closure waits
     closure = CalendarClosure(kind=kind, branch_id=branch_id, starts_on=data["starts_on"], ends_on=data["ends_on"], title=data["title"],
                               reason=data.get("reason"), requested_by=user.user_id)
     if approved_now:
@@ -126,10 +126,10 @@ def create_closure(data: dict) -> CalendarClosure:
     if approved_now:
         _announce(closure)
     else:
-        notify(category="Calendar", title=f"Branch closure to approve: {closure.title}",
-               body=f"{closure.starts_on:%d %b} – {closure.ends_on:%d %b %Y}. {closure.reason or ''}".strip(),
-               link="/branch/schedule", role_code="BRANCH_MANAGER", branch_id=branch_id,
-               event_key=f"closure-proposed:{closure.closure_id}", action_required=True)
+        for role_code, link in (("SUPER_ADMIN", "/admin/calendar"), ("FOUNDER_CEO", "/founder/calendar")):
+            notify(category="Calendar", title=f"Branch closure to approve: {closure.title}",
+                   body=f"{closure.starts_on:%d %b} – {closure.ends_on:%d %b %Y}. {closure.reason or ''}".strip(),
+                   link=link, role_code=role_code, event_key=f"closure-proposed:{closure.closure_id}:{role_code}", action_required=True)
     return closure
 
 
@@ -138,12 +138,14 @@ def decide_closure(closure_id: int, decision: str, note: str | None) -> Calendar
     if closure.kind != "Branch Closure" or closure.status != "Pending" or closure.is_cancelled:
         raise BusinessRule(f"This calendar entry is {'Cancelled' if closure.is_cancelled else closure.status}; only a pending branch closure is decided")
     if not current_user().has_role(*BRANCH_APPROVERS, branch_id=closure.branch_id):
-        raise Forbidden("The Branch Manager approves branch closures")
+        raise Forbidden("Branch closures are decided by the Super Admin or Founder / CEO")
     if decision == "Rejected" and not note:
         raise ValidationError("Invalid request data", {"note": ["Give the reason for rejecting the closure"]})
     closure.status, closure.decided_by, closure.decided_at, closure.decision_note = decision, current_user().user_id, _now(), note
     db.session.flush()
     audit.record(f"CALENDAR_CLOSURE_{decision.upper()}", "calendar_closure", closure.closure_id, reason=note, branch_id=closure.branch_id)
+    notify(category="Calendar", title=f"Your closure proposal was {decision.lower()}: {closure.title}", body=note,
+           link="/branch/schedule", recipient_user_ids=[closure.requested_by], event_key=f"closure-decided:{closure.closure_id}:{decision}")
     if decision == "Approved":
         _announce(closure)
     return closure
@@ -165,13 +167,9 @@ def _announce(closure: CalendarClosure, sessions: list[ClassSession] | None = No
 # ---------------------------------------------------------------- edit and cancel (UX phase U17)
 
 def _manage(closure: CalendarClosure) -> None:
-    """Who may change an entry: the people who may add that kind (central staff for a holiday; the branch's manager or a Super Admin)."""
-    user = current_user()
-    if closure.kind == "Company Holiday":
-        if not user.has_role(*CENTRAL):
-            raise Forbidden("Company holidays are changed by the Founder / CEO or Super Admin")
-    elif not user.has_role(*BRANCH_PROPOSERS, branch_id=closure.branch_id):
-        raise Forbidden("Branch closures are changed by the branch's Branch Manager or a Super Admin")
+    """Who may change an entry: the Super Admin or Founder / CEO (a Branch Manager proposes and cannot edit or cancel)."""
+    if not current_user().has_role(*CENTRAL):
+        raise Forbidden("Calendar entries are changed by the Founder / CEO or Super Admin")
     if closure.is_cancelled or closure.status == "Rejected":
         raise BusinessRule(f"This entry is {'cancelled' if closure.is_cancelled else 'rejected'} and can't be changed")
     if closure.ends_on < today_ist():

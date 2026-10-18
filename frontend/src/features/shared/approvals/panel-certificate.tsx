@@ -19,15 +19,26 @@ const REJECT_LINE: Record<RequestKind, string> = {
   Revocation: "The certificate stays valid. The person who asked is told why.",
   Reinstatement: "The certificate stays revoked. The person who asked is told why.",
 };
+/** Shown in place of the decision buttons when the API says this person cannot decide the request (they asked for it). */
+function IndependenceNote() {
+  return (
+    <p className="text-sm text-muted-foreground">
+      You asked for this, so someone else decides it. Nobody decides their own request; a Branch Manager's request goes to the Founder or a Super Admin.
+    </p>
+  );
+}
+
 const NOUN: Record<RequestKind, string> = { Correction: "correction", Revocation: "revocation", Reinstatement: "reinstatement" };
 
 export function CertificateRequestPanel({
   request,
   fromBranchManager,
+  canDecide = true,
   onClose,
 }: {
   request: CertificateRequest;
   fromBranchManager: boolean;
+  canDecide?: boolean;
   onClose: () => void;
 }) {
   const kind = request.kind;
@@ -50,19 +61,23 @@ export function CertificateRequestPanel({
       description={`${request.certificate.holder_name} · ${request.certificate.course.title}`}
       fromBranchManager={fromBranchManager}
       bar={
-        <ApproveRejectBar
-          busy={decide.isPending}
-          approve={{
-            title: `Approve the ${NOUN[kind]}?`,
-            consequence: APPROVE_LINE[kind],
-            onApprove: () => decide.mutateAsync({ decision: "Approved" }),
-          }}
-          reject={{
-            title: `Reject the ${NOUN[kind]}?`,
-            consequence: REJECT_LINE[kind],
-            onReject: (note) => decide.mutateAsync({ decision: "Rejected", note }),
-          }}
-        />
+        !canDecide ? (
+          <IndependenceNote />
+        ) : (
+          <ApproveRejectBar
+            busy={decide.isPending}
+            approve={{
+              title: `Approve the ${NOUN[kind]}?`,
+              consequence: APPROVE_LINE[kind],
+              onApprove: () => decide.mutateAsync({ decision: "Approved" }),
+            }}
+            reject={{
+              title: `Reject the ${NOUN[kind]}?`,
+              consequence: REJECT_LINE[kind],
+              onReject: (note) => decide.mutateAsync({ decision: "Rejected", note }),
+            }}
+          />
+        )
       }
     >
       <KeyValue
@@ -97,10 +112,12 @@ export function CertificateRequestPanel({
 export function FeeExceptionPanel({
   exception,
   fromBranchManager,
+  canDecide = true,
   onClose,
 }: {
   exception: FinancialException;
   fromBranchManager: boolean;
+  canDecide?: boolean;
   onClose: () => void;
 }) {
   const decide = useApiMutation(
@@ -124,22 +141,26 @@ export function FeeExceptionPanel({
       description={`Admission ${exception.admission.admission_code} · ${amount} outstanding`}
       fromBranchManager={fromBranchManager}
       bar={
-        <ApproveRejectBar
-          busy={decide.isPending}
-          approve={{
-            title: "Release the certificates?",
-            consequence: `The certificate can go ahead although ${amount} is unpaid. The fee is not waived: it stays due in the CRM.`,
-            confirmLabel: "Release",
-            askFor: "Why are you releasing it? (kept in the audit log)",
-            onApprove: (note) => decide.mutateAsync({ decision: "Approved", note: note ?? "" }),
-          }}
-          reject={{
-            title: "Keep the certificates on hold?",
-            consequence: "The certificates stay on hold until the fee is paid. The person who asked is told why.",
-            label: "Keep on hold",
-            onReject: (note) => decide.mutateAsync({ decision: "Rejected", note }),
-          }}
-        />
+        !canDecide ? (
+          <IndependenceNote />
+        ) : (
+          <ApproveRejectBar
+            busy={decide.isPending}
+            approve={{
+              title: "Release the certificates?",
+              consequence: `The certificate can go ahead although ${amount} is unpaid. The fee is not waived: it stays due in the CRM.`,
+              confirmLabel: "Release",
+              askFor: "Why are you releasing it? (kept in the audit log)",
+              onApprove: (note) => decide.mutateAsync({ decision: "Approved", note: note ?? "" }),
+            }}
+            reject={{
+              title: "Keep the certificates on hold?",
+              consequence: "The certificates stay on hold until the fee is paid. The person who asked is told why.",
+              label: "Keep on hold",
+              onReject: (note) => decide.mutateAsync({ decision: "Rejected", note }),
+            }}
+          />
+        )
       }
     >
       <KeyValue

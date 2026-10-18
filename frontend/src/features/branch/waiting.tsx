@@ -12,7 +12,6 @@ import { PageHead, QueryView, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PrepareMapping } from "@/features/academic/curriculum-model";
-import { useCanManage } from "@/features/shared/delivery-ui";
 import { fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
 
@@ -143,8 +142,8 @@ export function WaitingStudent({ row, manage, withBranch }: { row: WaitingRow; m
   );
 }
 
-export function BranchWaiting() {
-  const manage = useCanManage();
+/** `manage` comes from the route (Branch Manager). */
+export function BranchWaiting({ manage }: { manage: boolean }) {
   const { branchId, allowedBranches: branches } = useAuth();
   const initial = (useSearch({ strict: false }) as { q?: string }).q ?? "";
   const [q, setQ] = useState(initial);

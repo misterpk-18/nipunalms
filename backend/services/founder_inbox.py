@@ -7,6 +7,11 @@ request cannot be reviewed at the branch, so it comes here). Only what the signe
 the record as its own screen shows it (`detail`), so the side panel needs no second read. The same builders feed the nav badges.
 
 A Super Admin opens the same list: they hold the Founder's powers too, and the same independence rules apply to them.
+
+One inbox for every role that decides (role separation 7.8): the Founder and Super Admin see every kind; a Branch Manager sees only the
+certificate change requests of their branch that they may decide (the section in Completion). Certificate requests and fee exceptions
+that the signed-in person could decide but may not because they raised them are listed too, with `can_decide: false`, so the screen can
+say why (nobody decides their own request); the counts and nav badges include only what the person can decide.
 """
 from datetime import datetime, timezone
 
@@ -27,9 +32,10 @@ PAGES = {"curriculum": "/founder/curriculum", "certificate": "/founder/certifica
 CHANGE_TITLES = {"Correction": "Correction to certificate", "Revocation": "Revocation of certificate", "Reinstatement": "Reinstatement of certificate"}
 
 
-def _item(kind: str, ident, title: str, since, action: str, detail: dict, *, where: str | None = None, from_bm: bool = False) -> dict:
+def _item(kind: str, ident, title: str, since, action: str, detail: dict, *, where: str | None = None, from_bm: bool = False,
+          can_decide: bool = True) -> dict:
     return {"key": f"{kind}-{ident}", "kind": kind, "id": ident, "title": title, "where": where, "since": since, "action": action,
-            "to": PAGES[kind], "from_branch_manager": from_bm, "detail": detail}
+            "to": PAGES[kind], "from_branch_manager": from_bm, "can_decide": can_decide, "detail": detail}
 
 
 def _curriculum_items() -> list[dict]:
@@ -56,23 +62,31 @@ def _curriculum_items() -> list[dict]:
 
 def _certificate_items() -> list[dict]:
     items = []
+    user = current_user()
     for request in inbox_repo.pending_certificate_requests():
-        actions = certificate_requests.actions_for_request(request)
-        if "decide" not in actions:
-            continue
         certificate = request.certificate
+        actions = certificate_requests.actions_for_request(request)
+        # Listed when the role decides or asks for this kind at this branch; what a Branch Manager asked for is decided by an admin,
+        # so a Branch Manager sees it as waiting (`can_decide: false`), the Founder and Super Admin decide it
+        could = user.has_role(*certificate_requests.DECIDERS[request.kind], *certificate_requests.REQUESTERS[request.kind],
+                              branch_id=certificate.branch_id)
+        if "decide" not in actions and not could:
+            continue
         items.append(_item("certificate", request.request_id,
                            f"{CHANGE_TITLES[request.kind]} {certificate.certificate_number} ({certificate.holder_name})", request.requested_at,
                            "Review", request.to_dict(actions), where=certificate.branch.branch_name,
-                           from_bm=approvals.requester_needs_admin(request.requested_by)))
+                           from_bm=approvals.requester_needs_admin(request.requested_by), can_decide="decide" in actions))
     for exception in inbox_repo.pending_fee_exceptions():
         actions = certificate_requests.actions_for_exception(exception)
-        if "decide" not in actions:
+        could = user.has_role(*certificate_requests.EXCEPTION_DECIDERS, *certificate_requests.EXCEPTION_REQUESTERS,
+                              branch_id=exception.admission.service_branch_id)
+        if "decide" not in actions and not could:
             continue
         items.append(_item("fee_exception", exception.exception_id,
                            f"Release certificates with a fee unpaid: {exception.admission.admission_code} (₹{exception.outstanding_amount:,.0f} outstanding)",
                            exception.requested_at, "Review", {**exception.to_dict(), "actions": actions},
-                           where=exception.admission.service_branch.branch_name, from_bm=approvals.requester_needs_admin(exception.requested_by)))
+                           where=exception.admission.service_branch.branch_name, from_bm=approvals.requester_needs_admin(exception.requested_by),
+                           can_decide="decide" in actions))
     return items
 
 
@@ -117,13 +131,16 @@ def inbox(group: str | None = None) -> dict:
     CRM has sent its finance figures yet. `group` narrows it to one page of the workspace."""
     builders = {"curriculum": (_curriculum_items,), "certificates": (_certificate_items,), "access": (_access_items,),
                 "other": (_ai_items, _branch_manager_items)}
+    if current_user().role_code == "BRANCH_MANAGER":
+        builders = {"certificates": builders["certificates"]}  # the Branch Manager's section in Completion: certificate requests only
     items = [item for name, build in builders.items() if group in (None, name) for fn in build for item in fn()]
     items.sort(key=_sort_key)
+    decidable = [i for i in items if i["can_decide"]]
     scheduled = []
-    if group in (None, "curriculum"):
+    if "curriculum" in builders and group in (None, "curriculum"):
         scheduled = [{"curriculum_version_id": v.curriculum_version_id, "version_label": v.version_label, "activate_on": v.activate_on,
                       "course": catalog_repo.get_course(v.course_id).to_summary()} for v in inbox_repo.curriculum_scheduled()]
-    return {"as_of": datetime.now(timezone.utc), "total": len(items), "counts": {k: sum(1 for i in items if i["kind"] == k) for k in KINDS},
+    return {"as_of": datetime.now(timezone.utc), "total": len(decidable), "counts": {k: sum(1 for i in decidable if i["kind"] == k) for k in KINDS},
             "items": items, "scheduled": scheduled, "crm_connected": crm_connected()}
 
 

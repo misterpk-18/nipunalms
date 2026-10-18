@@ -1,7 +1,7 @@
 import { useFounderSummary } from "@/api/dashboards";
 import { Note, PageHead, QueryView, Section } from "@/components/lms/ui";
 import { CrmTile, Tile, TileRow } from "@/features/shared/dashboard-parts";
-import { InboxList } from "./inbox-list";
+import { ApprovalsInbox } from "@/features/shared/approvals/inbox";
 
 /** The Founder's home: everything waiting for them first, then how the company is doing. */
 export function FounderDashboard() {
@@ -9,7 +9,7 @@ export function FounderDashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <PageHead title="Founder / CEO home" description="Decide what is waiting for you, then see how the company is doing." />
-      <InboxList page="/founder" />
+      <ApprovalsInbox page="/founder" />
       <QueryView query={query} skeleton="cards">
         {(d) => (
           <Section title="How the company is doing">

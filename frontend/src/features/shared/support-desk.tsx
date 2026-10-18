@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/auth/auth";
+import { BranchFilter } from "@/features/shared/branch-filter";
 import { useApiMutation } from "@/lib/mutation";
 import { fmtDateTime } from "@/features/shared/format";
 import { AttachmentLinks, FilePicker } from "./support-attachments";
@@ -96,6 +97,10 @@ function ReplyCell({ request }: { request: SupportRow }) {
  *
  * `views` is the Branch Manager's view: tabs with counts (Needs action, Waiting for the student, Done, All) in place of the status
  * filter, the nearest reply deadline first, new replies marked, and the open request kept in the address when `openId` is given.
+ *
+ * The route passes the rest of the role's config: `branchId` (the Branch Manager's fixed branch) or `branchFilter` (Super Admin and
+ * Founder pick one branch or all), `canReassign` (Branch Manager, Super Admin, Founder), `canEscalate` (the trainer, who passes a
+ * request up) and `canRespond` (reply and change status: off for Super Admin and Founder, who read and reassign).
  */
 export function SupportDesk({
   base = {},
@@ -107,6 +112,10 @@ export function SupportDesk({
   openId: controlledOpen,
   onOpen,
   branchId,
+  branchFilter = false,
+  canReassign,
+  canEscalate,
+  canRespond = true,
   studentId,
   perPage,
 }: {
@@ -120,9 +129,15 @@ export function SupportDesk({
   openId?: number | null;
   onOpen?: (id: number | null) => void;
   branchId?: number | null;
+  /** Show a branch filter (every branch) instead of a fixed `branchId`. */
+  branchFilter?: boolean;
+  canReassign: boolean;
+  canEscalate: boolean;
+  canRespond?: boolean;
   studentId?: number;
   perPage?: number;
 }) {
+  const [pickedBranch, setPickedBranch] = useState<number | null>(null);
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
@@ -131,7 +146,8 @@ export function SupportDesk({
   const [ownOpen, setOwnOpen] = useState<number | null>(null);
   const openId = controlledOpen !== undefined ? controlledOpen : ownOpen;
   const setOpenId = onOpen ?? setOwnOpen;
-  const scope: SupportFilters = { ...(branchId ? { branch_id: branchId } : {}), ...(studentId ? { student_id: studentId } : {}) };
+  const activeBranch = branchFilter ? pickedBranch : branchId;
+  const scope: SupportFilters = { ...(activeBranch ? { branch_id: activeBranch } : {}), ...(studentId ? { student_id: studentId } : {}) };
   const filters: SupportFilters = {
     ...base,
     ...scope,
@@ -171,6 +187,12 @@ export function SupportDesk({
               onChange={(e) => (setStatus(e.target.value), setPage(1))}
               options={SUPPORT_STATUSES.map((s) => ({ value: s, label: s }))}
             />
+          </div>
+        )}
+        {branchFilter && (
+          <div className="w-full sm:w-48">
+            <Label htmlFor="support-branch">Branch</Label>
+            <BranchFilter value={pickedBranch} onChange={(next) => (setPickedBranch(next), setPage(1))} />
           </div>
         )}
         {!simple && (
@@ -256,22 +278,50 @@ export function SupportDesk({
           </>
         )}
       </QueryView>
-      <SupportPanel id={openId} onClose={() => setOpenId(null)} simple={simple} />
+      <SupportPanel id={openId} onClose={() => setOpenId(null)} simple={simple} canReassign={canReassign} canEscalate={canEscalate} canRespond={canRespond} />
     </div>
   );
 }
 
 type StaffMember = { user_id: number; full_name: string; role_code: string };
 
-export function SupportPanel({ id, onClose, simple = false }: { id: number | null; onClose: () => void; simple?: boolean }) {
+export function SupportPanel({
+  id,
+  onClose,
+  simple = false,
+  canReassign,
+  canEscalate,
+  canRespond = true,
+}: {
+  id: number | null;
+  onClose: () => void;
+  simple?: boolean;
+  canReassign: boolean;
+  canEscalate: boolean;
+  canRespond?: boolean;
+}) {
   return (
     <Dialog open={id !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">{id !== null && <PanelBody id={id} simple={simple} />}</DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        {id !== null && <PanelBody id={id} simple={simple} canReassign={canReassign} canEscalate={canEscalate} canRespond={canRespond} />}
+      </DialogContent>
     </Dialog>
   );
 }
 
-function PanelBody({ id, simple }: { id: number; simple: boolean }) {
+function PanelBody({
+  id,
+  simple,
+  canReassign,
+  canEscalate,
+  canRespond,
+}: {
+  id: number;
+  simple: boolean;
+  canReassign: boolean;
+  canEscalate: boolean;
+  canRespond: boolean;
+}) {
   const { profile } = useAuth();
   const query = useQuery({ queryKey: ["support", "detail", id], queryFn: () => supportApi.get(id) });
   const done = { invalidate: [["support"]] };
@@ -370,7 +420,7 @@ function PanelBody({ id, simple }: { id: number; simple: boolean }) {
               ))}
             </ol>
 
-            {!finished && (
+            {!finished && canRespond && (
               <div className="space-y-2">
                 <Label htmlFor="support-reply">Reply</Label>
                 <Textarea id="support-reply" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
@@ -389,7 +439,7 @@ function PanelBody({ id, simple }: { id: number; simple: boolean }) {
             )}
 
             <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-              {finished && (
+              {finished && canRespond && (
                 <ReasonDialog
                   title="Reopen this request"
                   description="Tell us what is still not working."
@@ -401,37 +451,41 @@ function PanelBody({ id, simple }: { id: number; simple: boolean }) {
               )}
               {!finished && (
                 <>
-                  <div className="w-44">
-                    <Label htmlFor="support-set-status">Change status</Label>
-                    <NativeSelect
-                      id="support-set-status"
-                      placeholder="Choose…"
-                      value={target}
-                      onChange={(e) => setTarget(e.target.value)}
-                      options={["In Progress", "Waiting on Student"].filter((s) => s !== request.status).map((s) => ({ value: s, label: s }))}
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    disabled={!target || status.isPending}
-                    onClick={() => status.mutate({ status: target }, { onSuccess: () => setTarget("") })}
-                  >
-                    Update
-                  </Button>
-                  <ReasonDialog
-                    title="Resolve this request"
-                    label="How was it resolved?"
-                    confirmLabel="Resolve"
-                    busy={status.isPending}
-                    onSubmit={(note) => status.mutateAsync({ status: "Resolved", note })}
-                    trigger={<Button>Resolve</Button>}
-                  />
+                  {canRespond && (
+                    <>
+                      <div className="w-44">
+                        <Label htmlFor="support-set-status">Change status</Label>
+                        <NativeSelect
+                          id="support-set-status"
+                          placeholder="Choose…"
+                          value={target}
+                          onChange={(e) => setTarget(e.target.value)}
+                          options={["In Progress", "Waiting on Student"].filter((s) => s !== request.status).map((s) => ({ value: s, label: s }))}
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        disabled={!target || status.isPending}
+                        onClick={() => status.mutate({ status: target }, { onSuccess: () => setTarget("") })}
+                      >
+                        Update
+                      </Button>
+                      <ReasonDialog
+                        title="Resolve this request"
+                        label="How was it resolved?"
+                        confirmLabel="Resolve"
+                        busy={status.isPending}
+                        onSubmit={(note) => status.mutateAsync({ status: "Resolved", note })}
+                        trigger={<Button>Resolve</Button>}
+                      />
+                    </>
+                  )}
                   {simple && (
                     <Button variant="ghost" aria-expanded={more} onClick={() => setMore((open) => !open)}>
                       More
                     </Button>
                   )}
-                  {(!simple || more) && request.escalation_level !== "Branch Manager" && (
+                  {canEscalate && canRespond && (!simple || more) && request.escalation_level !== "Branch Manager" && (
                     <ReasonDialog
                       title="Escalate this request"
                       description={"It goes to the Branch Manager."}
@@ -441,7 +495,7 @@ function PanelBody({ id, simple }: { id: number; simple: boolean }) {
                       trigger={<Button variant="outline">Escalate</Button>}
                     />
                   )}
-                  {(!simple || more) && profile?.scopes.some((s) => ["BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"].includes(s.role_code)) && (
+                  {canReassign && (!simple || more) && (
                     <>
                       <div className="w-52">
                         <Label htmlFor="support-assign">Reassign to</Label>

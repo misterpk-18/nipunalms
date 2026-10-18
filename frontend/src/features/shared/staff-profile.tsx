@@ -9,7 +9,8 @@ import { fmtDateTime, fmtDate } from "@/features/shared/format";
 import { NotificationPreferences } from "@/features/shared/notification-preferences";
 import { useApiMutation } from "@/lib/mutation";
 
-export function StaffProfile() {
+/** `role` and `branchLabel` come from the session, passed by the route. */
+export function StaffProfile({ role, branchLabel }: { role: string; branchLabel: string }) {
   const query = useQuery({ queryKey: ["profile"], queryFn: profileApi.get });
   const refresh = { invalidate: [["profile"], ["me"]] };
   const signOut = useApiMutation((sessionId: string) => profileApi.signOutDevice(sessionId), { ...refresh, success: "Signed out" });
@@ -26,11 +27,8 @@ export function StaffProfile() {
                 items={[
                   ["Name", profile.user.full_name],
                   ["Email", profile.user.email ?? "—"],
-                  ["Role", [...new Set(profile.scopes.map((s) => s.role_name))].join(", ")],
-                  [
-                    "Branch",
-                    profile.scopes.some((s) => !s.branch_name) ? "All authorised branches" : [...new Set(profile.scopes.map((s) => s.branch_name))].join(", "),
-                  ],
+                  ["Role", role],
+                  ["Branch", branchLabel],
                 ]}
               />
             </Section>

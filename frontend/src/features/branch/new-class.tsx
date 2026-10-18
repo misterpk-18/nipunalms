@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type Batch, type ClassSession } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
-import { ActionDialog, fromIstInput, toIstInput, useIsManager } from "@/features/shared/delivery-ui";
+import { ActionDialog, fromIstInput, toIstInput } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 
 const PURPOSES = ["Regular", "Replacement", "Remedial", "Extra"].map((p) => ({ value: p, label: p }));
@@ -32,8 +32,11 @@ export function NewClassDialog({
   open,
   onOpenChange,
   trigger,
+  approve: approver,
 }: {
   batches: Batch[];
+  /** Set by the route: true only for the Branch Manager (may accept advisory warnings with a reason). */
+  approve: boolean;
   /** The batch to start from (the batch page passes its own). */
   batchId?: number;
   /** A cancelled class this one replaces. */
@@ -43,7 +46,6 @@ export function NewClassDialog({
   trigger?: ReactNode;
 }) {
   const { profile } = useAuth();
-  const approver = useIsManager();
   // The dialog is re-created when the batch changes (to fill it in again), so whether it is open is kept out here
   const [ownOpen, setOwnOpen] = useState(false);
   const isOpen = open ?? ownOpen;

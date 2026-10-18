@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/lms/forms";
-import { useCanManage } from "@/features/shared/delivery-ui";
 import { useApiMutation } from "@/lib/mutation";
 import { ChevronDown } from "lucide-react";
 
-export function PaymentInstructions() {
-  const manage = useCanManage();
+export function PaymentInstructions({ manage }: { manage: boolean }) {
   const { allowedBranches: branches, branchId } = useAuth();
   const [picked, setPicked] = useState<number | null>(null);
   const target = picked ?? branchId ?? branches[0]?.branch_id ?? null;

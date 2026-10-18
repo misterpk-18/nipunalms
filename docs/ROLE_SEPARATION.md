@@ -69,14 +69,14 @@ Work top to bottom. R2 and R3 (data and backend) come before any frontend phase,
 
 No component calls `hasRole`, `useCanManage`, `useIsManager` or `useCanAdminister` itself; the route passes the config (tables in Part C, section 7). Remove those hooks once nothing uses them.
 
-- [ ] 7.1 Notification centre: `showSystemIssuesTab` (Super Admin and Founder only); add the Founder route `/founder/notifications`
-- [ ] 7.2 Staff profile: role and branch label from the session
-- [ ] 7.3 Academic calendar: one component replacing `features/admin/calendar.tsx` and `features/shared/academic-calendar.tsx`; Branch Manager proposes, Super Admin and Founder approve
-- [ ] 7.4 Issues list: props `canNote`, `canAssign`, `branchScoped`, `goFix` per role
-- [ ] 7.5 Support desk: `simple`, `views`, `canReassign`, `canEscalate`, `branchId` per role; remove the duplicate `canEscalate` row from the table
-- [ ] 7.6 Batch page parts and operations: `manage` and `approve` only for Branch Manager; read-only for Super Admin and Founder with a branch filter
-- [ ] 7.7 Class sessions table and requests: `manager` and `trainer` config
-- [ ] 7.8 Certificate and completion decisions: merge `CertificateDecisions` and the Founder `InboxList` panels into one inbox component
+- [x] 7.1 Notification centre: `showSystemIssuesTab` (Super Admin and Founder only); add the Founder route `/founder/notifications` (`NotificationCentre` takes `showSystemIssuesTab` from the route (Super Admin and Founder pass it); `/founder/notifications` added and the shell's bell now has a Founder entry; backend notification endpoints were already role-neutral and show delivery failures to Founder too)
+- [x] 7.2 Staff profile: role and branch label from the session (`StaffProfile` takes `role` and `branchLabel`; `routes/account.profile.tsx` reads them from the session)
+- [x] 7.3 Academic calendar: one component replacing `features/admin/calendar.tsx` and `features/shared/academic-calendar.tsx`; Branch Manager proposes, Super Admin and Founder approve (`features/shared/academic-calendar.tsx` + `calendar-dialogs.tsx`, `CalendarConfig` (`CALENDAR_CENTRAL`, `calendarForBranchManager`); routes `/admin/calendar`, `/founder/calendar`, Branch Manager section in Schedule. Backend: a Branch Manager's closure is created Pending, only Super Admin/Founder decide, edit or cancel; the proposer is told the outcome; proposals notify Super Admin and Founder with their own links)
+- [x] 7.4 Issues list: props `canNote`, `canAssign`, `branchScoped`, `goFix` per role (`IssuesList` props `canNote`, `canAssign`, `branchScoped`, `goFix`; `features/shared/issues.tsx` has the Branch Manager page, `CrossBranchIssues` (branch filter) and `IssueDetail`; `backend/services/issues.py` builds `go_fix` from the session role, new `GET /issues/{source}/{id}`; routes `/admin/issues`, `/founder/issues`, `/{admin,founder}/issues/$source/$id`. System-type issues link to `/founder/students|crm-sync|setup` for the Founder, which the per-role phase still has to create)
+- [x] 7.5 Support desk: `simple`, `views`, `canReassign`, `canEscalate`, `branchId` per role; remove the duplicate `canEscalate` row from the table (props `simple`, `views`, `branchId`, `branchFilter`, `canReassign`, `canEscalate`, `canRespond` (off for Super Admin and Founder: they read and reassign); `profile.scopes` read removed; routes `/admin/support`, `/founder/support`)
+- [x] 7.6 Batch page parts and operations: `manage` and `approve` only for Branch Manager; read-only for Super Admin and Founder with a branch filter (`manage` and `approve` are props from the route (true only on `/branch/*`); `useCanManage` and `useIsManager` deleted (nothing used them); `BatchList` and `BatchPage` serve `/branch/batches`, `/admin/batches` and `/founder/batches` (+ `$id`) with a branch filter on the read-only ones)
+- [x] 7.7 Class sessions table and requests: `manager` and `trainer` config (`SessionActions` no longer calls `useIsManager`; the trainer route already passes `{manager: false, trainer: true}`)
+- [x] 7.8 Certificate and completion decisions: merge `CertificateDecisions` and the Founder `InboxList` panels into one inbox component (one `ApprovalsInbox` (`features/shared/approvals/`, panels moved there) with `kinds`; `CertificateDecisions` deleted; Branch Manager section in Completion uses `kinds=[certificate]`; `/admin/approvals` added with Approvals nav badge; `GET /founder/inbox` now also serves a Branch Manager (certificate requests only) and flags `can_decide` so the independence rule shows)
 - [ ] 7.9 Question bank: move `features/trainer/question-bank.tsx` to `features/shared`; `canApprove` for Branch Manager only
 - [ ] 7.10 AI controls: one page, two routes
 - [ ] 7.11 Assistant: `variant` per role
@@ -132,19 +132,19 @@ Frontend
 - [ ] Add `/branch/recordings` to the nav
 - [ ] Surface payment instructions, access extensions and certificate requests as visible items, not buried sections (as in R7)
 - [ ] `/branch/courses` replaces Curriculum under "Teaching"
-- [ ] Branch Manager proposes closures; cannot decide them
+- [x] Branch Manager proposes closures; cannot decide them
 - [ ] Rename the "Attendance & progress" URL to match the label or the label to match the URL
 - [ ] Split "Content & questions" or label its two jobs clearly
 
 ### Super Admin
 - [ ] Nav under `/admin`: Home, Approvals, Users & access, Student accounts, Batches, Attendance, Support, Reports, Issues, Academic calendar, Courses, CRM sync, Setup & health, AI controls, Audit log
-- [ ] `/admin/approvals`: the same inbox as the Founder, decides every item
+- [x] `/admin/approvals`: the same inbox as the Founder, decides every item
 - [ ] `/admin/courses`: outline editor and kept blocks
 - [ ] `/admin/batches`, `/admin/students` (branch filter), `/admin/attendance`, `/admin/reports`: read-only cross-branch
-- [ ] `/admin/support`: read and reassign
-- [ ] "Go fix it" on `/admin/issues` opens a read-only detail with Assign (`backend/services/issues.py:45-64`)
+- [x] `/admin/support`: read and reassign
+- [x] "Go fix it" on `/admin/issues` opens a read-only detail with Assign (`backend/services/issues.py:45-64`)
 - [ ] Payment instructions edited in `/admin/setup`, branches section
-- [ ] Approve closures proposed by Branch Managers on `/admin/calendar`
+- [x] Approve closures proposed by Branch Managers on `/admin/calendar`
 - [ ] Users & access hand-out page
 - [ ] Remove the implicit Branch workspace and its "Acting as" entry
 

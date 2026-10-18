@@ -9,14 +9,7 @@ import { Field, NativeSelect } from "@/components/lms/forms";
 import { StatusBadge } from "@/components/lms/ui";
 import { STATUS } from "@/lib/status";
 import type { ClassSession, Delivery } from "@/api/delivery";
-import { useAuth } from "@/auth/auth";
 import { ApiError } from "@/api/client";
-
-/** Whether the signed-in user may change delivery records (Branch Manager, Super Admin). The API re-checks every change. */
-export function useCanManage(): boolean {
-  const { profile } = useAuth();
-  return !!profile?.scopes.some((s) => s.role_code === "BRANCH_MANAGER" || s.role_code === "SUPER_ADMIN");
-}
 
 // ---------------------------------------------------------------- IST formatting (business time is always Asia/Kolkata)
 
@@ -53,12 +46,6 @@ export function MeetBadge({ session }: { session: Pick<ClassSession, "meet_statu
 /** The batch or class state as the people who run it name it (`state_label`); the dictionary owns the colour and wording. */
 export function StateBadge({ label }: { label: string }) {
   return <StatusBadge domain={label in STATUS.batch ? "batch" : "session"} code={label} />;
-}
-
-/** Whether a branch manager or super admin is signed in: the only people who may override an advisory warning or decide a request. */
-export function useIsManager(): boolean {
-  const { hasRole } = useAuth();
-  return hasRole("BRANCH_MANAGER", "SUPER_ADMIN");
 }
 
 export const mono = (text: string) => <span className="font-mono text-xs">{text}</span>;

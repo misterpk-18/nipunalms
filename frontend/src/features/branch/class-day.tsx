@@ -9,7 +9,7 @@ import { DataTable, PageHead, QueryView, Section, StatusBadge, Tag } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ClassOperationsDialog, ResolveDisruptionDialog } from "@/features/academic/class-operations";
-import { fmtDate, fmtRange, mono, useCanManage } from "@/features/shared/delivery-ui";
+import { fmtDate, fmtRange, mono } from "@/features/shared/delivery-ui";
 import { todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MeetLinkDialog } from "./class-actions";
@@ -62,8 +62,8 @@ function LinkCell({ row, manage }: { row: MeetOpsRow; manage: boolean }) {
   );
 }
 
-export function ClassDay() {
-  const manage = useCanManage();
+/** `manage` and `approve` come from the route (true only for the Branch Manager). */
+export function ClassDay({ manage, approve }: { manage: boolean; approve: boolean }) {
   const { branchId } = useAuth();
   const [date, setDate] = useState(todayIso());
   const [filter, setFilter] = useState<Filter>("all");
@@ -186,7 +186,7 @@ export function ClassDay() {
                       c: (r) =>
                         r.log_overdue ? <StatusBadge domain="exception" code="Overdue" /> : <span className="text-muted-foreground">{r.state_label}</span>,
                     },
-                    { h: "", c: (r) => <ClassOperationsDialog target={{ ...r, branch: r.branch }} /> },
+                    { h: "", c: (r) => <ClassOperationsDialog target={{ ...r, branch: r.branch }} manage={manage} approve={approve} /> },
                   ]}
                 />
               </Section>

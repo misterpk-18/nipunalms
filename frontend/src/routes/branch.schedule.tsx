@@ -12,5 +12,5 @@ export const Route = createFileRoute("/branch/schedule")({
     ...(Number(search["batch"]) > 0 ? { batch: Number(search["batch"]) } : {}),
     ...(Number(search["decide"]) === 1 ? { decide: 1 as const } : {}),
   }),
-  component: BranchSchedule,
+  component: () => <BranchSchedule manage approve />,
 });

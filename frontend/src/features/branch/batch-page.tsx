@@ -1,6 +1,9 @@
+/** What the route lets this role do on the batch page: Branch Manager `manage` and `approve`, read-only (both false) for Super Admin and Founder. */
+export type BatchAccess = { manage: boolean; approve: boolean };
+
 /** One batch: a step bar (Created, Trainer, Ready, Confirmed, Students, Classes), the one next action as the main button, and everything about the batch below. */
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { branchApi, type BatchProblem, type BatchProgress } from "@/api/branch";
 import { deliveryApi, type BatchDetail } from "@/api/delivery";
@@ -10,7 +13,7 @@ import { DataTable, PageHead, PillTabs, QueryView, Section, StatusNote } from "@
 import { Button } from "@/components/ui/button";
 import { Overview, ReadinessTab, StudentsTab, TrainersTab } from "@/features/academic/batch-panel";
 import { EditBatchDialog, RequestsTab } from "@/features/academic/batch-operations";
-import { StateBadge, fmtDate, fmtDay, fmtRange, useCanManage } from "@/features/shared/delivery-ui";
+import { StateBadge, fmtDate, fmtDay, fmtRange } from "@/features/shared/delivery-ui";
 import { ClassActions } from "./class-actions";
 import { AddStudentsDialog, AssignTrainerDialog, ConfirmBatchDialog, CreateClassesDialog, FINISHABLE, FinishSetupDialog } from "./batch-dialogs";
 import { NewClassDialog } from "./new-class";
@@ -19,7 +22,7 @@ const TABS = ["Overview", "Students", "Classes", "Trainers", "Checks", "Requests
 type Tab = (typeof TABS)[number];
 
 /** The button for a step: opens the dialog that does it. */
-function NextButton({ batch, progress }: { batch: BatchDetail; progress: BatchProgress }) {
+function NextButton({ batch, progress, approve }: { batch: BatchDetail; progress: BatchProgress; approve: boolean }) {
   const next = progress.next;
   if (!next) return null;
   const button = <Button>{next.label}</Button>;
@@ -33,7 +36,7 @@ function NextButton({ batch, progress }: { batch: BatchDetail; progress: BatchPr
         <EditBatchDialog batch={batch} trigger={button} />
       );
     case "confirm":
-      return <ConfirmBatchDialog batch={batch} progress={progress} trigger={button} />;
+      return <ConfirmBatchDialog batch={batch} progress={progress} trigger={button} approve={approve} />;
     case "add_students":
       return <AddStudentsDialog batch={batch} trigger={button} />;
     case "create_classes":
@@ -41,19 +44,19 @@ function NextButton({ batch, progress }: { batch: BatchDetail; progress: BatchPr
   }
 }
 
-function Problems({ batch, progress }: { batch: BatchDetail; progress: BatchProgress }) {
+function Problems({ batch, progress, manage }: { batch: BatchDetail; progress: BatchProgress; manage: boolean }) {
   const problems: BatchProblem[] = progress.problems;
   if (problems.length === 0) return null;
   return (
     <section aria-label="Before you can confirm" className="rounded-xl border border-warning/40 bg-warning-soft p-4">
-      <h2 className="mb-2 text-base font-semibold">Before you can confirm</h2>
+      <h2 className="mb-2 text-base font-semibold">Before it can be confirmed</h2>
       <ul className="space-y-2">
         {problems.map((p) => (
           <li key={p.key} className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span>
               <strong>{p.label}.</strong> {p.detail}
             </span>
-            {p.fix === "trainer" ? (
+            {!manage ? null : p.fix === "trainer" ? (
               <AssignTrainerDialog
                 batch={batch}
                 trigger={
@@ -82,7 +85,7 @@ function Problems({ batch, progress }: { batch: BatchDetail; progress: BatchProg
 function Warnings({ progress }: { progress: BatchProgress }) {
   if (progress.warnings.length === 0 || progress.problems.length > 0) return null;
   return (
-    <StatusNote tone="warning" title="Worth a look before you confirm">
+    <StatusNote tone="warning" title="Worth a look before it is confirmed">
       <ul className="list-disc pl-5">
         {progress.warnings.map((w) => (
           <li key={w.key}>
@@ -90,13 +93,12 @@ function Warnings({ progress }: { progress: BatchProgress }) {
           </li>
         ))}
       </ul>
-      <p className="mt-1">You can still confirm. You will be asked to write down why it is acceptable.</p>
+      <p className="mt-1">The Branch Manager can still confirm, and writes down why it is acceptable.</p>
     </StatusNote>
   );
 }
 
-function ClassesTab({ batch, progress }: { batch: BatchDetail; progress: BatchProgress }) {
-  const manage = useCanManage();
+function ClassesTab({ batch, progress, manage, approve }: { batch: BatchDetail; progress: BatchProgress } & BatchAccess) {
   const query = useQuery({
     queryKey: ["delivery", "sessions", "batch-page", batch.batch_id],
     queryFn: () => deliveryApi.sessions({ batch_id: batch.batch_id }),
@@ -117,6 +119,7 @@ function ClassesTab({ batch, progress }: { batch: BatchDetail; progress: BatchPr
           <NewClassDialog
             batches={[batch]}
             batchId={batch.batch_id}
+            approve={approve}
             trigger={
               <Button size="sm" variant="outline">
                 New class
@@ -146,7 +149,7 @@ function ClassesTab({ batch, progress }: { batch: BatchDetail; progress: BatchPr
                 ),
               },
               { h: "State", c: (s) => <StateBadge label={s.state_label} /> },
-              { h: "", c: (s) => <ClassActions session={s} /> },
+              ...(manage ? [{ h: "", c: (s: (typeof page.data)[number]) => <ClassActions session={s} manage={manage} approve={approve} /> }] : []),
             ]}
           />
         )}
@@ -155,9 +158,8 @@ function ClassesTab({ batch, progress }: { batch: BatchDetail; progress: BatchPr
   );
 }
 
-function Body({ batch, progress }: { batch: BatchDetail; progress: BatchProgress }) {
+function Body({ batch, progress, manage, approve }: { batch: BatchDetail; progress: BatchProgress } & BatchAccess) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const manage = useCanManage();
   return (
     <>
       <PillTabs
@@ -167,12 +169,12 @@ function Body({ batch, progress }: { batch: BatchDetail; progress: BatchProgress
         onChange={setTab}
         counts={{ Students: progress.counts.students, Classes: progress.counts.classes }}
       />
-      {tab === "Overview" && <Overview batch={batch} manager={manage} />}
-      {tab === "Students" && <StudentsTab batch={batch} manager={manage} />}
-      {tab === "Classes" && <ClassesTab batch={batch} progress={progress} />}
-      {tab === "Trainers" && <TrainersTab batch={batch} manager={manage} />}
-      {tab === "Checks" && <ReadinessTab batch={batch} manager={manage} />}
-      {tab === "Requests" && <RequestsTab batch={batch} />}
+      {tab === "Overview" && <Overview batch={batch} manage={manage} approve={approve} />}
+      {tab === "Students" && <StudentsTab batch={batch} manage={manage} />}
+      {tab === "Classes" && <ClassesTab batch={batch} progress={progress} manage={manage} approve={approve} />}
+      {tab === "Trainers" && <TrainersTab batch={batch} manage={manage} />}
+      {tab === "Checks" && <ReadinessTab batch={batch} manage={manage} />}
+      {tab === "Requests" && <RequestsTab batch={batch} manage={manage} approve={approve} />}
       {tab === "History" && (
         <ul className="space-y-1 text-sm">
           {batch.history.map((e) => (
@@ -189,19 +191,18 @@ function Body({ batch, progress }: { batch: BatchDetail; progress: BatchProgress
   );
 }
 
-export function BranchBatchPage() {
-  const { id } = useParams({ from: "/branch/batches/$id" });
+/** `basePath` is the role's batch list (`/branch/batches`, `/admin/batches`, `/founder/batches`); the route also passes `manage` and `approve`. */
+export function BatchPage({ id, basePath, manage, approve }: { id: string; basePath: string } & BatchAccess) {
   const batchId = Number(id);
   const valid = Number.isInteger(batchId) && batchId > 0;
   const batchQuery = useQuery({ queryKey: ["delivery", "batch", batchId], queryFn: () => deliveryApi.batch(batchId), enabled: valid });
   const progressQuery = useQuery({ queryKey: ["branch", "progress", batchId], queryFn: () => branchApi.progress(batchId), enabled: valid });
-  const manage = useCanManage();
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <QueryView query={batchQuery} skeleton="detail">
         {(batch) => (
           <>
-            <Breadcrumbs items={[{ label: "Batches", to: "/branch/batches" }, { label: batch.display_name ?? batch.batch_code }]} />
+            <Breadcrumbs items={[{ label: "Batches", to: basePath }, { label: batch.display_name ?? batch.batch_code }]} />
             <PageHead
               title={batch.display_name ?? batch.course.title}
               description={
@@ -215,17 +216,17 @@ export function BranchBatchPage() {
             <QueryView query={progressQuery} skeleton="cards">
               {(progress) => (
                 <div className="space-y-4">
-                  <StepBar steps={progress.steps} next={manage ? <NextButton batch={batch} progress={progress} /> : undefined} />
+                  <StepBar steps={progress.steps} next={manage ? <NextButton batch={batch} progress={progress} approve={approve} /> : undefined} />
                   {progress.note && <StatusNote tone="info">{progress.note}</StatusNote>}
                   {progress.current === null && !progress.note && (
                     <StatusNote tone="success">This batch is set up: confirmed, with students and classes.</StatusNote>
                   )}
-                  <Problems batch={batch} progress={progress} />
+                  <Problems batch={batch} progress={progress} manage={manage} />
                   <Warnings progress={progress} />
                   <Section>
-                    <Body batch={batch} progress={progress} />
+                    <Body batch={batch} progress={progress} manage={manage} approve={approve} />
                   </Section>
-                  <HelpLinks />
+                  {manage && <HelpLinks />}
                 </div>
               )}
             </QueryView>

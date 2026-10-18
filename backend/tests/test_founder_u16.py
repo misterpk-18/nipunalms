@@ -141,7 +141,7 @@ def inbox(client, w, who, group=None):
 
 
 def test_only_the_founder_and_super_admin_open_the_inbox(client, w):
-    for who in ("t1", "ac", "bm", "s1"):
+    for who in ("t1", "s1"):
         assert client.get(f"{API}/founder/inbox", headers=w.h[who]).status_code == 403
     assert client.get(f"{API}/founder/inbox?group=nope", headers=w.h["founder"]).status_code == 400
     assert inbox(client, w, "admin")["total"] == inbox(client, w, "founder")["total"]
@@ -180,8 +180,12 @@ def test_the_inbox_lists_each_kind_oldest_first_and_feeds_the_nav_badges(client,
 def test_a_request_the_person_made_is_not_in_their_own_inbox(client, w):
     cid, _ = issued(client, w)
     change(client, w, "admin", cid, "Revocation", reason="Duplicate", evidence="Same student twice")
-    assert [i["kind"] for i in inbox(client, w, "admin")["items"] if i["kind"] == "certificate"] == []  # another approver decides it
-    assert [i["kind"] for i in inbox(client, w, "founder")["items"] if i["kind"] == "certificate"] == ["certificate"]
+    mine = inbox(client, w, "admin")
+    assert [(i["kind"], i["can_decide"]) for i in mine["items"] if i["kind"] == "certificate"] == [("certificate", False)]  # listed, another approver decides it
+    assert mine["counts"]["certificate"] == 0 and mine["total"] == 1  # only the AI budget is the Super Admin's to decide
+    assert [(i["kind"], i["can_decide"]) for i in inbox(client, w, "founder")["items"] if i["kind"] == "certificate"] == [("certificate", True)]
+    badges = client.get(f"{API}/me/nav-counts", headers=w.h["admin"]).get_json()["data"]
+    assert "certificates" not in badges or badges["certificates"] == 0
 
 
 def test_access_extensions_reach_the_inbox_with_the_branch_managers_recommendation(client, w, run_sql):
@@ -267,3 +271,16 @@ def test_the_founder_summary_says_when_the_crm_has_sent_its_figures(client, w, c
     assert summary()["crm_connected"] is False and inbox(client, w, "founder")["crm_connected"] is False
     assert crm_event("BranchFinanceSnapshot", snapshot()).status_code == 201
     assert summary()["crm_connected"] is True and inbox(client, w, "founder")["crm_connected"] is True
+
+
+def test_a_branch_manager_sees_only_certificate_requests_and_waits_for_an_admin_on_their_own(client, w):
+    """The same inbox serves the Branch Manager's section in Completion: certificate requests only, never the other kinds. What a
+    Branch Manager asked for is listed as waiting: the Founder or a Super Admin decides it."""
+    cid, _ = issued(client, w)
+    asked = change(client, w, "ac", cid, "Correction", reason="Name misspelt", holder_name="Learner One").get_json()["data"]
+    view = inbox(client, w, "ac")
+    assert {i["kind"] for i in view["items"]} <= {"certificate", "fee_exception"}  # no AI budget, no access extensions
+    mine = [i for i in view["items"] if i["id"] == asked["request_id"]]
+    assert len(mine) == 1 and mine[0]["can_decide"] is False and view["total"] == 0 and view["counts"]["certificate"] == 0
+    assert [i["kind"] for i in inbox(client, w, "ac", "other")["items"]] == []
+    assert [i["can_decide"] for i in inbox(client, w, "admin")["items"] if i["id"] == asked["request_id"]] == [True]

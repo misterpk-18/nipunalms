@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { DataTable, Note, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
-import { ActionDialog, fmtDate, fmtDay, useCanManage, useIsManager } from "@/features/shared/delivery-ui";
+import { ActionDialog, fmtDate, fmtDay } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 import { useStaffOptions } from "@/features/shared/staff-picker";
 import { timetableBody } from "./timetable";
@@ -36,10 +36,8 @@ const text = (v: string | undefined) => (v?.trim() ? v.trim() : null);
 // ---------------------------------------------------------------- lifecycle
 
 /** Propose, confirm / return, start, hold / resume, complete, cancel, archive: what each state and role may do. */
-export function LifecycleActions({ batch }: { batch: BatchDetail }) {
+export function LifecycleActions({ batch, manage: manager, approve: approver }: { batch: BatchDetail; manage: boolean; approve: boolean }) {
   const { profile } = useAuth();
-  const manager = useCanManage();
-  const approver = useIsManager();
   const move = useDelivery(
     (v: { state: Parameters<typeof deliveryApi.batchState>[1]["state"]; reason?: string }) => deliveryApi.batchState(batch.batch_id, v),
     "Batch state updated",
@@ -943,9 +941,7 @@ function Successions({
   );
 }
 
-export function RequestsTab({ batch }: { batch: BatchDetail }) {
-  const manager = useCanManage();
-  const approver = useIsManager();
+export function RequestsTab({ batch, manage: manager, approve: approver }: { batch: BatchDetail; manage: boolean; approve: boolean }) {
   const roster = useQuery({ queryKey: ["delivery", "roster", batch.batch_id, false], queryFn: () => deliveryApi.roster(batch.batch_id, { status: "Active" }) });
   const sameCourse = useQuery({
     queryKey: ["delivery", "batches", "same-course", batch.course.course_id, batch.branch.branch_id],

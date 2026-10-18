@@ -43,6 +43,20 @@ def test_issues_are_one_paged_role_aware_list_with_go_fix_links(client, login, c
     assert client.get(f"{API}/issues", headers=login(other.email)).get_json()["meta"]["total"] == 0
     read_only = client.get(f"{API}/issues?type=students", headers=login(founder.email)).get_json()["data"][0]
     assert read_only["can_note"] is True
+
+    # "Go fix it" follows the session's role: the Super Admin and Founder never get a /branch/* link (decision 19), they get a read-only detail
+    for who, prefix in ((sa, "/admin"), (founder, "/founder")):
+        rows = client.get(f"{API}/issues", headers=login(who.email)).get_json()["data"]
+        assert rows and not any(r["go_fix"]["to"].startswith("/branch") for r in rows), prefix
+        student_issue = next(r for r in rows if r["type"] == "students")
+        assert student_issue["go_fix"]["to"] == f"{prefix}/issues/{student_issue['source']}/{student_issue['source_id']}"
+        assert next(r for r in rows if r["type"] == "system")["go_fix"]["to"] == f"{prefix}/crm-sync"
+        detail = client.get(f"{API}/issues/{student_issue['source']}/{student_issue['source_id']}", headers=login(who.email))
+        assert detail.status_code == 200 and detail.get_json()["data"]["id"] == student_issue["id"] and detail.get_json()["data"]["can_assign"] is True
+    mine = page["data"][0]
+    assert client.get(f"{API}/issues/{mine['source']}/{mine['source_id']}", headers=login(ac.email)).status_code == 200
+    assert client.get(f"{API}/issues/{mine['source']}/{mine['source_id']}", headers=login(other.email)).status_code == 404  # another branch
+    assert client.get(f"{API}/issues/{mine['source']}/{mine['source_id']}", headers=login(trainer.email)).status_code == 403
     assert client.get(f"{API}/issues", headers=login(trainer.email)).status_code == 403
     assert client.get(f"{API}/issues?type=nope", headers=login(ac.email)).status_code == 400
 

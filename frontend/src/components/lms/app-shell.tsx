@@ -20,12 +20,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useDocumentLanguage, useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-/** Notification centre per workspace (nothing is sent to the founder). */
-const NOTIFICATIONS: Partial<Record<Workspace, string>> = {
+/** Notification centre per workspace. */
+const NOTIFICATIONS: Record<Workspace, string> = {
   student: "/notifications",
   trainer: "/trainer/notifications",
   branch: "/branch/notifications",
   admin: "/admin/notifications",
+  founder: "/founder/notifications",
 };
 
 /** The count on a navigation item: how many things wait for the person there. Nothing is shown for zero. */
@@ -121,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex min-w-0 items-center gap-2">
             {translated && <LanguageToggle />}
             <SearchButton onClick={() => setSearchOpen(true)} />
-            {bell && <NotificationBell inbox={bell} label={translated ? t("notifications") : "Notifications"} />}
+            <NotificationBell inbox={bell} label={translated ? t("notifications") : "Notifications"} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

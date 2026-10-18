@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/api/admin";
+import type { BranchRef } from "@/api/types";
 import { calendarApi, calendarKeys, type Closure, type ClosureImpact, type ClosureKind } from "@/api/calendar";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { LoadingSkeleton, StatusNote } from "@/components/lms/ui";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtDate, fmtDateTime } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
-import { FormDialog } from "./shared";
+import { FormDialog } from "@/features/admin/shared";
 
 const INVALIDATE = [[...calendarKeys.all], ["admin", "needs-action"], ["nav", "counts"]];
 
@@ -40,10 +41,21 @@ const dateError = (from: string, to: string) =>
       ? "A closure can last at most 63 days. Add a second one for longer."
       : null;
 
-export function AddClosureDialog({ kinds, initialDate, onClose }: { kinds: ClosureKind[]; initialDate?: string; onClose: () => void }) {
-  const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches, staleTime: 5 * 60_000 });
+/** `branchScope`: the one branch a closure can be proposed for (Branch Manager); null lets the person pick any branch. */
+export function AddClosureDialog({
+  kinds,
+  branchScope,
+  initialDate,
+  onClose,
+}: {
+  kinds: ClosureKind[];
+  branchScope: BranchRef | null;
+  initialDate?: string;
+  onClose: () => void;
+}) {
+  const branches = useQuery({ queryKey: ["reference", "branches"], queryFn: adminApi.branches, staleTime: 5 * 60_000, enabled: !branchScope });
   const [kind, setKind] = useState<ClosureKind>(kinds[0] ?? "Company Holiday");
-  const [branchId, setBranchId] = useState("");
+  const [branchId, setBranchId] = useState(branchScope ? String(branchScope.branch_id) : "");
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
   const [from, setFrom] = useState(initialDate ?? "");
@@ -52,7 +64,10 @@ export function AddClosureDialog({ kinds, initialDate, onClose }: { kinds: Closu
   const error = dateError(from, to);
   const create = useApiMutation(calendarApi.create, {
     success: (c) => (c.status === "Approved" ? `${c.title} added to the calendar` : `${c.title} proposed`),
-    next: (c) => (c.status === "Approved" ? "Branch Managers are asked to replace any classes that fall on these dates." : "The Branch Manager decides it."),
+    next: (c) =>
+      c.status === "Approved"
+        ? "Branch Managers are asked to replace any classes that fall on these dates."
+        : "The Super Admin or Founder decides it. It is not in force until then.",
     invalidate: INVALIDATE,
     onSuccess: onClose,
   });
@@ -63,9 +78,11 @@ export function AddClosureDialog({ kinds, initialDate, onClose }: { kinds: Closu
       description={
         holiday
           ? "A company holiday applies to every branch. Classes on these dates are not moved for you: the Branch Managers are asked to replace them."
-          : "A branch closure closes one branch for these dates. The Branch Manager is asked to replace any classes that fall on them."
+          : branchScope
+            ? "Propose closing your branch for these dates. It waits for the Super Admin or Founder to approve it; until then classes run as scheduled."
+            : "A branch closure closes one branch for these dates and takes effect at once. The Branch Managers are asked to replace any classes that fall on them."
       }
-      submitLabel="Add to calendar"
+      submitLabel={branchScope ? "Propose closure" : "Add to calendar"}
       busy={create.isPending || !ready}
       onClose={onClose}
       onSubmit={() =>
@@ -89,7 +106,8 @@ export function AddClosureDialog({ kinds, initialDate, onClose }: { kinds: Closu
           />
         </Field>
       )}
-      {!holiday && (
+      {!holiday && branchScope && <p className="text-sm">Branch: {branchScope.branch_name}</p>}
+      {!holiday && !branchScope && (
         <Field label="Which branch is closed?" htmlFor="cal-branch">
           <NativeSelect
             id="cal-branch"
@@ -282,7 +300,7 @@ export function DecideClosureDialog({ closure, onClose }: { closure: Closure; on
   return (
     <FormDialog
       title={`Branch closure: ${closure.title}`}
-      description={`${closure.branch?.branch_name ?? "Branch"} · ${rangeText(closure)}. Approving closes the branch on these dates and Branch Managers are asked to replace affected classes.`}
+      description={`${closure.branch?.branch_name ?? "Branch"} · ${rangeText(closure)}. Approving closes the branch on these dates and the branch's Branch Managers are asked to replace affected classes.`}
       submitLabel="Record decision"
       busy={decide.isPending || !decision || (decision === "Rejected" && note.trim().length < 3)}
       onClose={onClose}

@@ -50,7 +50,7 @@ def test_every_day_counts_until_the_calendar_or_the_setting_says_otherwise(world
 
 # ---------------------------------------------------------------- closures
 
-def test_a_branch_manager_records_a_branch_closure_and_it_is_approved_as_recorded(client, world):
+def test_a_branch_manager_proposes_a_branch_closure_and_only_the_super_admin_or_founder_decides_it(client, world):
     people = world.people
     upcoming = world.sessions.upcoming.starts_at.astimezone(IST).date()
     body = {"kind": "Branch Closure", "branch_id": 1, "starts_on": upcoming.isoformat(), "ends_on": upcoming.isoformat(),
@@ -59,19 +59,38 @@ def test_a_branch_manager_records_a_branch_closure_and_it_is_approved_as_recorde
     assert client.post(API, json={**body, "branch_id": 2}, headers=world.h(people.ac)).status_code == 404
     assert client.post(API, json={**body, "kind": "Company Holiday", "branch_id": None}, headers=world.h(people.ac)).status_code == 403
     assert working_days.is_working_day(upcoming, 1)
-    recorded = client.post(API, json=body, headers=world.h(people.ac))
-    assert recorded.status_code == 201 and recorded.get_json()["data"]["status"] == "Approved"   # the Branch Manager's own entry
-    closure_id = recorded.get_json()["data"]["closure_id"]
+    proposed = client.post(API, json=body, headers=world.h(people.ac))
+    assert proposed.status_code == 201 and proposed.get_json()["data"]["status"] == "Pending"   # waits for approval (decision 18)
+    closure_id = proposed.get_json()["data"]["closure_id"]
+    assert working_days.is_working_day(upcoming, 1)                                             # not in force yet
+    assert any(t.startswith("Branch closure to approve") for t in titles_for(people.admin.user_id))
+    assert any(t.startswith("Branch closure to approve") for t in titles_for(people.founder.user_id))
+
+    # the Branch Manager (proposer or any other) cannot decide, edit or cancel it
+    for who in (people.ac, people.bm):
+        assert client.post(f"{API}/{closure_id}/decision", json={"decision": "Approved"}, headers=world.h(who)).status_code == 403
+        assert client.patch(f"{API}/{closure_id}", json={"title": "Mine"}, headers=world.h(who)).status_code == 403
+        assert client.post(f"{API}/{closure_id}/cancel", json={"reason": "No"}, headers=world.h(who)).status_code == 403
+    assert client.post(f"{API}/{closure_id}/decision", json={"decision": "Rejected"}, headers=world.h(people.admin)).status_code == 400  # a reason is needed
+    decided = client.post(f"{API}/{closure_id}/decision", json={"decision": "Approved"}, headers=world.h(people.admin))
+    assert decided.status_code == 200 and decided.get_json()["data"]["status"] == "Approved"
     assert not working_days.is_working_day(upcoming, 1)
+    assert any(t.startswith("Your closure proposal was approved") for t in titles_for(people.ac.user_id))
 
     detail = client.get(f"{API}/{closure_id}", headers=world.h(people.ac)).get_json()["data"]
     assert [s["session_code"] for s in detail["affected_sessions"]] == [world.sessions.upcoming.session_code]
     assert client.get(f"{API}/{closure_id}", headers=world.h(people.ac_vij)).status_code == 404
-    assert client.post(f"{API}/{closure_id}/decision", json={"decision": "Approved"}, headers=world.h(people.bm)).status_code == 422  # nothing is pending
+    assert client.post(f"{API}/{closure_id}/decision", json={"decision": "Approved"}, headers=world.h(people.founder)).status_code == 422  # already decided
     assert any("1 class(es) need a replacement" in t for t in titles_for(people.bm.user_id))   # classes are not moved automatically
     listed = client.get(API, headers=world.h(people.t1)).get_json()["data"]
     assert [c["title"] for c in listed] == ["Flooding"]
     assert client.get(API, headers=world.h(people.ac_vij)).get_json()["data"] == []
+
+    # a Super Admin's or Founder's own branch closure takes effect at once
+    other = {**body, "title": "Power cut", "starts_on": (upcoming + timedelta(days=1)).isoformat(), "ends_on": (upcoming + timedelta(days=1)).isoformat()}
+    for who in (people.admin, people.founder):
+        made = client.post(API, json={**other, "title": f"Power cut {who.user_id}"}, headers=world.h(who))
+        assert made.status_code == 201 and made.get_json()["data"]["status"] == "Approved"
 
 
 def test_company_holidays_are_set_centrally_and_approved_at_once(client, world):

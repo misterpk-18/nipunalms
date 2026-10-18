@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BranchBatchPage } from "@/features/branch/batch-page";
+import { BatchPage } from "@/features/branch/batch-page";
 
-/** One batch: the step bar, the next action and everything about it. */
-export const Route = createFileRoute("/branch/batches/$id")({ component: BranchBatchPage });
+/** One batch: the step bar, the next action and everything about it. The Branch Manager manages and approves. */
+export const Route = createFileRoute("/branch/batches/$id")({
+  component: function BranchBatchRoute() {
+    return <BatchPage id={Route.useParams().id} basePath="/branch/batches" manage approve />;
+  },
+});

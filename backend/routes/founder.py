@@ -11,7 +11,7 @@ founder_bp = Blueprint("founder", __name__)
 
 @founder_bp.get("/founder/inbox")
 @login_required
-@require_roles("FOUNDER_CEO", "SUPER_ADMIN")
+@require_roles("FOUNDER_CEO", "SUPER_ADMIN", "BRANCH_MANAGER")  # a Branch Manager gets only their branch's certificate requests
 def inbox():
     return founder_controller.get_inbox()
 

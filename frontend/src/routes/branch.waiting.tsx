@@ -5,5 +5,5 @@ export const Route = createFileRoute("/branch/waiting")({
   validateSearch: (search: Record<string, unknown>): { q?: string } => ({
     ...(typeof search["q"] === "string" && search["q"].trim() ? { q: search["q"].trim() } : {}),
   }),
-  component: BranchWaiting,
+  component: () => <BranchWaiting manage />,
 });

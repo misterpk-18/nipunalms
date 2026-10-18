@@ -1,4 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AdminCalendar } from "@/features/admin/calendar";
+import { AcademicCalendar, CALENDAR_CENTRAL } from "@/features/shared/academic-calendar";
 
-export const Route = createFileRoute("/admin/calendar")({ component: AdminCalendar });
+export const Route = createFileRoute("/admin/calendar")({ component: () => <AcademicCalendar config={CALENDAR_CENTRAL} /> });

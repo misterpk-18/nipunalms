@@ -1,20 +1,22 @@
 /** Issues: one inbox for everything wrong or stuck. Filters live in the address; "Go fix it" opens the screen that fixes it. */
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { issuesApi, type Issue, type IssueType } from "@/api/issues";
 import { useAuth } from "@/auth/auth";
 import { NativeSelect } from "@/components/lms/forms";
 import { EmptyState } from "@/components/lms/empty-state";
 import { HowThisWorks } from "@/components/lms/how-this-works";
-import { PageHead, QueryView, Tag } from "@/components/lms/ui";
+import { Breadcrumbs } from "@/components/lms/breadcrumbs";
+import { PageHead, QueryView, Section, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { fmtDate, ageText } from "@/features/shared/format";
 import { ReasonDialog } from "@/features/shared/reason-dialog";
 import { useApiMutation } from "@/lib/mutation";
 import { cn } from "@/lib/utils";
-import { AssignDialog } from "@/features/admin/issue-assign";
+import { BranchFilter } from "@/features/shared/branch-filter";
+import { AssignDialog } from "@/features/shared/issue-assign";
 
 const PER_PAGE = 20;
 
@@ -40,7 +42,7 @@ const OWNERS = [
   { value: "none", label: "Nobody yet" },
 ];
 
-type Params = { type?: string; age?: string; owner?: string; page?: number };
+type Params = { type?: string; age?: string; owner?: string; branch?: number; page?: number };
 
 /** The filters and the page number, kept in the address so a refresh or a shared link shows the same list. */
 function useIssueParams() {
@@ -66,6 +68,7 @@ function useIssueParams() {
     )
       ? { owner: raw["owner"] as string }
       : {}),
+    ...(Number(raw["branch"]) > 0 ? { branch: Number(raw["branch"]) } : {}),
     ...(Number(raw["page"]) > 1 ? { page: Number(raw["page"]) } : {}),
   };
   const set = (next: Params) => {
@@ -96,9 +99,21 @@ function Notes({ issue }: { issue: Issue }) {
   );
 }
 
-function IssueRow({ issue, canNote, canAssign }: { issue: Issue; canNote: boolean; canAssign: boolean }) {
+function IssueRow({
+  issue,
+  canNote,
+  canAssign,
+  goFix,
+  startOpen = false,
+}: {
+  issue: Issue;
+  canNote: boolean;
+  canAssign: boolean;
+  goFix: boolean;
+  startOpen?: boolean;
+}) {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [assigning, setAssigning] = useState(false);
   const note = useApiMutation((text: string) => issuesApi.addNote(issue, text), {
     success: "Note added. You now own this issue.",
@@ -122,9 +137,11 @@ function IssueRow({ issue, canNote, canAssign }: { issue: Issue; canNote: boolea
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={fix}>
-            Go fix it
-          </Button>
+          {goFix && (
+            <Button size="sm" onClick={fix}>
+              Go fix it
+            </Button>
+          )}
           {canAssign && issue.can_assign && (
             <Button size="sm" variant="outline" onClick={() => setAssigning(true)} aria-label={`Assign ${issue.title}`}>
               Assign
@@ -170,19 +187,33 @@ function IssueRow({ issue, canNote, canAssign }: { issue: Issue; canNote: boolea
   );
 }
 
-/** The list with its filters and paging. The Super Admin's view reuses it with `canAssign` (hand an issue to someone) and no branch pick. */
-export function IssuesList({ canNote = true, canAssign = false, branchScoped = true }: { canNote?: boolean; canAssign?: boolean; branchScoped?: boolean }) {
+/**
+ * The list with its filters and paging. The route passes the role's config: `canNote`, `canAssign` (hand an issue to someone),
+ * `branchScoped` (the session's branch only, or every branch with a branch filter) and `goFix` (show "Go fix it"; where it leads
+ * is decided by the API for the session's role).
+ */
+export function IssuesList({
+  canNote,
+  canAssign,
+  branchScoped,
+  goFix = true,
+}: {
+  canNote: boolean;
+  canAssign: boolean;
+  branchScoped: boolean;
+  goFix?: boolean;
+}) {
   const { params, set } = useIssueParams();
   const { branchId: sessionBranchId } = useAuth();
-  const branchId = branchScoped ? sessionBranchId : null;
+  const branchId = branchScoped ? sessionBranchId : (params.branch ?? null);
   const page = params.page ?? 1;
   const query = useQuery({
     queryKey: ["issues", "list", params, branchId],
     queryFn: () => issuesApi.list({ type: params.type, age: params.age, owner: params.owner, branch_id: branchId, page, per_page: PER_PAGE }),
     placeholderData: keepPreviousData,
   });
-  const filtered = !!(params.type || params.age || params.owner);
-  const clear = () => set({ type: undefined, age: undefined, owner: undefined, page: undefined });
+  const filtered = !!(params.type || params.age || params.owner || params.branch);
+  const clear = () => set({ type: undefined, age: undefined, owner: undefined, branch: undefined, page: undefined });
   return (
     <div className="space-y-4">
       <QueryView query={query} skeleton="table">
@@ -229,6 +260,11 @@ export function IssuesList({ canNote = true, canAssign = false, branchScoped = t
                     onChange={(e) => set({ owner: e.target.value || undefined, page: undefined })}
                   />
                 </div>
+                {!branchScoped && (
+                  <div className="w-full sm:w-56">
+                    <BranchFilter value={params.branch ?? null} onChange={(b) => set({ branch: b ?? undefined, page: undefined })} />
+                  </div>
+                )}
                 {filtered && (
                   <Button variant="ghost" onClick={clear}>
                     Clear filters
@@ -253,7 +289,7 @@ export function IssuesList({ canNote = true, canAssign = false, branchScoped = t
               ) : (
                 <ul className="space-y-3" aria-label="Issues">
                   {result.data.map((issue) => (
-                    <IssueRow key={issue.id} issue={issue} canNote={canNote} canAssign={canAssign} />
+                    <IssueRow key={issue.id} issue={issue} canNote={canNote} canAssign={canAssign} goFix={goFix} />
                   ))}
                 </ul>
               )}
@@ -280,15 +316,65 @@ export function IssuesList({ canNote = true, canAssign = false, branchScoped = t
   );
 }
 
+/** The Branch Manager's page: their branch's issues, notes, Go fix it to the `/branch/*` screen. */
 export function BranchIssues() {
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <PageHead title="Issues" description="Everything that is wrong or stuck, in one list. Press Go fix it to open the screen that solves it." />
-      <IssuesList />
+      <IssuesList canNote canAssign={false} branchScoped />
       <HowThisWorks>
         <p>An issue stays here until what caused it is fixed; it then leaves the list by itself.</p>
         <p>Add note records what you did or will do. The person who adds a note becomes the owner, so nobody else has to chase it.</p>
       </HowThisWorks>
+    </div>
+  );
+}
+
+/** Super Admin and Founder: every branch, with a branch filter, Assign and notes. Go fix it opens a read-only detail under their own workspace. */
+export function CrossBranchIssues() {
+  return (
+    <div className="mx-auto max-w-5xl space-y-4">
+      <PageHead
+        title="Issues"
+        description="Everything that is wrong or stuck in every branch. Assign each issue to the person who should fix it, or press Go fix it to see it in full."
+      />
+      <IssuesList canNote canAssign branchScoped={false} />
+      <HowThisWorks>
+        <p>An issue stays here until what caused it is fixed; it then leaves the list by itself.</p>
+        <p>Assign names an owner and tells them. Add note records what was done or will be done, and makes you the owner.</p>
+        <p>Issues that already have an owner set on their own screen (for example a student request) are reassigned there.</p>
+        <p>Branch work is done by the Branch Manager of that branch; here you see the issue and hand it to them.</p>
+      </HowThisWorks>
+    </div>
+  );
+}
+
+/** One issue, read-only (decision 19): what it is, who owns it, its notes, and Assign. The fix itself is the Branch Manager's. */
+export function IssueDetail({ source, sourceId, listPath }: { source: string; sourceId: number; listPath: string }) {
+  const query = useQuery({ queryKey: ["issues", "one", source, sourceId], queryFn: () => issuesApi.get(source, sourceId) });
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <Breadcrumbs items={[{ label: "Issues", to: listPath }, { label: "Issue" }]} />
+      <QueryView query={query} skeleton="detail" isEmpty={() => false}>
+        {(issue) => (
+          <>
+            <PageHead title={issue.title} description={issue.type_label} />
+            <Section>
+              <ul className="space-y-3" aria-label="Issue">
+                <IssueRow issue={issue} canNote canAssign goFix={false} startOpen />
+              </ul>
+            </Section>
+            <p className="text-sm text-muted-foreground">
+              {issue.branch
+                ? `The Branch Manager at ${issue.branch.branch_name} fixes this from their own screens. You can assign it to them, or add a note.`
+                : "This is a company-wide issue."}{" "}
+              <Link to={listPath} className="text-primary underline-offset-2 hover:underline">
+                Back to Issues
+              </Link>
+            </p>
+          </>
+        )}
+      </QueryView>
     </div>
   );
 }

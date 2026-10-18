@@ -3,7 +3,7 @@ import { PageHead, Section } from "@/components/lms/ui";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { CurriculumDecisions } from "@/features/academic/curriculum-model";
 import { fmtDate } from "@/features/shared/format";
-import { InboxList } from "./inbox-list";
+import { ApprovalsInbox } from "@/features/shared/approvals/inbox";
 
 /** Curriculum versions the Branch Managers have submitted: approve them (and activate in the same step), or send them back. */
 export function FounderCurriculum() {
@@ -15,7 +15,7 @@ export function FounderCurriculum() {
         title="Curriculum approvals"
         description="Review what a new curriculum changes and who it affects, then approve it, activate it or send it back."
       />
-      <InboxList
+      <ApprovalsInbox
         page="/founder/curriculum"
         group="curriculum"
         title="Waiting for you"
