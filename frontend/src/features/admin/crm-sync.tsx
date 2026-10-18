@@ -11,9 +11,9 @@ import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, Grid, KeyValue, PageHead, PillTabs, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { EmptyState } from "@/components/lms/empty-state";
 import { useApiMutation } from "@/lib/mutation";
-import { FilterField, Pager } from "./shared";
-import { istDateTime, useCanAdminister } from "./format";
-import { pageOf, useUrlParams } from "./url-params";
+import { FilterField, Pager } from "@/features/shared/form-parts";
+import { istDateTime } from "./format";
+import { pageOf, useUrlParams } from "@/features/shared/url-params";
 
 const TABS = ["Needs attention", "All updates", "Sent to the CRM"] as const;
 type Tab = (typeof TABS)[number];
@@ -42,7 +42,8 @@ function useRetry() {
   });
 }
 
-export function AdminCrmSync() {
+/** `canEdit` (Retry) comes from the route; Super Admin and Founder both retry. */
+export function AdminCrmSync({ canEdit }: { canEdit: boolean }) {
   const summary = useQuery({ queryKey: adminKeys.syncSummary, queryFn: adminApi.syncSummary });
   const [params, setParams] = useUrlParams();
   const tab = TABS.find((t) => TAB_KEYS[t] === params["tab"]) ?? TABS[0];
@@ -72,8 +73,8 @@ export function AdminCrmSync() {
           label="CRM sync"
           counts={{ "Needs attention": summary.data?.needs_attention ?? 0 }}
         />
-        {tab === "Needs attention" && <Attention params={params} setParams={setParams} />}
-        {tab === "All updates" && <AllUpdates />}
+        {tab === "Needs attention" && <Attention canEdit={canEdit} params={params} setParams={setParams} />}
+        {tab === "All updates" && <AllUpdates canEdit={canEdit} />}
         {tab === "Sent to the CRM" && <SentValues />}
       </Section>
       <HowThisWorks>
@@ -84,7 +85,7 @@ export function AdminCrmSync() {
         <p>Retry tries the same update again. If it fails again the reason is updated on the row; the technical details hold what the CRM sent.</p>
         <p>Values going back to the CRM are not sent by the LMS yet: they wait there and the CRM collects them.</p>
       </HowThisWorks>
-      {openId !== null && <EventDialog id={openId} onClose={() => setParams({ event: undefined })} />}
+      {openId !== null && <EventDialog canEdit={canEdit} id={openId} onClose={() => setParams({ event: undefined })} />}
     </div>
   );
 }
@@ -120,8 +121,7 @@ function EventRow({ event, canRetry, onOpen }: { event: CrmEvent; canRetry: bool
   );
 }
 
-function Attention({ params, setParams }: { params: Record<string, string | undefined>; setParams: (patch: Record<string, string | undefined>) => void }) {
-  const canEdit = useCanAdminister();
+function Attention({ canEdit, params, setParams }: { canEdit: boolean; params: Record<string, string | undefined>; setParams: (patch: Record<string, string | undefined>) => void }) {
   const page = pageOf(params);
   const query = useQuery({
     queryKey: adminKeys.syncEvents({ attention: "true", page }),
@@ -153,8 +153,7 @@ function Attention({ params, setParams }: { params: Record<string, string | unde
   );
 }
 
-function AllUpdates() {
-  const canEdit = useCanAdminister();
+function AllUpdates({ canEdit }: { canEdit: boolean }) {
   const [, setParams] = useUrlParams();
   const [filters, setFilters] = useState<EventFilters>({});
   const summary = useQuery({ queryKey: adminKeys.syncSummary, queryFn: adminApi.syncSummary });
@@ -259,9 +258,8 @@ function Json({ value }: { value: unknown }) {
 }
 
 /** One update: a plain summary first, then (folded away) exactly what the CRM sent and what the LMS did with it. */
-function EventDialog({ id, onClose }: { id: number; onClose: () => void }) {
+function EventDialog({ canEdit, id, onClose }: { canEdit: boolean; id: number; onClose: () => void }) {
   const query = useQuery({ queryKey: adminKeys.syncEvent(id), queryFn: () => adminApi.syncEvent(id) });
-  const canEdit = useCanAdminister();
   const retry = useRetry();
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>

@@ -8,7 +8,7 @@ import { HowThisWorks } from "@/components/lms/how-this-works";
 import { PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { istDateTime, useCanAdminister } from "./format";
+import { istDateTime } from "./format";
 import { MeetHealth } from "./meet-health";
 import { SetupDialog } from "./setup-dialog";
 
@@ -37,9 +37,9 @@ function Row({ item, canEdit, onEdit }: { item: SetupItem; canEdit: boolean; onE
   );
 }
 
-export function AdminSetup() {
+/** `canEdit` comes from the route (Super Admin and Founder both edit). */
+export function AdminSetup({ canEdit }: { canEdit: boolean }) {
   const query = useQuery({ queryKey: adminKeys.setup, queryFn: adminApi.setup });
-  const canEdit = useCanAdminister();
   const [filter, setFilter] = useState<SetupState | "all">("all");
   const [editing, setEditing] = useState<SetupItem | null>(null);
 

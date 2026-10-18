@@ -11,12 +11,8 @@ const shown = (f: ReportFigure) =>
 /** One figure; the whole card opens the screen that holds the records behind it. A missing value says "No data", never 0. */
 export function FigureCard({ figure }: { figure: ReportFigure }) {
   const value = shown(figure);
-  return (
-    <Link
-      to={figure.drill.to}
-      {...(figure.drill.search && Object.keys(figure.drill.search).length ? { search: figure.drill.search as never } : {})}
-      className="block min-w-0 rounded-xl border bg-card p-4 shadow-sm hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
-    >
+  const body = (
+    <>
       <p className="text-xs text-muted-foreground">{figure.label}</p>
       {value === null ? (
         <p className="mt-1 text-lg font-semibold text-muted-foreground">No data</p>
@@ -24,6 +20,17 @@ export function FigureCard({ figure }: { figure: ReportFigure }) {
         <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
       )}
       {figure.hint && <p className="mt-1 text-xs text-muted-foreground">{figure.hint}</p>}
+    </>
+  );
+  const drill = figure.drill;
+  if (!drill) return <div className="block min-w-0 rounded-xl border bg-card p-4 shadow-sm">{body}</div>;
+  return (
+    <Link
+      to={drill.to}
+      {...(drill.search && Object.keys(drill.search).length ? { search: drill.search as never } : {})}
+      className="block min-w-0 rounded-xl border bg-card p-4 shadow-sm hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      {body}
       <p className="mt-2 text-xs font-medium text-primary">See the records</p>
     </Link>
   );

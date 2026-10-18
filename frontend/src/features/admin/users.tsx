@@ -10,9 +10,9 @@ import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
-import { FilterField, FormDialog, Pager, SecretDialog, type Secret } from "./shared";
-import { istDateTime, useCanAdminister, whatsappLine } from "./format";
-import { useUrlParams } from "./url-params";
+import { FilterField, FormDialog, Pager, SecretDialog, type Secret } from "@/features/shared/form-parts";
+import { istDateTime, whatsappLine } from "./format";
+import { useUrlParams } from "@/features/shared/url-params";
 
 /** What each role can do, in one line: shown beside the role in the picker so nobody has to remember. */
 const STAFF_ROLES: { value: RoleCode; label: string; companyWide: boolean; description: string }[] = [
@@ -63,8 +63,8 @@ function secretNote(user: StaffUserWithPassword): string {
 const IDS = adminKeys.usersAll;
 
 /** Users & Access: staff accounts and their role scopes. Students are created by the CRM, never here. */
-export function AdminUsers() {
-  const canEdit = useCanAdminister();
+/** `canEdit` comes from the route; Super Admin and Founder both manage accounts and hand out links. */
+export function AdminUsers({ canEdit }: { canEdit: boolean }) {
   const [urlParams, setUrlParams] = useUrlParams();
   const [filters, setFilters] = useState<UserFilters>({
     is_active: "true",

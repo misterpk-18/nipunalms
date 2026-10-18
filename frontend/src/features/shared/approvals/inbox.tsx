@@ -7,7 +7,7 @@
 import { useFounderInbox, type InboxGroup, type InboxItem, type InboxKind } from "@/api/founder";
 import { NeedsYouList, type NeedsYouItem } from "@/components/lms/needs-you-list";
 import { QueryView } from "@/components/lms/ui";
-import { useUrlParams } from "@/features/branch/attendance-url";
+import { useUrlParams } from "@/features/shared/url-state";
 import { ageText } from "@/features/shared/format";
 import { InboxPanel } from "./panel";
 

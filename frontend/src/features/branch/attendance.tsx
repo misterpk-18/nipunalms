@@ -4,8 +4,8 @@ import { attendanceApi } from "@/api/attendance";
 import { useAuth } from "@/auth/auth";
 import { PageHead, PillTabs } from "@/components/lms/ui";
 import { CorrectionsTab, RecoveriesTab } from "./attendance-queues";
-import { StudentsTab } from "./attendance-students";
-import { pickTab, useUrlParams } from "./attendance-url";
+import { StudentsTab } from "@/features/shared/attendance-students";
+import { pickTab, useUrlParams } from "@/features/shared/url-state";
 
 const TABS = ["students", "recoveries", "corrections"] as const;
 const LABELS = { students: "Students", recoveries: "Recovery requests", corrections: "Corrections" };

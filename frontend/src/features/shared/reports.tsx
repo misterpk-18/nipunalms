@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { branchReportsApi, type ReportPeriodKey, type ReportSection } from "@/api/branch-reports";
 import { errorMessage } from "@/api/client";
 import { useAuth } from "@/auth/auth";
+import { useAcademicReports } from "@/api/dashboards";
 import { NativeSelect } from "@/components/lms/forms";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, Grid, PageHead, QueryView, Section, StatusNote, Tag } from "@/components/lms/ui";
@@ -14,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { fmtDate } from "@/features/shared/format";
+import { BranchFilter } from "@/features/shared/branch-filter";
+import { type CentralArea } from "@/features/shared/central-area";
 import { StateBadge } from "@/features/shared/delivery-ui";
 import { FIGURE_GROUPS } from "./reports-groups";
 import { FigureCard, TrendsChart } from "./reports-parts";
@@ -53,8 +56,40 @@ function usePeriod() {
   return { period, from, to, set };
 }
 
-export function BranchReports() {
-  const { branchId } = useAuth();
+/** Branch by branch (Super Admin and Founder, all branches): the four measures of each branch, from `GET /academic/reports`. */
+function BranchComparison({ branchId }: { branchId: number | null }) {
+  const query = useAcademicReports(branchId);
+  return (
+    <Section title="Branch by branch">
+      <QueryView query={query} skeleton="cards" isEmpty={(d) => d.branches.length === 0} empty="No branch to report on yet.">
+        {(d) => (
+          <DataTable
+            caption="Branch by branch"
+            rows={d.branches}
+            getKey={(b) => b.branch.branch_id}
+            cols={[
+              { h: "Branch", c: (b) => b.branch.branch_name },
+              { h: "Classes delivered", c: (b) => pct(b.curriculum_delivered.percent ?? null) },
+              { h: "Attendance", c: (b) => pct(b.attendance.percent ?? null) },
+              { h: "Below attendance alert", c: (b) => b.attendance.alerts ?? "No data" },
+              { h: "Completion reviews open", c: (b) => b.completion_reviews.open ?? "No data" },
+              { h: "Certificate lead time", c: (b) => (b.certificate_lead_time.average_days == null ? "No data" : `${b.certificate_lead_time.average_days} days`) },
+            ]}
+          />
+        )}
+      </QueryView>
+    </Section>
+  );
+}
+
+/**
+ * One Reports screen for three roles. A Branch Manager (no `area`) sees the session's branch; the Super Admin and Founder pass their
+ * `area` and get a branch filter (all branches or one).
+ */
+export function Reports({ area }: { area?: CentralArea }) {
+  const { branchId: sessionBranch } = useAuth();
+  const [filter, setFilter] = useState<number | null>(null);
+  const branchId = area ? filter : sessionBranch;
   const { period, from, to, set } = usePeriod();
   const custom = period === "custom";
   const backwards = custom && !!from && !!to && from > to;
@@ -79,9 +114,18 @@ export function BranchReports() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <PageHead title="Reports" description="How the branch is doing in the period you pick. Press any figure to see the records behind it." />
+      <PageHead
+        title="Reports"
+        description={`How ${area ? (filter === null ? "every branch is" : "the branch is") : "the branch is"} doing in the period you pick. Press any figure to see the records behind it.`}
+      />
       <Section>
         <div className="flex flex-wrap items-end gap-3">
+          {area && (
+            <div className="w-full sm:w-52">
+              <span className="mb-1.5 block text-sm font-medium">Branch</span>
+              <BranchFilter value={filter} onChange={setFilter} />
+            </div>
+          )}
           <div className="w-full sm:w-52">
             <label htmlFor="rep-period" className="mb-1.5 block text-sm font-medium">
               Period
@@ -153,6 +197,8 @@ export function BranchReports() {
                 );
               })}
 
+              {area && <BranchComparison branchId={branchId} />}
+
               <Section title="Progress by batch">
                 <DataTable
                   caption="Progress by batch"
@@ -161,21 +207,28 @@ export function BranchReports() {
                   empty="No batch has students yet."
                   emptyAction={
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/branch/batches">Open Batches</Link>
+                      <Link to={`${area?.base ?? "/branch"}/batches` as never}>Open Batches</Link>
                     </Button>
                   }
                   cols={[
                     {
                       h: "Batch",
                       c: (b) => (
-                        <Link
-                          to={b.drill.to}
-                          {...(b.drill.search && Object.keys(b.drill.search).length ? { search: b.drill.search as never } : {})}
-                          className="font-medium text-primary underline-offset-2 hover:underline"
-                        >
-                          {b.batch.display_name ?? b.batch.batch_code}
-                          {b.batch.course_code ? ` (${b.batch.course_code})` : ""}
-                        </Link>
+                        b.drill ? (
+                          <Link
+                            to={b.drill.to}
+                            {...(b.drill.search && Object.keys(b.drill.search).length ? { search: b.drill.search as never } : {})}
+                            className="font-medium text-primary underline-offset-2 hover:underline"
+                          >
+                            {b.batch.display_name ?? b.batch.batch_code}
+                            {b.batch.course_code ? ` (${b.batch.course_code})` : ""}
+                          </Link>
+                        ) : (
+                          <span className="font-medium">
+                            {b.batch.display_name ?? b.batch.batch_code}
+                            {b.batch.course_code ? ` (${b.batch.course_code})` : ""}
+                          </span>
+                        )
                       ),
                     },
                     { h: "State", c: (b) => <StateBadge label={b.state} /> },

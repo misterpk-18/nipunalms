@@ -16,8 +16,8 @@ import { useDelivery } from "@/features/shared/sessions";
 import { AcademicCalendar, calendarForBranchManager } from "@/features/shared/academic-calendar";
 import { todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ClassActions, ClassDetails } from "./class-actions";
-import { NewClassDialog } from "./new-class";
+import { ClassActions, ClassDetails } from "@/features/shared/class-actions";
+import { NewClassDialog } from "@/features/shared/new-class";
 
 type View = "week" | "list";
 type By = "batch" | "trainer";

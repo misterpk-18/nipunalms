@@ -5,7 +5,7 @@ import { Field } from "@/components/lms/forms";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiMutation } from "@/lib/mutation";
-import { FormDialog } from "./shared";
+import { FormDialog } from "@/features/shared/form-parts";
 
 export const CONFIRM_PHRASE = "SWITCH OFF";
 const INVALIDATE = [[...adminKeys.aiStatus], ["admin", "ai-history"], [...adminKeys.needsAction]];

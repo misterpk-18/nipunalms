@@ -100,7 +100,8 @@ function ReplyCell({ request }: { request: SupportRow }) {
  *
  * The route passes the rest of the role's config: `branchId` (the Branch Manager's fixed branch) or `branchFilter` (Super Admin and
  * Founder pick one branch or all), `canReassign` (Branch Manager, Super Admin, Founder), `canEscalate` (the trainer, who passes a
- * request up) and `canRespond` (reply and change status: off for Super Admin and Founder, who read and reassign).
+ * request up) and `canRespond`. The API also says per request whether the viewer may answer it (`can_respond`): the Super Admin and
+ * Founder answer the requests the Super Admin team owns or that are assigned to them, and read and reassign the rest.
  */
 export function SupportDesk({
   base = {},
@@ -358,6 +359,7 @@ function PanelBody({
     <QueryView query={query}>
       {(request: SupportDetail) => {
         const finished = request.status === "Resolved" || request.status === "Closed";
+        const respond = canRespond && request.can_respond !== false;
         const owners = [...new Map((staff.data ?? []).map((s) => [s.user_id, s])).values()];
         return (
           <div className="space-y-4">
@@ -420,7 +422,7 @@ function PanelBody({
               ))}
             </ol>
 
-            {!finished && canRespond && (
+            {!finished && respond && (
               <div className="space-y-2">
                 <Label htmlFor="support-reply">Reply</Label>
                 <Textarea id="support-reply" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
@@ -439,7 +441,7 @@ function PanelBody({
             )}
 
             <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-              {finished && canRespond && (
+              {finished && respond && (
                 <ReasonDialog
                   title="Reopen this request"
                   description="Tell us what is still not working."
@@ -451,7 +453,7 @@ function PanelBody({
               )}
               {!finished && (
                 <>
-                  {canRespond && (
+                  {respond && (
                     <>
                       <div className="w-44">
                         <Label htmlFor="support-set-status">Change status</Label>
@@ -485,7 +487,7 @@ function PanelBody({
                       More
                     </Button>
                   )}
-                  {canEscalate && canRespond && (!simple || more) && request.escalation_level !== "Branch Manager" && (
+                  {canEscalate && respond && (!simple || more) && request.escalation_level !== "Branch Manager" && (
                     <ReasonDialog
                       title="Escalate this request"
                       description={"It goes to the Branch Manager."}

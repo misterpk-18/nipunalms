@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { FormDialog } from "@/features/shared/attendance-parts";
 import { fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
-import { Pager } from "./attendance-pager";
+import { Pager } from "@/features/shared/pager";
 
 const PER_PAGE = 20;
 const done = [attendanceKeys.all, ["progress"], ["completion"], ["certificates"], ["nav"], ["branch"]];

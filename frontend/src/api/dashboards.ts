@@ -288,7 +288,7 @@ export const dashboardsApi = {
   home: () => get<StudentHome>("/me/home"),
   trainerToday: () => get<TrainerToday>("/trainer/today"),
   trainerReports: () => get<TrainerReports>("/trainer/reports"),
-  academicReports: () => get<AcademicReports>("/academic/reports"),
+  academicReports: (branchId?: number | null) => get<AcademicReports>("/academic/reports", { branch_id: branchId }),
   classFlow: (sessionId: number) => get<TodaySession>(`/class-sessions/${sessionId}/flow`),
   saveClassFlow: (sessionId: number, body: { step?: FlowStep | null; draft?: ClassLogDraft }) => put<TodaySession>(`/class-sessions/${sessionId}/flow`, body),
   askForMeetLink: (sessionId: number) => post<TodaySession>(`/class-sessions/${sessionId}/meet/request-link`),
@@ -310,7 +310,8 @@ export const useTrainerToday = () => useQuery({ queryKey: dashboardKeys.today, q
 export const useClassFlow = (sessionId: number | null) =>
   useQuery({ queryKey: ["trainer", "flow", sessionId], queryFn: () => dashboardsApi.classFlow(sessionId!), enabled: sessionId !== null });
 export const useTrainerReports = () => useQuery({ queryKey: dashboardKeys.trainerReports, queryFn: dashboardsApi.trainerReports });
-export const useAcademicReports = () => useQuery({ queryKey: dashboardKeys.academicReports, queryFn: dashboardsApi.academicReports });
+export const useAcademicReports = (branchId?: number | null) =>
+  useQuery({ queryKey: [...dashboardKeys.academicReports, branchId ?? null], queryFn: () => dashboardsApi.academicReports(branchId) });
 
 // ---------------------------------------------------------------- Staff dashboards
 /** A CRM-authoritative figure the CRM has not sent: never a number, rendered as "Unavailable". */

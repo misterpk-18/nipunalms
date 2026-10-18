@@ -6,7 +6,7 @@ import { useAuth } from "@/auth/auth";
 import { PageHead, PillTabs } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { SupportDesk } from "@/features/shared/support-desk";
-import { pickTab, useUrlParams } from "./attendance-url";
+import { pickTab, useUrlParams } from "@/features/shared/url-state";
 import { ExtensionsTab } from "./extensions-requests";
 
 const TABS = ["requests", "extensions"] as const;

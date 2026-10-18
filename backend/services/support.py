@@ -41,7 +41,7 @@ ROUTING = {
 OWNER_LINKS = {
     "TRAINER": "/trainer/support",
     "BRANCH_MANAGER": "/branch/support",
-    "SUPER_ADMIN": "/branch/support",
+    "SUPER_ADMIN": "/admin/support",
 }
 # Roles tried, in this order, when assigning a request to a chosen colleague
 ASSIGNABLE_ROLES = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN")
@@ -61,6 +61,15 @@ def _is_student(user: CurrentUser) -> bool:
 def _can_manage(request: SupportRequest, user: CurrentUser) -> bool:
     """Owner, a Branch Manager of the request's branch, or an admin: may change status and assign."""
     return user.has_role(*ADMIN_ROLES) or request.owner_user_id == user.user_id or user.has_role(*BRANCH_ROLES, branch_id=request.branch_id)
+
+
+def can_respond(request: SupportRequest, user: CurrentUser) -> bool:
+    """Reply, change status and reopen. The Super Admin and Founder answer the requests the Super Admin team owns (LMS, Account and
+    Device access, or anything handed to a Super Admin) and the ones assigned to them; on every other request they read and reassign.
+    A Branch Manager answers any request of the branch, a trainer the ones they own or raised."""
+    if user.has_role(*ADMIN_ROLES):
+        return request.owner_role == "SUPER_ADMIN" or request.owner_user_id == user.user_id
+    return _can_manage(request, user) or (user.role_code == "TRAINER" and request.raised_by_user_id == user.user_id)
 
 
 def _can_view(request: SupportRequest, user: CurrentUser) -> bool:
@@ -88,6 +97,15 @@ def _get_managed(support_request_id: int) -> SupportRequest:
     return request
 
 
+def _get_respondable(support_request_id: int) -> SupportRequest:
+    request = get_request(support_request_id)
+    if _is_student(current_user()):
+        raise Forbidden("Only staff can do this")
+    if not can_respond(request, current_user()):
+        raise Forbidden("This request is owned by another team. You can read it and reassign it, but the owner replies and changes its status")
+    return request
+
+
 def _flush_and_reload(request: SupportRequest) -> None:
     """Write the change, then re-read the row: triggers fill in resolved_at, the SLA clock and the reopen count."""
     db.session.flush()
@@ -99,8 +117,11 @@ def _flush_and_reload(request: SupportRequest) -> None:
 def to_detail(request: SupportRequest) -> dict:
     """The request with its thread; internal staff remarks are left out for a student."""
     student_user = users_repo.get_by_student_id(request.student_id)
-    return request.to_dict(_now(), include_internal=not _is_student(current_user()),
-                           student_user_id=student_user.user_id if student_user else None)
+    detail = request.to_dict(_now(), include_internal=not _is_student(current_user()),
+                             student_user_id=student_user.user_id if student_user else None)
+    if not _is_student(current_user()):
+        detail["can_respond"] = can_respond(request, current_user())
+    return detail
 
 
 def to_summaries(requests: list[SupportRequest]) -> list[dict]:
@@ -287,6 +308,8 @@ def add_message(support_request_id: int, body: str, *, internal: bool = False, f
         raise BusinessRule(f"This request is {request.status.lower()}. Reopen it to add a message.")
     if internal and _is_student(user):
         raise Forbidden("Students cannot add internal remarks")
+    if not _is_student(user) and not can_respond(request, user):
+        raise Forbidden("This request is owned by another team. You can read it and reassign it, but the owner replies")
 
     if _is_student(user):
         if request.status == "Waiting on Student":
@@ -306,7 +329,7 @@ def add_message(support_request_id: int, body: str, *, internal: bool = False, f
 # ---------------------------------------------------------------- status
 
 def change_status(support_request_id: int, status: str, note: str | None) -> SupportRequest:
-    request = _get_managed(support_request_id)
+    request = _get_respondable(support_request_id)
     if status == "Resolved" and not note:
         raise ValidationError("Say how it was resolved", {"note": ["Required to resolve a request"]})
     old_status = request.status
@@ -344,8 +367,8 @@ def reopen(support_request_id: int, reason: str) -> SupportRequest:
     request = get_request(support_request_id)
     if request.status not in ("Resolved", "Closed"):
         raise BusinessRule("Only a resolved or closed request can be reopened")
-    if not _is_student(user) and not _can_manage(request, user):
-        raise Forbidden("Only the owner, the branch's Branch Managers or an admin can reopen this request")
+    if not _is_student(user) and not can_respond(request, user):
+        raise Forbidden("Only the owner, the branch's Branch Managers or the Super Admin team can reopen this request")
     old_status = request.status
     request.status = "Open"
     _flush_and_reload(request)

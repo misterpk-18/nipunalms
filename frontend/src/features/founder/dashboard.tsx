@@ -1,4 +1,5 @@
 import { useFounderSummary } from "@/api/dashboards";
+import { GettingStartedCard } from "@/components/lms/getting-started";
 import { Note, PageHead, QueryView, Section } from "@/components/lms/ui";
 import { CrmTile, Tile, TileRow } from "@/features/shared/dashboard-parts";
 import { ApprovalsInbox } from "@/features/shared/approvals/inbox";
@@ -9,6 +10,7 @@ export function FounderDashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <PageHead title="Founder / CEO home" description="Decide what is waiting for you, then see how the company is doing." />
+      <GettingStartedCard />
       <ApprovalsInbox page="/founder" />
       <QueryView query={query} skeleton="cards">
         {(d) => (

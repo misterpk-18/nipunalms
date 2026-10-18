@@ -400,3 +400,36 @@ class TestStudentList:
         client.post(f"{API}/{request['support_request_id']}/messages", headers=world.h(world.people.t1), json={"body": "Which page?"})
         thread = client.get(f"{API}/{request['support_request_id']}", headers=world.h(world.students.s1)).get_json()["data"]["messages"]
         assert [m["from_student"] for m in thread] == [True, False]
+
+
+class TestSuperAdminAndFounderAnswerOnlyTheirOwn:
+    """The Super Admin team owns LMS, Account and Device requests: the Super Admin and Founder answer those and read-and-reassign the rest."""
+
+    def test_reply_and_status_follow_ownership(self, client, world):
+        lms = raise_request(client, world, world.students.s1, "LMS", "The app will not load")
+        branch_owned = raise_request(client, world, world.students.s1, "Recording access", "Recording missing")
+        assert lms["owner"]["user_id"] == world.people.admin.user_id
+        for who in (world.people.admin, world.people.founder):
+            h = world.h(who)
+            assert client.get(f"{API}/{lms['support_request_id']}", headers=h).get_json()["data"]["can_respond"] is True
+            assert client.get(f"{API}/{branch_owned['support_request_id']}", headers=h).get_json()["data"]["can_respond"] is False
+            # owned by the Branch Manager: read and reassign, no reply and no status change
+            assert client.post(f"{API}/{branch_owned['support_request_id']}/messages", headers=h, json={"body": "Hello"}).status_code == 403
+            assert client.post(f"{API}/{branch_owned['support_request_id']}/status", headers=h, json={"status": "In Progress"}).status_code == 403
+            assert client.post(f"{API}/{branch_owned['support_request_id']}/assign", headers=h,
+                               json={"owner_user_id": world.people.ac.user_id}).status_code == 200
+        # owned by the Super Admin team: both may reply and change status
+        assert client.post(f"{API}/{lms['support_request_id']}/messages", headers=world.h(world.people.founder), json={"body": "Looking"}).status_code == 201
+        assert client.post(f"{API}/{lms['support_request_id']}/status", headers=world.h(world.people.admin), json={"status": "In Progress"}).status_code == 200
+
+    def test_handing_a_request_to_the_super_admin_lets_the_team_answer_it(self, client, world):
+        request = raise_request(client, world, world.students.s1, "Recording access", "Recording missing")
+        rid = request["support_request_id"]
+        assert client.post(f"{API}/{rid}/messages", headers=world.h(world.people.founder), json={"body": "Hello"}).status_code == 403
+        assigned = client.post(f"{API}/{rid}/assign", headers=world.h(world.people.ac), json={"owner_user_id": world.people.admin.user_id})
+        assert assigned.status_code == 200
+        for who in (world.people.admin, world.people.founder):
+            assert client.get(f"{API}/{rid}", headers=world.h(who)).get_json()["data"]["can_respond"] is True
+        assert client.post(f"{API}/{rid}/messages", headers=world.h(world.people.founder), json={"body": "Hello"}).status_code == 201
+        # a Branch Manager of the branch still answers any request there
+        assert client.get(f"{API}/{rid}", headers=world.h(world.people.ac)).get_json()["data"]["can_respond"] is True

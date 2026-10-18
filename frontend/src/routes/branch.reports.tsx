@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BranchReports } from "@/features/branch/reports";
+import { Reports } from "@/features/shared/reports";
 
-export const Route = createFileRoute("/branch/reports")({ component: BranchReports });
+/** The Branch Manager's Reports: the session's branch. */
+export const Route = createFileRoute("/branch/reports")({ component: () => <Reports /> });

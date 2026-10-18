@@ -5,8 +5,8 @@ import { Field, NativeSelect, applyServerErrors } from "@/components/lms/forms";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiMutation } from "@/lib/mutation";
 import { statusInfo } from "@/lib/status";
-import { FormDialog } from "./shared";
-import { useAllStaff } from "./staff-options";
+import { FormDialog } from "@/features/shared/form-parts";
+import { useAllStaff } from "@/features/shared/staff-options";
 
 type Form = { state: SetupState; owner_user_id: string; evidence: string; notes: string };
 

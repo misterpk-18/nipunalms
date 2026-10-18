@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, LoadingSkeleton, PageHead, PillTabs, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { QuestionBank } from "@/features/trainer/question-bank";
+import { QuestionBank } from "@/features/shared/question-bank";
 import { useApiMutation } from "@/lib/mutation";
 import { audienceText, releaseConsequence } from "./content-audience";
 import { ContentReviewDialog } from "./content-review";

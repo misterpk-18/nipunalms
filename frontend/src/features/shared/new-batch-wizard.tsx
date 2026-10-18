@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { DayToggles } from "@/features/shared/delivery-ui";
-import { timetableBody } from "@/features/academic/timetable";
+import { timetableBody } from "./timetable";
 import { useApiMutation } from "@/lib/mutation";
 import { cn } from "@/lib/utils";
 

@@ -8,11 +8,11 @@ import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ClassOperationsDialog, ResolveDisruptionDialog } from "@/features/academic/class-operations";
+import { ClassOperationsDialog, ResolveDisruptionDialog } from "@/features/shared/class-operations";
 import { fmtDate, fmtRange, mono } from "@/features/shared/delivery-ui";
 import { todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { MeetLinkDialog } from "./class-actions";
+import { MeetLinkDialog } from "@/features/shared/class-actions";
 
 const OPEN = ["Scheduled", "Rescheduled", "Live"];
 type Filter = "all" | "link" | "disrupted" | "attendance" | "log";

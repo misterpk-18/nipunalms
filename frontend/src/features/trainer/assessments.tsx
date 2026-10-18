@@ -4,7 +4,7 @@ import { assessmentsApi } from "@/api/assessments";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { PageHead, PillTabs } from "@/components/lms/ui";
 import { MockInterviews } from "./interviews";
-import { QuestionBank } from "./question-bank";
+import { QuestionBank } from "@/features/shared/question-bank";
 import { TestBuilder } from "./test-builder";
 
 /** The tabs follow the order the work goes in: write questions, build a test from them, then run interviews. */

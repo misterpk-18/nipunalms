@@ -11,13 +11,16 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 const RECORD_ICONS: Record<SearchRecord["kind"], LucideIcon> = { student: GraduationCap, batch: Users, certificate: Award };
 const RECORD_GROUPS: Record<SearchRecord["kind"], string> = { student: "Students", batch: "Batches", certificate: "Certificates" };
 
-/** The screen a found record opens: the list that holds it in the workspace the person is in (record pages arrive with their screens). */
-function recordTarget(kind: SearchRecord["kind"], workspace: Workspace, id: number): string {
-  // The trainer's and the admin's student pages and the batch pages are record pages; the Branch Manager's student view opens the list
-  if (kind === "student") return workspace === "trainer" ? `/trainer/students/${id}` : workspace === "branch" ? "/branch/progress" : `/admin/students/${id}`;
-  if (kind === "batch") return workspace === "trainer" ? `/trainer/batches/${id}` : `/branch/batches/${id}`;
-  return workspace === "founder" ? "/founder/certificates" : "/branch/completion";
-}
+/** Where a found record opens, per role: every role stays inside its own workspace (nothing sends the Super Admin or Founder to /branch/*). */
+const RECORD_TARGETS: Record<Workspace, Record<SearchRecord["kind"], (id: number) => string>> = {
+  student: { student: () => "/dashboard", batch: () => "/dashboard", certificate: () => "/certificates" },
+  trainer: { student: (id) => `/trainer/students/${id}`, batch: (id) => `/trainer/batches/${id}`, certificate: () => "/trainer" },
+  branch: { student: () => "/branch/progress", batch: (id) => `/branch/batches/${id}`, certificate: () => "/branch/completion" },
+  admin: { student: (id) => `/admin/students/${id}`, batch: (id) => `/admin/batches/${id}`, certificate: () => "/admin/approvals" },
+  founder: { student: (id) => `/founder/students/${id}`, batch: (id) => `/founder/batches/${id}`, certificate: () => "/founder/certificates" },
+};
+
+const recordTarget = (kind: SearchRecord["kind"], workspace: Workspace, id: number) => RECORD_TARGETS[workspace][kind](id);
 
 /** Ctrl/Cmd+K: jump to a page of the signed-in role's workspace, or find a student, batch or certificate they may open. */
 export function CommandPalette({

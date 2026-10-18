@@ -5,14 +5,15 @@ import { LinkIcon, RotateCcw } from "lucide-react";
 import { adminApi, adminKeys, type ActivationIssued, type SuggestedStep } from "@/api/admin";
 import { Button } from "@/components/ui/button";
 import { useApiMutation } from "@/lib/mutation";
-import { SecretDialog } from "./shared";
-import { istDateTime, useCanAdminister, whatsappLine } from "./format";
+import { SecretDialog } from "@/features/shared/form-parts";
+import { areaLink, areaTo, type CentralArea } from "@/features/shared/central-area";
+import { istDateTime, whatsappLine } from "./format";
 
 /** The list, the open student and the home all change with any account action. */
 export const ACCOUNT_KEYS = () => [[...adminKeys.studentsAll], ["admin", "student"], [...adminKeys.needsAction], ["nav", "counts"]];
 
-export function NextStepButton({ studentId, step, size = "sm" }: { studentId: number; step: SuggestedStep; size?: "sm" | "default" }) {
-  const canEdit = useCanAdminister();
+export function NextStepButton({ area, studentId, step, size = "sm" }: { area: CentralArea; studentId: number; step: SuggestedStep; size?: "sm" | "default" }) {
+  const { canEdit } = area;
   const [issued, setIssued] = useState<ActivationIssued | null>(null);
   const issue = useApiMutation(() => adminApi.issueActivation(studentId), { invalidate: ACCOUNT_KEYS(), onSuccess: setIssued });
   const reactivate = useApiMutation(() => adminApi.reactivateStudent(studentId), { success: "Account reactivated", invalidate: ACCOUNT_KEYS() });
@@ -21,13 +22,13 @@ export function NextStepButton({ studentId, step, size = "sm" }: { studentId: nu
   if (step.action === "issues")
     return (
       <Button asChild size={size}>
-        <Link to="/admin/issues">{step.action_label}</Link>
+        <Link to={areaTo(area, "/issues")}>{step.action_label}</Link>
       </Button>
     );
   if (step.action === "open")
     return (
       <Button asChild size={size}>
-        <Link to="/admin/students/$id" params={{ id: String(studentId) }}>
+        <Link {...areaLink(area, "/students/$id", { id: String(studentId) })}>
           {step.action_label}
         </Link>
       </Button>

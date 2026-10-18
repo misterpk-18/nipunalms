@@ -1,4 +1,4 @@
-/** The Branch Manager's Reports: figures with drill-down links, per-batch progress and monthly trends (UX plan U15). */
+/** Reports (Branch Manager, Super Admin, Founder): figures with drill-down links, per-batch progress and monthly trends (UX plan U15). */
 import { download, get, type Query } from "./client";
 import type { DateOnly } from "./types";
 
@@ -11,7 +11,8 @@ export type ReportFigure = {
   value: number | null;
   unit: string;
   hint: string | null;
-  drill: { to: string; search: Record<string, unknown> | null };
+  /** The screen with the records behind the figure in the session's own workspace; null when this role has none. */
+  drill: { to: string; search: Record<string, unknown> | null } | null;
 };
 
 export type ReportBatchRow = {
@@ -22,7 +23,7 @@ export type ReportBatchRow = {
   avg_attendance: number | null;
   avg_required_learning: number | null;
   alerts: number;
-  drill: { to: string; search: Record<string, unknown> | null };
+  drill: { to: string; search: Record<string, unknown> | null } | null;
 };
 
 export type ReportTrend = {

@@ -137,25 +137,34 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/admin/users", label: "Users & access", icon: UserCog, group: "People", badgeKey: "users" },
   { to: "/admin/students", label: "Student accounts", icon: GraduationCap, group: "People", badgeKey: "student_accounts" },
   { to: "/admin/batches", label: "Batches", icon: Users, group: "Operations" },
+  { to: "/admin/attendance", label: "Attendance", icon: CalendarCheck, group: "Operations" },
   { to: "/admin/support", label: "Support", icon: LifeBuoy, group: "Operations" },
+  { to: "/admin/reports", label: "Reports", icon: ChartColumn, group: "Operations" },
   { to: "/admin/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
   { to: "/admin/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
-  { to: "/admin/crm-sync", label: "CRM sync", icon: RefreshCw, group: "Operations", badgeKey: "crm_sync" },
+  { to: "/admin/crm-sync", label: "CRM sync", icon: RefreshCw, group: "System", badgeKey: "crm_sync" },
   { to: "/admin/setup", label: "Setup & health", icon: Activity, group: "System", badgeKey: "setup" },
   { to: "/admin/ai-controls", label: "AI controls", icon: Sparkles, group: "System" },
   { to: "/admin/audit", label: "Audit log", icon: ScrollText, group: "System" },
 ];
 
+// "Curriculum approvals" stays until R6 replaces curriculum by Courses (which adds a Courses item here and removes it)
 const FOUNDER_NAV: NavItem[] = [
-  { to: "/founder", label: "Home", icon: ShieldCheck, badgeKey: "inbox" },
+  { to: "/founder", label: "Home", icon: ShieldCheck },
+  { to: "/founder/approvals", label: "Approvals", icon: CircleCheck, group: "Approvals", badgeKey: "inbox" },
   { to: "/founder/curriculum", label: "Curriculum approvals", icon: Library, group: "Approvals", badgeKey: "curriculum" },
-  { to: "/founder/certificates", label: "Certificate decisions", icon: Award, group: "Approvals", badgeKey: "certificates" },
-  { to: "/founder/access", label: "Access extensions", icon: Hourglass, group: "Approvals", badgeKey: "access" },
+  { to: "/founder/users", label: "Users & access", icon: UserCog, group: "People", badgeKey: "users" },
+  { to: "/founder/students", label: "Students", icon: GraduationCap, group: "People", badgeKey: "student_accounts" },
   { to: "/founder/batches", label: "Batches", icon: Users, group: "Operations" },
+  { to: "/founder/attendance", label: "Attendance", icon: CalendarCheck, group: "Operations" },
   { to: "/founder/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
+  { to: "/founder/reports", label: "Reports", icon: ChartColumn, group: "Operations" },
   { to: "/founder/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
   { to: "/founder/support", label: "Support", icon: LifeBuoy, group: "Operations" },
-  { to: "/founder/ai-controls", label: "AI controls", icon: Sparkles, group: "Safety" },
+  { to: "/founder/crm-sync", label: "CRM sync", icon: RefreshCw, group: "System", badgeKey: "crm_sync" },
+  { to: "/founder/setup", label: "Setup & health", icon: Activity, group: "System", badgeKey: "setup" },
+  { to: "/founder/ai-controls", label: "AI controls", icon: Sparkles, group: "System" },
+  { to: "/founder/audit", label: "Audit log", icon: ScrollText, group: "System" },
 ];
 
 export const NAV: Record<Workspace, NavItem[]> = {
@@ -166,17 +175,18 @@ export const NAV: Record<Workspace, NavItem[]> = {
   founder: FOUNDER_NAV,
 };
 
-/** Destinations pinned to the phone bottom bar (4 slots + More); workspaces without a list use their first four items. */
-const MOBILE_BAR: Partial<Record<Workspace, string[]>> = {
+/** Destinations pinned to the phone bottom bar (4 slots + More): an explicit list for every role. */
+const MOBILE_BAR: Record<Workspace, string[]> = {
   student: ["/dashboard", "/my-courses", "/schedule", "/tasks"],
   trainer: ["/trainer", "/trainer/sessions", "/trainer/to-grade", "/trainer/students"],
   branch: ["/branch", "/branch/class-day", "/branch/batches", "/branch/schedule"],
+  admin: ["/admin", "/admin/approvals", "/admin/users", "/admin/issues"],
+  founder: ["/founder", "/founder/approvals", "/founder/students", "/founder/issues"],
 };
 
 export function mobileBarItems(workspace: Workspace): NavItem[] {
   const items = NAV[workspace];
-  const pinned = MOBILE_BAR[workspace];
-  return pinned ? pinned.map((to) => items.find((i) => i.to === to)!) : items.slice(0, 4);
+  return MOBILE_BAR[workspace].map((to) => items.find((i) => i.to === to)!);
 }
 
 const WORKSPACE_ROOTS = ["/trainer", "/branch", "/admin", "/founder"];

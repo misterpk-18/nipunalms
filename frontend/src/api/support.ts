@@ -46,6 +46,8 @@ export type SupportDetail = SupportSummary & {
   resolved_at: DateTime | null;
   closed_at: DateTime | null;
   reopened_count: number;
+  /** Staff only: may this viewer reply, change status and reopen? false when another team owns the request. */
+  can_respond?: boolean;
   messages: SupportMessage[];
 };
 

@@ -3,7 +3,7 @@ import { useAuth } from "@/auth/auth";
 import { GettingStartedCard } from "@/components/lms/getting-started";
 import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { CrmTile, QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
-import { AcademicDashboard } from "@/features/academic/dashboard";
+import { AcademicDashboard } from "./academic-dashboard";
 import { MyWork } from "./my-work";
 import { PaymentInstructions } from "./payment-instructions";
 

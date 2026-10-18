@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BatchList } from "@/features/branch/batches";
+import { BatchList } from "@/features/shared/batches";
 
 /** `?new=1` opens the New batch steps (`&course=<id>` starts with that course). The Branch Manager manages the session's branch. */
 export const Route = createFileRoute("/branch/batches/")({

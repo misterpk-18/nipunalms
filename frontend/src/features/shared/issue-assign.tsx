@@ -5,8 +5,8 @@ import { issuesApi, type Issue } from "@/api/issues";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiMutation } from "@/lib/mutation";
-import { FormDialog } from "@/features/admin/shared";
-import { useAllStaff } from "@/features/admin/staff-options";
+import { FormDialog } from "./form-parts";
+import { useAllStaff } from "./staff-options";
 
 export function AssignDialog({ issue, onClose }: { issue: Issue; onClose: () => void }) {
   const staff = useAllStaff();

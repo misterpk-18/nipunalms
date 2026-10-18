@@ -8,23 +8,27 @@ import { DataTable, PageHead, QueryView, Section, StatusBadge, Tag } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { FilterField, Pager } from "./shared";
+import { FilterField, Pager } from "@/features/shared/form-parts";
+import { BranchFilter } from "@/features/shared/branch-filter";
+import { areaLink, type CentralArea } from "@/features/shared/central-area";
 import { NextStepButton } from "./student-actions";
-import { pageOf, useUrlParams } from "./url-params";
+import { pageOf, useUrlParams } from "@/features/shared/url-params";
 
 const ACTIVATION_STATUSES = ["Account Created", "Activation Pending", "Activated", "Suspended"] as const;
 
-export function AdminStudents() {
+/** Every branch's student accounts with a branch filter; `area` is the route's (Super Admin or Founder). */
+export function AdminStudents({ area }: { area: CentralArea }) {
   const [params, setParams] = useUrlParams();
   const filters: StudentFilters = {
     ...(params["q"] ? { q: params["q"] } : {}),
     ...(params["status"] ? { activation_status: params["status"] } : {}),
     ...(params["attention"] === "true" ? { needs_attention: "true" } : {}),
+    ...(params["branch"] ? { branch_id: params["branch"] } : {}),
     page: pageOf(params),
   };
   const query = useQuery({ queryKey: adminKeys.students(filters), queryFn: () => adminApi.students(filters), placeholderData: keepPreviousData });
   const attention = filters.needs_attention === "true";
-  const filtered = !!(filters.q || filters.activation_status || attention);
+  const filtered = !!(filters.q || filters.activation_status || attention || filters.branch_id);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -50,6 +54,9 @@ export function AdminStudents() {
               onChange={(e) => setParams({ status: e.target.value, page: undefined })}
             />
           </FilterField>
+          <FilterField label="Branch">
+            <BranchFilter value={params["branch"] ? Number(params["branch"]) : null} onChange={(id) => setParams({ branch: id === null ? undefined : String(id), page: undefined })} />
+          </FilterField>
           <div className="flex items-end">
             <button
               type="button"
@@ -70,7 +77,7 @@ export function AdminStudents() {
           empty={attention ? "No student account needs attention right now." : "No students match."}
           emptyAction={
             filtered ? (
-              <Button size="sm" variant="outline" onClick={() => setParams({ q: undefined, status: undefined, attention: undefined, page: undefined })}>
+              <Button size="sm" variant="outline" onClick={() => setParams({ q: undefined, status: undefined, attention: undefined, branch: undefined, page: undefined })}>
                 Clear filters
               </Button>
             ) : undefined
@@ -88,8 +95,7 @@ export function AdminStudents() {
                     c: (s) => (
                       <>
                         <Link
-                          to="/admin/students/$id"
-                          params={{ id: String(s.student_id) }}
+                          {...areaLink(area, "/students/$id", { id: String(s.student_id) })}
                           className="font-medium text-primary underline-offset-2 hover:underline"
                         >
                           {s.full_name}
@@ -114,9 +120,9 @@ export function AdminStudents() {
                     h: "Action",
                     c: (s) => (
                       <div className="flex flex-wrap gap-1.5">
-                        <NextStepButton studentId={s.student_id} step={s.suggested_step} />
+                        <NextStepButton area={area} studentId={s.student_id} step={s.suggested_step} />
                         <Button asChild variant="outline" size="sm">
-                          <Link to="/admin/students/$id" params={{ id: String(s.student_id) }} aria-label={`Open ${s.full_name}`}>
+                          <Link {...areaLink(area, "/students/$id", { id: String(s.student_id) })} aria-label={`Open ${s.full_name}`}>
                             Open
                           </Link>
                         </Button>

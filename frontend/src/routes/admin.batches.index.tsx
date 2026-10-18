@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BatchList } from "@/features/branch/batches";
+import { BatchList } from "@/features/shared/batches";
 
 /** Every branch's batches, read-only, with a branch filter. */
 export const Route = createFileRoute("/admin/batches/")({

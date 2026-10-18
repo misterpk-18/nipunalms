@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormDialog } from "@/features/shared/attendance-parts";
 import { fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
-import { Pager } from "./attendance-pager";
+import { Pager } from "@/features/shared/pager";
 
 const PER_PAGE = 15;
 const PARTS = ["waiting", "decided"] as const;

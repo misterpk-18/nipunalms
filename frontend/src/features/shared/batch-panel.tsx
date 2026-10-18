@@ -1,4 +1,4 @@
-/** The parts of a batch page: overview, readiness checks, trainers and students (the page itself is `features/branch/batch-page`). */
+/** The parts of a batch page: overview, readiness checks, trainers and students (the page itself is `features/shared/batch-page`). */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type BatchDetail, type Check } from "@/api/delivery";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable, KeyValue, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { statusInfo } from "@/lib/status";
 import { ActionDialog, StateBadge, fmtDate, fmtDay } from "@/features/shared/delivery-ui";
-import { timetableLabel } from "@/features/academic/timetable";
+import { timetableLabel } from "./timetable";
 import { useDelivery } from "@/features/shared/sessions";
 import { EditBatchDialog, HandoverDialog, LifecycleActions, RequestTransferDialog } from "./batch-operations";
 

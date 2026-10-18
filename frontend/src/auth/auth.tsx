@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 type AuthContextValue = {
   status: "anonymous" | "loading" | "authenticated";
   profile: Profile | null;
+  /** The session's one role, as a list (empty while signed out). */
   roles: RoleCode[];
   /** The one workspace of the session's role (role separation: one role per account). */
   workspace: Workspace;
@@ -24,6 +25,7 @@ type AuthContextValue = {
   branchId: number | null;
   /** The branches the account may work in (a Branch Manager's choices at sign-in; the "Change branch" menu item needs more than one). */
   allowedBranches: BranchRef[];
+  /** For the two curriculum files that R6 deletes. Nothing else reads the role: routes pass each screen its config. */
   hasRole: (...roles: RoleCode[]) => boolean;
   signIn: (login: string, password: string) => Promise<Profile>;
   /** Branch Manager with several branches: fix the branch for this session after sign-in. */
@@ -89,15 +91,15 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
   );
 
   const profile = hasToken ? (me.data ?? null) : null;
-  const roles = useMemo(() => [...new Set(profile?.scopes.map((s) => s.role_code) ?? [])], [profile]);
+  const roles = useMemo<RoleCode[]>(() => (profile?.role ? [profile.role.role_code] : []), [profile]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       status: !hasToken ? "anonymous" : profile ? "authenticated" : "loading",
       profile,
       roles,
-      workspace: profile?.workspace ?? profile?.workspaces[0] ?? "student",
-      workspaces: profile?.workspaces ?? [],
+      workspace: profile?.workspace ?? "student",
+      workspaces: profile?.workspace ? [profile.workspace] : [],
       branchId: profile?.branch?.branch_id ?? null,
       allowedBranches: profile?.branches?.length ? profile.branches : (profile?.allowed_branches ?? []),
       hasRole: (...wanted) => wanted.some((r) => roles.includes(r)),

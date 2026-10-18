@@ -11,8 +11,8 @@ from repositories import branch_reports as repo
 from repositories import progress as progress_repo
 from services import exceptions as exceptions_service
 from services import progress, scope
+from services.context import current_user
 from services.errors import ValidationError
-from services.nav import require_workspace
 
 PERIODS = {"this_month": "This month", "last_month": "Last month", "last_90": "Last 90 days", "custom": "Custom dates"}
 TREND_MONTHS = 6
@@ -65,8 +65,31 @@ def _branches(branch_id: int | None) -> set[int] | None:
     return scope.visible_branch_ids()
 
 
+# Where a figure's records live for the Super Admin and Founder (read-only views under their own workspace). Branch work with no
+# cross-branch screen (schedule, completion, results, content) has no link for them: they never get a /branch/* link.
+CENTRAL_SCREENS = {"/branch/progress": "/attendance", "/branch/support": "/support", "/branch/issues": "/issues"}
+
+
+def _prefix() -> str | None:
+    return {"SUPER_ADMIN": "/admin", "FOUNDER_CEO": "/founder"}.get(current_user().role_code)
+
+
+def _drill(to: str, search: dict | None) -> dict | None:
+    """`{to, search}` for the router in the session's workspace, or None when this role has no screen for it."""
+    prefix = _prefix()
+    if prefix is None:
+        return {"to": to, "search": search or {}}
+    if to.startswith("/branch/batches/"):
+        return {"to": f"{prefix}/batches/{to.rsplit('/', 1)[1]}", "search": {}}
+    target = CENTRAL_SCREENS.get(to)
+    if target is None:
+        return None
+    keep = {k: v for k, v in (search or {}).items() if k in ("branch", "risk")} if target == "/attendance" else {}
+    return {"to": f"{prefix}{target}", "search": keep}
+
+
 def _figure(key: str, label: str, value, to: str, search: dict | None = None, *, unit: str = "", hint: str | None = None) -> dict:
-    return {"key": key, "label": label, "value": value, "unit": unit, "hint": hint, "drill": {"to": to, "search": search or {}}}
+    return {"key": key, "label": label, "value": value, "unit": unit, "hint": hint, "drill": _drill(to, search)}
 
 
 def _measures(first: date, last: date, branch_ids) -> dict:
@@ -114,7 +137,7 @@ def _batches(branch_id: int | None) -> list[dict]:
     rows = progress.branch_summary(branch_id)["batches"]
     return [{"batch": r["batch"], "state": r["state"], "students": r["students"], "avg_delivery": r["avg_delivery"],
              "avg_attendance": r["avg_attendance"], "avg_required_learning": r["avg_required_learning"], "alerts": r["attendance_alerts"],
-             "drill": {"to": f"/branch/batches/{r['batch']['batch_id']}", "search": {}}} for r in rows]
+             "drill": _drill(f"/branch/batches/{r['batch']['batch_id']}", None)} for r in rows]
 
 
 def _trends(branch_ids) -> list[dict]:
@@ -131,7 +154,6 @@ def _trends(branch_ids) -> list[dict]:
 
 
 def report(period: str | None, start: date | None, end: date | None, branch_id: int | None) -> dict:
-    require_workspace("branch")
     key, first, last = resolve_period(period, start, end)
     branch_ids = _branches(branch_id)
     m = _measures(first, last, branch_ids)

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AttendanceCell, Meter } from "@/features/shared/attendance-parts";
 import { fmtDate, fmtDateTime, percent } from "@/features/shared/format";
-import { Pager } from "./attendance-pager";
+import { Pager } from "@/features/shared/pager";
 
 const PER_PAGE = 25;
 const batchName = (b: { display_name?: string | null; batch_code: string }) => b.display_name ?? b.batch_code;
@@ -22,10 +22,13 @@ function Engagement({ level }: { level: ProgressRow["engagement"]["level"] }) {
 }
 
 export function StudentsTab({
+  base = "/branch",
   branchId,
   params,
   setParams,
 }: {
+  /** The role's workspace prefix, for the links out of the panel. */
+  base?: "/branch" | "/admin" | "/founder";
   branchId: number | null;
   params: Record<string, string | undefined>;
   setParams: (patch: Record<string, string | number | undefined>) => void;
@@ -145,12 +148,12 @@ export function StudentsTab({
           </div>
         )}
       </QueryView>
-      <StudentPanel row={open} onClose={() => setOpen(null)} />
+      <StudentPanel base={base} row={open} onClose={() => setOpen(null)} />
     </div>
   );
 }
 
-function StudentPanel({ row, onClose }: { row: ProgressRow | null; onClose: () => void }) {
+function StudentPanel({ base, row, onClose }: { base: string; row: ProgressRow | null; onClose: () => void }) {
   const id = row?.enrolment.enrolment_id;
   const query = useQuery({ queryKey: ["progress", "enrolment", id], queryFn: () => attendanceApi.enrolmentProgress(id!), enabled: id !== undefined });
   return (
@@ -173,13 +176,13 @@ function StudentPanel({ row, onClose }: { row: ProgressRow | null; onClose: () =
               <div className="flex flex-wrap gap-2 border-t pt-3">
                 {row.batch && (
                   <Button asChild size="sm" variant="outline">
-                    <Link to="/branch/batches/$id" params={{ id: String(row.batch.batch_id) }}>
+                    <Link to={`${base}/batches/$id` as never} params={{ id: String(row.batch.batch_id) } as never}>
                       Open the batch
                     </Link>
                   </Button>
                 )}
                 <Button asChild size="sm" variant="outline">
-                  <Link to="/branch/support" search={{ student: row.student.student_id } as never}>
+                  <Link to={`${base}/support` as never} search={{ student: row.student.student_id } as never}>
                     Student support
                   </Link>
                 </Button>

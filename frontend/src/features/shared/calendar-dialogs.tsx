@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fmtDate, fmtDateTime } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
-import { FormDialog } from "@/features/admin/shared";
+import { FormDialog } from "./form-parts";
 
 const INVALIDATE = [[...calendarKeys.all], ["admin", "needs-action"], ["nav", "counts"]];
 

@@ -23,13 +23,13 @@ def academic_reports():
 
 @reports_bp.get("/branch/reports")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # one Reports screen: a Branch Manager's branch, or all / one branch for the others
 def branch_report():
     return reports_controller.branch_report()
 
 
 @reports_bp.get("/branch/reports/export")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 def branch_report_export():
     return reports_controller.branch_report_export()

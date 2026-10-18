@@ -5,8 +5,8 @@ import { contentApi, type StaffExtensionRequest } from "@/api/content";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { PageHead, QueryView, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { useUrlParams } from "@/features/branch/attendance-url";
-import { Pager } from "@/features/branch/attendance-pager";
+import { useUrlParams } from "@/features/shared/url-state";
+import { Pager } from "@/features/shared/pager";
 import { fmtDate } from "@/features/shared/format";
 import { AccessPanel } from "@/features/shared/approvals/panel-access";
 

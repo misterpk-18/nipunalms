@@ -2,6 +2,7 @@
 import { Fragment, useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { type CentralArea } from "@/features/shared/central-area";
 import { Download } from "lucide-react";
 import { adminApi, adminKeys, type AuditEntry, type AuditFilters } from "@/api/admin";
 import { EmptyState } from "@/components/lms/empty-state";
@@ -14,8 +15,8 @@ import { toast } from "sonner";
 import { errorMessage } from "@/api/client";
 import { cn } from "@/lib/utils";
 import { istDateTime } from "./format";
-import { FilterField, Pager } from "./shared";
-import { pageOf, useUrlParams, type Params } from "./url-params";
+import { FilterField, Pager } from "@/features/shared/form-parts";
+import { pageOf, useUrlParams, type Params } from "@/features/shared/url-params";
 
 const istDay = (date: Date) => date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 const lastSevenDays = () => ({ from: istDay(new Date(Date.now() - 6 * 86_400_000)), to: istDay(new Date()) });
@@ -39,8 +40,16 @@ function filtersOf(p: Params): AuditFilters {
 }
 
 /** The sentence with the record's name turned into a link when there is a screen for it. */
-function Sentence({ entry }: { entry: AuditEntry }) {
-  const { sentence, target, link } = entry;
+/** The API names `/admin` and `/branch` screens; a Super Admin or Founder gets the equivalent under their own prefix, or no link when there is none. */
+function areaLink(link: NonNullable<AuditEntry["link"]>, base: CentralArea["base"]) {
+  if (link.to.startsWith("/admin")) return { ...link, to: `${base}${link.to.slice("/admin".length)}` };
+  if (link.to.startsWith("/branch/batches")) return { ...link, to: `${base}${link.to.slice("/branch".length)}` };
+  return null;
+}
+
+function Sentence({ entry, base }: { entry: AuditEntry; base: CentralArea["base"] }) {
+  const { sentence, target } = entry;
+  const link = entry.link ? areaLink(entry.link, base) : null;
   if (!target || !link || !sentence.includes(target)) return <>{sentence}</>;
   const at = sentence.indexOf(target);
   return (
@@ -83,7 +92,7 @@ function Changes({ entry }: { entry: AuditEntry }) {
   );
 }
 
-export function AdminAudit() {
+export function AdminAudit({ area }: { area: CentralArea }) {
   const [params, setParams] = useUrlParams();
   const filters = filtersOf(params);
   const facets = useQuery({ queryKey: adminKeys.auditFacets, queryFn: adminApi.auditFacets, staleTime: 60_000 });
@@ -218,7 +227,7 @@ export function AdminAudit() {
               {page.data.map((entry) => (
                 <li key={entry.audit_id} className="px-4 py-3" data-audit={entry.audit_id}>
                   <p className="text-sm">
-                    <Sentence entry={entry} />
+                    <Sentence entry={entry} base={area.base} />
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {istDateTime(entry.occurred_at)}

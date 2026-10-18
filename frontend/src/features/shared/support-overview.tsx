@@ -1,7 +1,7 @@
-/** Student support for the Super Admin and Founder: every branch (branch filter), read and reassign. Replies and decisions stay with the branch. */
+/** Student support for the Super Admin and Founder: every branch (branch filter). Reply and status on the requests the Super Admin team owns or that are assigned to the viewer; read and reassign elsewhere. */
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { PageHead } from "@/components/lms/ui";
-import { useUrlParams } from "@/features/admin/url-params";
+import { useUrlParams } from "./url-params";
 import { SupportDesk } from "@/features/shared/support-desk";
 
 export function SupportOverview() {
@@ -11,14 +11,13 @@ export function SupportOverview() {
     <div className="mx-auto max-w-6xl space-y-4">
       <PageHead
         title="Student support"
-        description="Requests students have raised in every branch. You can read each one and hand it to the right person; the branch replies to the student."
+        description="Requests students have raised in every branch. You can read each one and hand it to the right person. LMS, Account and Device requests are owned by the Super Admin team, who reply to those; the branch replies to the rest."
       />
       <SupportDesk
         views
         branchFilter
         canReassign
         canEscalate={false}
-        canRespond={false}
         caption="Support requests"
         empty="No support requests."
         openId={request}

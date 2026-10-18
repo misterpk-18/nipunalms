@@ -12,14 +12,15 @@ import { DataTable, KeyValue, PageHead, QueryView, Section, StatusBadge, StatusN
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useApiMutation } from "@/lib/mutation";
-import { FormDialog } from "./shared";
-import { istDateTime, useCanAdminister } from "./format";
+import { FormDialog } from "@/features/shared/form-parts";
+import { areaTo, type CentralArea } from "@/features/shared/central-area";
+import { istDateTime } from "./format";
 import { ACCOUNT_KEYS, NextStepButton } from "./student-actions";
 
-export function AdminStudentPage() {
+export function AdminStudentPage({ area }: { area: CentralArea }) {
   const { id } = useParams({ strict: false }) as { id: string };
   const studentId = Number(id);
-  const canEdit = useCanAdminister();
+  const { canEdit } = area;
   const query = useQuery({ queryKey: adminKeys.student(studentId), queryFn: () => adminApi.student(studentId) });
   const [suspending, setSuspending] = useState(false);
   const reactivate = useApiMutation(() => adminApi.reactivateStudent(studentId), { success: "Account reactivated", invalidate: ACCOUNT_KEYS() });
@@ -33,7 +34,7 @@ export function AdminStudentPage() {
       <QueryView query={query} skeleton="detail">
         {(s) => (
           <>
-            <Breadcrumbs items={[{ label: "Student accounts", to: "/admin/students" }, { label: s.full_name }]} />
+            <Breadcrumbs items={[{ label: "Student accounts", to: `${area.base}/students` }, { label: s.full_name }]} />
             <PageHead title={s.full_name} description={`${s.student_code} · ${s.service_branch.branch_name}`} />
 
             <section
@@ -44,7 +45,7 @@ export function AdminStudentPage() {
               <h2 className="mt-1 text-lg font-semibold">{s.suggested_step.label}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{s.suggested_step.detail}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <NextStepButton studentId={s.student_id} step={s.suggested_step} size="default" />
+                <NextStepButton area={area} studentId={s.student_id} step={s.suggested_step} size="default" />
                 {s.suggested_step.action === "send_link" && (
                   <span className="text-xs text-muted-foreground">The link goes by WhatsApp. If it cannot, you get a link to copy and pass on.</span>
                 )}
@@ -118,7 +119,7 @@ export function AdminStudentPage() {
               )}
               <p className="mt-2 text-sm">
                 <Link
-                  to="/admin/audit"
+                  to={areaTo(area, "/audit")}
                   search={{ entity_type: "student", entity_id: String(s.student_id) } as never}
                   className="text-primary underline-offset-2 hover:underline"
                 >

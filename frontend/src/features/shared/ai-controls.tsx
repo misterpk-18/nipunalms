@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { fmtDateTime } from "@/features/shared/format";
 import { cn } from "@/lib/utils";
 import { audienceName, RestoreDialog, SwitchOffDialog } from "./ai-switch-dialogs";
-import { FormDialog, Pager } from "./shared";
+import { FormDialog, Pager } from "@/features/shared/form-parts";
 
 type Card = { key: string; audience: AiAudience; title: string; state: "On" | "Off"; control: AiControl | null; via: string | null };
 type Dialog =

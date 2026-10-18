@@ -295,6 +295,29 @@ def test_reports_default_to_this_month_with_drill_downs_and_trends(world, client
     assert call(client, login, people["g1"], "get", "/branch/reports").status_code == 403
 
 
+def test_reports_for_super_admin_and_founder_cover_all_or_one_branch(client, login, catalog, make_user):
+    bm = make_user(roles=[("BRANCH_MANAGER", 1)])
+    sa = make_user(roles=[("SUPER_ADMIN", None)])
+    founder = make_user(roles=[("FOUNDER_CEO", None)])
+    trainer = make_user(roles=[("TRAINER", 1)])
+    for who, prefix in ((sa, "/admin"), (founder, "/founder")):
+        everything = client.get(f"{API}/branch/reports", headers=login(who.email))
+        assert everything.status_code == 200, prefix  # no 403 for the Founder
+        one = client.get(f"{API}/branch/reports?branch_id=1", headers=login(who.email))
+        assert one.status_code == 200 and one.get_json()["data"]["scope"] == {"branch_id": 1}
+        assert client.get(f"{API}/branch/reports?branch_id=999", headers=login(who.email)).status_code in (200, 404)
+        # never a link into /branch/*; a figure with no screen under their own workspace has no link at all
+        report = everything.get_json()["data"]
+        drills = [f["drill"] for f in report["figures"]]
+        assert not any(d and d["to"].startswith("/branch") for d in drills)
+        by_key = {f["key"]: f["drill"] for f in report["figures"]}
+        assert by_key["attendance_rate"]["to"] == f"{prefix}/attendance" and by_key["issues"]["to"] == f"{prefix}/issues"
+        assert by_key["support_opened"]["to"] == f"{prefix}/support" and by_key["certificates"] is None
+        assert client.get(f"{API}/branch/reports/export?section=figures", headers=login(who.email)).status_code == 200
+    assert client.get(f"{API}/branch/reports", headers=login(bm.email)).status_code == 200
+    assert client.get(f"{API}/branch/reports", headers=login(trainer.email)).status_code == 403
+
+
 def test_report_export_is_csv_and_never_a_formula(world, client, login):
     people, _, _ = world
     response = call(client, login, people["ac"], "get", "/branch/reports/export?section=figures")

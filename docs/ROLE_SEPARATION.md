@@ -77,14 +77,14 @@ No component calls `hasRole`, `useCanManage`, `useIsManager` or `useCanAdministe
 - [x] 7.6 Batch page parts and operations: `manage` and `approve` only for Branch Manager; read-only for Super Admin and Founder with a branch filter (`manage` and `approve` are props from the route (true only on `/branch/*`); `useCanManage` and `useIsManager` deleted (nothing used them); `BatchList` and `BatchPage` serve `/branch/batches`, `/admin/batches` and `/founder/batches` (+ `$id`) with a branch filter on the read-only ones)
 - [x] 7.7 Class sessions table and requests: `manager` and `trainer` config (`SessionActions` no longer calls `useIsManager`; the trainer route already passes `{manager: false, trainer: true}`)
 - [x] 7.8 Certificate and completion decisions: merge `CertificateDecisions` and the Founder `InboxList` panels into one inbox component (one `ApprovalsInbox` (`features/shared/approvals/`, panels moved there) with `kinds`; `CertificateDecisions` deleted; Branch Manager section in Completion uses `kinds=[certificate]`; `/admin/approvals` added with Approvals nav badge; `GET /founder/inbox` now also serves a Branch Manager (certificate requests only) and flags `can_decide` so the independence rule shows)
-- [ ] 7.9 Question bank: move `features/trainer/question-bank.tsx` to `features/shared`; `canApprove` for Branch Manager only
-- [ ] 7.10 AI controls: one page, two routes
-- [ ] 7.11 Assistant: `variant` per role
-- [ ] 7.12 Dashboard building blocks: role-neutral, Founder gets Getting started
-- [ ] 7.13 Reports: one component with a branch filter, three routes
-- [ ] 7.14 App shell and command palette: one nav per role, record links per role (Founder student result opens a founder page), explicit mobile bar list for every role
-- [ ] 7.15 Move the cross-feature imports into `features/shared` (list in Part C) and retire the leftover `features/academic/` directory
-- [ ] Frontend: delete the union readers listed in 7.16 (`shared/delivery-ui.tsx`, `auth/auth.tsx:77,85`, `admin/format.ts:20-22`, `shared/support-desk.tsx:444`, `shared/staff-profile.tsx:29-32`, `components/lms/app-shell.tsx:80-82`)
+- [x] 7.9 Question bank: move `features/trainer/question-bank.tsx` to `features/shared`; `canApprove` for Branch Manager only (moved to `features/shared/question-bank.tsx`; `canApprove` is a prop, passed only by the Branch Manager's Content & questions)
+- [x] 7.10 AI controls: one page, two routes (`features/shared/ai-controls.tsx` (+ `ai-switch-dialogs.tsx`), routes `/admin/ai-controls` and `/founder/ai-controls`, no role logic in the page)
+- [x] 7.11 Assistant: `variant` per role (`Assistant` takes `variant`; the student and trainer routes pass it; no role read in the component)
+- [x] 7.12 Dashboard building blocks: role-neutral, Founder gets Getting started (`GettingStartedCard` and `useNavCounts` read the session; Founder Home now has the Getting started card (backend `/me/getting-started` already served the Founder))
+- [x] 7.13 Reports: one component with a branch filter, three routes (one `Reports` (`features/shared/reports.tsx`) with `area` for the Super Admin and Founder (branch filter, plus a branch-by-branch table from `GET /academic/reports?branch_id=`); routes `/branch/reports`, `/admin/reports`, `/founder/reports`. Backend: `GET /branch/reports` and its export now also admit Super Admin and Founder (all branches or `branch_id`), because the BM report shape is what the one component renders; figure drill links are built per role (never `/branch/*`, none where the role has no screen))
+- [x] 7.14 App shell and command palette: one nav per role, record links per role (Founder student result opens a founder page), explicit mobile bar list for every role (Super Admin and Founder nav per 4.7 / 5.7 (Courses added in R6; Founder keeps "Curriculum approvals" until R6 removes it); `RECORD_TARGETS` per role (Founder student opens `/founder/students/$id`, batch results open `/admin|founder/batches/$id`, nothing links to `/branch/*` for them); `MOBILE_BAR` is an explicit list for all five roles; new `/founder/approvals`)
+- [x] 7.15 Move the cross-feature imports into `features/shared` (list in Part C) and retire the leftover `features/academic/` directory (moved to `features/shared`: url-state, pager, url-params, form-parts (was `admin/shared`), staff-options, question-bank, batches, batch-page, batch-panel, batch-operations, class-operations, class-actions, batch-dialogs, new-class, new-batch-wizard, timetable, attendance-students, waiting-student (split out of `branch/waiting`), reports; `features/academic/dashboard` became `branch/academic-dashboard`; `features/academic/` now holds only `curriculum.tsx` and `curriculum-model.tsx` for R6 to delete; the only remaining cross-feature imports are curriculum ones)
+- [x] Frontend: delete the union readers listed in 7.16 (`shared/delivery-ui.tsx`, `auth/auth.tsx:77,85`, `admin/format.ts:20-22`, `shared/support-desk.tsx:444`, `shared/staff-profile.tsx:29-32`, `components/lms/app-shell.tsx:80-82`) (`useCanAdminister` deleted: `canEdit` / `area` (`features/shared/central-area.ts`, `ADMIN_AREA`, `FOUNDER_AREA`, both editable) is passed by the route; `auth/auth.tsx` derives the role and workspace from the session role (no scopes union); `hasRole` remains only for `academic/curriculum.tsx` and `curriculum-model.tsx` (R6 deletes them); support desk `can_respond` comes from the API)
 
 ## R6. Curriculum to Courses
 
@@ -137,22 +137,22 @@ Frontend
 - [ ] Split "Content & questions" or label its two jobs clearly
 
 ### Super Admin
-- [ ] Nav under `/admin`: Home, Approvals, Users & access, Student accounts, Batches, Attendance, Support, Reports, Issues, Academic calendar, Courses, CRM sync, Setup & health, AI controls, Audit log
+- [ ] (built except Courses, which R6 adds) Nav under `/admin`: Home, Approvals, Users & access, Student accounts, Batches, Attendance, Support, Reports, Issues, Academic calendar, Courses, CRM sync, Setup & health, AI controls, Audit log
 - [x] `/admin/approvals`: the same inbox as the Founder, decides every item
 - [ ] `/admin/courses`: outline editor and kept blocks
-- [ ] `/admin/batches`, `/admin/students` (branch filter), `/admin/attendance`, `/admin/reports`: read-only cross-branch
+- [x] `/admin/batches`, `/admin/students` (branch filter), `/admin/attendance`, `/admin/reports`: read-only cross-branch (read-only cross-branch views; students and attendance have a branch filter, reports have one too)
 - [x] `/admin/support`: read and reassign
 - [x] "Go fix it" on `/admin/issues` opens a read-only detail with Assign (`backend/services/issues.py:45-64`)
 - [ ] Payment instructions edited in `/admin/setup`, branches section
 - [x] Approve closures proposed by Branch Managers on `/admin/calendar`
-- [ ] Users & access hand-out page
+- [x] Users & access hand-out page (the hand-out section is in the shared Users & access component, served on `/admin/users` and `/founder/users`)
 - [ ] Remove the implicit Branch workspace and its "Acting as" entry
 
 ### Founder
-- [ ] Nav under `/founder`: Home, Approvals, Courses, Users & access, Students, Batches, Attendance, Issues, Reports, Academic calendar, Support, CRM sync, Setup & health, AI controls, Audit log
-- [ ] `/founder/users` with hand-out page, `/founder/students`, `/founder/batches`, `/founder/attendance`, `/founder/issues`, `/founder/reports`, `/founder/calendar`, `/founder/support`, `/founder/crm-sync` (with Retry), `/founder/setup` (editable), `/founder/audit`, `/founder/courses`
-- [ ] Bell, `/founder/notifications`, Getting started card
-- [ ] Phone "More" sheet carries every item beyond the four pinned
+- [ ] (built except Courses, which R6 adds; "Curriculum approvals" still listed until R6) Nav under `/founder`: Home, Approvals, Courses, Users & access, Students, Batches, Attendance, Issues, Reports, Academic calendar, Support, CRM sync, Setup & health, AI controls, Audit log
+- [ ] (all built except `/founder/courses`, R6) `/founder/users` with hand-out page, `/founder/students`, `/founder/batches`, `/founder/attendance`, `/founder/issues`, `/founder/reports`, `/founder/calendar`, `/founder/support`, `/founder/crm-sync` (with Retry), `/founder/setup` (editable), `/founder/audit`, `/founder/courses`
+- [x] Bell, `/founder/notifications`, Getting started card (bell and `/founder/notifications` from part 1; Getting started card on Founder Home)
+- [x] Phone "More" sheet carries every item beyond the four pinned (explicit four pinned (Home, Approvals, Students, Issues); the shell's More sheet lists the rest)
 - [ ] Remove the implicit Admin and Branch workspaces and the "Acting as" entries
 - [ ] Add the Founder's Home empty state and next-step hints
 

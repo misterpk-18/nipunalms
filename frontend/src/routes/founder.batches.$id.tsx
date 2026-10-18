@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BatchPage } from "@/features/branch/batch-page";
+import { BatchPage } from "@/features/shared/batch-page";
 
 /** One batch, read-only. */
 export const Route = createFileRoute("/founder/batches/$id")({

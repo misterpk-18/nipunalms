@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ActionDialog, fmtDate, fmtDay, fmtTime, issuesOf, type DialogField } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
 import { useApiMutation } from "@/lib/mutation";
-import { WaitingStudent } from "./waiting";
+import { WaitingStudent } from "@/features/shared/waiting-student";
 
 const INVALIDATE = [["delivery"], ["branch"], ["nav"]];
 

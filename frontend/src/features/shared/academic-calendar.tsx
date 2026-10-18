@@ -13,8 +13,8 @@ import { PageHead, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { Pager } from "@/features/admin/shared";
-import { pageOf, useUrlParams, type Params } from "@/features/admin/url-params";
+import { Pager } from "./form-parts";
+import { pageOf, useUrlParams, type Params } from "./url-params";
 import { AddClosureDialog, CancelClosureDialog, DecideClosureDialog, EditClosureDialog, rangeText } from "./calendar-dialogs";
 
 /** What a role may do on the calendar. Fixed per route; the component never asks who the user is. */

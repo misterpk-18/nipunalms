@@ -8,7 +8,6 @@ import { PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { useApiMutation } from "@/lib/mutation";
 import { ageText } from "@/features/shared/format";
-import { useCanAdminister } from "./format";
 
 /** Retry on a failed CRM update, right from the home: it either goes through or says why not. */
 function RetryButton({ eventId }: { eventId: number }) {
@@ -78,9 +77,8 @@ const QUICK = [
   { to: "/admin/audit", search: {}, label: "See what changed lately", icon: ScrollText },
 ] as const;
 
-export function AdminDashboard() {
+export function AdminDashboard({ canEdit }: { canEdit: boolean }) {
   const query = useQuery({ queryKey: adminKeys.needsAction, queryFn: adminApi.needsAction, refetchInterval: 60_000 });
-  const canEdit = useCanAdminister();
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <PageHead title="Super Admin home" description="See what needs doing across the LMS and jump straight to it." />
