@@ -1,6 +1,7 @@
 /** Schedule one class, or a weekly series. Opened from a batch, it is already filled in from the batch: its next teaching day and time, room, trainer and next topic. */
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { coursesApi } from "@/api/courses";
 import { deliveryApi, type Batch, type ClassSession } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { ActionDialog, fromIstInput, toIstInput } from "@/features/shared/delivery-ui";
@@ -62,9 +63,9 @@ export function NewClassDialog({
     queryFn: () => deliveryApi.staff("BRANCH_MANAGER", batch!.branch.branch_id),
     enabled: !!batch,
   });
-  const versions = useQuery({
-    queryKey: ["delivery", "versions", "active", batch?.course.course_id],
-    queryFn: () => deliveryApi.versions({ course_id: batch?.course.course_id, status: "Active", with_content: true }),
+  const outline = useQuery({
+    queryKey: ["courses", "outline", batch?.course.course_id],
+    queryFn: () => coursesApi.outline(batch!.course.course_id),
     enabled: !!batch,
   });
   const create = useDelivery((body: Record<string, unknown>) => deliveryApi.createSessions(body), "Class scheduled");
@@ -72,10 +73,11 @@ export function NewClassDialog({
   const sessions = batchSessions.data?.data ?? [];
   const owed = sessions.filter((x) => x.state === "Cancelled" || x.delivery_outcome === "Partially Held");
   const used = new Set(sessions.filter((x) => x.state !== "Cancelled" && x.topic).map((x) => x.topic!.topic_id));
-  const topics = (versions.data ?? []).flatMap((v) =>
-    (v.modules ?? []).flatMap((m) => m.topics.map((t) => ({ value: t.topic_id, label: `${m.title} › ${t.title}` }))),
-  );
-  const nextTopic = (versions.data ?? []).flatMap((v) => (v.modules ?? []).flatMap((m) => m.topics)).find((t) => !used.has(t.topic_id));
+  const modules = batch?.component
+    ? (outline.data?.tracks.find((t) => t.component.component_id === batch.component?.component_id)?.modules ?? [])
+    : (outline.data?.modules ?? []);
+  const topics = modules.flatMap((m) => m.topics.map((t) => ({ value: t.topic_id, label: `${m.title} › ${t.title}` })));
+  const nextTopic = modules.flatMap((m) => m.topics).find((t) => !used.has(t.topic_id));
   const me = profile?.user.user_id ?? 0;
   const ownerOptions = [
     { value: me, label: "Me" },
@@ -83,7 +85,7 @@ export function NewClassDialog({
   ];
   const slot = nextClassSlot(batch);
   const purpose = replaces ? "Replacement" : "Regular";
-  const ready = !!batch && !batchSessions.isPending && !versions.isPending && !detail.isPending;
+  const ready = !!batch && !batchSessions.isPending && !outline.isPending && !detail.isPending;
 
   return (
     <ActionDialog
@@ -116,7 +118,7 @@ export function NewClassDialog({
         },
         {
           name: "topic_id",
-          label: "Curriculum topic",
+          label: "Course topic",
           type: "select",
           options: [{ value: "", label: "Not linked to a topic" }, ...topics],
           value: replaces?.topic ? String(replaces.topic.topic_id) : String(nextTopic?.topic_id ?? ""),

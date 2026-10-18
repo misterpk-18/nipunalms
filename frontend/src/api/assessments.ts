@@ -90,7 +90,13 @@ export type AssignmentInput = {
   release_now?: boolean;
 };
 
-export type CurriculumOption = { module_id: number; title: string; version_label: string; topics: { topic_id: number; title: string }[] };
+export type CurriculumOption = {
+  module_id: number;
+  title: string;
+  component_id: number | null;
+  track_name: string | null;
+  topics: { topic_id: number; title: string }[];
+};
 
 export const ASSIGNMENT_KINDS = ["Class assignment", "Module assignment", "Practical lab", "Mini project", "Final project"] as const;
 export const AI_RULES = ["Allowed with disclosure", "Limited to specified uses", "Not permitted"] as const;

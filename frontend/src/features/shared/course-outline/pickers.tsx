@@ -1,38 +1,8 @@
-/** Small pieces the curriculum screens share: the mutation helper and a searchable topic picker (names, never ids). */
+/** A searchable topic picker (names, never ids). */
 import { useId, useState } from "react";
 import { Plus, X } from "lucide-react";
-import type { ModuleContent } from "@/api/delivery";
 import { Input } from "@/components/ui/input";
-import { useApiMutation } from "@/lib/mutation";
-
-type MutationExtras<R> = {
-  /** One line under the message: what happens next. */
-  next?: string | ((result: R) => string);
-  /** A "View" button on the toast. */
-  view?: { to: string; label?: string } | ((result: R) => { to: string; label?: string } | undefined);
-  onSuccess?: (result: R) => void;
-  /** Leave server field errors to the form (it shows them itself). */
-  silentValidation?: boolean;
-};
-
-/** A curriculum change: refreshes every curriculum, branch and nav query and toasts what happened. */
-export function useCurriculumMutation<V, R>(fn: (vars: V) => Promise<R>, success: string | ((result: R) => string), extras: MutationExtras<R> = {}) {
-  return useApiMutation<V, R>(fn, {
-    success,
-    invalidate: [["delivery"], ["branch"], ["nav"]],
-    ...(extras.next ? { next: extras.next } : {}),
-    ...(extras.view ? { view: extras.view } : {}),
-    ...(extras.onSuccess ? { onSuccess: (result: R) => extras.onSuccess?.(result) } : {}),
-    ...(extras.silentValidation ? { silentValidation: true } : {}),
-  });
-}
-
-export type TopicChoice = { topic_id: number; label: string };
-
-/** "Core Java > Variables" for every topic of the version, in order. */
-export function topicChoices(modules: ModuleContent[]): TopicChoice[] {
-  return modules.flatMap((m) => m.topics.map((t) => ({ topic_id: t.topic_id, label: `${m.title} > ${t.title}` })));
-}
+import type { TopicChoice } from "./mutation";
 
 /**
  * Choose several topics by name: type to search, press a result to add it, press a chip to remove it.
@@ -43,7 +13,7 @@ export function TopicMultiPicker({
   value,
   onChange,
   label,
-  emptyText = "There are no other topics in this version.",
+  emptyText = "There are no other topics in this course.",
 }: {
   choices: TopicChoice[];
   value: number[];

@@ -122,7 +122,7 @@ const BRANCH_NAV: NavItem[] = [
   { to: "/branch/waiting", label: "Waiting for a batch", icon: Hourglass, group: "Batches & students", badgeKey: "waiting" },
   { to: "/branch/schedule", label: "Schedule & calendar", icon: CalendarDays, group: "Batches & students", badgeKey: "schedule" },
   { to: "/branch/progress", label: "Attendance & progress", icon: TrendingUp, group: "Batches & students", badgeKey: "attendance" },
-  { to: "/branch/curriculum", label: "Curriculum", icon: Library, group: "Teaching" },
+  { to: "/branch/courses", label: "Courses", icon: Library, group: "Teaching" },
   { to: "/branch/content", label: "Content & questions", icon: FolderOpen, group: "Teaching", badgeKey: "content_review" },
   { to: "/branch/results", label: "Marks & results", icon: ClipboardCheck, group: "Teaching", badgeKey: "marks" },
   { to: "/branch/completion", label: "Completion & certificates", icon: Award, group: "Completion", badgeKey: "completion" },
@@ -142,17 +142,17 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/admin/reports", label: "Reports", icon: ChartColumn, group: "Operations" },
   { to: "/admin/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
   { to: "/admin/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
+  { to: "/admin/courses", label: "Courses", icon: Library, group: "Academic" },
   { to: "/admin/crm-sync", label: "CRM sync", icon: RefreshCw, group: "System", badgeKey: "crm_sync" },
   { to: "/admin/setup", label: "Setup & health", icon: Activity, group: "System", badgeKey: "setup" },
   { to: "/admin/ai-controls", label: "AI controls", icon: Sparkles, group: "System" },
   { to: "/admin/audit", label: "Audit log", icon: ScrollText, group: "System" },
 ];
 
-// "Curriculum approvals" stays until R6 replaces curriculum by Courses (which adds a Courses item here and removes it)
 const FOUNDER_NAV: NavItem[] = [
   { to: "/founder", label: "Home", icon: ShieldCheck },
   { to: "/founder/approvals", label: "Approvals", icon: CircleCheck, group: "Approvals", badgeKey: "inbox" },
-  { to: "/founder/curriculum", label: "Curriculum approvals", icon: Library, group: "Approvals", badgeKey: "curriculum" },
+  { to: "/founder/courses", label: "Courses", icon: Library, group: "Company" },
   { to: "/founder/users", label: "Users & access", icon: UserCog, group: "People", badgeKey: "users" },
   { to: "/founder/students", label: "Students", icon: GraduationCap, group: "People", badgeKey: "student_accounts" },
   { to: "/founder/batches", label: "Batches", icon: Users, group: "Operations" },

@@ -5,7 +5,6 @@ import { deliveryApi } from "@/api/delivery";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { PrepareMapping } from "@/features/academic/curriculum-model";
 import { fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
 
@@ -107,11 +106,6 @@ export function WaitingStudent({ row, manage, withBranch }: { row: WaitingRow; m
           </Tag>
         )}
       </div>
-      {manage && (
-        <div className="mt-1">
-          <PrepareMapping enrolmentId={row.enrolment.enrolment_id} courseId={row.course.course_id} />
-        </div>
-      )}
       {row.matches.length === 0 ? (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
           <span>

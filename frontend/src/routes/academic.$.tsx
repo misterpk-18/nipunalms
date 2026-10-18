@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 /** Old /academic/* screens now live under /branch/* (the Academic Coordinator role was merged into the Branch Manager). */
-const MOVED: Record<string, string> = { reports: "reports", "meet-operations": "class-day", operations: "batches" };
+const MOVED: Record<string, string> = { reports: "reports", "meet-operations": "class-day", operations: "batches", curriculum: "courses" };
 
 export const Route = createFileRoute("/academic/$")({
   validateSearch: (search: Record<string, unknown>): Record<string, unknown> => search,

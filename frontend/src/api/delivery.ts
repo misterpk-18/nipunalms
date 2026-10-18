@@ -1,4 +1,4 @@
-/** Delivery slice: curriculum, batches, allocation, class sessions, Meet association and the learner's course views. */
+/** Delivery slice: batches, allocation, class sessions, Meet association and the learner's course views. */
 import { del, get, list, patch, post, put, type Query } from "./client";
 import type { Assignment, TestItem } from "./assessments";
 import type { StudentRecording, StudentResource } from "./content";
@@ -6,7 +6,6 @@ import type { BranchRef, DateOnly, DateTime, UserRef } from "./types";
 
 export type CourseRef = { course_id: number; course_code: string; title: string };
 export type BatchRef = { batch_id: number; batch_code: string; course_code: string; display_name?: string | null };
-export type VersionRef = { curriculum_version_id: number; version_label: string; status: string };
 export type Trainer = {
   batch_trainer_id: number;
   user_id: number;
@@ -17,7 +16,7 @@ export type Trainer = {
 };
 export type Delivery = { delivered: number; upcoming: number; cancelled: number; planned: number; percent: number | null };
 
-// ---------------------------------------------------------------- curriculum
+// ---------------------------------------------------------------- course outline (calls: api/courses.ts)
 
 export type TopicClass = "Required" | "Recommended" | "Optional";
 export type TopicRow = {
@@ -41,6 +40,8 @@ export type ModuleContent = {
   title_te: string | null;
   sort_order: number;
   library_version_id: number | null;
+  /** Set on a combo track's own outline; null on the course's own modules. */
+  component_id?: number | null;
   topics: TopicRow[];
 };
 export type Component = {
@@ -52,9 +53,11 @@ export type Component = {
   component_course?: CourseRef | null;
   equivalence_note?: string | null;
   equivalence_reviewed_at?: DateTime | null;
+  /** The standalone course whose outline this track follows, once the match is checked and pinned. */
+  pinned_course?: CourseRef | null;
 };
 export type CompletionProfile = { attendance_minimum_pct: number; pass_mark_pct: number; recovery_rule: string; reassessment_rule: string };
-export type VersionTotals = {
+export type OutlineTotals = {
   instructional_minutes: number;
   independent_minutes: number;
   total_minutes: number;
@@ -74,87 +77,6 @@ export type AssessmentRequirement = {
   module_id: number | null;
   topic_id: number | null;
 };
-type Decided = {
-  status: "Pending" | "Approved" | "Rejected";
-  requested_by: UserRef;
-  requested_at: DateTime;
-  decided_by: UserRef | null;
-  decision_note: string | null;
-};
-export type AcademicMapping = Decided & {
-  mapping_id: number;
-  enrolment_id: number;
-  from_version: VersionRef | null;
-  to_version: VersionRef;
-  comparison: string;
-  migration_plan: string;
-  trainer_evidence: string | null;
-  student_acceptance: string | null;
-  proposed_credits: { topic_id: number; original_evidence: string }[];
-};
-export type EquivalenceRule = Decided & { rule_id: number; from_version_id: number; to_version_id: number; description: string };
-export type CurriculumVariation = Decided & {
-  variation_id: number;
-  curriculum_version_id: number;
-  branch_id: number;
-  batch_id: number | null;
-  topic_id: number | null;
-  kind: string;
-  description: string;
-  remedial_plan: string | null;
-};
-export type LibraryVersion = {
-  library_version_id: number;
-  version_no: number;
-  content: { title: string; topics: { title: string }[] };
-  change_note: string | null;
-  status: "Pending" | "Approved" | "Rejected";
-  proposed_by: number;
-};
-export type LibraryModule = {
-  library_module_id: number;
-  module_code: string;
-  title: string;
-  current_version: LibraryVersion | null;
-  versions: LibraryVersion[];
-};
-export type CurriculumRow = {
-  course: CourseRef & { is_combo: boolean };
-  component: Component | null;
-  active_version: VersionRef | null;
-  latest_version: VersionRef | null;
-  readiness: string;
-  waiting_batches: number;
-  borrowed_from: CourseRef | null;
-};
-export type CurriculumEvent = {
-  event_id: number;
-  action: string;
-  from_status: string | null;
-  to_status: string;
-  actor: UserRef | null;
-  note: string | null;
-  created_at: DateTime;
-};
-export type CurriculumVersion = VersionRef & {
-  course: CourseRef;
-  component: Component | null;
-  approved_at: DateTime | null;
-  /** The day an Approved version will be activated (chosen with the approval); null otherwise. */
-  activate_on?: DateOnly | null;
-  created_at: DateTime;
-  counts: { modules: number; topics: number; required_topics: number };
-  usage: { batches: number; enrolments: number; tracks: number };
-  modules?: ModuleContent[];
-  events?: CurriculumEvent[];
-  blockers?: string[];
-  released?: { enrolments_released: number; batches_mapped: number };
-  totals?: VersionTotals;
-  completion_profile?: CompletionProfile | null;
-  assessment_requirements?: AssessmentRequirement[];
-  components?: { component_id: number; component_version: VersionRef }[];
-};
-
 // ---------------------------------------------------------------- batches
 
 export const BATCH_STATES = ["Forming", "Proposed", "Starting", "Running", "Full", "On Hold", "Completed", "Cancelled", "Archived"] as const;
@@ -186,7 +108,6 @@ export type Batch = {
   meet_series_link: string | null;
   meet_space_id: string | null;
   calendar_series_id: string | null;
-  curriculum_version: VersionRef | null;
   capacity: number;
   allocated_count: number;
   is_full: boolean;
@@ -267,10 +188,9 @@ export type EnrolmentRow = {
   joining_date: DateOnly | null;
   service_branch: BranchRef;
   admission: { admission_code: string };
-  curriculum_version: VersionRef | null;
   batch: BatchRef | null;
   student: { student_id: number; student_code: string; full_name: string };
-  tracks?: { enrolment_track_id: number; track_code: string; track_name: string; role: string; curriculum_version: VersionRef | null }[];
+  tracks?: { enrolment_track_id: number; track_code: string; track_name: string; role: string }[];
   waiting_days?: number;
   /** Module 15 §6 allocation deadline (allocation queue only). */
   allocation_due_on?: DateOnly;
@@ -394,7 +314,6 @@ export type MyEnrolment = {
   status: string;
   admission: { admission_code: string };
   parent_enrolment_id: number | null;
-  curriculum_version: VersionRef | null;
   service_branch: BranchRef;
   collecting_branch: BranchRef;
   mode: string;
@@ -435,7 +354,6 @@ export type TrackRow = {
   track_code: string;
   track_name: string;
   role: string;
-  curriculum_version: VersionRef | null;
   delivery: Delivery;
   topics: { done: number; total: number; percent: number | null } | null;
 };
@@ -446,13 +364,13 @@ export type MyEnrolmentDetail = MyEnrolment & {
   finance: { fee_total: string; verified_paid: string; balance: string; as_of: DateTime } | null;
 };
 export type TrackDetail = {
-  enrolment: { enrolment_id: number; enrolment_code: string; course: CourseRef; curriculum_version: VersionRef | null };
+  enrolment: { enrolment_id: number; enrolment_code: string; course: CourseRef };
   track: TrackRow;
   delivery: Delivery;
   modules: ModuleRow[];
 };
 type Context = { enrolment: { enrolment_id: number; enrolment_code: string; course: CourseRef }; track: TrackRow | null } | null;
-type ModuleHead = { module_id: number; title: string; title_te: string | null; sort_order: number; curriculum_version: VersionRef; course_id: number };
+type ModuleHead = { module_id: number; title: string; title_te: string | null; sort_order: number; course_id: number; component_id: number | null };
 export type TopicProgress = {
   status: "Done" | "Work to hand in" | "Not started";
   is_done: boolean;
@@ -865,49 +783,6 @@ const opsCalls = {
 // ---------------------------------------------------------------- calls
 
 export const deliveryApi = {
-  // curriculum
-  curriculumOverview: () => get<CurriculumRow[]>("/curriculum/overview"),
-  versions: (query: Query) => get<CurriculumVersion[]>("/curriculum-versions", query),
-  curriculumVersion: (id: number) => get<CurriculumVersion>(`/curriculum-versions/${id}`),
-  createVersion: (body: { course_id: number; component_id?: number | null; version_label: string; copy_from_version_id?: number | null }) =>
-    post<CurriculumVersion>("/curriculum-versions", body),
-  renameVersion: (id: number, version_label: string) => patch<CurriculumVersion>(`/curriculum-versions/${id}`, { version_label }),
-  deleteVersion: (id: number) => del<null>(`/curriculum-versions/${id}`),
-  versionAction: (id: number, action: "submit" | "return" | "approve" | "activate" | "retire", body: { reason?: string } = {}) =>
-    post<CurriculumVersion>(`/curriculum-versions/${id}/${action}`, body),
-  addModule: (versionId: number, body: { title: string; title_te?: string }) => post<ModuleContent>(`/curriculum-versions/${versionId}/modules`, body),
-  updateModule: (id: number, body: { title?: string; title_te?: string | null; position?: number }) => patch<ModuleContent>(`/curriculum-modules/${id}`, body),
-  deleteModule: (id: number) => del<null>(`/curriculum-modules/${id}`),
-  addTopic: (moduleId: number, body: { title: string; is_required?: boolean; topic_class?: TopicClass }) =>
-    post<TopicRow>(`/curriculum-modules/${moduleId}/topics`, body),
-  updateTopic: (id: number, body: Record<string, unknown>) => patch<TopicRow>(`/curriculum-topics/${id}`, body),
-  verifyHours: (id: number) => post<CurriculumVersion>(`/curriculum-versions/${id}/hours-verification`),
-  setCompletionProfile: (id: number, body: CompletionProfile) => put<CurriculumVersion>(`/curriculum-versions/${id}/completion-profile`, body),
-  addRequirement: (id: number, body: Record<string, unknown>) => post<AssessmentRequirement>(`/curriculum-versions/${id}/assessment-requirements`, body),
-  deleteRequirement: (id: number) => del<null>(`/assessment-requirements/${id}`),
-  pinComponent: (id: number, body: { component_id: number; component_version_id: number }) =>
-    put<CurriculumVersion>(`/curriculum-versions/${id}/components`, body),
-  reviewEquivalence: (componentId: number, note: string) => post<Component>(`/course-components/${componentId}/equivalence`, { note }),
-  // Module 14 records
-  mappings: (query: Query) => list<AcademicMapping>("/academic-mappings", { per_page: 100, ...query }),
-  requestMapping: (enrolmentId: number, body: Record<string, unknown>) => post<AcademicMapping>(`/enrolments/${enrolmentId}/academic-mappings`, body),
-  decideMapping: (id: number, body: { decision: string; note?: string; student_acceptance?: string }) =>
-    post<AcademicMapping>(`/academic-mappings/${id}/decision`, body),
-  rules: (query: Query) => list<EquivalenceRule>("/equivalence-rules", { per_page: 100, ...query }),
-  requestRule: (body: { from_version_id: number; to_version_id: number; description: string }) => post<EquivalenceRule>("/equivalence-rules", body),
-  decideRule: (id: number, body: { decision: string; note?: string }) => post<EquivalenceRule>(`/equivalence-rules/${id}/decision`, body),
-  variations: (query: Query) => list<CurriculumVariation>("/curriculum-variations", { per_page: 100, ...query }),
-  createVariation: (body: Record<string, unknown>) => post<CurriculumVariation>("/curriculum-variations", body),
-  decideVariation: (id: number, body: { decision: string; note?: string }) => post<CurriculumVariation>(`/curriculum-variations/${id}/decision`, body),
-  library: () => list<LibraryModule>("/curriculum-library", { per_page: 100 }),
-  saveToLibrary: (moduleId: number) => post<LibraryModule>(`/curriculum-modules/${moduleId}/library`),
-  proposeLibraryVersion: (libraryModuleId: number, body: { module_id: number; change_note: string }) =>
-    post<LibraryVersion>(`/curriculum-library/${libraryModuleId}/versions`, body),
-  decideLibraryVersion: (id: number, decision: string) => post<LibraryVersion>(`/curriculum-library-versions/${id}/decision`, { decision }),
-  insertLibraryModule: (versionId: number, libraryVersionId: number) =>
-    post<ModuleContent>(`/curriculum-versions/${versionId}/library-modules`, { library_version_id: libraryVersionId }),
-  deleteTopic: (id: number) => del<null>(`/curriculum-topics/${id}`),
-
   // batches
   batches: (query: Query) => list<Batch>("/batches", { per_page: 100, ...query }),
   batch: (id: number) => get<BatchDetail>(`/batches/${id}`),

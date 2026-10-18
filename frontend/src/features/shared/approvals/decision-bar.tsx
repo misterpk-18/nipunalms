@@ -16,7 +16,7 @@ export type ApproveSpec = {
   onApprove: (note?: string) => Promise<unknown>;
 };
 
-/** A dialog of its own in place of the plain confirm (the curriculum choice of when to activate, the new end date of an access extension). */
+/** A dialog of its own in place of the plain confirm (the new end date of an access extension). */
 export type CustomApprove = { custom: ReactNode };
 
 export type RejectSpec = {

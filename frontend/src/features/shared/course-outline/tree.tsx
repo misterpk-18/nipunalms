@@ -1,21 +1,20 @@
-/** The modules and topics of one version: reorder by dragging or with Move up / Move down, remove after a confirm, and
- * topics that still lack details are marked in the row itself. */
+/** The modules and topics of one course outline (the course's own, or one combo track's): reorder by dragging or with Move up / Move down,
+ * rename, add and remove after a confirm. Without `editable` it is a plain read-only list. */
 import { useState, type DragEvent, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
-import { deliveryApi, type ModuleContent, type TopicClass, type TopicRow } from "@/api/delivery";
+import { coursesApi } from "@/api/courses";
+import type { ModuleContent, TopicClass, TopicRow } from "@/api/delivery";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { EmptyState } from "@/components/lms/empty-state";
 import { Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { SaveToLibrary, TopicDetails, topicSummary } from "@/features/academic/curriculum-model";
 import { ActionDialog } from "@/features/shared/delivery-ui";
 import { cn } from "@/lib/utils";
-import { topicDomId } from "./curriculum-checklist";
-import { topicChoices, useCurriculumMutation } from "./curriculum-pickers";
+import { plural, topicChoices, useCourseMutation } from "./mutation";
+import { SaveToLibrary } from "./library";
+import { TopicDetails, topicSummary } from "./topic-details";
 
 type Drag = { kind: "module" | "topic"; id: number; parent: number } | null;
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 function Grip({ label, onStart, onEnd }: { label: string; onStart: (e: DragEvent<HTMLSpanElement>) => void; onEnd: () => void }) {
   return (
@@ -40,11 +39,8 @@ function TopicRowView({
   module,
   versionTopics,
   editable,
-  missing,
   dragging,
   over,
-  detailsOpen,
-  onDetailsOpen,
   onMove,
   onDragStart,
   onDragEnd,
@@ -57,32 +53,27 @@ function TopicRowView({
   module: ModuleContent;
   versionTopics: ModuleContent[];
   editable: boolean;
-  missing: string[] | undefined;
   dragging: boolean;
   over: boolean;
-  detailsOpen: boolean;
-  onDetailsOpen: (open: boolean) => void;
   onMove: (position: number) => void;
   onDragStart: (e: DragEvent<HTMLSpanElement>) => void;
   onDragEnd: () => void;
   onOver: (e: DragEvent<HTMLLIElement>) => void;
   onDrop: (e: DragEvent<HTMLLIElement>) => void;
 }) {
-  const remove = useCurriculumMutation(() => deliveryApi.deleteTopic(topic.topic_id), `Topic ${topic.title} removed`);
+  const remove = useCourseMutation(() => coursesApi.deleteTopic(topic.topic_id), `Topic ${topic.title} removed`);
   const choices = topicChoices(versionTopics);
   const names = new Map(choices.map((c) => [c.topic_id, c.label]));
   const builds = topic.depends_on.map((id) => names.get(id)).filter(Boolean);
   return (
     <li
-      id={topicDomId(topic.topic_id)}
-      tabIndex={-1}
+      id={`topic-${topic.topic_id}`}
       onDragOver={onOver}
       onDrop={onDrop}
       className={cn(
         "flex flex-wrap items-start justify-between gap-2 py-2 outline-none",
         dragging && "opacity-50",
         over && "bg-primary/10 ring-1 ring-primary",
-        missing && "border-l-2 border-warning pl-2",
       )}
     >
       <div className="flex min-w-0 flex-1 items-start gap-1">
@@ -93,12 +84,11 @@ function TopicRowView({
           </p>
           {topicSummary(topic) && <p className="break-words text-xs text-muted-foreground">{topicSummary(topic)}</p>}
           {builds.length > 0 && <p className="break-words text-xs text-muted-foreground">Needs first: {builds.join(", ")}</p>}
-          {missing && editable && <Tag tone="warning">Needs: {missing.join(", ")}</Tag>}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Tag tone={topic.topic_class === "Required" ? "info" : "neutral"}>{topic.topic_class}</Tag>
-        <TopicDetails topic={topic} modules={versionTopics} editable={editable} open={detailsOpen} onOpenChange={onDetailsOpen} />
+        <TopicDetails topic={topic} modules={versionTopics} editable={editable} />
         {editable && (
           <>
             <Button size="sm" variant="ghost" aria-label={`Move topic ${topic.title} up`} disabled={index === 0} onClick={() => onMove(topic.sort_order - 1)}>
@@ -115,7 +105,7 @@ function TopicRowView({
             </Button>
             <ConfirmDialog
               title={`Remove topic ${topic.title}?`}
-              consequence={`${topic.title} will be removed from ${module.title} in this draft${topic.depends_on.length || versionTopics.some((m) => m.topics.some((t) => t.depends_on.includes(topic.topic_id))) ? ", and topics that need it first will stop needing it" : ""}. This cannot be undone.`}
+              consequence={`${topic.title} will be removed from ${module.title} from this course${topic.depends_on.length || versionTopics.some((m) => m.topics.some((t) => t.depends_on.includes(topic.topic_id))) ? ", and topics that need it first will stop needing it" : ""}. This cannot be undone. A topic that classes, content, assignments, questions or tests use cannot be removed.`}
               confirmLabel="Remove topic"
               destructive
               onConfirm={() => remove.mutateAsync(undefined)}
@@ -137,42 +127,31 @@ function ModuleCard({
   count,
   modules,
   editable,
-  author,
-  missingByTopic,
   drag,
   setDrag,
   over,
   setOver,
-  openTopic,
-  setOpenTopic,
 }: {
   module: ModuleContent;
   index: number;
   count: number;
   modules: ModuleContent[];
   editable: boolean;
-  author: boolean;
-  missingByTopic: Map<number, string[]>;
   drag: Drag;
   setDrag: (d: Drag) => void;
   over: string | null;
   setOver: (key: string | null) => void;
-  openTopic: number | null;
-  setOpenTopic: (id: number | null) => void;
 }) {
-  const updateModule = useCurriculumMutation(
-    (v: { body: { title?: string; position?: number } }) => deliveryApi.updateModule(module.module_id, v.body),
+  const updateModule = useCourseMutation(
+    (v: { body: { title?: string; position?: number } }) => coursesApi.updateModule(module.module_id, v.body),
     "Module updated",
   );
-  const reorderModule = useCurriculumMutation(
-    (v: { id: number; position: number }) => deliveryApi.updateModule(v.id, { position: v.position }),
-    "Module moved",
-  );
-  const remove = useCurriculumMutation(() => deliveryApi.deleteModule(module.module_id), `Module ${module.title} removed`);
-  const addTopic = useCurriculumMutation((v: { title: string; topic_class: TopicClass }) => deliveryApi.addTopic(module.module_id, v), "Topic added", {
+  const reorderModule = useCourseMutation((v: { id: number; position: number }) => coursesApi.updateModule(v.id, { position: v.position }), "Module moved");
+  const remove = useCourseMutation(() => coursesApi.deleteModule(module.module_id), `Module ${module.title} removed`);
+  const addTopic = useCourseMutation((v: { title: string; topic_class: TopicClass }) => coursesApi.addTopic(module.module_id, v), "Topic added", {
     next: "Open Details on it to add the outcome, minutes, weight and evidence.",
   });
-  const reorderTopic = useCurriculumMutation((v: { id: number; position: number }) => deliveryApi.updateTopic(v.id, { position: v.position }), "Topic moved");
+  const reorderTopic = useCourseMutation((v: { id: number; position: number }) => coursesApi.updateTopic(v.id, { position: v.position }), "Topic moved");
 
   const moduleKey = `module-${module.module_id}`;
   const draggingModule = drag?.kind === "module" && drag.id === module.module_id;
@@ -218,7 +197,6 @@ function ModuleCard({
             {module.library_version_id && <span className="ml-2 text-xs font-normal text-muted-foreground">from the library</span>}
           </h3>
         </div>
-        {author && !editable && <SaveToLibrary module={module} />}
         {editable && (
           <div className="flex flex-wrap gap-1.5">
             <ActionDialog
@@ -252,7 +230,7 @@ function ModuleCard({
             <SaveToLibrary module={module} />
             <ConfirmDialog
               title={`Remove module ${module.title}?`}
-              consequence={`Remove module ${module.title} and its ${plural(module.topics.length, "topic")} from this draft? This cannot be undone.`}
+              consequence={`Remove module ${module.title} and its ${plural(module.topics.length, "topic")} from this course? A module that classes, content or tests already use is kept as archived (hidden from the outline, nothing is lost) instead of deleted.`}
               confirmLabel="Remove module"
               destructive
               onConfirm={() => remove.mutateAsync(undefined)}
@@ -274,11 +252,8 @@ function ModuleCard({
             module={module}
             versionTopics={modules}
             editable={editable}
-            missing={missingByTopic.get(t.topic_id)}
             dragging={drag?.kind === "topic" && drag.id === t.topic_id}
             over={over === `topic-${t.topic_id}`}
-            detailsOpen={openTopic === t.topic_id}
-            onDetailsOpen={(open) => setOpenTopic(open ? t.topic_id : null)}
             onMove={(position) => reorderTopic.mutate({ id: t.topic_id, position })}
             onDragStart={(e) => {
               e.stopPropagation();
@@ -310,9 +285,7 @@ function ModuleCard({
           />
         ))}
         {module.topics.length === 0 && (
-          <li className="py-2 text-muted-foreground">
-            No topics in this module yet.{editable ? " Add the first topic below. A module with no topics blocks submitting." : ""}
-          </li>
+          <li className="py-2 text-muted-foreground">No topics in this module yet.{editable ? " Add the first topic below." : ""}</li>
         )}
       </ul>
       {editable && (
@@ -343,33 +316,21 @@ function ModuleCard({
   );
 }
 
-/** Every module of the version. `missingByTopic` marks the topics the submit checklist found incomplete. */
+/** Every module of one outline. */
 export function ModuleTree({
   modules,
   editable,
-  author,
-  missingByTopic,
-  openTopic,
-  setOpenTopic,
+  emptyReason,
   addAction,
 }: {
   modules: ModuleContent[];
   editable: boolean;
-  author: boolean;
-  missingByTopic: Map<number, string[]>;
-  openTopic: number | null;
-  setOpenTopic: (id: number | null) => void;
+  emptyReason?: string;
   addAction?: ReactNode;
 }) {
   const [drag, setDrag] = useState<Drag>(null);
   const [over, setOver] = useState<string | null>(null);
-  if (modules.length === 0)
-    return (
-      <EmptyState
-        reason={editable ? "This draft has no modules yet. A curriculum needs at least one module with topics." : "This version has no modules."}
-        action={addAction}
-      />
-    );
+  if (modules.length === 0) return <EmptyState reason={emptyReason ?? "This outline has no modules yet."} action={addAction} />;
   return (
     <ul className="space-y-3" aria-label="Modules">
       {modules.map((m, i) => (
@@ -380,14 +341,10 @@ export function ModuleTree({
           count={modules.length}
           modules={modules}
           editable={editable}
-          author={author}
-          missingByTopic={missingByTopic}
           drag={drag}
           setDrag={setDrag}
           over={over}
           setOver={setOver}
-          openTopic={openTopic}
-          setOpenTopic={setOpenTopic}
         />
       ))}
     </ul>

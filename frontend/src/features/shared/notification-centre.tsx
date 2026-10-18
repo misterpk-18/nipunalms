@@ -23,7 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
   Certificate: "View certificate",
   Attendance: "View attendance",
   Enrolment: "View enrolment",
-  Curriculum: "Review",
+  Courses: "Review",
   Recording: "Open recordings",
   Content: "Open",
   Career: "Open career",

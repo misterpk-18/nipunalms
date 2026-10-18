@@ -59,7 +59,7 @@ export function AssignTrainerDialog({ batch, trigger }: { batch: BatchDetail; tr
   );
 }
 
-/** Which problem keys the focused "Finish the setup" form can fix; the others (the curriculum, a clash) need the full edit form. */
+/** Which problem keys the focused "Finish the setup" form can fix; the others (the course outline, a clash) need the full edit form. */
 export const FINISHABLE = ["timetable", "resources", "recording"];
 
 /** Only the details the batch is still missing: dates and timetable, verified seats and room, the recording statement. */

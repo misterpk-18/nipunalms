@@ -7,6 +7,7 @@ import { DataTable, Grid, PageHead, QueryView, Section, StatusBadge, Tag } from 
 import { Button } from "@/components/ui/button";
 import { StateBadge } from "@/features/shared/delivery-ui";
 import { fmtDate, fmtDateTime } from "@/features/shared/format";
+import { CourseOutlineBlock } from "./course-outline-block";
 import { FlagStudentDialog, type FlagTarget } from "./flag-student";
 import { ReasonTags, pct } from "./risk";
 
@@ -59,7 +60,7 @@ export function TrainerBatchPage() {
                     <Figure label="Need attention" value={String(page.progress.at_risk)} to={{ batch: batch.batch_id }} />
                   </Grid>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    {batch.curriculum_version ? `Curriculum ${batch.curriculum_version.version_label}` : "No approved curriculum yet"}
+                    {`Course ${batch.course.title}`}
                     {batch.schedule_days.length > 0 &&
                       ` · ${batch.schedule_days.join(", ")} ${batch.start_time ?? ""}${batch.end_time ? `–${batch.end_time}` : ""}`}
                     {batch.location && ` · ${batch.location}`}
@@ -115,6 +116,8 @@ export function TrainerBatchPage() {
                     </div>
                   </div>
                 </Section>
+
+                <CourseOutlineBlock courseId={batch.course.course_id} />
 
                 <Section title="Students">
                   <DataTable

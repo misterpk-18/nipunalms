@@ -838,7 +838,7 @@ function Successions({
               </Button>
             }
             title={`Merge or split ${batch.batch_code}`}
-            description="Merge moves every student of this batch into the other batch. Split moves the students you choose. Same branch, course or track and curriculum version; a different mode or timetable needs an applied Batch move material change first."
+            description="Merge moves every student of this batch into the other batch. Split moves the students you choose. Same branch, course or track; a different mode or timetable needs an applied Batch move material change first."
             fields={[
               {
                 name: "kind",

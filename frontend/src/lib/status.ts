@@ -267,14 +267,11 @@ export const STATUS = {
     Pending: s("Waiting", "warning", "Waiting to be picked up."),
     Delivered: s("Delivered", "success", "Delivered."),
   },
-  /** A curriculum version. */
-  curriculum: {
-    Draft: s("Draft", "neutral", "Being written. Not final."),
-    "Under Review": s("Under review", "warning", "Submitted and waiting for review."),
-    Approved: s("Approved", "info", "Approved. It can be activated."),
-    Active: s("Active", "success", "In use for new batches."),
-    Retired: s("Retired", "neutral", "Replaced by a newer version."),
-    Deleted: s("Deleted", "neutral", "Deleted."),
+  /** A course, as the CRM sends it. */
+  course: {
+    Active: s("Active", "success", "Offered. New batches can be made for it."),
+    Inactive: s("Inactive", "neutral", "Not offered at the moment. Set by the CRM."),
+    Archived: s("Archived", "neutral", "No longer offered. Set by the CRM."),
   },
   /** Anything that waits for someone to approve it (requests, closures, mappings, guests, cover, corrections). */
   approval: {

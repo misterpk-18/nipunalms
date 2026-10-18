@@ -51,7 +51,6 @@ export function Overview({ batch, manage, approve }: { batch: BatchDetail; manag
           ["Branch", batch.branch.branch_name],
           ["Created at", batch.creating_branch.branch_name],
           ["Type and pattern", `${batch.batch_type} · ${batch.schedule_pattern}`],
-          ["Curriculum version", batch.curriculum_version?.version_label ?? "No approved curriculum yet"],
           ["Seats", `${batch.allocated_count} of ${batch.capacity}${batch.is_full ? " (full)" : ""}${sides.length ? ` · ${sides.join(" · ")}` : ""}`],
           ["Mode", batch.mode],
           ["Planned dates", `${fmtDay(batch.planned_start)} → ${fmtDay(batch.planned_end)}`],

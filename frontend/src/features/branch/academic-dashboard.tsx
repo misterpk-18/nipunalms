@@ -4,7 +4,7 @@ import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 
 const LINKS = [
-  ["/branch/curriculum", "Curriculum versions"],
+  ["/branch/courses", "Courses"],
   ["/branch/batches", "Batches"],
   ["/branch/schedule", "Schedule"],
   ["/branch/recordings", "Recordings"],

@@ -25,8 +25,6 @@ type AuthContextValue = {
   branchId: number | null;
   /** The branches the account may work in (a Branch Manager's choices at sign-in; the "Change branch" menu item needs more than one). */
   allowedBranches: BranchRef[];
-  /** For the two curriculum files that R6 deletes. Nothing else reads the role: routes pass each screen its config. */
-  hasRole: (...roles: RoleCode[]) => boolean;
   signIn: (login: string, password: string) => Promise<Profile>;
   /** Branch Manager with several branches: fix the branch for this session after sign-in. */
   selectBranch: (branchId: number) => Promise<Profile>;
@@ -102,7 +100,6 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
       workspaces: profile?.workspace ? [profile.workspace] : [],
       branchId: profile?.branch?.branch_id ?? null,
       allowedBranches: profile?.branches?.length ? profile.branches : (profile?.allowed_branches ?? []),
-      hasRole: (...wanted) => wanted.some((r) => roles.includes(r)),
       signIn: async (login, password) => startSession(await authApi.login(login, password)),
       selectBranch: async (branchId) => {
         const picked = await authApi.selectBranch(branchId);

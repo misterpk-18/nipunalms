@@ -2,13 +2,10 @@
 import type { InboxItem } from "@/api/founder";
 import { AccessPanel } from "./panel-access";
 import { CertificateRequestPanel, FeeExceptionPanel } from "./panel-certificate";
-import { CurriculumPanel } from "./panel-curriculum";
 import { AiBudgetPanel, BranchManagerRequestPanel } from "./panel-other";
 
 export function InboxPanel({ item, onClose }: { item: InboxItem; onClose: () => void }) {
   switch (item.kind) {
-    case "curriculum":
-      return <CurriculumPanel key={item.key} detail={item.detail} onClose={onClose} />;
     case "certificate":
       return (
         <CertificateRequestPanel

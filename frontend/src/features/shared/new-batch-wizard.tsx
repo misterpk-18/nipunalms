@@ -151,8 +151,7 @@ export function NewBatchWizard({
         <DialogHeader>
           <DialogTitle>New batch</DialogTitle>
           <DialogDescription>
-            Step {step + 1} of {STEPS.length}: {STEPS[step]}. The course's approved curriculum is used. Nothing is final: you can change all of this on the
-            batch page.
+            Step {step + 1} of {STEPS.length}: {STEPS[step]}. The course outline is used. Nothing is final: you can change all of this on the batch page.
           </DialogDescription>
         </DialogHeader>
         <ol className="flex gap-1.5" aria-label="Steps">

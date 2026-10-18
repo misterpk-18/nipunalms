@@ -100,29 +100,29 @@ Backend and database
 - [x] Remove the `curriculum` inbox kind, group and page, `_curriculum_items`, and the nav count key (`backend/services/founder_inbox.py`, `backend/services/nav.py`) (inbox kind, group, `_curriculum_items` and the nav count key removed)
 
 Frontend
-- [ ] Remove routes `routes/branch.curriculum.tsx`, `routes/founder.curriculum.tsx` and the nav items `auth/access.ts:139,162` and badge `curriculum`
-- [ ] Remove `features/academic/curriculum.tsx`, `curriculum-model.tsx`, `features/branch/curriculum-checklist.tsx`, `curriculum-new-draft.tsx`, `curriculum-pickers.tsx`, `features/founder/curriculum.tsx`, `panel-curriculum.tsx`, and the `panel.tsx:5,10-11` references
-- [ ] Move `curriculum-tree.tsx` to `features/shared` as the course outline editor
-- [ ] Remove `api/curriculum.ts`, curriculum calls in `api/delivery.ts` and `api/founder.ts:8-24,76-80`
-- [ ] Reword links and labels: `features/academic/dashboard.tsx:7`, `lib/status.ts:270`, `components/lms/notification-centre.tsx:27`, `lib/i18n.ts` (`noCurriculumYet`), `features/admin/users.tsx:36`, `features/founder/decision-bar.tsx:19`
-- [ ] Show the course name instead of "Curriculum version" in `features/academic/batch-panel.tsx:54`, `batch-operations.tsx:843`, `features/trainer/batch-page.tsx:62`, `features/shared/content-detail.tsx:27`, `features/branch/attendance-students.tsx:139,199`
-- [ ] Topic pickers in `features/trainer/assignments.tsx` and `question-bank.tsx` read the course outline
-- [ ] Student pages (`/courses/*`, `/modules/*`, `/topics/*`) still work with the outline coming from the course
-- [ ] Branch Manager `/branch/courses` (read-only), Super Admin `/admin/courses` (edit), Founder `/founder/courses` (edit); Trainer read-only "Course outline" block on the batch page, no route
-- [ ] Remove the `PrepareMapping` import from `features/branch/waiting.tsx:14`
-- [ ] CRM "Open in LMS" link `/academic/batches?crm_admission_id=&student=` still works (`routes/academic.$.tsx:11-12`)
+- [x] Remove routes `routes/branch.curriculum.tsx`, `routes/founder.curriculum.tsx` and the nav items `auth/access.ts:139,162` and badge `curriculum` (routes and nav items removed; Branch Manager nav has Courses under Teaching, Super Admin Courses under a new "Academic" group, Founder Courses under "Company"; nav count key `curriculum` gone)
+- [x] Remove `features/academic/curriculum.tsx`, `curriculum-model.tsx`, `features/branch/curriculum-checklist.tsx`, `curriculum-new-draft.tsx`, `curriculum-pickers.tsx`, `features/founder/curriculum.tsx`, `panel-curriculum.tsx`, and the `panel.tsx:5,10-11` references (all deleted; `features/academic/` removed; `panel.tsx` has no curriculum case)
+- [x] Move `curriculum-tree.tsx` to `features/shared` as the course outline editor (now `features/shared/course-outline/tree.tsx` with `topic-details`, `planning` (hours, completion rules, required assessments, module library), `tracks` (combo pins), `library`, `pickers`, `mutation`)
+- [x] Remove `api/curriculum.ts`, curriculum calls in `api/delivery.ts` and `api/founder.ts:8-24,76-80` (new client `api/courses.ts`; `api/founder.ts` has no curriculum kind, group, impact or approve calls; `api/delivery.ts` keeps only outline types)
+- [x] Reword links and labels: `features/academic/dashboard.tsx:7`, `lib/status.ts:270`, `components/lms/notification-centre.tsx:27`, `lib/i18n.ts` (`noCurriculumYet`), `features/admin/users.tsx:36`, `features/founder/decision-bar.tsx:19` (academic-dashboard link now Courses; status domain `curriculum` became `course` (Active / Inactive / Archived); notification category Courses; `noCurriculumYet` became `noOutlineYet` ("No course outline yet"); the Founder description in `users.tsx` and nothing else needed rewording; decision-bar comment)
+- [x] Show the course name instead of "Curriculum version" in `features/academic/batch-panel.tsx:54`, `batch-operations.tsx:843`, `features/trainer/batch-page.tsx:62`, `features/shared/content-detail.tsx:27`, `features/branch/attendance-students.tsx:139,199` ("Curriculum version" rows removed from batch panel and content detail (the Course row is already there); trainer batch page says "Course <title>"; batch operations text reworded; the "Curriculum delivered" figure labels in attendance-students / attendance-parts stay (they name the delivered-classes metric, not a version))
+- [x] Topic pickers in `features/trainer/assignments.tsx` and `question-bank.tsx` read the course outline (trainer assignments, question bank, new class and content upload read the outline (`/assessments/curriculum`, `/content-items/options` `outlines[]`, `/courses/{id}/outline`))
+- [x] Student pages (`/courses/*`, `/modules/*`, `/topics/*`) still work with the outline coming from the course (types now use the course (`course_id`, `component_id` on module heads); smoke checked My courses and a course page, not every student page)
+- [x] Branch Manager `/branch/courses` (read-only), Super Admin `/admin/courses` (edit), Founder `/founder/courses` (edit); Trainer read-only "Course outline" block on the batch page, no route (`/branch/courses` and `/$id`, `/admin/courses` and `/$id`, `/founder/courses` and `/$id` (one `CourseList` / `CoursePage`); Trainer "Course outline" block on the batch page (`features/trainer/course-outline-block.tsx`, collapsed))
+- [x] Remove the `PrepareMapping` import from `features/branch/waiting.tsx:14` (import and its use removed)
+- [x] CRM "Open in LMS" link `/academic/batches?crm_admission_id=&student=` still works (`routes/academic.$.tsx:11-12`) (`routes/academic.$.tsx` unchanged for `/academic/batches?...&student=`; `/academic/curriculum` now redirects to `/branch/courses`)
 
 ## Per-role build
 
 ### Student
 - [ ] No nav change; verify every page still works after R3 and R6
 - [ ] Show batch trainer, room and timetable on `/courses/$enrolmentId`
-- [ ] Reword "No curriculum yet" (`features/student/my-courses.tsx:82`)
+- [x] Reword "No curriculum yet" (`features/student/my-courses.tsx:82`) (`noOutlineYet` "No course outline yet" (and `noTopicsYet`, `noModulesYet` reworded))
 - [ ] Keep all legacy redirect routes as they are (`/assignments`, `/tests`, `/attendance`, `/results`, `/finance`, `/profile`, `/recordings`, `/resources`)
 
 ### Trainer
 - [ ] Rename the "Content" nav item out of the "Grade" group (it is uploads and review state)
-- [ ] Course outline block on the trainer batch page (`features/trainer/batch-page.tsx`)
+- [x] Course outline block on the trainer batch page (`features/trainer/batch-page.tsx`) (read-only block, no route)
 - [ ] Completion recommendation screen (the backend `completion.py:19,33` already allows it)
 - [ ] Read-only holiday and closure view for planning
 - [ ] Trainer support, requests, profile and notifications use the shared components with the trainer config
@@ -131,15 +131,15 @@ Frontend
 - [ ] One branch per session: remove "All branches"
 - [ ] Add `/branch/recordings` to the nav
 - [ ] Surface payment instructions, access extensions and certificate requests as visible items, not buried sections (as in R7)
-- [ ] `/branch/courses` replaces Curriculum under "Teaching"
+- [x] `/branch/courses` replaces Curriculum under "Teaching" (nav item "Courses" under Teaching)
 - [x] Branch Manager proposes closures; cannot decide them
 - [ ] Rename the "Attendance & progress" URL to match the label or the label to match the URL
 - [ ] Split "Content & questions" or label its two jobs clearly
 
 ### Super Admin
-- [ ] (built except Courses, which R6 adds) Nav under `/admin`: Home, Approvals, Users & access, Student accounts, Batches, Attendance, Support, Reports, Issues, Academic calendar, Courses, CRM sync, Setup & health, AI controls, Audit log
+- [x] (built except Courses, which R6 adds) Nav under `/admin`: Home, Approvals, Users & access, Student accounts, Batches, Attendance, Support, Reports, Issues, Academic calendar, Courses, CRM sync, Setup & health, AI controls, Audit log (Courses added; order matches 4.7)
 - [x] `/admin/approvals`: the same inbox as the Founder, decides every item
-- [ ] `/admin/courses`: outline editor and kept blocks
+- [x] `/admin/courses`: outline editor and kept blocks (add, rename, reorder, remove modules and topics; topic details; hours; completion rules; required assessments; combo track pins; module library; CRM fields read-only)
 - [x] `/admin/batches`, `/admin/students` (branch filter), `/admin/attendance`, `/admin/reports`: read-only cross-branch (read-only cross-branch views; students and attendance have a branch filter, reports have one too)
 - [x] `/admin/support`: read and reassign
 - [x] "Go fix it" on `/admin/issues` opens a read-only detail with Assign (`backend/services/issues.py:45-64`)
@@ -149,8 +149,8 @@ Frontend
 - [ ] Remove the implicit Branch workspace and its "Acting as" entry
 
 ### Founder
-- [ ] (built except Courses, which R6 adds; "Curriculum approvals" still listed until R6) Nav under `/founder`: Home, Approvals, Courses, Users & access, Students, Batches, Attendance, Issues, Reports, Academic calendar, Support, CRM sync, Setup & health, AI controls, Audit log
-- [ ] (all built except `/founder/courses`, R6) `/founder/users` with hand-out page, `/founder/students`, `/founder/batches`, `/founder/attendance`, `/founder/issues`, `/founder/reports`, `/founder/calendar`, `/founder/support`, `/founder/crm-sync` (with Retry), `/founder/setup` (editable), `/founder/audit`, `/founder/courses`
+- [x] (built except Courses, which R6 adds; "Curriculum approvals" still listed until R6) Nav under `/founder`: Home, Approvals, Courses, Users & access, Students, Batches, Attendance, Issues, Reports, Academic calendar, Support, CRM sync, Setup & health, AI controls, Audit log (Courses added, Curriculum approvals removed; order matches 5.7)
+- [x] (all built except `/founder/courses`, R6) `/founder/users` with hand-out page, `/founder/students`, `/founder/batches`, `/founder/attendance`, `/founder/issues`, `/founder/reports`, `/founder/calendar`, `/founder/support`, `/founder/crm-sync` (with Retry), `/founder/setup` (editable), `/founder/audit`, `/founder/courses` (all routes exist)
 - [x] Bell, `/founder/notifications`, Getting started card (bell and `/founder/notifications` from part 1; Getting started card on Founder Home)
 - [x] Phone "More" sheet carries every item beyond the four pinned (explicit four pinned (Home, Approvals, Students, Issues); the shell's More sheet lists the rest)
 - [ ] Remove the implicit Admin and Branch workspaces and the "Acting as" entries

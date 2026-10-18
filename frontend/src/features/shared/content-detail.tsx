@@ -24,7 +24,6 @@ export function ContentDetailDialog({ id, onClose }: { id: number; onClose: () =
               <KeyValue
                 items={[
                   ["Course", item.course.title],
-                  ["Curriculum version", item.curriculum_version?.version_label ?? "Any version"],
                   ["Module · Topic", [item.module?.title, item.topic?.title].filter(Boolean).join(" · ") || "—"],
                   [
                     "Audience",

@@ -83,7 +83,6 @@ export type TrainerBatchRow = {
     batch_code: string;
     display_name: string | null;
     course: { course_id: number; course_code: string; title: string };
-    curriculum_version: { version_label: string } | null;
     mode: string;
     planned_start: string | null;
     planned_end: string | null;

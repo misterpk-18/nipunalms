@@ -34,7 +34,6 @@ export type ContentItem = {
   description: string | null;
   language: "en" | "te";
   course: CourseRef;
-  curriculum_version: { curriculum_version_id: number; version_label: string } | null;
   module: { module_id: number; title: string } | null;
   topic: { topic_id: number; title: string } | null;
   branch: BranchRef;
@@ -89,9 +88,9 @@ export type PlacementOption = {
   batch: BatchRef;
   course: CourseRef;
   branch: BranchRef;
-  versions: {
-    curriculum_version_id: number;
-    version_label: string;
+  /** The course's outline, or one per combo track (`component_id` and `track_name` set). */
+  outlines: {
+    component_id: number | null;
     track_name: string | null;
     modules: { module_id: number; title: string; topics: { topic_id: number; title: string }[] }[];
   }[];

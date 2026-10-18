@@ -379,7 +379,7 @@ const SOURCE_NAME: Record<string, TranslationKey> = {
   assignment: "an_src_assignment",
   test: "an_src_test",
   batch: "an_src_batch",
-  curriculum_version: "an_src_outline",
+  course_outline: "an_src_outline",
 };
 
 /** Where an answer's facts came from, each one a link to the screen that shows it. */
@@ -454,7 +454,7 @@ function SourceLink({ source, variant }: { source: Source; variant: AssistantVar
         {text}
       </Link>
     );
-  if (source.type === "curriculum_version")
+  if (source.type === "course_outline")
     return (
       <Link to="/my-courses" className={cls}>
         {text}

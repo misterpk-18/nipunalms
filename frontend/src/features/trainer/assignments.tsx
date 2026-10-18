@@ -65,7 +65,7 @@ function AssignmentDialog({ open, onOpenChange, assignment }: { open: boolean; o
           <DialogDescription>
             {editing
               ? "Change this draft. Students cannot see it until you release it."
-              : "Linked to a curriculum topic; students allocated to the batch see it once released."}
+              : "Linked to a course topic; students allocated to the batch see it once released."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -86,7 +86,7 @@ function AssignmentDialog({ open, onOpenChange, assignment }: { open: boolean; o
               }
             />
           </Field>
-          <Field label="Curriculum topic" htmlFor="asg-topic">
+          <Field label="Course topic" htmlFor="asg-topic">
             <NativeSelect
               id="asg-topic"
               value={topicId}
@@ -121,7 +121,7 @@ function AssignmentDialog({ open, onOpenChange, assignment }: { open: boolean; o
             <Textarea id="asg-brief" rows={4} value={brief} onChange={(e) => setBrief(e.target.value)} />
           </Field>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} /> Required (counts towards the curriculum)
+            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} /> Required (counts towards the course)
           </label>
         </div>
         <DialogFooter className="gap-2">

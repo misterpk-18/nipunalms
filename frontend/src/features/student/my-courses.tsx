@@ -79,7 +79,7 @@ export function MyCourses() {
                   {e.topics && e.topics.total > 0 ? (
                     <Meter value={e.topics.percent} label={t("topicsDone", { done: e.topics.done, total: e.topics.total })} />
                   ) : (
-                    <p className="text-sm text-muted-foreground">{e.batch ? t("noCurriculumYet") : t("noTopicsYet")}</p>
+                    <p className="text-sm text-muted-foreground">{e.batch ? t("noOutlineYet") : t("noTopicsYet")}</p>
                   )}
                   <StatusExplanation enrolment={e} />
                   {e.continue_topic ? (

@@ -192,8 +192,8 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
   const isLink = LINK_TYPES.includes(type);
 
   const batch = options.data?.find((o) => String(o.batch.batch_id) === batchId);
-  const topics = (batch?.versions ?? []).flatMap((v) =>
-    v.modules.flatMap((m) => m.topics.map((t) => ({ value: t.topic_id, label: `${v.track_name ?? v.version_label} · ${m.title} · ${t.title}` }))),
+  const topics = (batch?.outlines ?? []).flatMap((o) =>
+    o.modules.flatMap((m) => m.topics.map((t) => ({ value: t.topic_id, label: `${o.track_name ? `${o.track_name} · ` : ""}${m.title} · ${t.title}` }))),
   );
 
   const create = useApiMutation(
