@@ -217,7 +217,7 @@ React SPA in `frontend/`, built to mirror **nipuna-crm/frontend**. The product i
 | Workspace from URL | `workspaceForPath(path)` — `/trainer*` trainer, `/branch*` branch, `/admin*` admin, `/founder*` founder, everything else student (except `/login`, `/activate`, `/change-password`; `/account/*` has no workspace of its own and is framed by the user's home workspace) | Same rule as the prototype |
 | Who may open a workspace | `profile.workspaces` from `/auth/me` (already expanded per role: Super Admin also holds branch, Founder also admin and branch); `canOpen(workspaces, workspace)` | The API is the authority; the SPA never derives access from role codes |
 | Guard | Root route: public paths (`/login`, `/activate`) → anonymous → `/login?redirect=` → `must_change_password` → `/change-password` → workspace not permitted → **Permission Restricted** view (link home) → `/` redirects to `home_route`. Not a security boundary; every endpoint re-checks scope | Same as the CRM |
-| "Acting as" switcher | Header pill "Acting as: <role> ▾" (`acting-as.tsx`), shown when the user has more than one workspace or, in the Branch Manager workspace, more than one branch. A menu lists each workspace with a one-line description and goes to that workspace's home; the branch picker (All branches / one branch) is kept per user in `localStorage` (`lib/acting-branch.ts`, `auth/acting.ts`) and narrows the nav counts and the Getting started card. Single-role, single-branch users keep the static "role · branch" chip. The cross-workspace nav items ("Branch views", "Super Admin view") are gone | Replaces the prototype's UAT role simulator; no prototype banner, no "Demo" badges |
+| Static role label, no "Acting as" | Header shows a static `Role · Branch` label (Super Admin and Founder: `Role · All branches`). One account has one role (role separation); a Branch Manager with several branches picks the branch on the sign-in screen (`components/lms/branch-pick.tsx`, `POST /auth/branch`) and the branch is fixed on the session; the account menu has "Change branch" (`POST /auth/change-branch`, back to sign-in). Pages read `useAuth().branchId`; nav counts and the Getting started card take role and branch from the session | The "Acting as" switcher and the `localStorage` branch pick are removed (R4) |
 | Navigation | `NavItem` has `group` (heading in the sidebar and the More sheet) and `badgeKey` (the count shown from `GET /me/nav-counts`, polled every minute). The count is a visual badge plus a screen-reader description outside the link, so a link's name stays the page name. Trainer, Branch Manager, Super Admin and Founder navs are grouped; the student nav is Home · My Learning · Schedule · Tasks & Tests · Class Materials · My Progress · Certificates · Career · Ask Nipuna · Support (Fees & Receipts and Profile are tabs of **My Account**, opened from the avatar menu and the phone More sheet) | One place that says what waits for you |
 | Search | Ctrl/Cmd+K or the header search button opens `command-palette.tsx`: the pages of every workspace the user holds, plus `GET /search` records (students, batches, certificates) within scope. A record opens the list that holds it in the current workspace (record pages arrive with their screens) | Find a screen or a person without remembering where it is |
 | Getting started | `getting-started.tsx` on the Student, Trainer, Branch Manager and Super Admin homes, from `GET /me/getting-started`; hidden once every step is done; dismissal kept in `localStorage` | First-run guidance that ticks itself |
@@ -242,12 +242,12 @@ frontend/
     ├── api/                   client.ts (fetch wrapper: ApiError, bearer token, get / post / patch / put / del / list / upload / download),
     │                          types.ts, auth.ts, and one file per domain (delivery, content, assessments, support, notifications,
     │                          career, profile, ask-nipuna, admin, dashboards, exceptions, …)
-    ├── auth/                  auth.tsx (AuthProvider, useAuth(), fresh-auth dialog), access.ts (workspaceForPath, canOpen, NAV, mobileBarItems), acting.ts (useActing: the branch pick)
+    ├── auth/                  auth.tsx (AuthProvider, useAuth(), fresh-auth dialog), access.ts (workspaceForPath, canOpen, NAV, mobileBarItems) (`useAuth()` also gives `workspace`, `branchId`, `allowedBranches`, `selectBranch`, `changeBranch`)
     ├── lib/                   i18n.ts (dictionary, useT, useLanguage), mutation.ts (useApiMutation), format.ts (IST helpers, formatMoney), utils.ts (cn)
     ├── hooks/                 use-mobile.tsx
     ├── components/
     │   ├── ui/                shadcn primitives (copied from the CRM)
-    │   └── lms/               app-shell, acting-as, command-palette, getting-started, ui, forms, auth-page, language-toggle, password-field
+    │   └── lms/               app-shell, branch-pick, command-palette, getting-started, ui, forms, auth-page, language-toggle, password-field
     ├── routes/                thin file routes (see §5)
     └── features/              student/ trainer/ academic/ branch/ admin/ founder/ shared/
 ```
@@ -258,8 +258,7 @@ keeps the track screen out of the enrolment route's nesting for the same reason.
 
 ### 3. Shell and theme
 
-**Header** (navy, sticky): logo → `home_route`; `role label · branch` chip (large screens) or, for people with several workspaces or branches, the
-"Acting as" switcher (see the decisions table); the search button (Ctrl/Cmd+K); language toggle (student workspace);
+**Header** (navy, sticky): logo → `home_route`; static `Role · Branch` label (Super Admin and Founder: `Role · All branches`); the search button (Ctrl/Cmd+K); language toggle (student workspace);
 notifications bell (`notification-bell.tsx`) counting what is new or needs action, with a preview of the latest five and "Open inbox"
 (student → `/notifications`, trainer / branch / admin → `<workspace>/notifications`; the founder has none: their inbox and the nav counts stand in);
 account menu (My Account — `/my-account` for students, Profile at `/account/profile` for staff — Change password, Sign out).
@@ -276,7 +275,7 @@ dictionary. **Bottom bar** (< `md`): four pinned items (`mobileBarItems`) + **Mo
 | Founder | Home (the inbox) · Approvals: Curriculum approvals, Certificate decisions, Access extensions · Safety: AI controls |
 | Super Admin | Home · People: Users & access, Student accounts · Operations: Issues, Academic calendar, CRM sync · System: Setup & health, AI controls, Audit log |
 
-A person with several roles gets the **Acting as** switcher (the cross-workspace items are not in the sidebars). The Academic
+One account has one role, so the sidebar shows only that role's workspace (no role switcher). The Academic
 Coordinator workspace no longer exists: it was merged into the Branch Manager's (db 106) and `/academic/*` redirects to `/branch/*`.
 
 **Theme** (`src/styles.css`): the prototype's oklch tokens — `--navy`, `--navy-foreground`, `--navy-muted`, `--primary`,
@@ -390,7 +389,7 @@ The Academic Coordinator workspace was merged into the Branch Manager's (UX phas
 
 | Route | Feature | API | Notes |
 |---|---|---|---|
-| `/branch` | `branch/dashboard`, `branch/my-work` | `/branch/my-work`, `/branch/summary`, `/academic/summary`, `/branches/{id}/payment-instructions` | **My work** (TODAY): the "My work today" list (students waiting, decisions on the schedule, results to publish, content to review, recovery and correction requests, support near its deadline, classes at risk today), one button per row, a branch picker for multi-branch people (the same pick as the header's "Acting as" menu), the Getting started card, then how the branch is doing (CRM tiles, academic tiles) and a collapsed "How students pay fees" form for the branch's payment instructions |
+| `/branch` | `branch/dashboard`, `branch/my-work` | `/branch/my-work`, `/branch/summary`, `/academic/summary`, `/branches/{id}/payment-instructions` | **My work** (TODAY): the "My work today" list (students waiting, decisions on the schedule, results to publish, content to review, recovery and correction requests, support near its deadline, classes at risk today), one button per row, the Getting started card, then how the branch is doing (CRM tiles, academic tiles) and a collapsed "How students pay fees" form for the branch's payment instructions |
 | `/branch/batches` (`?new=1&course=<id>`) | `branch/batches`, `branch/new-batch-wizard` | `/batches`, `/reference/courses`, `/reference/staff` | **Batches**: every batch with seats, state and what it needs next; "New batch" is a three-step wizard (Course, Mode / dates / timetable, Trainer) that opens the batch page |
 | `/branch/batches/$id` | `branch/batch-page`, `branch/batch-dialogs`, reusing `academic/batch-panel` and `batch-operations` | `/batches/{id}`, `/batches/{id}/progress`, `/batches/{id}/confirm`, `/batches/{id}/waiting`, `/batches/{id}/generate-sessions`, `/batches/{id}/trainers`, `/class-sessions` | A `StepBar` (Created, Trainer, Ready, Confirmed, Students, Classes) with the next action as the one main button (assign a trainer, finish the setup, confirm, add students from the waiting list, create classes), what blocks a confirmation shown before it, warnings that need a written reason, and tabs Overview, Students, Classes, Trainers, Checks, Requests, History. Create classes previews the timetable (holidays and closures skipped) first |
 | `/branch/waiting` | `branch/waiting` | `/branch/waiting`, `/batches/{id}/allocations` | **Waiting for a batch**: the count and each student with the batches that could take them (same course and branch, a seat left) and a one-click Allocate; a match with a warning asks first; a blocked student is told why; "Academic mapping" stays here from the old allocation queue |

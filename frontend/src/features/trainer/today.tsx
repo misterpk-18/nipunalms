@@ -225,7 +225,7 @@ export function TrainerToday() {
     <div className={cn("mx-auto max-w-4xl")}>
       <PageHead title="Today" description="Run today's classes and see what needs you." />
       <div className="mb-4">
-        <GettingStartedCard workspace="trainer" />
+        <GettingStartedCard />
       </div>
       <QueryView query={query} skeleton="detail">
         {(data) => {

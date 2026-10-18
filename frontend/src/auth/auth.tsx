@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi, type LoginResult, type Profile } from "@/api/auth";
 import { errorMessage, getToken, registerAuthHandlers, setToken } from "@/api/client";
-import type { RoleCode, Workspace } from "@/api/types";
+import type { BranchRef, RoleCode, Workspace } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -16,10 +16,20 @@ type AuthContextValue = {
   status: "anonymous" | "loading" | "authenticated";
   profile: Profile | null;
   roles: RoleCode[];
-  /** Workspaces this user may open (from the API; a Super Admin also holds academic and branch). */
+  /** The one workspace of the session's role (role separation: one role per account). */
+  workspace: Workspace;
+  /** Always just `[workspace]`; kept for the route guard (`canOpen`). */
   workspaces: Workspace[];
+  /** The Branch Manager's branch for this session; null for every other role (and while a branch pick is pending). */
+  branchId: number | null;
+  /** The branches the account may work in (a Branch Manager's choices at sign-in; the "Change branch" menu item needs more than one). */
+  allowedBranches: BranchRef[];
   hasRole: (...roles: RoleCode[]) => boolean;
   signIn: (login: string, password: string) => Promise<Profile>;
+  /** Branch Manager with several branches: fix the branch for this session after sign-in. */
+  selectBranch: (branchId: number) => Promise<Profile>;
+  /** Ends the session so the Branch Manager signs in again and picks another branch. */
+  changeBranch: () => Promise<void>;
   /** Start a session from a login-shaped response (activation signs the person in). */
   startSession: (result: LoginResult) => Profile;
   signOut: () => Promise<void>;
@@ -86,9 +96,25 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
       status: !hasToken ? "anonymous" : profile ? "authenticated" : "loading",
       profile,
       roles,
+      workspace: profile?.workspace ?? profile?.workspaces[0] ?? "student",
       workspaces: profile?.workspaces ?? [],
+      branchId: profile?.branch?.branch_id ?? null,
+      allowedBranches: profile?.branches?.length ? profile.branches : (profile?.allowed_branches ?? []),
       hasRole: (...wanted) => wanted.some((r) => roles.includes(r)),
       signIn: async (login, password) => startSession(await authApi.login(login, password)),
+      selectBranch: async (branchId) => {
+        const picked = await authApi.selectBranch(branchId);
+        queryClient.clear();
+        queryClient.setQueryData(["me"], picked);
+        return picked;
+      },
+      changeBranch: async () => {
+        try {
+          await authApi.changeBranch();
+        } finally {
+          clearSession();
+        }
+      },
       startSession,
       signOut: async () => {
         try {
@@ -99,7 +125,7 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
       },
       refresh: () => me.refetch(),
     }),
-    [clearSession, hasToken, me, profile, roles, startSession],
+    [clearSession, hasToken, me, profile, queryClient, roles, startSession],
   );
 
   return (

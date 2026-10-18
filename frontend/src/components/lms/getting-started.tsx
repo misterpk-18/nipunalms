@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import { Check, Circle, X } from "lucide-react";
 import { useGettingStarted } from "@/api/nav";
 import type { Workspace } from "@/api/types";
-import { useActing } from "@/auth/acting";
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,13 +24,12 @@ function wasDismissed(userId: number, workspace: Workspace) {
 export type GettingStartedLabels = { title: string; dismiss: string; go: string; steps?: Record<string, string> };
 const ENGLISH: GettingStartedLabels = { title: "Getting started", dismiss: "Dismiss", go: "Go" };
 
-export function GettingStartedCard({ workspace, labels = ENGLISH }: { workspace: Workspace; labels?: GettingStartedLabels }) {
+export function GettingStartedCard({ labels = ENGLISH }: { labels?: GettingStartedLabels }) {
   const { title, dismiss, go } = labels;
-  const { profile } = useAuth();
+  const { profile, workspace } = useAuth();
   const userId = profile?.user.user_id ?? 0;
-  const { branchId } = useActing(workspace);
   const [hidden, setHidden] = useState(() => wasDismissed(userId, workspace));
-  const query = useGettingStarted(workspace, branchId);
+  const query = useGettingStarted();
   const card = query.data;
   // Nothing left to get started with: the card goes away on its own
   if (hidden || !card || card.steps.length === 0 || card.complete) return null;

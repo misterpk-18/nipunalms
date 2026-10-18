@@ -1,18 +1,17 @@
 /** Attendance & progress: students (at risk first), recovery requests and attendance corrections, with counts on the tabs. */
 import { useQuery } from "@tanstack/react-query";
 import { attendanceApi } from "@/api/attendance";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { PageHead, PillTabs } from "@/components/lms/ui";
 import { CorrectionsTab, RecoveriesTab } from "./attendance-queues";
 import { StudentsTab } from "./attendance-students";
 import { pickTab, useUrlParams } from "./attendance-url";
-import { BranchPicker } from "./my-work";
 
 const TABS = ["students", "recoveries", "corrections"] as const;
 const LABELS = { students: "Students", recoveries: "Recovery requests", corrections: "Corrections" };
 
 export function BranchAttendance() {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const [params, setParams] = useUrlParams();
   const tab = pickTab(TABS, params["tab"]);
   const counts = useQuery({ queryKey: ["attendance", "tab-counts", branchId], queryFn: () => attendanceApi.tabCounts(branchId) });
@@ -21,7 +20,6 @@ export function BranchAttendance() {
       <PageHead
         title="Attendance & progress"
         description="Who is falling behind, which missed classes can be made up, and which attendance mistakes need a decision."
-        actions={<BranchPicker />}
       />
       <PillTabs
         label="Attendance and progress"

@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { deliveryApi, type Batch, type ClassSession, type RescheduleRequest } from "@/api/delivery";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { NativeSelect } from "@/components/lms/forms";
@@ -17,7 +17,6 @@ import { AcademicCalendar } from "@/features/shared/academic-calendar";
 import { todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ClassActions, ClassDetails } from "./class-actions";
-import { BranchPicker } from "./my-work";
 import { NewClassDialog } from "./new-class";
 
 type View = "week" | "list";
@@ -289,7 +288,7 @@ function WeekCalendar({ sessions, monday, by, onOpen }: { sessions: ClassSession
 
 export function BranchSchedule() {
   const manager = useCanManage();
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const search = useSearch({ from: "/branch/schedule" });
   const navigate = useNavigate({ from: "/branch/schedule" });
   const view: View = search.view ?? "week";
@@ -340,12 +339,7 @@ export function BranchSchedule() {
       <PageHead
         title="Schedule & calendar"
         description="See every class by week or as a list, decide what is waiting, and schedule new classes."
-        actions={
-          <>
-            <BranchPicker />
-            {manager && newClass}
-          </>
-        }
+        actions={<>{manager && newClass}</>}
       />
       <NeedsDecision branchId={branchId} highlight={!!search.decide} />
 

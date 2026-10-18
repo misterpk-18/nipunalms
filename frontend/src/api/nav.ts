@@ -11,23 +11,24 @@ export type GettingStarted = { workspace: Workspace; steps: GettingStartedStep[]
 export type SearchRecord = { kind: "student" | "batch" | "certificate"; id: number; title: string; subtitle: string };
 
 export const navApi = {
-  counts: (workspace: Workspace, branchId: number | null) => get<NavCounts>("/me/nav-counts", { workspace, branch_id: branchId }),
-  gettingStarted: (workspace: Workspace, branchId: number | null) => get<GettingStarted>("/me/getting-started", { workspace, branch_id: branchId }),
+  /** The role comes from the session; a Branch Manager's branch too. */
+  counts: () => get<NavCounts>("/me/nav-counts"),
+  gettingStarted: () => get<GettingStarted>("/me/getting-started"),
   search: (q: string) => get<SearchRecord[]>("/search", { q }),
 };
 
 /** Count badges for the navigation; polled with the notification bell. */
-export function useNavCounts(workspace: Workspace, branchId: number | null) {
+export function useNavCounts() {
   return useQuery({
-    queryKey: ["nav", "counts", workspace, branchId],
-    queryFn: () => navApi.counts(workspace, branchId),
+    queryKey: ["nav", "counts"],
+    queryFn: navApi.counts,
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
 }
 
-export function useGettingStarted(workspace: Workspace, branchId: number | null) {
-  return useQuery({ queryKey: ["nav", "getting-started", workspace, branchId], queryFn: () => navApi.gettingStarted(workspace, branchId), staleTime: 60_000 });
+export function useGettingStarted() {
+  return useQuery({ queryKey: ["nav", "getting-started"], queryFn: navApi.gettingStarted, staleTime: 60_000 });
 }
 
 /** Records matching the text, within what the user may open. Waits for two characters. */

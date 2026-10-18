@@ -4,7 +4,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
-import { useActing } from "@/auth/acting";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -73,7 +72,7 @@ export function NewBatchWizard({
   onOpenChange?: (open: boolean) => void;
 }) {
   const { profile } = useAuth();
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const navigate = useNavigate();
   const branches = profile?.allowed_branches ?? [];
   const initial = (): Values => ({

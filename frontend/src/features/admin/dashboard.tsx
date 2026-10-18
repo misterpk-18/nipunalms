@@ -84,7 +84,7 @@ export function AdminDashboard() {
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <PageHead title="Super Admin home" description="See what needs doing across the LMS and jump straight to it." />
-      <GettingStartedCard workspace="admin" />
+      <GettingStartedCard />
       <QueryView query={query} skeleton="cards">
         {(data) => (
           <>

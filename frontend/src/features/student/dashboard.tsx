@@ -289,7 +289,9 @@ function AttendanceCard({ card }: { card: StudentHome["attendance_alert"] }) {
               {card.alert && ` ${t("attendanceLow", { n: card.alert_threshold })}`}
             </StatusNote>
             <Button asChild size="sm" className="tap">
-              <Link to="/progress" search={{ tab: "attendance" }}>{t("askRecovery")}</Link>
+              <Link to="/progress" search={{ tab: "attendance" }}>
+                {t("askRecovery")}
+              </Link>
             </Button>
           </div>
         ) : card.alert ? (
@@ -326,7 +328,6 @@ export function StudentHome() {
             />
             <div className="space-y-4">
               <GettingStartedCard
-                workspace="student"
                 labels={{
                   title: t("gettingStarted"),
                   dismiss: t("dismiss"),

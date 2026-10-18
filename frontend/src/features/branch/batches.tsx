@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { type Batch, deliveryApi } from "@/api/delivery";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { NativeSelect } from "@/components/lms/forms";
 import { DataTable, PageHead, QueryView, Tag } from "@/components/lms/ui";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StateBadge, useCanManage } from "@/features/shared/delivery-ui";
 import { NewBatchWizard } from "./new-batch-wizard";
-import { BranchPicker } from "./my-work";
 
 const CLOSED = ["Completed", "Cancelled", "Archived"];
 const SHOW = [
@@ -33,7 +32,7 @@ export function nextStep(b: Batch): { text: string; tone: "warning" | "info" | "
 
 export function BranchBatches() {
   const manage = useCanManage();
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const search = useSearch({ from: "/branch/batches/" });
   const navigate = useNavigate({ from: "/branch/batches/" });
   const [show, setShow] = useState("open");
@@ -51,7 +50,6 @@ export function BranchBatches() {
         description="Every batch at your branch and what each one needs next. Open a batch to confirm it, add students and create its classes."
         actions={
           <>
-            <BranchPicker />
             {manage && (
               <NewBatchWizard
                 {...(search.course ? { defaultCourseId: search.course } : {})}

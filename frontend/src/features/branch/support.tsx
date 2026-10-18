@@ -2,19 +2,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { contentApi } from "@/api/content";
 import { supportApi } from "@/api/support";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { PageHead, PillTabs } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { SupportDesk } from "@/features/shared/support-desk";
 import { pickTab, useUrlParams } from "./attendance-url";
 import { ExtensionsTab } from "./extensions-requests";
-import { BranchPicker } from "./my-work";
 
 const TABS = ["requests", "extensions"] as const;
 const LABELS = { requests: "Requests", extensions: "Access extensions" };
 
 export function BranchSupport() {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const [params, setParams] = useUrlParams();
   const tab = pickTab(TABS, params["tab"]);
   const request = Number(params["request"]) > 0 ? Number(params["request"]) : null;
@@ -32,7 +31,6 @@ export function BranchSupport() {
       <PageHead
         title="Student support"
         description="Questions and problems students have raised, and requests to extend their access to recordings and materials."
-        actions={<BranchPicker />}
       />
       <PillTabs
         label="Student support"

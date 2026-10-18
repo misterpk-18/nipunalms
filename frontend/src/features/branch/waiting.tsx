@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { branchApi, type WaitingBatch, type WaitingMatch, type WaitingRow } from "@/api/branch";
 import { deliveryApi } from "@/api/delivery";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { PageHead, QueryView, Tag } from "@/components/lms/ui";
@@ -15,7 +15,6 @@ import { PrepareMapping } from "@/features/academic/curriculum-model";
 import { useCanManage } from "@/features/shared/delivery-ui";
 import { fmtDate } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
-import { BranchPicker } from "./my-work";
 
 /** "Mon, Wed · 15:00–17:00 · Lab 2" or "Timetable not set yet". */
 export function timetableText(b: Pick<WaitingBatch, "schedule_days" | "start_time" | "end_time" | "location">): string {
@@ -146,7 +145,7 @@ export function WaitingStudent({ row, manage, withBranch }: { row: WaitingRow; m
 
 export function BranchWaiting() {
   const manage = useCanManage();
-  const { branchId, branches } = useActing("branch");
+  const { branchId, allowedBranches: branches } = useAuth();
   const initial = (useSearch({ strict: false }) as { q?: string }).q ?? "";
   const [q, setQ] = useState(initial);
   const search = q.trim();
@@ -160,7 +159,6 @@ export function BranchWaiting() {
       <PageHead
         title="Waiting for a batch"
         description="Students who have joined and have no batch yet. Each one shows the batches that could take them; allocate in one click."
-        actions={<BranchPicker />}
       />
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-xl border bg-card px-4 py-2" role="status">

@@ -37,6 +37,8 @@ function Login() {
     setError(null);
     try {
       const profile = await signIn(login.trim(), password);
+      // A Branch Manager with several branches picks one next (the root renders the branch step)
+      if (profile.needs_branch) return;
       void navigate({ to: profile.user.must_change_password ? "/change-password" : (redirect ?? profile.home_route), replace: true });
     } catch (e) {
       setError(e instanceof ApiError && e.code === "VALIDATION_ERROR" ? t("requiredField") : errorMessage(e));

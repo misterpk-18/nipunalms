@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { issuesApi, type Issue, type IssueType } from "@/api/issues";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { NativeSelect } from "@/components/lms/forms";
 import { EmptyState } from "@/components/lms/empty-state";
 import { HowThisWorks } from "@/components/lms/how-this-works";
@@ -15,7 +15,6 @@ import { ReasonDialog } from "@/features/shared/reason-dialog";
 import { useApiMutation } from "@/lib/mutation";
 import { cn } from "@/lib/utils";
 import { AssignDialog } from "@/features/admin/issue-assign";
-import { BranchPicker } from "./my-work";
 
 const PER_PAGE = 20;
 
@@ -174,8 +173,8 @@ function IssueRow({ issue, canNote, canAssign }: { issue: Issue; canNote: boolea
 /** The list with its filters and paging. The Super Admin's view reuses it with `canAssign` (hand an issue to someone) and no branch pick. */
 export function IssuesList({ canNote = true, canAssign = false, branchScoped = true }: { canNote?: boolean; canAssign?: boolean; branchScoped?: boolean }) {
   const { params, set } = useIssueParams();
-  const acting = useActing("branch");
-  const branchId = branchScoped ? acting.branchId : null;
+  const { branchId: sessionBranchId } = useAuth();
+  const branchId = branchScoped ? sessionBranchId : null;
   const page = params.page ?? 1;
   const query = useQuery({
     queryKey: ["issues", "list", params, branchId],
@@ -284,11 +283,7 @@ export function IssuesList({ canNote = true, canAssign = false, branchScoped = t
 export function BranchIssues() {
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <PageHead
-        title="Issues"
-        description="Everything that is wrong or stuck, in one list. Press Go fix it to open the screen that solves it."
-        actions={<BranchPicker />}
-      />
+      <PageHead title="Issues" description="Everything that is wrong or stuck, in one list. Press Go fix it to open the screen that solves it." />
       <IssuesList />
       <HowThisWorks>
         <p>An issue stays here until what caused it is fixed; it then leaves the list by itself.</p>

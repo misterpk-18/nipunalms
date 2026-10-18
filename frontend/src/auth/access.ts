@@ -1,6 +1,6 @@
 /**
  * Workspace access and navigation. The path decides which workspace a screen belongs to (same rule as the
- * prototype); the profile's `workspaces` (from the API, already expanded per role) decides who may open it.
+ * prototype); the session's workspace (one per account, from the API) decides who may open it; this is only a guard.
  */
 import {
   Activity,
@@ -60,11 +60,6 @@ export function workspaceForPath(path: string): Workspace | null {
   return "student";
 }
 
-/** The workspace whose navigation frames a shared screen (/account/*): the one the user lands in. */
-export function homeWorkspace(homeRoute: string | undefined): Workspace {
-  return workspaceForPath(homeRoute ?? "/dashboard") ?? "student";
-}
-
 export function canOpen(workspaces: Workspace[], workspace: Workspace | null): boolean {
   return workspace === null || workspaces.includes(workspace);
 }
@@ -87,15 +82,6 @@ export const WORKSPACE_HOME: Record<Workspace, string> = {
 
 /** `group` is the heading the item sits under; `badgeKey` names its count in `GET /me/nav-counts` (see api/nav.ts). */
 export type NavItem = { to: string; label: string; icon: LucideIcon; tkey?: TranslationKey; group?: string; badgeKey?: string };
-
-/** One line per workspace for the "Acting as" switcher: what you do in it. */
-export const WORKSPACE_DESCRIPTIONS: Record<Workspace, string> = {
-  student: "Your classes, tasks, results and certificates",
-  trainer: "Run classes, mark attendance and grade work",
-  branch: "Run a branch: batches, schedule, results and certificates",
-  admin: "People and access, integrations and system health",
-  founder: "Decisions waiting for you and company-wide figures",
-};
 
 const STUDENT_NAV: NavItem[] = [
   { to: "/dashboard", label: "Home", tkey: "home", icon: House },

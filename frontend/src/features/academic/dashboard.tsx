@@ -1,5 +1,5 @@
 import { useAcademicSummary } from "@/api/dashboards";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 
@@ -14,7 +14,7 @@ const LINKS = [
 
 /** The branch's academic work. `embedded` puts it under the Branch Manager dashboard instead of on a page of its own. */
 export function AcademicDashboard({ embedded = false }: { embedded?: boolean }) {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const query = useAcademicSummary(branchId);
   return (
     <div className={embedded ? "space-y-5" : "mx-auto max-w-6xl space-y-5"}>

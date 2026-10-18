@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { deliveryApi, type MeetOpsRow } from "@/api/delivery";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, PageHead, QueryView, Section, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { fmtDate, fmtRange, mono, useCanManage } from "@/features/shared/deliver
 import { todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MeetLinkDialog } from "./class-actions";
-import { BranchPicker } from "./my-work";
 
 const OPEN = ["Scheduled", "Rescheduled", "Live"];
 type Filter = "all" | "link" | "disrupted" | "attendance" | "log";
@@ -65,7 +64,7 @@ function LinkCell({ row, manage }: { row: MeetOpsRow; manage: boolean }) {
 
 export function ClassDay() {
   const manage = useCanManage();
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const [date, setDate] = useState(todayIso());
   const [filter, setFilter] = useState<Filter>("all");
   const query = useQuery({
@@ -82,7 +81,6 @@ export function ClassDay() {
             <Button asChild variant="outline">
               <Link to="/branch/recordings">Recordings</Link>
             </Button>
-            <BranchPicker />
           </>
         }
       />

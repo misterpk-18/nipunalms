@@ -5,7 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { certificatesApi } from "@/api/certificates";
 import { completionPipelineApi, PIPELINE_STAGES, STAGE_LABELS, type PipelineRow, type PipelineStage } from "@/api/completion-pipeline";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { EmptyState } from "@/components/lms/empty-state";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { LoadingSkeleton, PageHead, PillTabs, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
@@ -17,7 +17,6 @@ import { CertificateDecisions } from "@/features/shared/certificate-register";
 import { ApproveButtons, DecideButton, IssueButton, MoreActions } from "./completion-actions";
 import { rupees } from "./completion-format";
 import { EvidenceList } from "./completion-evidence";
-import { BranchPicker } from "./my-work";
 
 const PER_PAGE = 20;
 const isStage = (v: unknown): v is PipelineStage => typeof v === "string" && (PIPELINE_STAGES as readonly string[]).includes(v);
@@ -181,7 +180,7 @@ function RequestsSection() {
 }
 
 export function BranchCompletion() {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const search = useSearch({ strict: false }) as { stage?: unknown };
   const navigate = useNavigate();
   const urlStage = isStage(search.stage) ? search.stage : undefined;
@@ -257,11 +256,7 @@ export function BranchCompletion() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <PageHead
-        title="Completion & certificates"
-        description="Decide whether a student has completed the course, then approve and issue the certificate."
-        actions={<BranchPicker />}
-      />
+      <PageHead title="Completion & certificates" description="Decide whether a student has completed the course, then approve and issue the certificate." />
       <div>
         <PillTabs label="Stage" tabs={PIPELINE_STAGES} value={stage} onChange={(s) => setStage(s)} labels={STAGE_LABELS} counts={counts} />
         <Input

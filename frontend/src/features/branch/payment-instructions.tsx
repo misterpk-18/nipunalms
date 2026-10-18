@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { branchApi } from "@/api/branch";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ import { ChevronDown } from "lucide-react";
 
 export function PaymentInstructions() {
   const manage = useCanManage();
-  const { branches, branchId } = useActing("branch");
+  const { allowedBranches: branches, branchId } = useAuth();
   const [picked, setPicked] = useState<number | null>(null);
   const target = picked ?? branchId ?? branches[0]?.branch_id ?? null;
   const query = useQuery({

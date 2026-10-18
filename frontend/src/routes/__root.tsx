@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { Link, Navigate, Outlet, createRootRouteWithContext, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/auth/auth";
 import { PUBLIC_PATHS, STAY_WHEN_SIGNED_IN, canOpen, isOpenPath, workspaceForPath } from "@/auth/access";
+import { BranchPick } from "@/components/lms/branch-pick";
 import { AppShell } from "@/components/lms/app-shell";
 import { StatusNote } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,9 @@ function Guarded() {
   const { status, profile, workspaces } = useAuth();
 
   if (isOpenPath(path)) return <Outlet />;
+  // Signed in as a Branch Manager with several branches: nothing else works until a branch is picked
+  if (status === "authenticated" && profile?.needs_branch)
+    return <BranchPick redirect={typeof redirect === "string" && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : undefined} />;
   if (PUBLIC_PATHS.includes(path)) {
     if (status === "authenticated" && profile && !STAY_WHEN_SIGNED_IN.includes(path)) {
       // Signing in on /login?redirect=… returns to the page the visitor asked for (same-origin paths only)
@@ -54,7 +58,7 @@ export function AccessDenied() {
   return (
     <div className="mx-auto max-w-lg py-10">
       <StatusNote tone="info">
-        Your role ({[...new Set(profile?.scopes.map((s) => s.role_name))].join(" · ")}) cannot open this workspace.{" "}
+        Your role ({profile?.role?.role_name ?? "this account"}) cannot open this page.{" "}
         <Link className="underline" to={profile?.home_route ?? "/"}>
           Go to your home
         </Link>

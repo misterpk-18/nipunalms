@@ -6,7 +6,7 @@ import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { branchReportsApi, type ReportPeriodKey, type ReportSection } from "@/api/branch-reports";
 import { errorMessage } from "@/api/client";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { NativeSelect } from "@/components/lms/forms";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, Grid, PageHead, QueryView, Section, StatusNote, Tag } from "@/components/lms/ui";
@@ -15,7 +15,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { fmtDate } from "@/features/shared/format";
 import { StateBadge } from "@/features/shared/delivery-ui";
-import { BranchPicker } from "./my-work";
 import { FIGURE_GROUPS } from "./reports-groups";
 import { FigureCard, TrendsChart } from "./reports-parts";
 
@@ -55,7 +54,7 @@ function usePeriod() {
 }
 
 export function BranchReports() {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const { period, from, to, set } = usePeriod();
   const custom = period === "custom";
   const backwards = custom && !!from && !!to && from > to;
@@ -80,11 +79,7 @@ export function BranchReports() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <PageHead
-        title="Reports"
-        description="How the branch is doing in the period you pick. Press any figure to see the records behind it."
-        actions={<BranchPicker />}
-      />
+      <PageHead title="Reports" description="How the branch is doing in the period you pick. Press any figure to see the records behind it." />
       <Section>
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full sm:w-52">

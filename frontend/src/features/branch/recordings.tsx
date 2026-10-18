@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { contentApi, type Recording, type RecordingClass, type RecordingException } from "@/api/content";
 import { deliveryApi } from "@/api/delivery";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { EmptyState } from "@/components/lms/empty-state";
 import { NativeSelect } from "@/components/lms/forms";
@@ -18,7 +18,6 @@ import { todayIso } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 import { problemText } from "./recordings-choices";
 import { MediaDialog, ProblemDialog } from "./recordings-dialogs";
-import { BranchPicker } from "./my-work";
 
 const DAY_MS = 86_400_000;
 const istDay = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(iso));
@@ -145,7 +144,7 @@ function ClassCard({ item }: { item: RecordingClass }) {
 // ---------------------------------------------------------------- open problems
 
 function OpenProblems({ onOpen }: { onOpen: (e: RecordingException) => void }) {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const query = useQuery({
     queryKey: ["recording-exceptions", "open", branchId],
     queryFn: () => contentApi.exceptions({ status: "Open", per_page: 50, branch_id: branchId }),
@@ -201,7 +200,7 @@ function OpenProblems({ onOpen }: { onOpen: (e: RecordingException) => void }) {
 // ---------------------------------------------------------------- the screen
 
 export function BranchRecordings() {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const { params, set } = useRecordingParams();
   const date = params.date ?? todayIso();
   const batchId = params.batch;
@@ -229,11 +228,7 @@ export function BranchRecordings() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <PageHead
-        title="Recordings"
-        description="Pick the class by date and batch, then release its recording to students or report a problem with it."
-        actions={<BranchPicker />}
-      />
+      <PageHead title="Recordings" description="Pick the class by date and batch, then release its recording to students or report a problem with it." />
       <StatusNote tone="info">
         Google Drive is not connected yet. The LMS stores each recording's Drive file id but cannot check that the video plays.
       </StatusNote>

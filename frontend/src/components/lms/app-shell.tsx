@@ -1,12 +1,10 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Bell, ChevronDown, Ellipsis, KeyRound, LogOut, ShieldCheck, User } from "lucide-react";
+import { ArrowLeftRight, Bell, ChevronDown, Ellipsis, KeyRound, LogOut, ShieldCheck, User } from "lucide-react";
 import { useNavCounts, type NavCounts } from "@/api/nav";
 import type { Workspace } from "@/api/types";
 import { useAuth } from "@/auth/auth";
-import { useActing } from "@/auth/acting";
-import { NAV, STUDENT_ACCOUNT, isNavActive, isWorkspaceRoot, homeWorkspace, mobileBarItems, workspaceForPath, type NavItem } from "@/auth/access";
-import { ActingAs } from "@/components/lms/acting-as";
+import { NAV, STUDENT_ACCOUNT, isNavActive, isWorkspaceRoot, mobileBarItems, WORKSPACE_LABELS, type NavItem } from "@/auth/access";
 import { NotificationBell } from "@/components/lms/notification-bell";
 import { CommandPalette, SearchButton } from "@/components/lms/command-palette";
 import { LanguageToggle } from "@/components/lms/language-toggle";
@@ -66,24 +64,24 @@ function GroupHeading({ items, index }: { items: NavItem[]; index: number }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { profile, workspaces, signOut } = useAuth();
+  const { profile, workspace, branchId, allowedBranches, signOut, changeBranch } = useAuth();
   const t = useT();
   const [moreOpen, setMoreOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const workspace = workspaceForPath(path) ?? homeWorkspace(profile?.home_route);
   const translated = workspace === "student";
   useDocumentLanguage(translated);
 
   const items = NAV[workspace];
   const barItems = mobileBarItems(workspace);
   const label = (item: NavItem) => (translated && item.tkey ? t(item.tkey) : item.label);
-  const scopes = profile?.scopes ?? [];
-  const roleLabel = [...new Set(scopes.map((s) => s.role_name))].join(" · ");
-  const branchLabel = scopes.some((s) => s.is_company_wide) ? "All authorised branches" : [...new Set(scopes.map((s) => s.branch_name))].join(", ");
+  const roleLabel = profile?.role?.role_name ?? WORKSPACE_LABELS[workspace];
+  // A Branch Manager's branch is fixed for the session; Super Admin and Founder see every branch
+  const branchLabel = profile?.branch?.branch_name ?? (workspace === "admin" || workspace === "founder" ? "All branches" : null);
+  const headerLabel = branchLabel ? `${roleLabel} · ${branchLabel}` : roleLabel;
+  const canChangeBranch = workspace === "branch" && allowedBranches.length > 1;
   const fullName = profile?.user.full_name ?? "";
   const bell = NOTIFICATIONS[workspace];
-  const { canPick, branchId } = useActing(workspace);
-  const counts: NavCounts = useNavCounts(workspace, branchId).data ?? {};
+  const counts: NavCounts = useNavCounts().data ?? {};
   const countOf = (item: NavItem) => (item.badgeKey ? counts[item.badgeKey] : undefined);
 
   useEffect(() => {
@@ -96,6 +94,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const switchBranch = async () => {
+    await changeBranch();
+    void navigate({ to: "/login" });
+  };
 
   const exit = async () => {
     await signOut();
@@ -112,13 +115,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             <span className="hidden sm:inline">Nipuna LMS</span>
           </Link>
-          {workspaces.length > 1 || canPick ? (
-            <ActingAs workspace={workspace} workspaces={workspaces} />
-          ) : (
-            <span className="hidden truncate rounded bg-navy-muted px-2 py-0.5 text-xs lg:inline">
-              {roleLabel} · {branchLabel}
-            </span>
-          )}
+          <span data-testid="role-label" className="min-w-0 max-w-[11rem] truncate rounded bg-navy-muted px-2 py-0.5 text-xs sm:max-w-none">
+            {headerLabel}
+          </span>
           <div className="ml-auto flex min-w-0 items-center gap-2">
             {translated && <LanguageToggle />}
             <SearchButton onClick={() => setSearchOpen(true)} />
@@ -128,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <button
                   className="tap flex items-center gap-1 rounded-lg px-1 hover:bg-navy-muted"
                   aria-label={translated ? t("accountMenu") : "Account menu"}
-                  title={`${fullName} · ${roleLabel}`}
+                  title={`${fullName} · ${headerLabel}`}
                 >
                   <span className="grid size-8 place-items-center rounded-full bg-navy-muted text-xs font-semibold" aria-hidden>
                     {fullName.slice(0, 1).toUpperCase()}
@@ -140,7 +139,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <DropdownMenuLabel>
                   <div className="text-sm">{fullName}</div>
                   <div className="text-xs font-normal text-muted-foreground">{profile?.student?.student_code ?? profile?.user.email}</div>
-                  <div className="mt-0.5 text-xs font-normal text-muted-foreground">{roleLabel}</div>
+                  <div className="mt-0.5 text-xs font-normal text-muted-foreground">{headerLabel}</div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
@@ -162,6 +161,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {translated ? t("changePassword") : "Change password"}
                   </Link>
                 </DropdownMenuItem>
+                {canChangeBranch && (
+                  <DropdownMenuItem onClick={() => void switchBranch()}>
+                    <ArrowLeftRight />
+                    Change branch
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => void exit()}>
                   <LogOut />
                   {translated ? t("signOut") : "Sign out"}
@@ -269,7 +274,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} workspace={workspace} workspaces={workspaces} label={label} />
+      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} workspace={workspace} label={label} />
     </div>
   );
 }

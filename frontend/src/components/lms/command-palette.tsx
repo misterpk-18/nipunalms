@@ -4,7 +4,7 @@ import { Award, GraduationCap, Search, Users, type LucideIcon } from "lucide-rea
 import type { SearchRecord } from "@/api/nav";
 import { useRecordSearch } from "@/api/nav";
 import type { Workspace } from "@/api/types";
-import { NAV, STUDENT_ACCOUNT, WORKSPACE_LABELS, type NavItem } from "@/auth/access";
+import { NAV, STUDENT_ACCOUNT, type NavItem } from "@/auth/access";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
@@ -19,18 +19,16 @@ function recordTarget(kind: SearchRecord["kind"], workspace: Workspace, id: numb
   return workspace === "founder" ? "/founder/certificates" : "/branch/completion";
 }
 
-/** Ctrl/Cmd+K: jump to a page of any workspace the person holds, or find a student, batch or certificate they may open. */
+/** Ctrl/Cmd+K: jump to a page of the signed-in role's workspace, or find a student, batch or certificate they may open. */
 export function CommandPalette({
   open,
   onOpenChange,
   workspace,
-  workspaces,
   label,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: Workspace;
-  workspaces: Workspace[];
   /** The label of a navigation item (translated for a student). */
   label: (item: NavItem) => string;
 }) {
@@ -44,12 +42,10 @@ export function CommandPalette({
   }, [open]);
 
   const pages = useMemo(
-    () => workspaces.flatMap((w) => (w === "student" ? [...NAV[w], STUDENT_ACCOUNT] : NAV[w]).map((item) => ({ ...item, workspace: w, title: label(item) }))),
-    [workspaces, label],
+    () => (workspace === "student" ? [...NAV[workspace], STUDENT_ACCOUNT] : NAV[workspace]).map((item) => ({ ...item, title: label(item) })),
+    [workspace, label],
   );
-  const shownPages = pages
-    .filter((p) => !needle || `${p.title} ${p.group ?? ""} ${WORKSPACE_LABELS[p.workspace]}`.toLowerCase().includes(needle))
-    .slice(0, needle ? 12 : 8);
+  const shownPages = pages.filter((p) => !needle || `${p.title} ${p.group ?? ""}`.toLowerCase().includes(needle)).slice(0, needle ? 12 : 8);
 
   const go = (to: string) => {
     onOpenChange(false);
@@ -72,10 +68,9 @@ export function CommandPalette({
             {shownPages.length > 0 && (
               <CommandGroup heading="Pages">
                 {shownPages.map((p) => (
-                  <CommandItem key={`${p.workspace}:${p.to}`} value={`${p.workspace}:${p.to}`} onSelect={() => go(p.to)}>
+                  <CommandItem key={p.to} value={p.to} onSelect={() => go(p.to)}>
                     <p.icon className="mr-2 size-4 shrink-0" aria-hidden />
                     <span className="truncate">{p.title}</span>
-                    {workspaces.length > 1 && <span className="ml-auto pl-3 text-xs text-muted-foreground">{WORKSPACE_LABELS[p.workspace]}</span>}
                   </CommandItem>
                 ))}
               </CommandGroup>

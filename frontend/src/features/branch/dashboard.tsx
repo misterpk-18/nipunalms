@@ -1,10 +1,10 @@
 import { useBranchDashboard } from "@/api/dashboards";
-import { useActing } from "@/auth/acting";
+import { useAuth } from "@/auth/auth";
 import { GettingStartedCard } from "@/components/lms/getting-started";
 import { Note, PageHead, QueryView, StatusNote } from "@/components/lms/ui";
 import { CrmTile, QuickLinks, Tile, TileRow } from "@/features/shared/dashboard-parts";
 import { AcademicDashboard } from "@/features/academic/dashboard";
-import { BranchPicker, MyWork } from "./my-work";
+import { MyWork } from "./my-work";
 import { PaymentInstructions } from "./payment-instructions";
 
 const LINKS = [
@@ -16,17 +16,16 @@ const LINKS = [
 
 /** The Branch Manager's home: My work first, then how the branch is doing. */
 export function BranchDashboard() {
-  const { branchId } = useActing("branch");
+  const { branchId } = useAuth();
   const query = useBranchDashboard(branchId);
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <PageHead
         title="My work"
         description={query.data ? `${query.data.scope.label} · what needs you today, most pressing first` : "What needs you today, most pressing first"}
-        actions={<BranchPicker />}
       />
       <MyWork />
-      <GettingStartedCard workspace="branch" />
+      <GettingStartedCard />
       <QueryView query={query}>
         {(d) => (
           <>

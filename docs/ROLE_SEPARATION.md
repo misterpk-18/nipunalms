@@ -56,14 +56,14 @@ Work top to bottom. R2 and R3 (data and backend) come before any frontend phase,
 
 ## R4. Frontend shell: remove "Acting as"
 
-- [ ] Delete `components/lms/acting-as.tsx`, `auth/acting.ts` and `lib/acting-branch.ts` (the localStorage branch pick); update the 20 or so callers that use `useActing("branch")` to read the session's branch
-- [ ] Header shows a static `Role · Branch` label (`components/lms/app-shell.tsx:115-121`)
-- [ ] Remove the repeated `BranchPicker` from page heads (`features/branch/my-work.tsx:37-51`)
-- [ ] Branch picker on the sign-in screen for Branch Managers with several branches; "Change branch" in the account menu
-- [ ] Landing: sign-in goes straight to the account's one home route; simplify `routes/__root.tsx` and the `AccessDenied` flow
-- [ ] `workspaceForPath` and `canOpen` stay as a guard; the workspace comes from the session (`auth/access.ts:54-70`)
-- [ ] Remove stale comment at `auth/auth.tsx:19-20`
-- [ ] `useNavCounts` and `GettingStartedCard` take the role from the session, not a `workspace` argument
+- [x] Delete `components/lms/acting-as.tsx`, `auth/acting.ts` and `lib/acting-branch.ts` (the localStorage branch pick); update the 20 or so callers that use `useActing("branch")` to read the session's branch (all three files deleted; callers read `useAuth().branchId`, null for Super Admin and Founder; `branches` readers use `allowedBranches`)
+- [x] Header shows a static `Role · Branch` label (`components/lms/app-shell.tsx:115-121`) (also in the account menu header and avatar title; Super Admin and Founder show `Role · All branches`)
+- [x] Remove the repeated `BranchPicker` from page heads (`features/branch/my-work.tsx:37-51`) (component and all 11 uses removed; the Branch Manager's one branch is fixed on the session)
+- [x] Branch picker on the sign-in screen for Branch Managers with several branches; "Change branch" in the account menu (new `components/lms/branch-pick.tsx`, rendered by the root guard while `needs_branch` is true, calls `selectBranch` and lands on `home_route`; "Change branch" in the account menu for a Branch Manager with more than one branch calls `changeBranch`, clears the local session and routes to `/login`. Not exercised in a browser: the dev data has no multi-branch Branch Manager)
+- [x] Landing: sign-in goes straight to the account's one home route; simplify `routes/__root.tsx` and the `AccessDenied` flow (login returns at once to `home_route` or `redirect`; `AccessDenied` now names the session role and says "cannot open this page")
+- [x] `workspaceForPath` and `canOpen` stay as a guard; the workspace comes from the session (`auth/access.ts:54-70`) (the shell's navigation and the palette use `useAuth().workspace`; `homeWorkspace` and `WORKSPACE_DESCRIPTIONS` removed; the command palette lists only the session workspace's pages)
+- [x] Remove stale comment at `auth/auth.tsx:19-20` (it described a Super Admin also holding academic and branch workspaces; replaced)
+- [x] `useNavCounts` and `GettingStartedCard` take the role from the session, not a `workspace` argument (no arguments; the API reads role and branch from the session)
 
 ## R5. Shared screens: one component, fixed config per role
 
