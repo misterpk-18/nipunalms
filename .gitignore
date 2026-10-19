@@ -12,3 +12,4 @@ playwright-report/
 .tanstack/
 *.log
 .claude/worktrees/
+backend/cartograph.html
