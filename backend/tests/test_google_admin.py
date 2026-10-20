@@ -156,3 +156,15 @@ def test_changing_branch_settings_needs_a_recent_password(client, admin, run_sql
     stale = client.patch(f"{API}/branches/1", json={"gmail_sender": "a@example.test"}, headers=headers)
     assert stale.status_code == 401 and stale.get_json()["error"]["code"] == "FRESH_AUTH_REQUIRED"
     assert client.get(f"{API}/branches", headers=headers).status_code == 200
+
+
+def test_email_comes_from_the_no_reply_address_unless_a_branch_sets_its_own(client, admin, app):
+    user, headers = admin
+    app.config["GOOGLE_EMAIL_SENDER"] = "no-reply@example.test"
+    branch = next(r for r in client.get(f"{API}/branches", headers=headers).get_json()["data"] if r["branch_id"] == 1)
+    assert branch["effective_gmail_sender"] == "no-reply@example.test" and branch["effective_calendar_mailbox"] == branch["branch_mailbox"]
+    own = client.patch(f"{API}/branches/1", json={"gmail_sender": "hello@example.test"}, headers=headers).get_json()["data"]
+    assert own["effective_gmail_sender"] == "hello@example.test"
+    assert google_repo.gmail_sender(2) == "no-reply@example.test" and google_repo.gmail_sender(None) == "no-reply@example.test"
+    app.config["GOOGLE_EMAIL_SENDER"] = None
+    assert google_repo.gmail_sender(2) == db.session.get(__import__("models").Branch, 2).mailbox and google_repo.gmail_sender(None) is None

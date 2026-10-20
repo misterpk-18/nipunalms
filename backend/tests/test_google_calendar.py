@@ -122,9 +122,9 @@ def test_a_new_online_class_gets_an_event_and_a_linked_meet(world, client, login
     assert sent["scopes"] == [google_client.CALENDAR_SCOPE]
     assert sent["body"]["id"] == f"lms{sid:010d}"
     assert sent["body"]["conferenceData"]["createRequest"]["conferenceSolutionKey"] == {"type": "hangoutsMeet"}
-    assert sent["body"]["attendees"] == [{"email": people["g1"].email}]
+    assert sent["body"]["attendees"] == [{"email": people["g1"].email}]  # no student holds a seat yet
     assert sent["body"]["summary"].endswith("Online")
-    assert sent["params"] == {"conferenceDataVersion": 1, "sendUpdates": "none"}
+    assert sent["params"] == {"conferenceDataVersion": 1, "sendUpdates": "all"}
 
     session = session_of(sid)
     assert (session.meet_status, session.meet_link, session.calendar_event_id) == ("Linked", LINK, f"lms{sid:010d}")
@@ -202,6 +202,74 @@ def test_a_replacement_class_waits_for_approval_before_it_is_queued(world, clien
     assert jobs_of(sid) == []
     data(call(client, login, people["admin"], "post", f"/class-sessions/{sid}/approval", json={"decision": "Approved"}), 200)
     assert [j.kind for j in jobs_of(sid)] == ["CALENDAR_UPSERT"]
+
+
+# ---------------------------------------------------------------- students are invited
+
+def test_the_students_of_the_batch_are_invited_and_cannot_see_each_other(world, client, login, google, allocate, make_student):  # noqa: F811
+    people, batch, student = world
+    other = make_student()
+    allocate(student, batch)
+    allocate(other, batch)
+    sid = online_class(client, login, people, batch)
+    run()
+    body = google.calls[-1]["body"]
+    assert [a["email"] for a in body["attendees"]] == [people["g1"].email, student.email, other.email]
+    assert body["guestsCanSeeOtherGuests"] is False and google.calls[-1]["params"]["sendUpdates"] == "all"
+    assert session_of(sid).meet_status == "Linked"
+
+
+def test_a_student_of_another_batch_is_not_invited_and_a_shared_class_invites_both(world, client, login, google, allocate, make_student, make_batch):  # noqa: F811
+    people, batch, student = world
+    other_batch = make_batch(1, trainers=[people["g2"]], state="Running")
+    outsider = make_student()
+    allocate(outsider, other_batch)
+    sid = online_class(client, login, people, batch)
+    run()
+    assert outsider.email not in [a["email"] for a in google.calls[-1]["body"]["attendees"]]
+    db.session.execute(db.text("INSERT INTO session_rosters (session_id, batch_id, coverage_note, verified_by) VALUES (:s, :b, 'Same topic', :u)"),
+                       {"s": sid, "b": other_batch.batch_id, "u": people["admin"].user_id})
+    db.session.commit()
+    class_events.enqueue_upsert(session_of(sid))
+    run()
+    assert outsider.email in [a["email"] for a in google.calls[-1]["body"]["attendees"]]
+
+
+def test_a_seat_taken_or_ended_updates_the_invitations_of_upcoming_online_classes(world, client, login, google, allocate, make_student):  # noqa: F811
+    people, batch, student = world
+    sid = online_class(client, login, people, batch)
+    run()
+    assert [a["email"] for a in google.calls[-1]["body"]["attendees"]] == [people["g1"].email]
+
+    allocate(student, batch)
+    assert [j.state for j in jobs_of(sid)] == ["Succeeded", "Queued"]
+    run()
+    assert student.email in [a["email"] for a in google.calls[-1]["body"]["attendees"]]
+    assert google.calls[-1]["method"] == "PATCH"
+
+    from repositories import students as students_repo
+    from services import allocations
+    allocations.end(next(e for e in students_repo.enrolments_of_student(student.student_id) if e.course_id == batch.course_id))
+    db.session.commit()
+    run()
+    assert student.email not in [a["email"] for a in google.calls[-1]["body"]["attendees"]]
+
+
+def test_a_class_with_no_event_yet_is_not_queued_by_a_seat_change(world, client, login, google, allocate):  # noqa: F811
+    people, batch, student = world
+    sid = online_class(client, login, people, batch)  # its create job is still queued, so it already covers a new seat
+    allocate(student, batch)
+    assert len(jobs_of(sid)) == 1
+
+
+def test_a_bad_address_is_left_out_rather_than_failing_the_event(world, client, login, google, allocate):  # noqa: F811
+    people, batch, student = world
+    db.session.execute(db.text("UPDATE students SET email = 'not an address' WHERE student_id = :s"), {"s": student.student_id})
+    db.session.commit()
+    allocate(student, batch)
+    online_class(client, login, people, batch)
+    run()
+    assert [a["email"] for a in google.calls[-1]["body"]["attendees"]] == [people["g1"].email]
 
 
 # ---------------------------------------------------------------- retries

@@ -24,6 +24,7 @@ CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 SECRET_MANAGER_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+ADMIN_GROUP_SCOPE = "https://www.googleapis.com/auth/admin.directory.group"
 
 _key_cache: dict[str, dict] = {}
 

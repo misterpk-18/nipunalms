@@ -95,6 +95,7 @@ class GoogleDriveItem(db.Model):
     parent_item_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("google_drive_items.item_id"))
     folder_id: Mapped[str] = mapped_column(String(200))
     folder_name: Mapped[str] = mapped_column(String(200))
+    group_email: Mapped[str | None] = mapped_column(String(255))  # a batch's Google Group; its students are the members
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
 
 

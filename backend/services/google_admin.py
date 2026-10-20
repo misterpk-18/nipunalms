@@ -81,7 +81,7 @@ def _branch_row(branch: Branch, config: BranchGoogleConfig | None) -> dict:
             "calendar_mailbox": config.calendar_mailbox if config else None, "gmail_sender": config.gmail_sender if config else None,
             "drive_root_folder_id": config.drive_root_folder_id if config else None,
             "effective_calendar_mailbox": (config.calendar_mailbox if config and config.calendar_mailbox else branch.mailbox),
-            "effective_gmail_sender": (config.gmail_sender if config and config.gmail_sender else branch.mailbox)}
+            "effective_gmail_sender": google_repo.gmail_sender(branch.branch_id)}
 
 
 def branch_configs() -> list[dict]:

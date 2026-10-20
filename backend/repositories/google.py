@@ -1,6 +1,7 @@
 """Reads and writes of the Google job queue and the per-branch Google settings."""
 from datetime import datetime, timedelta
 
+from flask import current_app
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -62,13 +63,14 @@ def branch_mailbox(branch_id: int) -> str | None:
 
 
 def gmail_sender(branch_id: int | None) -> str | None:
-    """Who a branch's email comes from: the branch's own setting, else the branch mailbox."""
-    if branch_id is None:
-        return None
-    config = branch_config(branch_id)
+    """Who an email comes from: the branch's own setting, else the LMS no-reply address (GOOGLE_EMAIL_SENDER), else the branch
+    mailbox, else (no branch) the delegated admin."""
+    config = branch_config(branch_id) if branch_id is not None else None
     if config is not None and config.gmail_sender:
         return config.gmail_sender
-    branch = db.session.get(Branch, branch_id)
+    if current_app.config.get("GOOGLE_EMAIL_SENDER"):
+        return current_app.config["GOOGLE_EMAIL_SENDER"]
+    branch = db.session.get(Branch, branch_id) if branch_id is not None else None
     return branch.mailbox if branch is not None else None
 
 
@@ -87,6 +89,11 @@ def add_drive_item(entity_type: str, entity_id: int, branch_id: int, parent: Goo
     db.session.add(item)
     db.session.flush()
     return item
+
+
+def set_item_group(item: GoogleDriveItem, group_email: str) -> None:
+    item.group_email = group_email
+    db.session.flush()
 
 
 def live_grants(item_id: int) -> list[GoogleDriveGrant]:

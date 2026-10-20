@@ -74,6 +74,7 @@ Vijayawada).
 | `123_google_workspace.sql` | Google Workspace slice 1: `branch_google_config`, the `google_jobs` retry queue, the Google Drive material register entry | ✅ |
 | `124_email_outbox.sql` | Google Workspace slice 2: `email_outbox`, the Gmail outbox | ✅ |
 | `125_google_drive.sql` | Google Workspace slice 3: `google_drive_items`, `google_drive_grants`, Drive folders and who they are shared with | ✅ |
+| `126_drive_batch_group.sql` | Google Workspace: `google_drive_items.group_email`, the Google Group per batch | ✅ |
 
 ---
 
@@ -615,3 +616,9 @@ Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.2. Depends on 001, 002, 0
 **Rules enforced:** at most one live share (`revoked_at` empty) per person per folder, by a partial unique index on (`item_id`, lower-cased email). A removed share keeps its row with `revoked_at` set. The branch folder's id is also kept in `branch_google_config.drive_root_folder_id`.
 
 Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/125_google_drive.sql`.
+
+## 126 — Google Workspace, a Google Group per batch
+
+Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.2. Depends on 125.
+
+`google_drive_items.group_email` (batch rows only) holds the batch's Google Group, `<batch code>@<domain>`. The batch's students are the group's members and the folder is shared once with the group, so `google_drive_grants` holds the group and the trainers, not each student. The address is kept on the row so a later change of Workspace domain cannot orphan the group. Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/126_drive_batch_group.sql`.

@@ -11,7 +11,7 @@ from config.timezone import today_ist
 from models import Batch, BatchAllocation, Enrolment
 from repositories import batches as batches_repo
 from services.errors import BusinessRule
-from services.google import batch_folders
+from services.google import batch_folders, class_events
 
 ALLOCATABLE_STATUSES = ("Allocation Pending", "Allocated — awaiting first regular class", "Active")
 NO_NEW_SEATS = ("Completed", "Cancelled", "Archived", "On Hold")
@@ -74,6 +74,7 @@ def allocate(enrolment: Enrolment, batch: Batch, *, created_by: int | None = Non
                                  created_by=created_by, reason=reason, effective_from=effective_from or today_ist())
     db.session.add(allocation)
     batch_folders.enqueue_sync(batch.batch_id)
+    class_events.enqueue_for_batch(batch.batch_id)
     if enrolment.status == "Allocation Pending":
         enrolment.status = "Allocated — awaiting first regular class"
     db.session.flush()
@@ -85,6 +86,7 @@ def _close(allocation: BatchAllocation, status: str, reason: str | None) -> None
     allocation.effective_to = max(today_ist(), allocation.effective_from)
     allocation.reason = reason or allocation.reason
     batch_folders.enqueue_sync(allocation.batch_id)
+    class_events.enqueue_for_batch(allocation.batch_id)
 
 
 def end(enrolment: Enrolment, status: str = "Ended", *, reason: str | None = None, enrolment_track_id: int | None = None) -> None:

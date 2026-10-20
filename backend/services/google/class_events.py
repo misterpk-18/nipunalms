@@ -9,13 +9,19 @@ The switch is the integrations register: with `GOOGLE_MEET` not Verified, or no 
 Meet links stay a manual entry, exactly as before.
 """
 import logging
+import re
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 from flask import current_app
+from sqlalchemy import select
 
 from config.database import db
 from models import ClassSession
+from repositories import class_sessions as sessions_repo
 from repositories import google as google_repo
+from repositories import users as users_repo
+from repositories import whatsapp as whatsapp_repo
 from services import audit, delivery_notices, integrations, meet
 from services.google import client
 from services.google.client import GoogleError
@@ -27,7 +33,9 @@ KIND_UPSERT = "CALENDAR_UPSERT"
 KIND_CANCEL = "CALENDAR_CANCEL"
 ENTITY = "class_session"
 EVENTS = "https://www.googleapis.com/calendar/v3/calendars/{mailbox}/events"
-EVENT_PARAMS = {"conferenceDataVersion": 1, "sendUpdates": "none"}
+EVENT_PARAMS = {"conferenceDataVersion": 1, "sendUpdates": "all"}  # invited people are emailed by Google, and told of a change
+MAX_ATTENDEES = 190  # Calendar allows 200 guests an event; the rest of the room is the trainer, the organizer and a margin
+_EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
 def is_enabled() -> bool:
@@ -44,6 +52,19 @@ def enqueue_upsert(session: ClassSession) -> None:
     """A class needs its event created or brought up to date (new, approved, moved, became online, or Meet retried)."""
     if is_enabled() and _wants_event(session):
         google_repo.enqueue(KIND_UPSERT, ENTITY, session.session_id)
+
+
+def enqueue_for_batch(batch_id: int) -> None:
+    """The students of a batch changed (a seat taken or ended): bring the attendee list of its upcoming online classes up to date."""
+    if not is_enabled():
+        return
+    now = datetime.now(timezone.utc)
+    upcoming = db.session.execute(select(ClassSession).where(
+        ClassSession.batch_id == batch_id, ClassSession.state.in_(("Scheduled", "Rescheduled")), ClassSession.mode != "Classroom",
+        ClassSession.starts_at > now, ClassSession.calendar_event_id.is_not(None))).scalars().unique()
+    for session in upcoming:
+        if _wants_event(session):
+            google_repo.enqueue(KIND_UPSERT, ENTITY, session.session_id)
 
 
 def enqueue_cancel(session: ClassSession) -> None:
@@ -77,9 +98,29 @@ def _body(session: ClassSession) -> dict:
     }
     if session.room and session.mode == "Hybrid":
         body["location"] = session.room
-    if session.trainer.email:
-        body["attendees"] = [{"email": session.trainer.email}]
+    attendees = _attendees(session)
+    if attendees:
+        body["attendees"] = [{"email": email} for email in attendees]
+        body["guestsCanSeeOtherGuests"] = False  # students do not see each other's addresses
     return body
+
+
+def _attendees(session: ClassSession) -> list[str]:
+    """The trainer, then every student holding a seat in any batch the class serves, one address each."""
+    seen, found = set(), []
+
+    def add(address: str | None) -> None:
+        address = (address or "").strip()
+        if address and _EMAIL.fullmatch(address) and address.lower() not in seen:
+            seen.add(address.lower())
+            found.append(address)
+
+    add(session.trainer.email)
+    for batch_id in sessions_repo.session_batch_ids(session.session_id):
+        for student in whatsapp_repo.batch_roster(batch_id):
+            user = users_repo.get_by_student_id(student.student_id)
+            add(student.email or (user.email if user else None))
+    return found[:MAX_ATTENDEES]
 
 
 def _conference(session: ClassSession) -> dict:

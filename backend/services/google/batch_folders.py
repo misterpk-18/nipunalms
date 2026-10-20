@@ -1,18 +1,25 @@
-"""A batch's Google Drive folder and who it is shared with (docs/GOOGLE_WORKSPACE.md §5.2).
+"""A batch's Google Drive folder, its Google Group, and who has access (docs/GOOGLE_WORKSPACE.md §5.2).
 
-Folders: `Nipuna LMS / <course> / <batch code>`, owned by the branch's mailbox and made on demand. Trainers assigned to the batch
-are editors; students holding a seat are viewers while the batch runs, and lose access when their seat ends or the batch is
-Completed, Cancelled or Archived. Trainers lose it when the batch is Cancelled or Archived, or their assignment ends.
+Folders: `Nipuna LMS / <course> / <batch code>`, owned by the branch's mailbox and made on demand. The students holding a seat are
+members of one Google Group per batch (`<batch code>@<workspace domain>`), and the folder is shared once with that group as viewers;
+trainers assigned to the batch are shared with individually as editors. A student loses access when their seat ends or the batch is
+Completed, Cancelled or Archived (they leave the group); trainers lose it when their assignment ends or the batch is Cancelled or
+Archived.
 
 Nothing here runs inside a user's request. Every change that could alter who has access (a seat taken or ended, a trainer
 assigned or ended, a batch state change) calls `enqueue_sync(batch_id)`, and the `google-sync` job compares who should have
-access with the shares it recorded and adds or removes the difference. One job per batch, so any number of changes is one pass,
-and a retry after a failure picks up where the last pass stopped.
+access with the group's members and the shares it recorded, and adds or removes the difference. One job per batch, so any number
+of changes is one pass, and a retry after a failure picks up where the last pass stopped.
 
-The switch is the `GOOGLE_DRIVE` entry of the integrations register plus a service-account key.
+The switch is the `GOOGLE_DRIVE` entry of the integrations register plus a service-account key. The group calls act as
+`GOOGLE_DELEGATED_ADMIN`, which must be a Workspace admin allowed to manage groups.
 """
 import logging
+import re
 from datetime import datetime, timezone
+from urllib.parse import quote
+
+from flask import current_app
 
 from config.database import db
 from config.timezone import today_ist
@@ -30,6 +37,7 @@ DRIVE_INTEGRATION = "GOOGLE_DRIVE"
 KIND_SYNC = "DRIVE_SYNC"
 ENTITY = "batch"
 FILES = "https://www.googleapis.com/drive/v3/files"
+GROUPS = "https://admin.googleapis.com/admin/directory/v1/groups"
 FOLDER = "application/vnd.google-apps.folder"
 ROOT_NAME = "Nipuna LMS"
 STUDENTS_LOSE_ACCESS = ("Completed", "Cancelled", "Archived")
@@ -48,22 +56,33 @@ def enqueue_sync(batch_id: int) -> None:
 
 # ---------------------------------------------------------------- who should have access
 
-def _wanted(batch: Batch) -> dict[str, tuple[str, int | None]]:
-    """{lower-case email: (role, user id)} for everyone who should hold a share of the batch's folder right now."""
-    wanted: dict[str, tuple[str, int | None]] = {}
+def _address(student_or_user_email: str | None) -> str:
+    return (student_or_user_email or "").strip()
+
+
+def _wanted_students(batch: Batch) -> dict[str, int | None]:
+    """{lower-case email: user id} for every student who should be in the batch's group right now."""
+    wanted: dict[str, int | None] = {}
+    if batch.state in STUDENTS_LOSE_ACCESS:
+        return wanted
+    for student in whatsapp_repo.batch_roster(batch.batch_id):
+        user = users_repo.get_by_student_id(student.student_id)
+        address = _address(student.email or (user.email if user else None))
+        if address:
+            wanted[address.lower()] = user.user_id if user else None
+    return wanted
+
+
+def _wanted_trainers(batch: Batch) -> dict[str, int]:
+    """{lower-case email: user id} for every trainer who should be able to edit the folder right now."""
+    wanted: dict[str, int] = {}
+    if batch.state in TRAINERS_LOSE_ACCESS:
+        return wanted
     today = today_ist()
-    if batch.state not in STUDENTS_LOSE_ACCESS:
-        for student in whatsapp_repo.batch_roster(batch.batch_id):
-            user = users_repo.get_by_student_id(student.student_id)
-            address = (student.email or (user.email if user else None) or "").strip()
-            if address:
-                wanted[address.lower()] = ("reader", user.user_id if user else None)
-    if batch.state not in TRAINERS_LOSE_ACCESS:
-        for assignment in batch.trainers:
-            if assignment.to_date is None or assignment.to_date >= today:
-                address = (assignment.trainer.email or "").strip()
-                if address:
-                    wanted[address.lower()] = ("writer", assignment.trainer_user_id)  # an editor wins over a viewer
+    for assignment in batch.trainers:
+        address = _address(assignment.trainer.email)
+        if address and (assignment.to_date is None or assignment.to_date >= today):
+            wanted[address.lower()] = assignment.trainer_user_id
     return wanted
 
 
@@ -106,9 +125,9 @@ def _batch_item(mailbox: str, batch: Batch) -> GoogleDriveItem:
     return _ensure_item(mailbox, "batch", batch.batch_id, batch.branch_id, batch.batch_code, course)
 
 
-def _share(mailbox: str, folder_id: str, email: str, role: str) -> str:
-    """Share the folder with one person. An address with no Google account can only be invited, which Google emails."""
-    path, body = f"/{folder_id}/permissions", {"type": "user", "role": role, "emailAddress": email}
+def _share(mailbox: str, folder_id: str, email: str, role: str, kind: str = "user") -> str:
+    """Share the folder with one person or group. An address with no Google account can only be invited, which Google emails."""
+    path, body = f"/{folder_id}/permissions", {"type": kind, "role": role, "emailAddress": email}
     try:
         return _call("POST", mailbox, path, body=body, params={"sendNotificationEmail": "false", "fields": "id"})["id"]
     except GoogleError as exc:
@@ -117,15 +136,79 @@ def _share(mailbox: str, folder_id: str, email: str, role: str) -> str:
     return _call("POST", mailbox, path, body=body, params={"sendNotificationEmail": "true", "fields": "id"})["id"]
 
 
+# ---------------------------------------------------------------- the batch's Google Group
+
+def _directory(method: str, path: str = "", *, body: dict | None = None, params: dict | None = None) -> dict:
+    admin = current_app.config.get("GOOGLE_DELEGATED_ADMIN")
+    return client.request(method, GROUPS + path, subject=admin, scopes=[client.ADMIN_GROUP_SCOPE], body=body, params=params)
+
+
+def _group_address(batch: Batch) -> str:
+    domain = current_app.config.get("GOOGLE_WORKSPACE_DOMAIN")
+    if not domain:
+        raise GoogleError("GOOGLE_WORKSPACE_DOMAIN is not set, so a batch group has no address")
+    return f"{re.sub(r'[^a-z0-9-]+', '-', batch.batch_code.lower()).strip('-')}@{domain}"
+
+
+def _ensure_group(batch: Batch, item: GoogleDriveItem) -> str:
+    if item.group_email:
+        return item.group_email
+    address = _group_address(batch)
+    try:
+        _directory("POST", body={"email": address, "name": f"Batch {batch.batch_code}",
+                                 "description": f"Students of batch {batch.batch_code}, {batch.course.title}"})
+    except GoogleError as exc:
+        if exc.status != 409:  # 409: the group is already there (a retry after a lost reply)
+            raise
+    google_repo.set_item_group(item, address)
+    return address
+
+
+def _group_members(address: str) -> dict[str, str]:
+    """{lower-case email: role} for everyone in the group."""
+    members, token = {}, None
+    while True:
+        page = _directory("GET", f"/{quote(address, safe='@')}/members", params={"maxResults": 200, **({"pageToken": token} if token else {})})
+        members.update({m["email"].lower(): m.get("role", "MEMBER") for m in page.get("members", [])})
+        token = page.get("nextPageToken")
+        if not token:
+            return members
+
+
+def _sync_group(address: str, wanted: dict[str, int | None]) -> tuple[int, int, list[GoogleError]]:
+    """Make the group's plain members exactly the wanted students (owners and managers are never touched)."""
+    base, failures, added, removed = f"/{quote(address, safe='@')}/members", [], 0, 0
+    current = _group_members(address)
+    for email in wanted:
+        if email in current:
+            continue
+        try:
+            _directory("POST", base, body={"email": email, "role": "MEMBER"})
+            added += 1
+        except GoogleError as exc:
+            if exc.status == 409:  # already a member
+                continue
+            failures.append(exc)
+    for email, role in current.items():
+        if role == "MEMBER" and email not in wanted:
+            try:
+                _directory("DELETE", f"{base}/{quote(email, safe='@')}")
+                removed += 1
+            except GoogleError as exc:
+                if exc.status not in (404, 410):
+                    failures.append(exc)
+    return added, removed, failures
+
+
 # ---------------------------------------------------------------- called from the google-sync job
 
 def handle_sync(batch_id: int) -> str:
     batch = db.session.get(Batch, batch_id)
     if batch is None:
         return "batch no longer exists"
-    wanted = _wanted(batch)
+    students, trainers = _wanted_students(batch), _wanted_trainers(batch)
     item = google_repo.drive_item("batch", batch.batch_id, batch.branch_id)
-    if item is None and not wanted:
+    if item is None and not students and not trainers:
         return "nobody to share with yet"
     mailbox = google_repo.branch_mailbox(batch.branch_id)
     if not mailbox:
@@ -133,8 +216,19 @@ def handle_sync(batch_id: int) -> str:
     if item is None:
         item = _batch_item(mailbox, batch)
 
+    failures: list[GoogleError] = []
+    joined = left = 0
+    if students or item.group_email:  # a batch that has never had a student needs no group
+        address = _ensure_group(batch, item)
+        joined, left, group_failures = _sync_group(address, students)
+        failures += group_failures
+
+    wanted: dict[str, tuple[str, int | None, str]] = {email: ("writer", user_id, "user") for email, user_id in trainers.items()}
+    if item.group_email:
+        wanted[item.group_email.lower()] = ("reader", None, "group")
+
     live = {grant.grantee_email.lower(): grant for grant in google_repo.live_grants(item.item_id)}
-    now, failures, added, removed = datetime.now(timezone.utc), [], 0, 0
+    now, added, removed = datetime.now(timezone.utc), 0, 0
     for email, grant in live.items():
         if email not in wanted or wanted[email][0] != grant.role:
             try:
@@ -147,21 +241,20 @@ def handle_sync(batch_id: int) -> str:
             removed += 1
             live[email] = None
     db.session.flush()
-    for email, (role, user_id) in wanted.items():
+    for email, (role, user_id, kind) in wanted.items():
         if live.get(email) is not None:
             continue
         try:
-            permission_id = _share(mailbox, item.folder_id, email, role)
+            permission_id = _share(mailbox, item.folder_id, email, role, kind)
         except GoogleError as exc:
             failures.append(exc)
             continue
-        db.session.add(GoogleDriveGrant(item_id=item.item_id, grantee_email=email, grantee_user_id=user_id, role=role,
-                                        permission_id=permission_id))
+        db.session.add(GoogleDriveGrant(item_id=item.item_id, grantee_email=email, grantee_user_id=user_id, role=role, permission_id=permission_id))
         added += 1
     db.session.flush()
     if failures:
         raise GoogleError(f"{len(failures)} share change(s) failed; first: {failures[0]}", retryable=any(f.retryable for f in failures))
-    return f"{added} shared, {removed} removed, {len(wanted)} with access"
+    return f"{joined} joined and {left} left the group, {added} shared, {removed} unshared, {len(students)} students and {len(trainers)} trainers with access"
 
 
 def on_dead(job_kind: str, batch_id: int, error: str) -> None:
@@ -171,5 +264,5 @@ def on_dead(job_kind: str, batch_id: int, error: str) -> None:
         return
     delivery_notices.notify_branch_managers(
         batch.branch_id, title=f"Drive sharing failed: batch {batch.batch_code}", category="Batch", action_required=True,
-        body=f"The batch folder could not be shared or unshared. {error}",
+        body=f"The batch folder or its group could not be updated. {error}",
         event_key=f"drive-failed-{batch.batch_id}-{datetime.now(timezone.utc):%Y%m%d%H%M}", link="/branch/batches")

@@ -95,8 +95,8 @@ function BranchSettings({ branches }: { branches: GoogleBranch[] }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Leave a field empty to use the branch mailbox ({branch.branch_mailbox}). Class events and Drive folders are made in the calendar mailbox; emails are
-        sent from the sender.
+        Leave a field empty to use the default: the branch mailbox ({branch.branch_mailbox}) for class events and Drive folders, and the LMS no-reply address
+        for email.
       </p>
       {branches.length > 1 && (
         <div className="max-w-xs">

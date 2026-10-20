@@ -9,6 +9,7 @@ from services.google.client import GoogleError
 
 CALENDAR_LIST = "https://www.googleapis.com/calendar/v3/calendars/{mailbox}/events"
 DRIVE_LIST = "https://www.googleapis.com/drive/v3/files"
+GROUP_LIST = "https://admin.googleapis.com/admin/directory/v1/groups"
 SCOPES = (("Calendar events", client.CALENDAR_SCOPE), ("Drive files", client.DRIVE_SCOPE), ("Gmail send", client.GMAIL_SEND_SCOPE))
 
 
@@ -58,6 +59,18 @@ def run(mailbox: str | None = None) -> list[Check]:
         checks.append(_step("Read Drive", lambda: _count(client.request(
             "GET", DRIVE_LIST, subject=mailbox, scopes=[client.DRIVE_SCOPE], params={"pageSize": 1, "fields": "files(id)"}), "files", "file"),
             "Enable the Google Drive API in the Cloud project"))
+
+    # Batch groups: the Directory API acts as the delegated admin, who must be allowed to manage groups
+    admin, domain = config.get("GOOGLE_DELEGATED_ADMIN"), config.get("GOOGLE_WORKSPACE_DOMAIN")
+    groups = _step("Delegation: Groups (as the delegated admin)", lambda: client.mint_token(admin, [client.ADMIN_GROUP_SCOPE]) or f"authorised for {admin}",
+                   "Add the scope https://www.googleapis.com/auth/admin.directory.group to the client ID's delegation, and use a Workspace admin as GOOGLE_DELEGATED_ADMIN")
+    checks.append(groups)
+    if groups.ok and domain:
+        checks.append(_step("List the domain's groups", lambda: _count(client.request(
+            "GET", GROUP_LIST, subject=admin, scopes=[client.ADMIN_GROUP_SCOPE], params={"domain": domain, "maxResults": 1}), "groups", "group"),
+            "Enable the Admin SDK API in the Cloud project, and give the delegated admin a role that can manage groups"))
+    elif groups.ok:
+        checks.append(Check("Workspace domain", False, "GOOGLE_WORKSPACE_DOMAIN is not set", "Set it in backend/.env: batch groups are made at <batch code>@<domain>"))
     return checks
 
 

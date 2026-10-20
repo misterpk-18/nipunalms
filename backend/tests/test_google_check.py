@@ -14,7 +14,7 @@ def connected(app, monkeypatch, tmp_path):
     """A key file, a mailbox to act as, and a Google that answers."""
     key_file = tmp_path / "key.json"
     key_file.write_text("{}")
-    app.config.update(GOOGLE_SA_KEY_FILE=str(key_file), GOOGLE_DELEGATED_ADMIN="admin@example.test")
+    app.config.update(GOOGLE_SA_KEY_FILE=str(key_file), GOOGLE_DELEGATED_ADMIN="admin@example.test", GOOGLE_WORKSPACE_DOMAIN="example.test")
     minted, calls = [], []
     monkeypatch.setattr(google_client, "key_summary", lambda: KEY)
     monkeypatch.setattr(google_client, "mint_token", lambda subject, scopes: minted.append((subject, scopes)))
@@ -31,15 +31,16 @@ def test_a_working_connection_passes_every_check(connected):
     results = google_check.run()
     assert all(r.ok for r in results), [(r.name, r.detail) for r in results if not r.ok]
     assert [r.name for r in results] == ["Mailbox to act as", "Service-account key", "Key is a service account", "Delegation: Calendar events",
-                                         "Delegation: Drive files", "Delegation: Gmail send", "Read the mailbox's calendar", "Read Drive"]
+                                         "Delegation: Drive files", "Delegation: Gmail send", "Read the mailbox's calendar", "Read Drive",
+                                         "Delegation: Groups (as the delegated admin)", "List the domain's groups"]
     assert "client ID 1234567890" in results[2].detail  # what the Workspace admin authorises
-    assert {m for m, _ in connected.minted} == {"admin@example.test"} and len(connected.minted) == 3
+    assert {m for m, _ in connected.minted} == {"admin@example.test"} and len(connected.minted) == 4
     assert all(c[0] == "GET" for c in connected.calls)  # only reads
 
 
 def test_a_branch_mailbox_can_be_checked_instead(connected):
     google_check.run("guntur@example.test")
-    assert {m for m, _ in connected.minted} == {"guntur@example.test"}
+    assert {m for m, _ in connected.minted} == {"guntur@example.test", "admin@example.test"}  # groups are always checked as the admin
     assert "guntur@example.test" in connected.calls[0][1]
 
 
@@ -53,6 +54,20 @@ def test_a_scope_that_was_not_authorised_is_named_with_the_fix(connected, monkey
     failed = [r for r in results if not r.ok]
     assert [r.name for r in failed] == ["Delegation: Gmail send"] and "Domain-wide delegation" in failed[0].hint
     assert any(r.name == "Read Drive" and r.ok for r in results)  # the other features are still checked
+
+
+def test_the_groups_check_names_its_own_fix_and_needs_the_domain(connected, app, monkeypatch):
+    app.config["GOOGLE_WORKSPACE_DOMAIN"] = None
+    results = google_check.run()
+    assert results[-1].name == "Workspace domain" and not results[-1].ok and "GOOGLE_WORKSPACE_DOMAIN" in results[-1].detail
+
+    def mint(subject, scopes):
+        if scopes == [google_client.ADMIN_GROUP_SCOPE]:
+            raise GoogleError("Google refused the service account for admin@example.test: unauthorized_client")
+
+    monkeypatch.setattr(google_client, "mint_token", mint)
+    failed = [r for r in google_check.run() if not r.ok]
+    assert [r.name for r in failed] == ["Delegation: Groups (as the delegated admin)"] and "admin.directory.group" in failed[0].hint
 
 
 def test_nothing_is_tried_without_a_mailbox_or_a_key(app):
