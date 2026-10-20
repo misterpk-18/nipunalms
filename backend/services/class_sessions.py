@@ -26,7 +26,7 @@ from repositories import users as users_repo
 from repositories.common import paginate
 from services import approvals, audit, delivery_access, delivery_notices, meet, scope
 from services import batches as batches_service
-from services import whatsapp_messages
+from services import email_messages, whatsapp_messages
 from services.google import class_events
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
@@ -530,6 +530,7 @@ def _apply_reschedule(session: ClassSession, starts_at: datetime, ends_at: datet
                  old={"starts_at": change.old_starts_at, "ends_at": change.old_ends_at}, new={"starts_at": starts_at, "ends_at": ends_at})
     _notify_change(session, change, f"Class rescheduled: {session.title}", f"Was {old_slot}; now {_slot(starts_at, ends_at)}. {reason}")
     whatsapp_messages.class_rescheduled(session, change)
+    email_messages.class_rescheduled(session, change)
     return change
 
 
@@ -559,6 +560,7 @@ def cancel(session_id: int, reason: str, emergency: dict | None = None) -> Class
                  old={"state": "Scheduled", "starts_at": change.old_starts_at})
     _notify_change(session, change, f"Class cancelled: {session.title}", f"{slot}. {reason}")
     whatsapp_messages.class_cancelled(session, change)
+    email_messages.class_cancelled(session, change)
     return session
 
 

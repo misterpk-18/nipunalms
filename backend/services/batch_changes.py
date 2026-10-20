@@ -25,7 +25,7 @@ from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import allocations, approvals, audit, delivery_access, delivery_notices, scope, whatsapp_messages
+from services import allocations, approvals, audit, delivery_access, delivery_notices, email_messages, scope, whatsapp_messages
 from services.batches import CAPACITY_SIDES, CLOSED_STATES, check_capacity_sides, load_managed_batch, sync_full
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
@@ -229,6 +229,7 @@ def decide_change(change_id: int, decision: str, note: str | None) -> MaterialCh
                                             event_key=f"material-change-{change.change_id}-ask", link="/my-courses",
                                             branch_id=enrolment.service_branch_id)
             whatsapp_messages.batch_change_agreement(change, db.session.get(Student, enrolment.student_id))
+            email_messages.batch_change_agreement(change, db.session.get(Student, enrolment.student_id))
     return change
 
 

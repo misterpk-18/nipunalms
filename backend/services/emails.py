@@ -26,6 +26,7 @@ from services import integrations
 from services.email_templates import TEMPLATES, Template
 from services.google import client, gmail
 from services.google.client import GoogleError
+from services import whatsapp as _whatsapp  # noqa: F401  (loaded first: whatsapp and notification_centre import each other)
 from services.notification_centre import DEFAULT_EXTERNAL_ON
 
 logger = logging.getLogger(__name__)
@@ -53,12 +54,12 @@ def status() -> dict:
     return {"state": "On" if is_enabled() else "Switched off", "counts": email_repo.counts()}
 
 
-def activation_link(path: str, **query: str) -> str | None:
+def lms_link(path: str, **query: str) -> str | None:
     """A link into the LMS (`/activate?token=…`), or None when the LMS address is not set."""
     base = current_app.config.get("PUBLIC_BASE_URL")
     if not base:
         return None
-    return f"{base.rstrip('/')}{path}?{urlencode(query)}"
+    return f"{base.rstrip('/')}{path}" + (f"?{urlencode(query)}" if query else "")
 
 
 # ---------------------------------------------------------------- queueing

@@ -15,7 +15,7 @@ from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
-from services import audit, scope, whatsapp_messages
+from services import audit, email_messages, scope, whatsapp_messages
 from services.context import ACADEMIC_ROLES, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound
 from services.notifications import notify
@@ -295,6 +295,7 @@ def issue(certificate_id: int) -> Certificate:
     _tell_student(certificate, f"Your certificate was issued: {certificate.certificate_number}",
                   f"{certificate.certificate_type} for {certificate.course.title}.", "issued")
     whatsapp_messages.certificate_issued(certificate)
+    email_messages.certificate_issued(certificate)
     return certificate
 
 
@@ -319,6 +320,7 @@ def apply_correction(previous: Certificate, reason: str, holder_name: str | None
                  reason=reason, branch_id=certificate.branch_id)
     _tell_student(certificate, f"Your certificate was reissued: {certificate.certificate_number} (v{certificate.version})", reason, "reissued")
     whatsapp_messages.certificate_issued(certificate)
+    email_messages.certificate_issued(certificate)
     return certificate
 
 

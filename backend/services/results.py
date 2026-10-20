@@ -16,7 +16,7 @@ from repositories import tests as tests_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import assessment_scope as access
-from services import audit, notifications, scope, whatsapp_messages
+from services import audit, email_messages, notifications, scope, whatsapp_messages
 from services.assessment_rules import configuration_gaps, is_formal
 from services.assignments import task_state
 from services.context import current_user
@@ -115,6 +115,7 @@ def publish(filters: dict) -> list[Result]:
                                  link=link, event_key=f"result-published:{result.result_id}", recipient_user_ids=[student_user],
                                  branch_id=result.batch.branch_id)
         whatsapp_messages.result_published(result, item["title"])
+        email_messages.result_published(result, item["title"])
     return pending
 
 
