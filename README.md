@@ -10,7 +10,6 @@ Admission and finance; the LMS receives admissions from it and shows read-only f
 | `frontend/` | React SPA (Vite + TanStack Router/Query), Playwright e2e tests |
 | `db/` | Numbered SQL migrations — the source of truth for the schema |
 | `deploy/` | Server templates: systemd unit, nginx site, crontab, backup script ([DEVELOPMENT.md Part F](docs/DEVELOPMENT.md#part-f--deployment)) |
-| `prototype/` | Readable copy of the Lovable LMS prototype — reference only for layout and wording |
 | `docs/` | All project documentation — start with [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 
 ## Documentation

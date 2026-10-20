@@ -28,7 +28,6 @@ nipunalms/
 ├── frontend/         React SPA (Vite + TanStack Router/Query), Playwright e2e tests
 ├── db/               Numbered SQL migrations — the source of truth for the schema
 ├── deploy/           Server templates: systemd unit, nginx site, crontab, backup script (Part F)
-├── prototype/        Readable copy of the Lovable LMS prototype — reference only for layout and wording
 ├── docs/             The project docs (this folder) and the content data request (PDF)
 ├── nipuna crm-docs/  Only while a CRM integration round is open: the round's brief, replies and test results (see
 │                     CRM_INTEGRATION.md §5; deleted once the round is recorded there)
@@ -248,7 +247,7 @@ port. `admin-u17` locks `trainer.g3@nipuna.test` by failing six sign-ins and unl
 ## Part B — Frontend
 
 React SPA in `frontend/`, built to mirror **nipuna-crm/frontend**. The product is the approved interactive prototype
-(https://nipuna-lms-prototype.lovable.app/, readable copy in `prototype/reference/`); the API is in [API.md](API.md).
+(https://nipuna-lms-prototype.lovable.app/); the API is in [API.md](API.md).
 
 ### 1. Decisions
 

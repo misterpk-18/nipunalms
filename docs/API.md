@@ -1,8 +1,7 @@
 # Nipuna LMS — API
 
 Flask backend over the `nipunalms` PostgreSQL database (schema in `db/`, see [DATABASE.md](DATABASE.md)). The product
-is defined by the interactive prototype at https://nipuna-lms-prototype.lovable.app/ (readable copy in
-`prototype/reference/`) and the approved LMS modules 14–27. This document covers the code structure, the conventions
+is defined by the interactive prototype at https://nipuna-lms-prototype.lovable.app/ and the approved LMS modules 14–27. This document covers the code structure, the conventions
 every endpoint follows, the domain model and every endpoint with the rules it enforces.
 
 The repository mirrors **nipuna-crm** (`~/nipuna-crm`) layer for layer. When in doubt about a convention, copy what the
