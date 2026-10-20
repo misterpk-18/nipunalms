@@ -4,7 +4,7 @@ Reading a batch's assessments follows services/scope.py (branch roles, assigned 
 is narrower: the trainers assigned to the batch, the branch's Branch Manager and Super Admin. The Branch Manager and the
 Founder read; moderation and publication belong to the Branch Manager and Super Admin.
 """
-from sqlalchemy import select
+from sqlalchemy import select, true
 
 from config.database import db
 from models import Batch, BatchTrainer, Enrolment
@@ -60,10 +60,11 @@ def assert_can_moderate(batch: Batch) -> None:
 
 
 def visible_batch_clause(batch_id_column):
-    """SQL condition for staff lists: batches in the user's branches or that they teach (None = no restriction)."""
+    """SQL condition for staff lists: batches in the user's branches or that they teach (true() = no restriction: Super Admin, Founder).
+    Never None: the list queries put the result straight into .where(), and where(None) matches no rows."""
     branch_ids = scope.visible_branch_ids()
     if branch_ids is None:
-        return None
+        return true()
     clause = batch_id_column.in_(select(Batch.batch_id).where(Batch.branch_id.in_(branch_ids or {0})))
     taught = scope.trainer_batch_ids()
     return clause | batch_id_column.in_(taught) if taught else clause

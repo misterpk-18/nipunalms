@@ -57,17 +57,29 @@ def test_kind_defaults_and_what_is_missing(client, world):
 def test_only_the_batch_staff_change_tests(client, world):
     body = {"batch_id": world.batches["G1"].batch_id, "kind": "Practice quiz", "title": "Quiz"}
     assert client.post(f"{API}/tests", json=body, headers=world.h["s1"]).status_code == 403
-    assert client.post(f"{API}/tests", json=body, headers=world.h["founder"]).status_code == 403
+    assert client.post(f"{API}/tests", json=body, headers=world.h["founder"]).status_code == 201  # the Founder runs any batch
     assert client.post(f"{API}/tests", json=body, headers=world.h["g2"]).status_code == 404
     assert client.post(f"{API}/tests", json=body, headers=world.h["ac_vij"]).status_code == 404
     test = client.post(f"{API}/tests", json=body, headers=world.h["g1"]).get_json()["data"]
     url = f"{API}/tests/{test['test_id']}"
     assert client.patch(url, json={"title": "x"}, headers=world.h["g2"]).status_code == 404
-    assert client.patch(url, json={"title": "x"}, headers=world.h["founder"]).status_code == 403
+    assert client.patch(url, json={"title": "x"}, headers=world.h["founder"]).status_code == 200  # the Founder runs any batch
     assert client.get(url, headers=world.h["g2"]).status_code == 404
     assert client.get(url, headers=world.h["s3"]).status_code == 404  # a student of another batch
     assert client.get(url, headers=world.h["s1"]).status_code == 200
     assert client.get(url, headers=world.h["founder"]).status_code == 200
+
+
+def test_the_super_admin_and_founder_lists_show_every_batch(client, world):
+    """Unrestricted roles got an empty list (where(None) matches no rows); the list must hold the test and honour the batch filter."""
+    body = {"batch_id": world.batches["G1"].batch_id, "kind": "Practice quiz", "title": "Quiz"}
+    test = client.post(f"{API}/tests", json=body, headers=world.h["g1"]).get_json()["data"]
+    for who in ("admin", "founder"):
+        rows = client.get(f"{API}/tests", headers=world.h[who]).get_json()["data"]
+        assert [t["test_id"] for t in rows] == [test["test_id"]], who
+        other = client.get(f"{API}/tests?batch_id={world.batches['G2'].batch_id}", headers=world.h[who]).get_json()["data"]
+        assert other == [], who
+    assert client.get(f"{API}/tests", headers=world.h["g2"]).get_json()["data"] == []  # a trainer of another batch still sees none of it
 
 
 def test_settings_are_validated(client, world):
