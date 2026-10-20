@@ -728,7 +728,7 @@ own) is not decided, and nothing is deployed without the owner's go-ahead.** On 
 |---|---|---|
 | `/srv/nipunalms/backend` | Flask app (no tests, no local `.env`) | — |
 | `/srv/nipunalms/backend/.env` | Server-only, mode 600, generated on the server: `APP_ENV=production`, `DATABASE_URL`, `SECRET_KEY`, `CRM_SERVICE_KEY`, `STORAGE_BACKEND=s3` (the default is `local`), `AWS_REGION` and the AWS keys unless the instance has a role, optionally `ANTHROPIC_API_KEY`. Production refuses to start with the default `SECRET_KEY` or without `CRM_SERVICE_KEY` | — |
-| `/srv/nipunalms/backend/uploads` | Staging folder with `STORAGE_BACKEND=s3` (files live in `nipunalms-uploads-prod`); the real file store only with `local`. `backup.sh` tars this folder, so with S3 it backs up almost nothing: protect the bucket instead (versioning is off) | — |
+| `/srv/nipunalms/backend/uploads` | Staging folder with `STORAGE_BACKEND=s3` (files live in `nipunalms-uploads-prod`); the real file store only with `local`. `backup.sh` tars this folder only with `STORAGE_BACKEND=local`; with S3 it skips the tarball and the bucket is not backed up (versioning is off), so protect the bucket separately | — |
 | `/srv/nipunalms/db`, `/srv/nipunalms/deploy` | SQL migrations; these templates and `backup.sh` | — |
 | `/srv/nipunalms/frontend` | Built frontend (`frontend/dist` contents) | — |
 | `/srv/nipunalms/venv` | Python venv: `requirements.txt` + `gunicorn` | — |
