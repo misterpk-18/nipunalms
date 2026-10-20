@@ -27,6 +27,7 @@ from repositories.common import paginate
 from services import approvals, audit, delivery_access, delivery_notices, meet, scope
 from services import batches as batches_service
 from services import whatsapp_messages
+from services.google import class_events
 from services.context import actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
@@ -332,6 +333,7 @@ def create_series(batch: Batch, trainer_id: int, items: list[tuple[datetime, dat
         if session.meet_status != "Not Required":
             db.session.refresh(session)
             meet.record(session, "Requested", "Awaiting the organizer link (" + meet.integration_note() + ")")
+            class_events.enqueue_upsert(session)
         created.append(session)
 
     first = created[0]
@@ -375,6 +377,7 @@ def decide_purpose(session_id: int, decision: str, note: str | None) -> ClassSes
         return session
     session.approval_status = "Approved"
     db.session.flush()
+    class_events.enqueue_upsert(session)
     audit.record("SESSION_PURPOSE_APPROVED", "class_session", session.session_id, branch_id=session.batch.branch_id, reason=note,
                  new={"purpose": session.purpose, "replaces_session_id": session.replaces_session_id})
     title, body = f"New {session.purpose.lower()} class: {session.title}", _slot(session.starts_at, session.ends_at)
@@ -467,10 +470,12 @@ def _change_mode(session: ClassSession, mode: str) -> None:
     session.mode = mode
     if mode == "Classroom":
         session.meet_link, session.meet_status = None, "Not Required"
+        class_events.enqueue_cancel(session)
     elif session.meet_status == "Not Required":
         session.meet_status = "Pending Verification"
         db.session.flush()
         meet.record(session, "Requested", "Class became " + mode)
+        class_events.enqueue_upsert(session)
 
 
 def _change(session: ClassSession, change_type: str, reason: str, *, new_start: datetime | None = None, new_end: datetime | None = None,
@@ -520,6 +525,7 @@ def _apply_reschedule(session: ClassSession, starts_at: datetime, ends_at: datet
     session.confirmed_at = session.confirmed_by = None  # a moved class is confirmed again
     db.session.add(change)
     db.session.flush()
+    class_events.enqueue_upsert(session)
     audit.record("SESSION_RESCHEDULED", "class_session", session.session_id, branch_id=session.batch.branch_id, reason=reason,
                  old={"starts_at": change.old_starts_at, "ends_at": change.old_ends_at}, new={"starts_at": starts_at, "ends_at": ends_at})
     _notify_change(session, change, f"Class rescheduled: {session.title}", f"Was {old_slot}; now {_slot(starts_at, ends_at)}. {reason}")
@@ -548,6 +554,7 @@ def cancel(session_id: int, reason: str, emergency: dict | None = None) -> Class
     if pending is not None:
         pending.status, pending.decided_by, pending.decided_at, pending.decision_note = "Rejected", actor_id(), _now(), "The session was cancelled"
     db.session.flush()
+    class_events.enqueue_cancel(session)
     audit.record("SESSION_CANCELLED", "class_session", session.session_id, branch_id=session.batch.branch_id, reason=reason,
                  old={"state": "Scheduled", "starts_at": change.old_starts_at})
     _notify_change(session, change, f"Class cancelled: {session.title}", f"{slot}. {reason}")
@@ -756,5 +763,6 @@ def reset_meet(session_id: int) -> ClassSession:
     session.meet_link, session.meet_status = None, "Pending Verification"
     db.session.flush()
     meet.record(session, event)
+    class_events.enqueue_upsert(session)
     return session
 

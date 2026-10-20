@@ -8,9 +8,10 @@ from services import attempts as attempts_service
 from services import attendance as attendance_service
 from services import batch_allocations as batch_allocations_service
 from services import recordings as recordings_service
-from services import session_ops
+from services import email_messages, emails, session_ops
 from services import support as support_service
 from services import whatsapp, whatsapp_messages
+from services.google import jobs as google_jobs
 
 
 def recording_check() -> dict:
@@ -50,8 +51,8 @@ def class_log_check() -> dict:
 
 
 def class_reminders() -> dict:
-    """Queue a WhatsApp reminder for each student of a confirmed class that starts within about two hours. Run every 15 minutes."""
-    return whatsapp_messages.class_reminders()
+    """Queue a WhatsApp reminder and an email for each student of a confirmed class that starts within about two hours. Run every 15 minutes."""
+    return {**whatsapp_messages.class_reminders(), **email_messages.class_reminders()}
 
 
 def whatsapp_send() -> dict:
@@ -60,12 +61,25 @@ def whatsapp_send() -> dict:
     return whatsapp.send_pending()
 
 
+def email_send() -> dict:
+    """Send queued emails through Gmail. Does nothing until Google is configured and the EMAIL integration is verified. Run every few minutes."""
+    return emails.send_pending()
+
+
+def google_sync() -> dict:
+    """Make the queued Google calls (class Calendar events and Meet links) and retry the failed ones. Does nothing until Google is
+    configured and its integration is verified. Run every few minutes."""
+    return google_jobs.run_due()
+
+
 JOBS: dict[str, Callable[[], object]] = {
     "allocation-escalation": allocation_escalation,
     "attempts-expire": attempts_expire,
     "attendance-unconfirmed": attendance_unconfirmed,
     "class-log-check": class_log_check,
     "class-reminders": class_reminders,
+    "email-send": email_send,
+    "google-sync": google_sync,
     "recording-check": recording_check,
     "session-delay-check": session_delay_check,
     "support-escalate-overdue": support_escalate_overdue,

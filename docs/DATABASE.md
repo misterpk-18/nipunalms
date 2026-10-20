@@ -71,6 +71,8 @@ Vijayawada).
 | `120_session_role_branch.sql` | Role separation R3: `user_sessions.role_code` and `branch_id` (the session's role and a Branch Manager's picked branch); `active_sessions` view recreated | ✅ |
 | `121_course_outlines.sql` | Role separation R6: modules and topics hang off the course (no curriculum versions, drafts or approvals); hours, completion profile, required assessments and combo track pins move onto the course; equivalence rules, academic mappings and branch variations dropped | ✅ |
 | `122_student_activated_at.sql` | CRM round 8: `students.activated_at`, the first activation, so the pull tells the CRM when to confirm an account | ✅ |
+| `123_google_workspace.sql` | Google Workspace slice 1: `branch_google_config`, the `google_jobs` retry queue, the Google Drive material register entry | ✅ |
+| `124_email_outbox.sql` | Google Workspace slice 2: `email_outbox`, the Gmail outbox | ✅ |
 
 ---
 
@@ -574,3 +576,28 @@ Tests: `backend/tests/test_course_outline.py`.
 
 The pull returns it as `persons[].lms_activated_at` ([CRM_INTEGRATION.md §2.2](CRM_INTEGRATION.md)). Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/122_student_activated_at.sql`; no student had activated, so the backfill updated 0 rows.
 Tests: `backend/tests/test_lms_sync.py` (`test_status_endpoint_reports_the_activation_separately_from_the_provisioning`).
+
+## 123 — Google Workspace, first slice
+
+Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md). Depends on 001 (branches, integrations, `set_updated_at`).
+
+| Table | Purpose |
+|---|---|
+| `branch_google_config` | One row per branch, optional: `calendar_mailbox` (whose calendar holds the class events), `drive_root_folder_id`, `gmail_sender`. An empty mailbox means `branches.mailbox` |
+| `google_jobs` | The retry queue every Google call goes through: `kind` (CALENDAR_UPSERT, CALENDAR_CANCEL), `entity_type` / `entity_id`, `state` (type `google_job_state`: Queued, Running, Failed, Succeeded, Dead), `attempts`, `next_attempt_at`, `started_at`, `last_error` |
+
+**Rules enforced:** at most one open (Queued, Running or Failed) job per (`kind`, `entity_type`, `entity_id`), by a partial unique index, so repeated changes to one class collapse into one call. The job reads the class as it is when it runs, so the row holds no copy of it.
+
+A new register row, `GOOGLE_DRIVE` (Google Drive material), sits beside the existing `GOOGLE_DRIVE_RECORDINGS`. Class events use the existing `class_sessions.calendar_event_id`; no column was added there. Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/123_google_workspace.sql`.
+
+## 124 — Google Workspace, email outbox
+
+Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.3. Depends on 001 (users, branches) and 123.
+
+| Table | Purpose |
+|---|---|
+| `email_outbox` | One row per email, like `whatsapp_outbox`: `template`, `recipient_user_id`, `branch_id` (whose mailbox it is sent from), `to_email`, `subject`, `body`, `dedupe_key` (unique), `expires_at`, `status` (type `email_status`: Queued, Sent, Failed, Skipped), `status_note` (why a message is Skipped or Failed), `attempts`, `next_attempt_at`, `attempt_started_at`, `sent_at`, `provider_message_id` |
+
+**Rules enforced:** one message per `dedupe_key`. `has_secret` marks a row that carries a sign-in link; the application blanks its `body` once the message is Sent, Failed or Skipped, so a finished row keeps no link. The `email-send` job sends Queued rows through Gmail; a message past `expires_at` is Skipped, not sent.
+
+Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/124_email_outbox.sql`.

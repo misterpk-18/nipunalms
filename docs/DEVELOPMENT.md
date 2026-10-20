@@ -202,7 +202,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-admin` | First Super Admin on a fresh database |
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
-| `jobs list`, `jobs run [name] [--loop]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally, `jobs run --loop` (every 60 s, `--interval` to change) stands in for cron |
+| `jobs list`, `jobs run [name] [--loop]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `email-send`, `google-sync`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally, `jobs run --loop` (every 60 s, `--interval` to change) stands in for cron |
 | `seed-crm-batches` | Batches (and `bm.*` / `trainer.*` logins) for the students the CRM sent; `*-dev` only, allocates nobody ([details](#batches-for-the-crms-own-students)) |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 | `cartograph files <module>:<function> [--depth 2]`, `cartograph build` | Which files to read before changing a backend function; the searchable map page (see below) |
@@ -606,7 +606,7 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Sign-in | One login form, self-service reset code (WhatsApp; no email fallback yet), activation and staff invite links that sign the person in (UX phase U7, API.md §4.14). Templates 1–3 are queued like 4–9 and reach the phone once Pinbot approves them |
 | WhatsApp | Built (UX phase U6) and connected (rounds 6, 8): messages are queued in `whatsapp_outbox`, handed to the CRM's `POST /lms/whatsapp`, and their outcome comes back as `WhatsappStatusUpdated`. Ships switched off; on in dev (Part C). Waiting on Pinbot approval of the nine templates (API.md §4.13) |
 | Email / telephony | None; in-app notifications only |
-| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server; locally `flask jobs run --loop` does. New jobs go in `services/jobs.JOBS` |
+| Jobs scheduler | `flask jobs run` holds `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `email-send`, `google-sync` and `whatsapp-send`; `deploy/crontab` runs them every 5 minutes on a server; locally `flask jobs run --loop` does. New jobs go in `services/jobs.JOBS` |
 
 ### Admin & security
 

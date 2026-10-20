@@ -56,3 +56,9 @@ MeetStatus = _pg_enum("meet_status", MEET_STATUSES)
 
 RESCHEDULE_REQUEST_STATUSES = ("Open", "Approved", "Rejected")
 RescheduleRequestStatus = _pg_enum("reschedule_request_status", RESCHEDULE_REQUEST_STATUSES)
+
+GOOGLE_JOB_STATES = ("Queued", "Running", "Failed", "Succeeded", "Dead")
+GoogleJobState = _pg_enum("google_job_state", GOOGLE_JOB_STATES)
+
+EMAIL_STATUSES = ("Queued", "Sent", "Failed", "Skipped")
+EmailStatus = _pg_enum("email_status", EMAIL_STATUSES)

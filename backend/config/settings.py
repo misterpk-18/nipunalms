@@ -48,6 +48,15 @@ class BaseConfig:
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024
 
+    # Google Workspace (docs/GOOGLE_WORKSPACE.md). One service account acts as the branch mailboxes through domain-wide delegation.
+    # The key is read from GOOGLE_SA_SECRET_NAME (Secret Manager, production) or GOOGLE_SA_KEY_FILE (a git-ignored file, development).
+    # Unset values mean "Not Configured": nothing calls Google and the LMS behaves as it did before.
+    GOOGLE_WORKSPACE_DOMAIN = os.getenv("GOOGLE_WORKSPACE_DOMAIN") or None
+    GOOGLE_DELEGATED_ADMIN = os.getenv("GOOGLE_DELEGATED_ADMIN") or None
+    GOOGLE_SA_SECRET_NAME = os.getenv("GOOGLE_SA_SECRET_NAME") or None
+    GOOGLE_SA_KEY_FILE = os.getenv("GOOGLE_SA_KEY_FILE") or None
+    GOOGLE_REQUEST_TIMEOUT = float(os.getenv("GOOGLE_REQUEST_TIMEOUT", "15"))
+
     # Ask Nipuna: without a key the rule-based fallback is used (a later slice)
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     AI_MODEL = os.getenv("AI_MODEL", "claude-sonnet-5-5")
@@ -71,6 +80,7 @@ class TestingConfig(BaseConfig):
     UPLOAD_DIR = Path(os.getenv("TEST_UPLOAD_DIR", "/tmp/nipunalms-test-uploads"))
     STORAGE_BACKEND = "local"  # tests never touch AWS; the S3 path is tested with a fake client
     ANTHROPIC_API_KEY = None  # tests never call the real API
+    GOOGLE_WORKSPACE_DOMAIN = GOOGLE_DELEGATED_ADMIN = GOOGLE_SA_SECRET_NAME = GOOGLE_SA_KEY_FILE = None  # tests never call Google; a test that needs it sets them
 
 
 class ProductionConfig(BaseConfig):

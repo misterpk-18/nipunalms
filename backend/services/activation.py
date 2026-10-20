@@ -13,7 +13,7 @@ from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories import staff_invites as invites_repo
-from services import audit, whatsapp_messages
+from services import audit, email_messages, whatsapp_messages
 from services.auth import LoginResult, check_password_policy, open_session
 from services.context import ADMIN_ROLES, BRANCH_ROLES, current_user
 from services.errors import BusinessRule, NotFound
@@ -57,6 +57,7 @@ def issue(student: Student, *, channel: str, issued_by: int | None) -> IssuedAct
     student.activation_status = "Activation Pending"
     db.session.flush()
     message = whatsapp_messages.student_activation_link(student, token, activation)
+    email_messages.student_activation_link(student, token, activation)
     return IssuedActivation(token=token, activation=activation, message=message)
 
 
@@ -95,6 +96,7 @@ def issue_invite(user: User, *, issued_by: int | None, role_name: str, branch_na
     db.session.add(invite)
     db.session.flush()
     message = whatsapp_messages.staff_invite(user, token, invite, role_name, branch_name)
+    email_messages.staff_invite(user, token, invite, role_name, branch_name)
     return IssuedInvite(token=token, invite=invite, message=message)
 
 
