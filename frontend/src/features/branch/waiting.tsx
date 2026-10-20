@@ -75,7 +75,7 @@ export function BranchWaiting({ manage }: { manage: boolean }) {
         <p>
           "Allocate…" with dots means the check found something to look at, such as a different class mode or a timetable clash. You see it before you confirm.
         </p>
-        <p>A student's Joining Date is set when they attend their first class, not when they are allocated.</p>
+        <p>A student's Joining Date is set at the first class they attend (marked Present or Late), not when they are allocated.</p>
       </HowThisWorks>
     </div>
   );

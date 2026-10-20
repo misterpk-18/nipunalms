@@ -27,7 +27,7 @@ export function AllocateButton({ row, match, onDone }: { row: WaitingRow; match:
       }),
     {
       success: `${row.student.full_name} is in ${batchName(match.batch)}`,
-      next: "The student has been told. Their Joining Date is set when they attend the first class.",
+      next: "The student has been told. Their Joining Date is set at the first class they attend (marked Present or Late), not now.",
       view: { to: `/branch/batches/${match.batch.batch_id}`, label: "View batch" },
       invalidate: [["branch"], ["delivery"], ["nav"]],
       onSuccess: onDone,
