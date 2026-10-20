@@ -3,12 +3,13 @@ from flask import Blueprint
 
 from controllers import attendance as attendance_controller
 from routes.decorators import fresh_auth, login_required, require_roles
+from services.context import ACADEMIC_ROLES
 
 attendance_bp = Blueprint("attendance", __name__)
 
 STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 EVERYONE = ("STUDENT",) + STAFF
-MARKERS = ("TRAINER", "BRANCH_MANAGER")
+MARKERS = ("TRAINER", *ACADEMIC_ROLES)
 
 
 @attendance_bp.get("/attendance/sessions")
@@ -62,7 +63,7 @@ def request_recovery():
 
 @attendance_bp.post("/attendance/recoveries/<int:recovery_id>/decision")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def decide_recovery(recovery_id: int):
     return attendance_controller.decide_recovery(recovery_id)
 

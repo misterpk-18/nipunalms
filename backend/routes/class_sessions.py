@@ -2,7 +2,7 @@ from flask import Blueprint
 
 from controllers import class_sessions as class_sessions_controller
 from routes.decorators import login_required, require_roles
-from services.context import ADMIN_ROLES, STAFF_ROLES
+from services.context import ACADEMIC_ROLES, ADMIN_ROLES, STAFF_ROLES
 from services.delivery_access import MANAGE_ROLES
 
 class_sessions_bp = Blueprint("class_sessions", __name__)
@@ -150,7 +150,7 @@ def confirm(session_id: int):
 
 @class_sessions_bp.post("/class-sessions/<int:session_id>/approval")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def decide_purpose(session_id: int):
     return class_sessions_controller.decide_purpose(session_id)
 

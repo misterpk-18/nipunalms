@@ -4,7 +4,7 @@ seat between batches is a transfer request (services/batch_transfers.py).
 A seat is only given after the batch allocation review: service branch, course or track, capacity, delivery mode, the
 student's other classes and the enrolment's own state. The outline never blocks a seat: a student follows the
 outline of their course. A failed check blocks; a warning
-(different mode, a timetable clash) needs the Branch Manager to acknowledge it. Ended and transferred allocations stay as
+(different mode, a timetable clash) needs whoever allocates (Branch Manager, Super Admin or Founder) to acknowledge it. Ended and transferred allocations stay as
 history; nothing the student did in a previous batch is touched.
 """
 from datetime import date, datetime, timedelta
@@ -195,7 +195,7 @@ def deallocate(enrolment_id: int, reason: str, enrolment_track_id: int | None = 
     current = allocations.current_seat(enrolment, enrolment_track_id)
     if current is None:
         raise Conflict("The enrolment is not allocated to a batch" if enrolment_track_id is None else "The track holds no seat")
-    delivery_access.assert_can_allocate_branch(enrolment.service_branch_id)
+    delivery_access.assert_can_manage_branch(enrolment.service_branch_id)
     if enrolment.status in ("Completed", "Withdrawn"):
         raise BusinessRule(f"A {enrolment.status} enrolment keeps its batch history")
     batch = batches_repo.get_batch_for_update(current.batch_id)
@@ -260,7 +260,7 @@ def escalate_unallocated() -> int:
                                  f"{admission.planned_start_date.isoformat()}",
                            body=f"{enrolment.enrolment_code} · {enrolment.course.course_code} · {enrolment.status}. "
                                 f"Record who is responsible, the blockage, the recovery and what the student is told.",
-                           link="/branch/waiting" if role_code == "BRANCH_MANAGER" else "/admin/exceptions", role_code=role_code,
+                           link="/branch/waiting" if role_code == "BRANCH_MANAGER" else "/admin/issues", role_code=role_code,
                            branch_id=enrolment.service_branch_id, action_required=True)
         escalated += 1 if sent else 0
     return escalated

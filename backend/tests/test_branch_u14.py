@@ -58,8 +58,8 @@ def test_my_work_follows_the_branch_and_the_role(world, client, login):
     people, _, _ = world
     assert rows_of(client, login, people["ac_vij"]) == {}                                  # nothing waits at Vijayawada
     assert call(client, login, people["ac"], "get", "/branch/my-work?branch_id=2").status_code == 404
-    assert call(client, login, people["admin"], "get", "/branch/my-work?branch_id=1").status_code == 403  # no branch workspace for Super Admin
-    assert call(client, login, people["founder"], "get", "/branch/my-work").status_code == 403
+    assert call(client, login, people["admin"], "get", "/branch/my-work?branch_id=1").status_code == 200  # Super Admin and Founder read it for any branch
+    assert call(client, login, people["founder"], "get", "/branch/my-work").status_code == 200
     assert call(client, login, people["g1"], "get", "/branch/my-work").status_code == 403
     assert call(client, login, "NIT-STU-2026-000001", "get", "/branch/my-work").status_code in (401, 403)
     # the navigation badges come from the same rows
@@ -168,9 +168,8 @@ def test_the_steps_walk_a_batch_from_created_to_classes(world, client, login, ma
     p = progress(client, login, people["ac"], batch.batch_id)
     assert p["current"] == "confirmed" and p["next"]["label"] == "Confirm batch" and p["problems"] == [] and p["can_confirm"] is True
 
-    # the Branch Manager confirms in one step (proposal included); nobody else may
+    # the Branch Manager confirms in one step (proposal included); a trainer may not
     assert call(client, login, people["g1"], "post", f"/batches/{batch.batch_id}/confirm", json={}).status_code == 403
-    assert call(client, login, people["founder"], "post", f"/batches/{batch.batch_id}/confirm", json={}).status_code == 403
     from sqlalchemy import text
 
     # created before the trainer: the stored readiness still says Blocked until the batch is confirmed

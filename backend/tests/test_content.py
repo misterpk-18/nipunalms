@@ -55,14 +55,17 @@ def test_a_trainer_only_adds_content_for_batches_they_teach(client, login, world
     assert create_item(client, other, world, fields={"batch_id": ""}, expect=403)["error"]["code"] == "FORBIDDEN"
 
 
-def test_students_and_the_founder_cannot_author(client, login, world):
+def test_students_cannot_author(client, login, world):
     assert create_item(client, auth(login, world.students.s1), world, expect=403)["error"]["code"] == "FORBIDDEN"
-    assert create_item(client, auth(login, world.people.founder), world, expect=403)["error"]["code"] == "FORBIDDEN"
 
 
-def test_super_admin_does_not_author_content_and_a_branch_manager_names_nothing_when_there_is_no_batch(client, login, world):
-    """Authoring is a branch day-to-day action: Super Admin (and Founder) are refused, the Branch Manager's branch is the session's."""
-    assert create_item(client, auth(login, world.people.admin), world, fields={"batch_id": "", "branch_id": 1}, expect=403)["error"]["code"] == "FORBIDDEN"
+def test_super_admin_and_founder_author_for_any_branch_and_a_branch_manager_names_nothing_when_there_is_no_batch(client, login, world):
+    """Super Admin and Founder add content for every branch: the branch comes from the batch, or is named when there is no batch."""
+    admin = auth(login, world.people.admin)
+    assert create_item(client, admin, world, fields={"batch_id": ""}, expect=400)["error"]["details"]["branch_id"]
+    item = create_item(client, admin, world, fields={"batch_id": "", "branch_id": 1})
+    assert item["branch"]["branch_id"] == 1
+    assert create_item(client, auth(login, world.people.founder), world)["status"] == "Draft"
     item = create_item(client, auth(login, world.people.ac), world, fields={"batch_id": ""})
     assert item["branch"]["branch_id"] == 1
 
@@ -219,11 +222,16 @@ def test_reviewers_cannot_review_their_own_upload_or_other_branches(client, logi
                        json={"decision": "approve"}).status_code == 404
     assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.t1),
                        json={"decision": "approve"}).status_code == 403
-    assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.founder),
-                       json={"decision": "approve"}).status_code == 403
-    assert client.post(f"{API}/content-items/{theirs['content_item_id']}/review", headers=auth(login, world.people.admin),
-                       json={"decision": "approve"}).status_code == 403  # Super Admin does not approve content (a Branch Manager job)
-    assert post(client, f"/content-items/{theirs['content_item_id']}/review", auth(login, world.people.ac), json={"decision": "approve"})["status"] == "Approved"
+    assert post(client, f"/content-items/{theirs['content_item_id']}/review", auth(login, world.people.founder), json={"decision": "approve"})["status"] == "Approved"
+
+
+def test_super_admin_and_founder_may_approve_and_release_their_own_upload(client, login, world):
+    for person in (world.people.admin, world.people.founder):
+        headers = auth(login, person)
+        item = create_item(client, headers, world)
+        post(client, f"/content-items/{item['content_item_id']}/submit", headers)
+        reviewed = post(client, f"/content-items/{item['content_item_id']}/review", headers, json={"decision": "approve", "release": True})
+        assert reviewed["status"] == "Released"
 
 
 def test_only_submitted_content_can_be_reviewed_and_only_approved_can_be_released(client, login, world):

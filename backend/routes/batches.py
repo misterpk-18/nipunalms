@@ -2,7 +2,7 @@ from flask import Blueprint
 
 from controllers import batches as batches_controller
 from routes.decorators import login_required, require_roles
-from services.context import STAFF_ROLES
+from services.context import ACADEMIC_ROLES, STAFF_ROLES
 from services.delivery_access import MANAGE_ROLES
 
 batches_bp = Blueprint("batches", __name__, url_prefix="/batches")
@@ -85,7 +85,7 @@ def propose(batch_id: int):
 
 @batches_bp.post("/<int:batch_id>/confirmation")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def decide_confirmation(batch_id: int):
     return batches_controller.decide_confirmation(batch_id)
 
@@ -106,7 +106,7 @@ def get_progress(batch_id: int):
 
 @batches_bp.post("/<int:batch_id>/confirm")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def confirm_batch(batch_id: int):
     return batches_controller.confirm_batch(batch_id)
 

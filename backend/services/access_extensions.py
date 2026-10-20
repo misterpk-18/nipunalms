@@ -16,7 +16,7 @@ from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import access, audit, scope, student_library
-from services.context import current_user
+from services.context import ACADEMIC_ROLES, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
@@ -101,8 +101,8 @@ def decide(request_id: int, decision: str, note: str | None, new_expiry=None) ->
     if request.needs_exception:
         if not user.has_role(*EXCEPTION_DECIDERS):
             raise Forbidden("Requests after the second anniversary need a Founder / CEO or Super Admin exception")
-    elif not user.has_role("BRANCH_MANAGER", branch_id=request.branch_id):
-        raise Forbidden("Only the Branch Manager of the service branch decides this")
+    elif not user.has_role(*ACADEMIC_ROLES, branch_id=request.branch_id):
+        raise Forbidden("Only the Branch Manager of the service branch, a Super Admin or the Founder decides this")
 
     old = {"status": "Pending", "expiry": {k: str(v) for k, v in _current_expiry(request).items()}}
     if decision == "reject":
@@ -216,7 +216,7 @@ def present(request: AccessExtensionRequest) -> dict:
         "new_end_date": window.second_expiry if routine and request.status == "Pending" else request.approved_expiry,
         "can_decide": request.status == "Pending" and not is_student and (
             user.has_role(*EXCEPTION_DECIDERS) if request.needs_exception
-            else user.has_role("BRANCH_MANAGER", branch_id=request.branch_id)),
+            else user.has_role(*ACADEMIC_ROLES, branch_id=request.branch_id)),
         "can_recommend": request.status == "Pending" and request.needs_exception and not is_student
                          and user.has_role("BRANCH_MANAGER", branch_id=request.branch_id),
     })

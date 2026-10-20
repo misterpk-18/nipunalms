@@ -5,7 +5,7 @@ A Branch Manager reviews the requests and corrections of trainers and other staf
 requester is a Branch Manager, nobody at the branch can review the request independently, so the Founder / CEO or a Super
 Admin decides it (UX plan: Branch Manager merged with the Academic Coordinator)."""
 from repositories import users as users_repo
-from services.context import ADMIN_ROLES, current_user
+from services.context import ACADEMIC_ROLES, ADMIN_ROLES, current_user
 from services.errors import BusinessRule, Forbidden
 
 BRANCH_MANAGER_OWN_REQUEST = "A Branch Manager's own request is decided by the Founder / CEO or a Super Admin"
@@ -25,14 +25,14 @@ def can_decide(requester_user_id: int | None) -> bool:
 
 
 def can_decide_branch_request(requester_user_id: int | None) -> bool:
-    """Whether the current user may decide a branch request (a reschedule, say): a Branch Manager for anyone's but a Branch Manager's
-    own, the Founder / Super Admin only for a Branch Manager's own. Never the requester."""
+    """Whether the current user may decide a branch request (a reschedule, say): a Branch Manager, Founder or Super Admin for anyone's
+    but a Branch Manager's own, which only the Founder / Super Admin decide. Never the requester."""
     user = current_user()
     if requester_user_id is not None and user.user_id == requester_user_id:
         return False
     if requester_needs_admin(requester_user_id):
         return user.has_role(*ADMIN_ROLES)
-    return user.has_role("BRANCH_MANAGER")
+    return user.has_role(*ACADEMIC_ROLES)
 
 
 def require_independent(*involved_user_ids: int | None, message: str, requester: int | None = None) -> None:
@@ -52,7 +52,7 @@ def admin_may_decide(requester_user_id: int | None) -> bool:
 
 
 def require_decider(branch_id: int, requester_user_id: int | None, message: str) -> None:
-    """403 unless the user is a Branch Manager of this branch, or the Founder / Super Admin deciding a Branch Manager's own request."""
-    if current_user().has_role("BRANCH_MANAGER", branch_id=branch_id) or admin_may_decide(requester_user_id):
+    """403 unless the user is a Branch Manager of this branch, or the Founder / Super Admin."""
+    if current_user().has_role(*ACADEMIC_ROLES, branch_id=branch_id) or admin_may_decide(requester_user_id):
         return
     raise Forbidden(message)

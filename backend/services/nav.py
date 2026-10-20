@@ -104,8 +104,10 @@ def _admin_counts() -> dict[str, int]:
         "calendar": nav_repo.pending_closures(today_ist()),
         "setup": setup_health.broken_count(),
     }
-    # Home: everything the other items count; the Waiting list is a list to clear, not something Home asks of them
-    return {**counts, "home": sum(counts.values()), "waiting": dash_repo.enrolment_counts(None).get("Allocation Pending", 0)}
+    # Home: everything the other items count; the lists they may clear (students waiting for a batch, content and questions to review)
+    # are not something Home asks of them
+    return {**counts, "home": sum(counts.values()), "waiting": dash_repo.enrolment_counts(None).get("Allocation Pending", 0),
+            "content_review": dash_repo.content_awaiting_review(None), "questions": questions_repo.count_drafts(None)}
 
 
 def _founder_counts() -> dict[str, int]:

@@ -26,13 +26,13 @@ from repositories import settings as settings_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import approvals, audit, delivery_access, delivery_notices, meet, scope
-from services.context import actor_id, current_user
+from services.context import ACADEMIC_ROLES, actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
 CLOSED_STATES = ("Completed", "Cancelled", "Archived")
 NO_OUTLINE = "The course has no modules yet. Classes can be scheduled without topics; they can be linked once the outline is written"
 # The Branch Manager confirms, holds and archives; Super Admin covers every branch (Module 15 §5, §19)
-CONFIRM_ROLES = ("BRANCH_MANAGER",)
+CONFIRM_ROLES = ACADEMIC_ROLES
 # Enrolments that still owe teaching when a batch completes: each needs a named owner, plan and destination (§19)
 OWING_STATUSES = ("Paused", "Allocation Pending", "Allocated — awaiting first regular class")
 MATERIAL_FIELDS = ("planned_start", "mode", "schedule_days", "start_time", "end_time")

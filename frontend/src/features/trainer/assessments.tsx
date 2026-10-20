@@ -19,8 +19,9 @@ const HINTS: Record<Tab, string> = {
   Interviews: "Create a practice interview, offer time slots and record feedback after each one.",
 };
 
-export function TrainerAssessments() {
-  const { tab: wanted } = useSearch({ from: "/trainer/assessments" });
+/** The trainer's Assessments; the Super Admin and Founder open it from their own workspace (`basePath`, with `canApprove`) and see every batch. */
+export function TrainerAssessments({ basePath = "/trainer/assessments", canApprove = false }: { basePath?: string; canApprove?: boolean }) {
+  const { tab: wanted } = useSearch({ strict: false }) as { tab?: "questions" | "tests" | "interviews" | "grading" };
   const navigate = useNavigate();
   const tab: Tab = wanted && wanted !== "grading" ? FROM_PARAM[wanted] : "Tests";
   // The same lists the tabs below show, so the counts cost no extra request
@@ -33,16 +34,21 @@ export function TrainerAssessments() {
   };
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHead title="Assessments" description="Questions, tests and practice interviews for the batches you teach." />
+      <PageHead
+        title="Assessments"
+        description={
+          canApprove ? "Questions, tests and practice interviews for every batch." : "Questions, tests and practice interviews for the batches you teach."
+        }
+      />
       <PillTabs
         tabs={TABS}
         value={tab}
-        onChange={(next) => void navigate({ to: "/trainer/assessments", search: { tab: TAB_PARAM[next] }, replace: true })}
+        onChange={(next) => void navigate({ to: basePath as "/trainer/assessments", search: { tab: TAB_PARAM[next] }, replace: true })}
         label="Assessment areas"
         counts={counts}
       />
       <p className="-mt-2 mb-4 text-sm text-muted-foreground">{HINTS[tab]}</p>
-      {tab === "Question bank" && <QuestionBank />}
+      {tab === "Question bank" && <QuestionBank canApprove={canApprove} />}
       {tab === "Tests" && <TestBuilder />}
       {tab === "Interviews" && <MockInterviews />}
       <div className="mt-4">

@@ -176,8 +176,8 @@ def test_each_role_reaches_only_its_own_workspace(client, people, h, make_studen
     assert code("/admin/needs-action", student_headers) == 403
     assert code("/me/home", h["trainer"]) == 403 and code("/me/home", h["bm1"]) == 403 and code("/me/home", h["admin"]) == 403
     assert code("/branch/my-work", h["trainer"]) == 403 and code("/branch/my-work", student_headers) == 403
-    # Super Admin and Founder have no branch workspace of their own (no implicit workspaces): their home is theirs
-    assert code("/branch/my-work", h["admin"]) == 403 and code("/branch/my-work", h["founder"]) == 403
+    # Super Admin and Founder read the branch overview for every branch; their home is still their own
+    assert code("/branch/my-work", h["admin"]) == 200 and code("/branch/my-work", h["founder"]) == 200
     assert code("/trainer/today", h["founder"]) == 403 and code("/me/home", h["founder"]) == 403
 
     # one workspace and one home route each
@@ -238,14 +238,14 @@ def test_super_admin_and_founder_read_across_branches_with_a_branch_filter(clien
 
 
 @pytest.mark.parametrize("who", ["admin", "founder"])
-def test_super_admin_and_founder_have_no_branch_day_to_day_actions(client, h, batches, people, who):
+def test_super_admin_and_founder_may_run_branch_day_to_day_actions(client, h, batches, people, who):
+    """They hold the Branch Manager's rights for every branch: each call is let through (it then fails on its own data, never 403)."""
     gnt = batches["g"]
     attempts = [
         ("post", "/batches", {"course_id": 1, "branch_id": 1, "capacity": 10}),
         ("patch", f"/batches/{gnt.batch_id}", {"display_name": "x"}),
         ("post", f"/batches/{gnt.batch_id}/state", {"state": "On Hold", "reason": "x"}),
         ("post", f"/batches/{gnt.batch_id}/confirm", {}),
-        ("post", f"/batches/{gnt.batch_id}/allocations", {"enrolment_ids": [1]}),
         ("post", "/enrolments/1/deallocate", {"reason": "x"}),
         ("post", "/class-sessions", {"batch_id": gnt.batch_id}),
         ("post", "/results/publish", {}),
@@ -259,7 +259,7 @@ def test_super_admin_and_founder_have_no_branch_day_to_day_actions(client, h, ba
     ]
     for method, path, body in attempts:
         response = getattr(client, method)(f"{API}{path}", headers=h[who], **({"json": body} if body is not None else {}))
-        assert response.status_code == 403, (who, method, path, response.status_code)
+        assert response.status_code not in (401, 403), (who, method, path, response.status_code, response.get_json())
 
 
 # ---------------------------------------------------------------- Founder has everything Super Admin has

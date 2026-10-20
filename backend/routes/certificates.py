@@ -3,6 +3,7 @@ from flask import Blueprint
 
 from controllers import certificates as certificates_controller
 from routes.decorators import fresh_auth, login_required, require_roles
+from services.context import ACADEMIC_ROLES
 
 certificates_bp = Blueprint("certificates", __name__)
 
@@ -44,28 +45,28 @@ def get_certificate(certificate_id: int):
 
 @certificates_bp.post("/certificates")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def create_entry():
     return certificates_controller.create_entry()
 
 
 @certificates_bp.post("/certificates/<int:certificate_id>/recommendation")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def recommend(certificate_id: int):
     return certificates_controller.recommend(certificate_id)
 
 
 @certificates_bp.post("/certificates/<int:certificate_id>/return")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def return_to_review(certificate_id: int):
     return certificates_controller.return_to_review(certificate_id)
 
 
 @certificates_bp.post("/certificates/<int:certificate_id>/approval")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 @fresh_auth
 def approve(certificate_id: int):
     return certificates_controller.approve(certificate_id)
@@ -73,7 +74,7 @@ def approve(certificate_id: int):
 
 @certificates_bp.post("/certificates/<int:certificate_id>/issue")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 @fresh_auth
 def issue(certificate_id: int):
     return certificates_controller.issue(certificate_id)
@@ -103,7 +104,7 @@ def decide_request(request_id: int):
 
 @certificates_bp.post("/certificates/<int:certificate_id>/financial-exception")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def request_exception(certificate_id: int):
     return certificates_controller.request_exception(certificate_id)
 

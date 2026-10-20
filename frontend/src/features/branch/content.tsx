@@ -34,11 +34,11 @@ const EMPTY: Record<TabKey, string> = {
 
 const isTab = (value: unknown): value is TabKey => TABS.some((t) => t.key === value);
 
-function ReleaseButton({ item }: { item: ReviewListItem }) {
+function ReleaseButton({ item, basePath }: { item: ReviewListItem; basePath: string }) {
   const release = useApiMutation(() => contentApi.release(item.content_item_id), {
     success: `${item.title} is released`,
     next: `${audienceText(item)} can see it now.`,
-    view: { to: "/branch/content", label: "View content" },
+    view: { to: basePath, label: "View content" },
     invalidate: [["content-items"], ["nav"], ["branch"]],
   });
   return (
@@ -60,7 +60,11 @@ function ReviewList({
   onOpen,
   moveTo,
   counts,
+  basePath,
+  moreLink,
 }: {
+  basePath: string;
+  moreLink: { to: string; label: string };
   tab: TabKey;
   onOpen: (id: number) => void;
   moveTo: (tab: TabKey) => void;
@@ -87,7 +91,7 @@ function ReviewList({
             </Button>
           ) : (
             <Button asChild size="sm" variant="outline">
-              <Link to="/branch/results">Open Marks &amp; results</Link>
+              <Link to={moreLink.to as "/branch/results"}>{moreLink.label}</Link>
             </Button>
           )
         }
@@ -145,7 +149,7 @@ function ReviewList({
                       <Button size="sm" variant={tab === "awaiting" ? "default" : "outline"} onClick={() => onOpen(i.content_item_id)}>
                         {tab === "awaiting" || tab === "ready" ? "Review" : "View"}
                       </Button>
-                      {tab === "ready" && <ReleaseButton item={i} />}
+                      {tab === "ready" && <ReleaseButton item={i} basePath={basePath} />}
                     </div>
                   ),
                 },
@@ -173,13 +177,22 @@ function ReviewList({
   );
 }
 
-export function BranchContent() {
+/** The Branch Manager's content review; the Super Admin and Founder open the same page from their own workspace (`basePath`) and may approve their own uploads. */
+export function BranchContent({
+  basePath = "/branch/content",
+  questionsPath = "/branch/questions",
+  moreLink = { to: "/branch/results", label: "Open Marks & results" },
+}: {
+  basePath?: string;
+  questionsPath?: string;
+  moreLink?: { to: string; label: string };
+}) {
   // The route declares no search schema, so read `?tab=` and `?item=` loosely.
   const search = useSearch({ strict: false }) as { tab?: unknown; item?: unknown };
   const navigate = useNavigate();
   const summary = useQuery({ queryKey: ["content-items", "review-summary"], queryFn: contentReviewApi.summary });
   // The old "Questions to approve" tab became its own page
-  if (search.tab === "questions") return <Navigate to="/branch/questions" replace />;
+  if (search.tab === "questions") return <Navigate to={questionsPath as "/branch/questions"} replace />;
   const itemId = Number(search.item) > 0 ? Number(search.item) : null;
 
   const requested = isTab(search.tab) ? search.tab : null;
@@ -189,7 +202,7 @@ export function BranchContent() {
   const waitingForCounts = requested === null && summary.isPending;
 
   const setSearch = (next: { tab?: TabKey; item?: number | undefined }) =>
-    void navigate({ to: "/branch/content", search: ((prev: Record<string, unknown>) => ({ ...prev, ...next })) as never, replace: true });
+    void navigate({ to: basePath as "/branch/content", search: ((prev: Record<string, unknown>) => ({ ...prev, ...next })) as never, replace: true });
   const counts = summary.data
     ? ({
         "To review": summary.data.awaiting,
@@ -201,7 +214,10 @@ export function BranchContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <PageHead title="Content review" description="Review what trainers send and release it to students. Questions for tests are approved under Question approvals." />
+      <PageHead
+        title="Content review"
+        description="Review what trainers send and release it to students. Questions for tests are approved under Question approvals."
+      />
       <PillTabs
         label="Content review"
         tabs={LABELS}
@@ -212,14 +228,25 @@ export function BranchContent() {
       {waitingForCounts ? (
         <LoadingSkeleton />
       ) : (
-        <ReviewList key={tab} tab={tab} counts={summary.data} onOpen={(id) => setSearch({ item: id })} moveTo={(t) => setSearch({ tab: t, item: undefined })} />
+        <ReviewList
+          key={tab}
+          tab={tab}
+          counts={summary.data}
+          basePath={basePath}
+          moreLink={moreLink}
+          onOpen={(id) => setSearch({ item: id })}
+          moveTo={(t) => setSearch({ tab: t, item: undefined })}
+        />
       )}
       <HowThisWorks>
         <p>Approving a routine resource does not change the syllabus, hours, assessments or completion rules.</p>
-        <p>Opening a review takes it, so two people do not review the same upload. You cannot review content you uploaded yourself.</p>
+        <p>
+          Opening a review takes it, so two people do not review the same upload. A Branch Manager cannot review content they uploaded; a Super Admin or the
+          Founder can.
+        </p>
         <p>"Approve and release later" keeps it in Ready to release until you release it. Students see content only after it is released.</p>
       </HowThisWorks>
-      {itemId !== null && <ContentReviewDialog key={itemId} id={itemId} onClose={() => setSearch({ item: undefined })} />}
+      {itemId !== null && <ContentReviewDialog key={itemId} id={itemId} basePath={basePath} onClose={() => setSearch({ item: undefined })} />}
     </div>
   );
 }

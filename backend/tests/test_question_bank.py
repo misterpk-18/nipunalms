@@ -73,9 +73,11 @@ def test_scope_and_permissions(client, world):
     assert client.get(f"{API}/questions/{qid}", headers=world.h["g2"]).status_code == 200  # another Guntur trainer works in the same branch bank
     assert client.get(f"{API}/questions/{qid}", headers=world.h["v1"]).status_code == 404  # another branch
     assert client.get(f"{API}/questions/{qid}", headers=world.h["ac_vij"]).status_code == 404
-    for who in ("s1", "founder", "admin"):  # the question bank belongs to the branch: Super Admin and Founder do not use it
-        assert client.get(f"{API}/questions", headers=world.h[who]).status_code == 403
-        assert create(client, world, who=who).status_code == 403
+    assert client.get(f"{API}/questions", headers=world.h["s1"]).status_code == 403
+    assert create(client, world, who="s1").status_code == 403
+    for who in ("founder", "admin"):  # Super Admin and Founder read every branch's bank; a new question names its branch
+        assert client.get(f"{API}/questions", headers=world.h[who]).status_code == 200
+        assert create(client, world, who=who).status_code == 400  # a question names its branch
     assert [q["question_id"] for q in client.get(f"{API}/questions", headers=world.h["v1"]).get_json()["data"]] == []
     vij = create(client, world, who="v1")  # trainer v1 teaches Java at Vijayawada: the question lands in that branch's bank
     assert vij.status_code == 201 and vij.get_json()["data"]["branch"]["branch_code"] == "NIT-VIJ"

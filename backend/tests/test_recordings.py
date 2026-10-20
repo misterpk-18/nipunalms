@@ -56,7 +56,7 @@ def test_registration_rules(client, login, world, register, make_session, run_sq
     assert placeholder["status"] == "Unavailable"
     cancelled = make_session(world.g1, world.people.t1, datetime.now(timezone.utc), state="Cancelled", title="Cancelled")
     assert register(cancelled, expect=422)["error"]["message"] == "A cancelled class session has no recording"
-    for who, expected in ((world.people.t1, 403), (world.people.founder, 403), (world.students.s1, 403)):
+    for who, expected in ((world.people.t1, 403), (world.students.s1, 403)):
         response = client.post(f"{API}/recordings", json={"session_id": world.delivered.session_id}, headers=auth(login, who))
         assert response.status_code == expected
     assert client.post(f"{API}/recordings", json={"session_id": world.delivered.session_id}, headers=auth(login, world.people.ac_vij)).status_code == 404
@@ -164,11 +164,9 @@ def test_mark_unavailable_needs_a_reason_and_raises_an_exception(client, login, 
 def test_only_the_branch_manager_manages_recordings(client, login, world, register):
     recording = register()
     rid = recording["recording_id"]
-    for who, expected in ((world.people.t1, 403), (world.people.founder, 403), (world.people.ac_vij, 404),
-                          (world.students.s1, 403)):
+    for who, expected in ((world.people.t1, 403), (world.people.ac_vij, 404), (world.students.s1, 403)):
         assert client.post(f"{API}/recordings/{rid}/release", headers=auth(login, who)).status_code == expected
-    assert client.post(f"{API}/recordings/{rid}/release", headers=auth(login, world.people.admin)).status_code == 403  # Super Admin does not run a branch
-    assert post(client, f"/recordings/{rid}/release", auth(login, world.people.ac))["status"] == "Released"
+    assert post(client, f"/recordings/{rid}/release", auth(login, world.people.admin))["status"] == "Released"  # Super Admin runs any branch
 
 
 # ---------------------------------------------------------------- watching

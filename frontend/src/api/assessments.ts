@@ -136,6 +136,8 @@ export type Question = {
 
 export type QuestionInput = {
   course_id: number;
+  /** The branch whose bank the question joins; only the Super Admin and Founder state it (a Branch Manager or trainer has one). */
+  branch_id?: number;
   topic_id?: number | null;
   question_type: QuestionType;
   stem: string;
@@ -453,6 +455,12 @@ export const assessmentsApi = {
 /** Batches a staff member can author for (reads the Phase 1 /batches endpoint). */
 export const batchesForAuthoring = (): Promise<Page<{ batch_id: number; batch_code: string; course: { course_id: number; title: string }; state: string }>> =>
   list("/batches", { per_page: 100 });
+
+/** The same, for one branch: the Super Admin and Founder choose the branch they write for. */
+export const batchesForAuthoringIn = (
+  branchId: number,
+): Promise<Page<{ batch_id: number; batch_code: string; course: { course_id: number; title: string }; state: string }>> =>
+  list("/batches", { per_page: 100, branch_id: branchId });
 
 /** Marks & results (Branch Manager): ask before publishing, publish one batch's results of one item. */
 export const resultsReviewApi = {

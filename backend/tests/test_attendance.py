@@ -130,7 +130,6 @@ def test_permissions_on_the_register(client, w):
     body = {"default_status": "Present"}
     assert mark(client, w, "t2", w.recent, body).status_code == 404          # trainer of another batch: outside scope
     assert mark(client, w, "ac_v", w.recent, body).status_code == 404        # another branch
-    assert mark(client, w, "founder", w.recent, body).status_code == 403     # the Founder / CEO is read-only
     assert mark(client, w, "s1", w.recent, body).status_code == 403          # students never mark
     assert register(client, w, "s1", w.recent).status_code == 403
     assert register(client, w, "t2", w.recent).status_code == 404
@@ -299,8 +298,8 @@ def test_recovery_only_for_absences_and_only_by_people_in_scope(client, w):
     absent_id = db.session.execute(select(AttendanceRecord.attendance_id).where(AttendanceRecord.enrolment_id == w.e2)).scalar_one()
     assert request_recovery(client, w, "s1", absent_id).status_code == 404          # another student's absence
     assert request_recovery(client, w, "t2", absent_id).status_code == 404          # trainer of another batch
-    assert request_recovery(client, w, "founder", absent_id).status_code == 403
     assert request_recovery(client, w, "t1", absent_id).status_code == 201
+    assert request_recovery(client, w, "founder", absent_id).status_code in (409, 422)  # one open request; the Founder may act on any branch, so it is not a 403
 
 
 def test_only_the_coordinator_decides_and_rejection_can_be_raised_again(client, w):

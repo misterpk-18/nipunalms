@@ -59,7 +59,7 @@ def test_proposal_and_confirmation_by_a_branch_manager(world, client, login, mak
     # the Branch Manager decides alone: the one who proposes may also return or confirm the batch
     data(call(client, login, people["bm"], "post", f"/batches/{bid}/proposal", json={"note": "Reviewed"}), 200)
     # returned to Draft with a reason, proposed again, confirmed by a Branch Manager
-    assert call(client, login, people["admin"], "post", f"/batches/{bid}/confirmation", json={"decision": "Returned"}).status_code == 403  # not a Super Admin job
+    assert call(client, login, people["admin"], "post", f"/batches/{bid}/confirmation", json={"decision": "Returned"}).status_code == 400  # a Super Admin may decide, but returning needs a reason
     assert call(client, login, people["ac"], "post", f"/batches/{bid}/confirmation", json={"decision": "Returned"}).status_code == 400
     assert data(call(client, login, people["ac"], "post", f"/batches/{bid}/confirmation", json={"decision": "Returned", "note": "Recheck lab"}), 200)["state"] == "Forming"
     data(call(client, login, people["ac"], "post", f"/batches/{bid}/proposal", json={}), 200)

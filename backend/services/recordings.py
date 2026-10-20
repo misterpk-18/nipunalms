@@ -22,7 +22,7 @@ from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import audit, scope, student_library
-from services.context import actor_id, current_user
+from services.context import ACADEMIC_ROLES, actor_id, current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
@@ -56,7 +56,7 @@ def _visible_session(session_id: int) -> ClassSession:
 
 def _is_manager(session: ClassSession) -> bool:
     user = current_user()
-    return user.has_role("BRANCH_MANAGER", branch_id=session.batch.branch_id)
+    return user.has_role(*ACADEMIC_ROLES, branch_id=session.batch.branch_id)
 
 
 def _require_manager(session: ClassSession) -> None:
@@ -155,7 +155,7 @@ def _can_act_on(exception: RecordingException) -> bool:
     user = current_user()
     if exception.owner_role == "SUPER_ADMIN":  # integration problems belong to Super Admin (and the Founder / CEO, who can do all they can)
         return user.has_role("SUPER_ADMIN", "FOUNDER_CEO")
-    return user.has_role("BRANCH_MANAGER", branch_id=exception.branch_id)
+    return user.has_role(*ACADEMIC_ROLES, branch_id=exception.branch_id)
 
 
 def _get_exception(exception_id: int) -> RecordingException:

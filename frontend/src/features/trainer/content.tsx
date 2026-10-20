@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { contentApi, CONTENT_TYPES, LINK_TYPES, formatDateTime, type ContentItem } from "@/api/content";
 import { HowThisWorks } from "@/components/lms/how-this-works";
 import { DataTable, PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
@@ -24,8 +24,9 @@ const STATUS_FILTERS = {
   Rejected: "Rejected",
 } as const;
 
-export function TrainerContent() {
-  const { batch } = useSearch({ from: "/trainer/content" });
+/** The trainer's uploads. With `reviewPath` it is the Super Admin's / Founder's content page: any batch, and they approve and release it themselves there. */
+export function TrainerContent({ basePath = "/trainer/content", reviewPath }: { basePath?: string; reviewPath?: string }) {
+  const { batch } = useSearch({ strict: false }) as { batch?: number };
   const navigate = useNavigate();
   const [status, setStatus] = useState<keyof typeof STATUS_FILTERS>("");
   const query = useQuery({
@@ -38,7 +39,7 @@ export function TrainerContent() {
   const [detailId, setDetailId] = useState<number | null>(null);
   const submit = useApiMutation((id: number) => contentApi.submit(id), {
     success: (item) => `${item.title} sent for review`,
-    next: "Your Branch Manager reviews it. You are told when they decide.",
+    next: reviewPath ? "Approve and release it under Content review." : "Your Branch Manager reviews it. You are told when they decide.",
     invalidate: [["content-items"]],
   });
   const filtered = Boolean(batch) || status !== "";
@@ -47,7 +48,11 @@ export function TrainerContent() {
     <div className="mx-auto max-w-6xl">
       <PageHead
         title="Content"
-        description="Upload notes, files and links for your batches and send them to your Branch Manager for review."
+        description={
+          reviewPath
+            ? "Upload notes, files and links for any batch. Send them for review, then approve and release them under Content review."
+            : "Upload notes, files and links for your batches and send them to your Branch Manager for review."
+        }
         actions={<Button onClick={() => setUploading(true)}>Upload content</Button>}
       />
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -55,9 +60,9 @@ export function TrainerContent() {
           <Label htmlFor="content-filter-batch">Batch</Label>
           <NativeSelect
             id="content-filter-batch"
-            placeholder="All my batches"
+            placeholder={reviewPath ? "All batches" : "All my batches"}
             value={batch ?? ""}
-            onChange={(e) => void navigate({ to: "/trainer/content", search: e.target.value ? { batch: Number(e.target.value) } : {} })}
+            onChange={(e) => void navigate({ to: basePath as "/trainer/content", search: (e.target.value ? { batch: Number(e.target.value) } : {}) as never })}
             options={(options.data ?? []).map((o) => ({ value: o.batch.batch_id, label: o.batch.batch_code }))}
           />
         </div>
@@ -82,7 +87,7 @@ export function TrainerContent() {
               variant="outline"
               onClick={() => {
                 setStatus("");
-                void navigate({ to: "/trainer/content", search: {} });
+                void navigate({ to: basePath as "/trainer/content", search: {} as never });
               }}
             >
               Clear filters
@@ -166,19 +171,32 @@ export function TrainerContent() {
       <div className="mt-4">
         <HowThisWorks>
           <p>
-            Students see content only after your Branch Manager approves and releases it. A new version does not replace what students see until it is approved
-            and released. When changes are requested, the reviewer&apos;s comment shows on the item: upload a corrected version and send it again.
+            Students see content only after it is approved and released
+            {reviewPath ? (
+              <>
+                {" "}
+                under{" "}
+                <Link to={reviewPath as "/branch/content"} className="underline">
+                  Content review
+                </Link>
+                , where you can approve your own uploads
+              </>
+            ) : (
+              " by your Branch Manager"
+            )}
+            . A new version does not replace what students see until it is approved and released. When changes are requested, the reviewer&apos;s comment shows
+            on the item: upload a corrected version and send it again.
           </p>
         </HowThisWorks>
       </div>
-      {uploading && <UploadDialog onClose={() => setUploading(false)} />}
-      {versionFor && <VersionDialog item={versionFor} onClose={() => setVersionFor(null)} />}
+      {uploading && <UploadDialog selfReview={Boolean(reviewPath)} onClose={() => setUploading(false)} />}
+      {versionFor && <VersionDialog item={versionFor} selfReview={Boolean(reviewPath)} onClose={() => setVersionFor(null)} />}
       {detailId !== null && <ContentDetailDialog id={detailId} onClose={() => setDetailId(null)} />}
     </div>
   );
 }
 
-function UploadDialog({ onClose }: { onClose: () => void }) {
+function UploadDialog({ onClose, selfReview }: { onClose: () => void; selfReview: boolean }) {
   const options = useQuery({ queryKey: ["content-items", "options"], queryFn: contentApi.options });
   const [batchId, setBatchId] = useState("");
   const [topicKey, setTopicKey] = useState("");
@@ -203,7 +221,12 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
     },
     {
       success: (item) => (item.status === "Submitted" ? `${item.title} sent for review` : "Saved as a draft"),
-      next: (item) => (item.status === "Submitted" ? "Your Branch Manager reviews it. You are told when they decide." : "Send it for review when it is ready."),
+      next: (item) =>
+        item.status === "Submitted"
+          ? selfReview
+            ? "Approve and release it under Content review."
+            : "Your Branch Manager reviews it. You are told when they decide."
+          : "Send it for review when it is ready.",
       invalidate: [["content-items"]],
       onSuccess: onClose,
     },
@@ -229,7 +252,9 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload content</DialogTitle>
-          <DialogDescription>Save it as a draft, or send it straight to your Branch Manager for review.</DialogDescription>
+          <DialogDescription>
+            {selfReview ? "Save it as a draft, or send it for review." : "Save it as a draft, or send it straight to your Branch Manager for review."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <Field label="Batch" htmlFor="content-batch">
@@ -303,7 +328,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function VersionDialog({ item, onClose }: { item: ContentItem; onClose: () => void }) {
+function VersionDialog({ item, onClose, selfReview }: { item: ContentItem; onClose: () => void; selfReview: boolean }) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
   const [summary, setSummary] = useState("");
@@ -316,7 +341,11 @@ function VersionDialog({ item, onClose }: { item: ContentItem; onClose: () => vo
     {
       success: (saved) => (saved.status === "Submitted" ? `${saved.title} sent for review` : "New version saved as a draft"),
       next: (saved) =>
-        saved.status === "Submitted" ? "Your Branch Manager reviews it. You are told when they decide." : "Send it for review when it is ready.",
+        saved.status === "Submitted"
+          ? selfReview
+            ? "Approve and release it under Content review."
+            : "Your Branch Manager reviews it. You are told when they decide."
+          : "Send it for review when it is ready.",
       invalidate: [["content-items"]],
       onSuccess: onClose,
     },

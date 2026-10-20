@@ -2,6 +2,7 @@ from flask import Blueprint
 
 from controllers import access_extensions as extensions_controller
 from routes.decorators import login_required, require_roles
+from services.context import ACADEMIC_ROLES
 
 access_extensions_bp = Blueprint("access_extensions", __name__, url_prefix="/access-extension-requests")
 
@@ -40,6 +41,6 @@ def decide(request_id: int):
 # The Branch Manager's recommendation on a request beyond their limit; saving it routes the request to the Founder's inbox
 @access_extensions_bp.post("/<int:request_id>/recommendation")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def recommend(request_id: int):
     return extensions_controller.recommend(request_id)

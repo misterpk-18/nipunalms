@@ -300,7 +300,7 @@ def test_report_export_is_csv_and_never_a_formula(world, client, login):
 def test_a_branch_managers_own_reschedule_request_is_decided_by_an_admin(world, client, login, make_session, run_sql):
     """After the role split a Branch Manager no longer raises reschedule requests (only a trainer does), but requests raised earlier by a
     person who then held both roles still wait: nobody at the branch may decide them, the Super Admin and Founder do. Every other
-    request stays with the branch's Branch Manager, and the Super Admin and Founder only read it."""
+    request is decided by the branch's Branch Manager, the Super Admin or the Founder."""
     from tests.test_delivery import future, iso
     people, batch, _ = world
     own = make_session(batch, people["g1"], future(3, 10))
@@ -318,10 +318,9 @@ def test_a_branch_managers_own_reschedule_request_is_decided_by_an_admin(world, 
 
     assert decide_flags(people["ac"]) == {asked["request_id"]: False, plain["request_id"]: True}
     assert decide_flags(people["ac2"]) == {asked["request_id"]: False, plain["request_id"]: True}  # not another Branch Manager's either
-    assert decide_flags(people["admin"]) == {asked["request_id"]: True, plain["request_id"]: False}
-    assert decide_flags(people["founder"]) == {asked["request_id"]: True, plain["request_id"]: False}
+    assert decide_flags(people["admin"]) == {asked["request_id"]: True, plain["request_id"]: True}
+    assert decide_flags(people["founder"]) == {asked["request_id"]: True, plain["request_id"]: True}
     reject = lambda who, request: call(client, login, people[who], "post", f"/reschedule-requests/{request['request_id']}/reject", json={"note": "No"})  # noqa: E731
     assert reject("ac", asked).status_code == 422 and reject("ac2", asked).status_code == 422
-    assert reject("admin", plain).status_code == 403 and reject("founder", plain).status_code == 403
-    assert reject("ac", plain).status_code == 200
+    assert reject("founder", plain).status_code == 200  # the Founder / Super Admin decide any branch's ordinary request too
     assert reject("admin", asked).status_code == 200

@@ -6,9 +6,8 @@ latest version, but students keep the last Released version until a newer one is
 
 Who may do what:
   Trainer               add content for batches they teach, edit their drafts, submit
-  Branch Manager  review, release and retire content at their branch (never their own upload)
-  Branch Manager        sees the branch's content
-  Super Admin           all branches
+  Branch Manager        add, review, release and retire content at their branch (never their own upload)
+  Super Admin, Founder  the same for every branch (a branch is named when adding); they may approve their own upload
   Student               sees Released items of their own enrolments, until the access window closes
 """
 from datetime import datetime, timezone
@@ -25,7 +24,7 @@ from repositories import content as content_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import audit, content_files, scope, student_library
-from services.context import current_user
+from services.context import ACADEMIC_ROLES, ADMIN_ROLES, current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
@@ -40,8 +39,13 @@ def _now() -> datetime:
 # ---------------------------------------------------------------- who may see / manage
 
 def _is_reviewer(item: ContentItem) -> bool:
-    """Branch Manager of the item's branch."""
-    return current_user().has_role("BRANCH_MANAGER", branch_id=item.branch_id)
+    """Branch Manager of the item's branch, or the Super Admin / Founder (any branch)."""
+    return current_user().has_role(*ACADEMIC_ROLES, branch_id=item.branch_id)
+
+
+def _may_review_own(user) -> bool:
+    """Super Admin and Founder may approve and release their own uploads; a Branch Manager never reviews their own."""
+    return user.has_role(*ADMIN_ROLES)
 
 
 def _staff_can_view(item: ContentItem) -> bool:
@@ -329,12 +333,12 @@ def review(content_item_id: int, decision: str, comment: str | None, release_now
     """start / approve / request_changes / reject the version under review; a reviewer never reviews their own upload."""
     item = _get_staff_item(content_item_id)
     if not _is_reviewer(item):
-        raise Forbidden("Only the Branch Manager of this branch reviews content")
+        raise Forbidden("Only the Branch Manager of this branch, a Super Admin or the Founder reviews content")
     _assert_open(item)
     version = item.latest_version
     if version.status not in REVIEWABLE:
         raise BusinessRule(f"Version {version.version_no} is {version.status}; only submitted content can be reviewed")
-    if version.uploaded_by == current_user().user_id:
+    if version.uploaded_by == current_user().user_id and not _may_review_own(current_user()):
         raise BusinessRule("You cannot review content you uploaded; ask another reviewer")
     if decision in ("request_changes", "reject") and not (comment or "").strip():
         raise ValidationError("Say what needs to change", {"comment": ["Required for this decision"]})
@@ -365,10 +369,10 @@ def claim(content_item_id: int) -> dict:
     review the same upload. Idempotent. Returns who has it and whether this person may decide (never on their own upload)."""
     item = _get_staff_item(content_item_id)
     if not _is_reviewer(item):
-        raise Forbidden("Only the Branch Manager of this branch reviews content")
+        raise Forbidden("Only the Branch Manager of this branch, a Super Admin or the Founder reviews content")
     version = item.latest_version
     me = current_user()
-    own = version.uploaded_by == me.user_id
+    own = version.uploaded_by == me.user_id and not _may_review_own(me)
     if version.status == "Submitted" and not own and item.retired_at is None:
         review(content_item_id, "start", None)
         version = item.latest_version
@@ -398,7 +402,7 @@ def release(content_item_id: int) -> ContentItem:
     """Release the approved version to its audience. The previously released version is retired (and kept)."""
     item = _get_staff_item(content_item_id)
     if not _is_reviewer(item):
-        raise Forbidden("Only the Branch Manager of this branch releases content")
+        raise Forbidden("Only the Branch Manager of this branch, a Super Admin or the Founder releases content")
     _assert_open(item)
     version = item.latest_version
     if version.status != "Approved":
@@ -426,7 +430,7 @@ def retire(content_item_id: int, reason: str) -> ContentItem:
     """Withdraw the item from students. Files and versions are kept (no deletion)."""
     item = _get_staff_item(content_item_id)
     if not _is_reviewer(item):
-        raise Forbidden("Only the Branch Manager of this branch retires content")
+        raise Forbidden("Only the Branch Manager of this branch, a Super Admin or the Founder retires content")
     _assert_open(item)
     was_released = item.released_version is not None
     old_status = item.status
@@ -474,7 +478,7 @@ def placement_options() -> list[dict]:
     user = current_user()
     branch_ids = scope.visible_branch_ids(user)
     batches = content_repo.batches_for_authoring(branch_ids, scope.trainer_batch_ids(user))
-    if not user.has_role("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO"):
+    if not user.has_role("TRAINER", *ACADEMIC_ROLES):
         return []
     options = []
     for batch in batches:

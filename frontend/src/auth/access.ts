@@ -64,7 +64,9 @@ export function workspaceForPath(path: string): Workspace | null {
 }
 
 export function canOpen(workspaces: Workspace[], workspace: Workspace | null): boolean {
-  return workspace === null || workspaces.includes(workspace);
+  if (workspace === null || workspaces.includes(workspace)) return true;
+  // The Super Admin and Founder hold full read and write on branch work too, for every branch: the Branch Manager's screens open for them
+  return workspace === "branch" && (workspaces.includes("admin") || workspaces.includes("founder"));
 }
 
 export const WORKSPACE_LABELS: Record<Workspace, string> = {
@@ -163,6 +165,19 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/admin/issues", label: "Issues", icon: TriangleAlert, group: "Operations", badgeKey: "issues" },
   { to: "/admin/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
   { to: "/admin/courses", label: "Courses", icon: Library, group: "Academic" },
+  { to: "/admin/content", label: "Content", icon: FolderOpen, group: "Academic", hint: "Upload notes, files and links" },
+  { to: "/admin/content-review", label: "Content review", icon: ClipboardCheck, group: "Academic", badgeKey: "content_review", hint: "Approve and release content" },
+  { to: "/admin/questions", label: "Question approvals", icon: FileQuestion, group: "Academic", badgeKey: "questions", hint: "Write and approve test questions" },
+  { to: "/admin/assessments", label: "Assessments", icon: FileQuestion, group: "Academic", hint: "Questions, tests and interviews" },
+  { to: "/branch", label: "Branch work", icon: Briefcase, group: "Branch work", badgeKey: "my_work", hint: "What needs doing, across branches" },
+  { to: "/branch/class-day", label: "Class day", icon: Video, group: "Branch work", badgeKey: "class_day" },
+  { to: "/branch/schedule", label: "Schedule & calendar", icon: CalendarDays, group: "Branch work", badgeKey: "schedule" },
+  { to: "/branch/attendance", label: "Attendance & progress", icon: TrendingUp, group: "Branch work", badgeKey: "attendance" },
+  { to: "/branch/results", label: "Marks & results", icon: ClipboardCheck, group: "Branch work", badgeKey: "marks" },
+  { to: "/branch/recordings", label: "Recordings", icon: PlayCircle, group: "Branch work", hint: "Release a class recording" },
+  { to: "/branch/completion", label: "Completion & certificates", icon: Award, group: "Branch work", badgeKey: "completion" },
+  { to: "/branch/certificate-requests", label: "Certificate requests", icon: FileClock, group: "Branch work", badgeKey: "certificate_requests" },
+  { to: "/branch/extensions", label: "Access extensions", icon: Hourglass, group: "Branch work", badgeKey: "extensions" },
   { to: "/admin/crm-sync", label: "CRM sync", icon: RefreshCw, group: "System", badgeKey: "crm_sync" },
   { to: "/admin/setup", label: "Setup & health", icon: Activity, group: "System", badgeKey: "setup" },
   { to: "/admin/ai-controls", label: "AI controls", icon: Sparkles, group: "System" },
@@ -173,6 +188,10 @@ const FOUNDER_NAV: NavItem[] = [
   { to: "/founder", label: "Home", icon: House },
   { to: "/founder/approvals", label: "Approvals", icon: CircleCheck, group: "Approvals", badgeKey: "inbox" },
   { to: "/founder/courses", label: "Courses", icon: Library, group: "Company" },
+  { to: "/founder/content", label: "Content", icon: FolderOpen, group: "Company", hint: "Upload notes, files and links" },
+  { to: "/founder/content-review", label: "Content review", icon: ClipboardCheck, group: "Company", badgeKey: "content_review", hint: "Approve and release content" },
+  { to: "/founder/questions", label: "Question approvals", icon: FileQuestion, group: "Company", badgeKey: "questions", hint: "Write and approve test questions" },
+  { to: "/founder/assessments", label: "Assessments", icon: FileQuestion, group: "Company", hint: "Questions, tests and interviews" },
   { to: "/founder/users", label: "Staff accounts", icon: UserCog, group: "People", badgeKey: "users", hint: "Staff logins, roles and branches" },
   { to: "/founder/students", label: "Student accounts", icon: GraduationCap, group: "People", badgeKey: "student_accounts", hint: "Student logins and what needs fixing" },
   { to: "/founder/batches", label: "Batches", icon: Users, group: "Operations" },
@@ -182,6 +201,15 @@ const FOUNDER_NAV: NavItem[] = [
   { to: "/founder/reports", label: "Reports", icon: ChartColumn, group: "Operations" },
   { to: "/founder/calendar", label: "Academic calendar", icon: CalendarDays, group: "Operations", badgeKey: "calendar" },
   { to: "/founder/support", label: "Support", icon: LifeBuoy, group: "Operations" },
+  { to: "/branch", label: "Branch work", icon: Briefcase, group: "Branch work", badgeKey: "my_work", hint: "What needs doing, across branches" },
+  { to: "/branch/class-day", label: "Class day", icon: Video, group: "Branch work", badgeKey: "class_day" },
+  { to: "/branch/schedule", label: "Schedule & calendar", icon: CalendarDays, group: "Branch work", badgeKey: "schedule" },
+  { to: "/branch/attendance", label: "Attendance & progress", icon: TrendingUp, group: "Branch work", badgeKey: "attendance" },
+  { to: "/branch/results", label: "Marks & results", icon: ClipboardCheck, group: "Branch work", badgeKey: "marks" },
+  { to: "/branch/recordings", label: "Recordings", icon: PlayCircle, group: "Branch work", hint: "Release a class recording" },
+  { to: "/branch/completion", label: "Completion & certificates", icon: Award, group: "Branch work", badgeKey: "completion" },
+  { to: "/branch/certificate-requests", label: "Certificate requests", icon: FileClock, group: "Branch work", badgeKey: "certificate_requests" },
+  { to: "/branch/extensions", label: "Access extensions", icon: Hourglass, group: "Branch work", badgeKey: "extensions" },
   { to: "/founder/crm-sync", label: "CRM sync", icon: RefreshCw, group: "System", badgeKey: "crm_sync" },
   { to: "/founder/setup", label: "Setup & health", icon: Activity, group: "System", badgeKey: "setup" },
   { to: "/founder/ai-controls", label: "AI controls", icon: Sparkles, group: "System" },

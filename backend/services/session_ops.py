@@ -25,7 +25,7 @@ from repositories import users as users_repo
 from repositories.common import paginate
 from services import approvals, audit, delivery_access, delivery_notices, meet, scope, working_days
 from services.class_sessions import _load_for_change, _notify_students, _require_open, _slot, assert_can_view_session
-from services.context import actor_id, current_user
+from services.context import ACADEMIC_ROLES, actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
 OPEN = ("Scheduled", "Rescheduled")
@@ -431,8 +431,8 @@ def decide_cover(request_id: int, decision: str, note: str | None) -> SessionCov
 def verify_cover(request_id: int, note: str) -> SessionCoverRequest:
     """The Branch Manager (or Super Admin) verifies the cover's competence, scope and handover."""
     request = _load_cover(request_id)
-    if not current_user().has_role("BRANCH_MANAGER", branch_id=request.session.batch.branch_id):
-        raise Forbidden("Only the Branch Manager of this branch verifies cover")
+    if not current_user().has_role(*ACADEMIC_ROLES, branch_id=request.session.batch.branch_id):
+        raise Forbidden("Only the Branch Manager of this branch, a Super Admin or the Founder verifies cover")
     if request.verified_at is not None:
         raise BusinessRule("The cover is already verified")
     request.verified_by, request.verified_at, request.verification_note = actor_id(), _now(), note
@@ -503,8 +503,8 @@ def add_roster(session_id: int, data: dict) -> SessionRoster:
     one attendance entry per person, hours and trainer time counted once."""
     session = _load_for_change(session_id)
     _require_open(session, "shared")
-    if not current_user().has_role("BRANCH_MANAGER", branch_id=session.batch.branch_id):
-        raise Forbidden("The Branch Manager verifies the coverage of a shared class")
+    if not current_user().has_role(*ACADEMIC_ROLES, branch_id=session.batch.branch_id):
+        raise Forbidden("The Branch Manager, a Super Admin or the Founder verifies the coverage of a shared class")
     batch = batches_repo.get_batch(data["batch_id"])
     if batch is None:
         raise NotFound("Batch not found")

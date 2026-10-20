@@ -205,7 +205,6 @@ def test_super_admin_and_founder_can_allocate_to_any_branch(world, client, login
     assert call(client, login, people[who], "post", f"/enrolments/{eid}/deallocate", json={"reason": "x"}).status_code == 200
 
 
-
 def test_allocation_scope_and_version_warning(world, client, login, make_batch, make_student):
     people, batch, student = world
     eid = student.enrolments[0]["enrolment_id"]

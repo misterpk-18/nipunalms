@@ -2,7 +2,7 @@ from flask import Blueprint
 
 from controllers import session_operations as controller
 from routes.decorators import login_required, require_roles
-from services.context import ADMIN_ROLES, STAFF_ROLES
+from services.context import ACADEMIC_ROLES, ADMIN_ROLES, STAFF_ROLES
 from services.delivery_access import MANAGE_ROLES
 
 session_operations_bp = Blueprint("session_operations", __name__)
@@ -124,7 +124,7 @@ def decide_cover(request_id: int):
 
 @session_operations_bp.post("/session-cover-requests/<int:request_id>/verification")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def verify_cover(request_id: int):
     return controller.verify_cover(request_id)
 
@@ -133,13 +133,13 @@ def verify_cover(request_id: int):
 
 @session_operations_bp.post("/class-sessions/<int:session_id>/rosters")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def add_roster(session_id: int):
     return controller.add_roster(session_id)
 
 
 @session_operations_bp.delete("/class-sessions/<int:session_id>/rosters/<int:batch_id>")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 def remove_roster(session_id: int, batch_id: int):
     return controller.remove_roster(session_id, batch_id)

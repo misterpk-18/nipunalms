@@ -12,7 +12,7 @@ from repositories import catalog as catalog_repo
 from repositories import questions as questions_repo
 from repositories.common import paginate
 from services import audit, scope
-from services.context import ASSESSMENT_AUTHOR_ROLES, MODERATOR_ROLES, current_user
+from services.context import ADMIN_ROLES, ASSESSMENT_AUTHOR_ROLES, MODERATOR_ROLES, current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 from services.scoring import validate_question_key
 
@@ -116,14 +116,14 @@ def update_question(question_id: int, data: dict) -> Question:
 
 
 def approve_question(question_id: int) -> Question:
-    """The Branch Manager approves stem, key and explanation for use in tests; never the author's own question."""
+    """The Branch Manager (or a Super Admin / Founder) approves stem, key and explanation for use in tests; never a Branch Manager's own question."""
     question = _load(question_id)
     if not _can_moderate(question):
-        raise Forbidden("Only the Branch Manager can approve questions")
+        raise Forbidden("Only the Branch Manager, a Super Admin or the Founder can approve questions")
     if question.status != "Draft":
         raise BusinessRule(f"Only a draft can be approved (this one is {question.status})")
     user = current_user()
-    if question.author_user_id == user.user_id:
+    if question.author_user_id == user.user_id and not user.has_role(*ADMIN_ROLES):
         raise BusinessRule("You wrote this question; another reviewer has to approve it")
     question.status, question.reviewed_by, question.approved_at = "Approved", user.user_id, datetime.now(timezone.utc)
     if question.parent_question_id:

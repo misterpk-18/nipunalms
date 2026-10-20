@@ -15,9 +15,9 @@ ACADEMIC_ROLES = ADMIN_ROLES + BRANCH_ROLES
 # Anyone on staff (everyone except students)
 STAFF_ROLES = ACADEMIC_ROLES + TRAINER_ROLES
 # Assessments: who authors and reviews work for a batch (a trainer only for batches they teach), and who moderates and
-# publishes results (the branch's Branch Manager only: Super Admin and Founder read across branches but do not run them)
-ASSESSMENT_AUTHOR_ROLES = ("TRAINER", "BRANCH_MANAGER")
-MODERATOR_ROLES = ("BRANCH_MANAGER",)
+# publishes results (the branch's Branch Manager, and the Super Admin and Founder for every branch)
+ASSESSMENT_AUTHOR_ROLES = ("TRAINER", *ACADEMIC_ROLES)
+MODERATOR_ROLES = ACADEMIC_ROLES
 
 
 @dataclass(frozen=True)

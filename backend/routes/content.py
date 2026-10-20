@@ -2,12 +2,13 @@ from flask import Blueprint
 
 from controllers import content as content_controller
 from routes.decorators import login_required, require_roles
+from services.context import ACADEMIC_ROLES
 
 content_bp = Blueprint("content", __name__, url_prefix="/content-items")
 
-STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-AUTHORS = ("TRAINER", "BRANCH_MANAGER")
-REVIEWERS = ("BRANCH_MANAGER",)
+STAFF = ("TRAINER", *ACADEMIC_ROLES)
+AUTHORS = ("TRAINER", *ACADEMIC_ROLES)
+REVIEWERS = ACADEMIC_ROLES
 
 
 @content_bp.get("")

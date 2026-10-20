@@ -12,7 +12,7 @@ from repositories import batches as batches_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from services import scope
-from services.context import MODERATOR_ROLES, CurrentUser, current_user
+from services.context import ACADEMIC_ROLES, MODERATOR_ROLES, CurrentUser, current_user
 from services.errors import Forbidden, NotFound
 
 
@@ -21,9 +21,9 @@ def is_student(user: CurrentUser | None = None) -> bool:
 
 
 def can_manage_batch(batch: Batch, user: CurrentUser | None = None) -> bool:
-    """Author, release and review work for this batch: an assigned trainer or the branch's Branch Manager."""
+    """Author, release and review work for this batch: an assigned trainer, the branch's Branch Manager, or a Super Admin / Founder."""
     user = user or current_user()
-    if user.has_role("BRANCH_MANAGER", branch_id=batch.branch_id):
+    if user.has_role(*ACADEMIC_ROLES, branch_id=batch.branch_id):
         return True
     return user.has_role("TRAINER") and batch.batch_id in scope.trainer_batch_ids(user)
 

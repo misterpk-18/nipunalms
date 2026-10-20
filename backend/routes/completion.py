@@ -3,6 +3,7 @@ from flask import Blueprint
 
 from controllers import completion as completion_controller
 from routes.decorators import fresh_auth, login_required, require_roles
+from services.context import ACADEMIC_ROLES
 
 completion_bp = Blueprint("completion", __name__, url_prefix="/completion-reviews")
 
@@ -18,7 +19,7 @@ def list_candidates():
 
 @completion_bp.post("")
 @login_required
-@require_roles("TRAINER", "BRANCH_MANAGER")
+@require_roles("TRAINER", *ACADEMIC_ROLES)
 def open_review():
     return completion_controller.open_review()
 
@@ -32,14 +33,14 @@ def get_review(review_id: int):
 
 @completion_bp.post("/<int:review_id>/recommendation")
 @login_required
-@require_roles("TRAINER", "BRANCH_MANAGER")
+@require_roles("TRAINER", *ACADEMIC_ROLES)
 def recommend(review_id: int):
     return completion_controller.recommend(review_id)
 
 
 @completion_bp.post("/<int:review_id>/decision")
 @login_required
-@require_roles("BRANCH_MANAGER")
+@require_roles(*ACADEMIC_ROLES)
 @fresh_auth
 def decide(review_id: int):
     return completion_controller.decide(review_id)

@@ -2,12 +2,13 @@ from flask import Blueprint
 
 from controllers import recordings as recordings_controller
 from routes.decorators import login_required, require_roles
+from services.context import ACADEMIC_ROLES
 
 recordings_bp = Blueprint("recordings", __name__, url_prefix="/recordings")
 recording_exceptions_bp = Blueprint("recording_exceptions", __name__, url_prefix="/recording-exceptions")
 
 STAFF = ("TRAINER", "BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
-MANAGERS = ("BRANCH_MANAGER",)
+MANAGERS = ACADEMIC_ROLES
 EXCEPTION_HANDLERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # Super Admin / Founder only for issues owned by Super Admin (the service refuses others)
 
 

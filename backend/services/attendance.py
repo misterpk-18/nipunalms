@@ -22,14 +22,14 @@ from repositories import users as users_repo
 from repositories.common import paginate
 from repositories.rows import paginate_rows
 from services import approvals, audit, certificates, progress, scope, working_days
-from services.context import current_user
+from services.context import ACADEMIC_ROLES, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
 ATTENDED = ("Present", "Late")
-MARKERS = ("BRANCH_MANAGER",)       # besides the batch's trainers
-DECIDERS = ("BRANCH_MANAGER",)  # correction reviewers (independent of the requester); the Founder / Super Admin decide a Branch Manager's own
-RECOVERY_APPROVERS = ("BRANCH_MANAGER",)
+MARKERS = ACADEMIC_ROLES       # besides the batch's trainers
+DECIDERS = ACADEMIC_ROLES  # correction reviewers (independent of the requester); the Founder / Super Admin decide a Branch Manager's own
+RECOVERY_APPROVERS = ACADEMIC_ROLES
 
 
 def lock_days() -> int:

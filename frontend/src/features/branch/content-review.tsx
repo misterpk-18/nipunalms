@@ -143,7 +143,7 @@ function Preview({ item }: { item: ContentItem }) {
 
 type Prompt = "changes" | "reject" | "retire" | null;
 
-function Decisions({ item, claim, onDone }: { item: ContentItem; claim: ClaimResult | null; onDone: () => void }) {
+function Decisions({ item, claim, onDone, basePath }: { item: ContentItem; claim: ClaimResult | null; onDone: () => void; basePath: string }) {
   const [prompt, setPrompt] = useState<Prompt>(null);
   const awaiting = item.status === "Submitted" || item.status === "Under Review";
   const base = { invalidate: REFRESH, onSuccess: onDone };
@@ -151,31 +151,31 @@ function Decisions({ item, claim, onDone }: { item: ContentItem; claim: ClaimRes
   const approveNow = useApiMutation(() => contentApi.review(item.content_item_id, { decision: "approve", release: true }), {
     success: `${item.title} is approved and released`,
     next: `${when} can see it now.`,
-    view: { to: "/branch/content", label: "View content" },
+    view: { to: basePath, label: "View content" },
     ...base,
   });
   const approveLater = useApiMutation(() => contentApi.review(item.content_item_id, { decision: "approve" }), {
     success: `${item.title} is approved`,
     next: "Students cannot see it yet. Release it from Ready to release when you are ready.",
-    view: { to: "/branch/content", label: "View content" },
+    view: { to: basePath, label: "View content" },
     ...base,
   });
   const changes = useApiMutation((comment: string) => contentApi.review(item.content_item_id, { decision: "request_changes", comment }), {
     success: "Changes requested",
     next: `${item.owner.full_name} is told and sees your comment.`,
-    view: { to: "/branch/content", label: "View content" },
+    view: { to: basePath, label: "View content" },
     ...base,
   });
   const reject = useApiMutation((comment: string) => contentApi.review(item.content_item_id, { decision: "reject", comment }), {
     success: "Content rejected",
     next: `${item.owner.full_name} is told and sees your reason.`,
-    view: { to: "/branch/content", label: "View content" },
+    view: { to: basePath, label: "View content" },
     ...base,
   });
   const release = useApiMutation(() => contentApi.release(item.content_item_id), {
     success: `${item.title} is released`,
     next: `${when} can see it now.`,
-    view: { to: "/branch/content", label: "View content" },
+    view: { to: basePath, label: "View content" },
     ...base,
   });
   const retire = useApiMutation((reason: string) => contentApi.retire(item.content_item_id, reason), {
@@ -290,7 +290,7 @@ function ClaimLine({ claim, error, waiting }: { claim: ClaimResult | null; error
   return null;
 }
 
-export function ContentReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
+export function ContentReviewDialog({ id, onClose, basePath = "/branch/content" }: { id: number; onClose: () => void; basePath?: string }) {
   const queryClient = useQueryClient();
   const detail = useQuery({ queryKey: ["content-items", "detail", id], queryFn: () => contentApi.item(id) });
   const [claim, setClaim] = useState<ClaimResult | null>(null);
@@ -328,7 +328,7 @@ export function ContentReviewDialog({ id, onClose }: { id: number; onClose: () =
               </DialogHeader>
               <ClaimLine claim={claim} error={claimError} waiting={awaiting} />
               <Preview item={item} />
-              <Decisions item={item} claim={claim} onDone={onClose} />
+              <Decisions item={item} claim={claim} onDone={onClose} basePath={basePath} />
             </>
           )}
         </QueryView>

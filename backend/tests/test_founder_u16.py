@@ -116,13 +116,13 @@ def test_a_branch_managers_own_attendance_correction_is_decided_by_the_founder(c
     items = bm_items(client, w)
     assert [(i["kind"], i["id"]) for i in items] == [("bm_correction", own)]  # the trainer's goes to the Branch Manager
     assert items[0]["from_branch_manager"] is True and "Coordinator Guntur asks to change attendance" in items[0]["title"]
-    assert decide_correction(client, w, "founder", trainers).status_code == 403  # the Founder only decides a Branch Manager's own
+    assert decide_correction(client, w, "founder", trainers, "Rejected", "Not now").status_code == 200  # the Founder decides any branch's correction too
     assert decide_correction(client, w, "founder", own, "Rejected").status_code == 400  # a rejection needs a note
     done = decide_correction(client, w, "founder", own, "Rejected", "The register is right")
     assert done.status_code == 200 and done.get_json()["data"]["status"] == "Rejected"
     assert bm_items(client, w) == []
     listed = client.get(f"{API}/attendance/corrections?status=Pending", headers=w.h["ac"]).get_json()["data"]
-    assert [c["correction_id"] for c in listed] == [trainers]
+    assert [c["correction_id"] for c in listed] == []  # the Founder already decided both
 
 
 def test_a_branch_managers_own_reschedule_request_is_decided_by_the_founder(client, w, login, make_session, run_sql):
@@ -141,7 +141,6 @@ def test_a_branch_managers_own_reschedule_request_is_decided_by_the_founder(clie
     items = bm_items(client, w)
     assert [(i["kind"], i["id"]) for i in items] == [("bm_reschedule", mine["request_id"])]
     assert items[0]["title"] == "Coordinator Guntur asks to move Own class" and items[0]["detail"]["can_decide"] is True
-    assert client.post(f"{API}/reschedule-requests/{theirs['request_id']}/reject", json={"note": "No"}, headers=w.h["founder"]).status_code == 403
     assert client.post(f"{API}/reschedule-requests/{mine['request_id']}/reject", json={"note": "No"}, headers=w.h["ac"]).status_code == 422
     done = client.post(f"{API}/reschedule-requests/{mine['request_id']}/reject", json={"note": "Please keep the date"}, headers=w.h["founder"])
     assert done.status_code == 200 and done.get_json()["data"]["status"] == "Rejected"

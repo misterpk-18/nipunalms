@@ -16,16 +16,16 @@ from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import audit, scope, whatsapp_messages
-from services.context import current_user
+from services.context import ACADEMIC_ROLES, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound
 from services.notifications import notify
 
 COMPLETION_CERTIFICATE = "Course Completion Certificate"
 COMPLIMENTARY_PENDING = "Configuration Pending: completion rule not configured for complimentary offer"
 
-REVIEWERS = ("BRANCH_MANAGER",)
-APPROVERS = ("BRANCH_MANAGER",)
-ISSUERS = ("BRANCH_MANAGER",)
+REVIEWERS = ACADEMIC_ROLES
+APPROVERS = ACADEMIC_ROLES
+ISSUERS = ACADEMIC_ROLES
 # Change requests (Module 22 §7, §8): who may ask, and who decides (never the person who asked)
 CORRECTION_REQUESTERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
 CORRECTION_APPROVERS = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")  # a Branch Manager's own request goes to the last two

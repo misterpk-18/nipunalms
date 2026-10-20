@@ -64,7 +64,7 @@ def test_register_entry_appears_when_the_enrolment_starts(client, w):
 def test_full_workflow_allocates_the_number_only_at_issue(client, w):
     cid = complete(client, w)
     assert get(client, w, "ac", cid).get_json()["data"]["actions"] == ["recommend", "approve"]
-    assert get(client, w, "founder", cid).get_json()["data"]["actions"] == []
+    assert get(client, w, "founder", cid).get_json()["data"]["actions"] == ["recommend", "approve"]  # the Founder runs the same steps
 
     assert post(client, w, "ac", f"/certificates/{cid}/recommendation").status_code == 200
     assert get(client, w, "bm", cid).get_json()["data"]["actions"] == ["approve", "return"]
@@ -247,7 +247,7 @@ def test_scope_of_the_register(client, w):
     assert client.get(f"{API}/certificates", headers=w.h["ac_v"]).get_json()["data"] == []
     assert post(client, w, "ac_v", f"/certificates/{cid}/recommendation").status_code == 404
     assert client.get(f"{API}/certificates", headers=w.h["founder"]).status_code == 200
-    assert get(client, w, "founder", cid).get_json()["data"]["actions"] == []
+    assert get(client, w, "founder", cid).get_json()["data"]["actions"] == ["recommend", "approve"]
     assert get(client, w, "s1", cid).get_json()["data"]["actions"] == []
 
 
@@ -266,7 +266,7 @@ def test_branch_manager_can_add_an_internship_entry(client, w):
     made = post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"})
     assert made.status_code == 201 and made.get_json()["data"]["status"] == "Not Yet Eligible"  # course completion is not an internship
     assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 409
-    assert post(client, w, "founder", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 403
+    assert post(client, w, "founder", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 409  # allowed, but it exists
     assert post(client, w, "ac_v", "/certificates", {"enrolment_id": w.e1, "certificate_type": "Internship Certificate"}).status_code == 404
     assert post(client, w, "ac", "/certificates", {"enrolment_id": w.e3, "certificate_type": "Internship Certificate"}).status_code == 422
 

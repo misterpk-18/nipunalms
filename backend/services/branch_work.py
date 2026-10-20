@@ -14,7 +14,7 @@ from repositories import progress as progress_repo
 from services import progress as progress_service
 from services import scope
 from services.dashboards import scope_block
-from services.nav import SUPPORT_WARNING, require_workspace
+from services.nav import SUPPORT_WARNING
 
 
 def _plural(count: int, one: str, many: str | None = None) -> str:
@@ -55,7 +55,6 @@ def _row(key: str, what: str, to: str, action: str, count: int, oldest_at: datet
 
 def my_work(workspace_branch_id: int | None = None) -> dict:
     """The rows for the branches in view (one chosen branch, or all the user may see), in priority order."""
-    require_workspace("branch")
     branch_ids = _branches(workspace_branch_id)
     now = datetime.now(timezone.utc)
     rows: list[dict] = []

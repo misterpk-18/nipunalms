@@ -93,7 +93,7 @@ def waiting(filters: dict, page: int, per_page: int) -> tuple[list[dict], dict]:
 def waiting_for_batch(batch_id: int) -> dict:
     """Who on the waiting list could join this batch (for "Add students from waiting list" on the batch page)."""
     batch, taken = batches_service.get_batch(batch_id)
-    delivery_access.assert_can_manage_branch(batch.branch_id)
+    delivery_access.assert_can_allocate_branch(batch.branch_id)
     stmt = enrolments_repo.list_stmt({"status": "Allocation Pending", "branch_id": batch.branch_id}, scope.visible_branch_ids(), set())
     stmt = stmt.order_by(None).order_by(Enrolment.updated_at, Enrolment.enrolment_id)
     enrolments = list(db.session.execute(stmt).scalars().unique())

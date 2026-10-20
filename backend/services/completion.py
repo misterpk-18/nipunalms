@@ -17,11 +17,11 @@ from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import audit, certificates, progress, scope
-from services.context import current_user
+from services.context import ACADEMIC_ROLES, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 from services.notifications import notify
 
-DECIDERS = ("BRANCH_MANAGER",)
+DECIDERS = ACADEMIC_ROLES
 
 
 def evidence_of(enrolment: Enrolment) -> dict:

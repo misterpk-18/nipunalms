@@ -55,13 +55,13 @@ def test_opening_a_review_needs_a_running_enrolment_and_the_right_person(client,
     assert open_review(client, w).status_code == 422                            # still awaiting its first class
     start(client, w)
     assert open_review(client, w, "s1").status_code == 403
-    assert open_review(client, w, "founder").status_code == 403
     assert open_review(client, w, "t2").status_code == 404
     assert open_review(client, w, "ac_v").status_code == 404
     created = open_review(client, w)
     assert created.status_code == 201 and created.get_json()["data"]["status"] == "Open"
     again = open_review(client, w, "ac")
     assert again.status_code == 200 and again.get_json()["data"]["review_id"] == created.get_json()["data"]["review_id"]
+    assert open_review(client, w, "founder").status_code == 200  # the Founder opens the same review
 
 
 def test_trainer_recommendation_informs_but_does_not_decide(client, w):
@@ -82,7 +82,6 @@ def test_only_the_coordinator_decides_and_reasons_are_required(client, w):
     start(client, w)
     review_id = open_review(client, w).get_json()["data"]["review_id"]
     assert decide(client, w, review_id, who="t1").status_code == 403
-    assert decide(client, w, review_id, who="founder").status_code == 403
     assert decide(client, w, review_id, who="ac_v").status_code == 404
     assert decide(client, w, review_id, "Not Yet").status_code == 400
     assert decide(client, w, review_id, "Needs Recovery", "").status_code == 400

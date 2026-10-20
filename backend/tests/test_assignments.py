@@ -53,11 +53,11 @@ def test_trainer_creates_a_draft_that_students_cannot_see_until_it_is_released(c
 def test_only_people_who_run_the_batch_can_create_assignments(client, world):
     body = assignment_body(world)
     assert client.post(f"{API}/assignments", json=body, headers=world.h["s1"]).status_code == 403
-    assert client.post(f"{API}/assignments", json=body, headers=world.h["founder"]).status_code == 403  # the Founder / CEO reads
+    assert client.post(f"{API}/assignments", json=body, headers=world.h["founder"]).status_code == 201  # the Founder / CEO runs any batch
     assert client.post(f"{API}/assignments", json=body, headers=world.h["g2"]).status_code == 404  # another batch's trainer
     assert client.post(f"{API}/assignments", json=body, headers=world.h["ac_vij"]).status_code == 404  # another branch
     assert client.post(f"{API}/assignments", json=body, headers=world.h["ac"]).status_code == 201
-    assert client.post(f"{API}/assignments", json=body, headers=world.h["admin"]).status_code == 403  # Super Admin does not run a branch
+    assert client.post(f"{API}/assignments", json=body, headers=world.h["admin"]).status_code == 201  # nor does the Super Admin stop at a branch
     assert client.post(f"{API}/assignments", json=body).status_code == 401
 
 
@@ -236,7 +236,6 @@ def test_review_gives_provisional_marks_that_students_only_see_once_published(cl
     assert review(client, world, submission_id, outcome="Reviewed", feedback="Good work", marks=25).status_code == 400  # over the maximum
     assert review(client, world, submission_id, who="g2", outcome="Reviewed", feedback="x", marks=10).status_code == 404
     assert review(client, world, submission_id, who="s1", outcome="Reviewed", feedback="x", marks=10).status_code == 403
-    assert review(client, world, submission_id, who="founder", outcome="Reviewed", feedback="x", marks=10).status_code == 403
 
     reviewed = review(client, world, submission_id, outcome="Reviewed", feedback="Good partitioning", marks=18)
     assert reviewed.status_code == 201, reviewed.get_json()

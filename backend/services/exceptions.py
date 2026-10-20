@@ -16,7 +16,7 @@ from models.exceptions import EXCEPTION_SOURCES
 from repositories import exceptions as exceptions_repo
 from repositories.common import paginate
 from services import audit, scope
-from services.context import ADMIN_ROLES, current_user
+from services.context import ACADEMIC_ROLES, ADMIN_ROLES, current_user
 from services.errors import BusinessRule, Forbidden, NotFound, ValidationError
 
 STEP_ROLES = ("BRANCH_MANAGER", "SUPER_ADMIN", "FOUNDER_CEO")
@@ -49,7 +49,7 @@ def _can_log(item: ExceptionItem) -> bool:
     user = current_user()
     if user.has_role(*ADMIN_ROLES):
         return True
-    return item.branch_id is not None and user.has_role("BRANCH_MANAGER", branch_id=item.branch_id)
+    return item.branch_id is not None and user.has_role(*ACADEMIC_ROLES, branch_id=item.branch_id)
 
 
 def list_steps(source: str, source_id: int) -> list[ExceptionRecoveryStep]:

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { assessmentsApi, batchesForAuthoring, QUESTION_TYPES, type Question, type QuestionType } from "@/api/assessments";
+import { assessmentsApi, batchesForAuthoring, batchesForAuthoringIn, QUESTION_TYPES, type Question, type QuestionType } from "@/api/assessments";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { DataTable, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/auth/auth";
+import { useBranchOptions } from "@/features/shared/branch-filter";
 import { useApiMutation } from "@/lib/mutation";
 
 const CHOICE = ["Single choice", "Multiple choice"];
@@ -117,7 +118,15 @@ function buildKey(type: QuestionType, s: KeyState): { options: { key: string; te
 /** Write a new question, or (with `question`) edit a draft of your own. */
 function QuestionDialog({ open, onOpenChange, question }: { open: boolean; onOpenChange: (open: boolean) => void; question?: Question | undefined }) {
   const editing = question !== undefined;
-  const batches = useQuery({ queryKey: ["batches", "authoring"], queryFn: batchesForAuthoring, enabled: open });
+  const { profile } = useAuth();
+  const statesBranch = !editing && (profile?.workspace === "admin" || profile?.workspace === "founder"); // they work across branches, so say which bank
+  const branches = useBranchOptions();
+  const [branchId, setBranchId] = useState("");
+  const batches = useQuery({
+    queryKey: ["batches", "authoring", branchId],
+    queryFn: () => (branchId ? batchesForAuthoringIn(Number(branchId)) : batchesForAuthoring()),
+    enabled: open && (!statesBranch || branchId !== ""),
+  });
   const [courseId, setCourseId] = useState(question ? String(question.course.course_id) : "");
   const [topicId, setTopicId] = useState(question?.topic ? String(question.topic.topic_id) : "");
   const [type, setType] = useState<QuestionType>(question?.question_type ?? "Single choice");
@@ -147,10 +156,13 @@ function QuestionDialog({ open, onOpenChange, question }: { open: boolean; onOpe
   };
 
   const save = useApiMutation(
-    () => (editing ? assessmentsApi.updateQuestion(question.question_id, body) : assessmentsApi.createQuestion({ course_id: Number(courseId), ...body })),
+    () =>
+      editing
+        ? assessmentsApi.updateQuestion(question.question_id, body)
+        : assessmentsApi.createQuestion({ course_id: Number(courseId), ...(statesBranch ? { branch_id: Number(branchId) } : {}), ...body }),
     {
       success: (q) => `${q.question_code} saved as a draft`,
-      next: "The Branch Manager approves it before it can go in a test.",
+      next: statesBranch ? "Approve it under Question approvals before it can go in a test." : "The Branch Manager approves it before it can go in a test.",
       invalidate: REFRESH,
       onSuccess: () => {
         onOpenChange(false);
@@ -170,6 +182,21 @@ function QuestionDialog({ open, onOpenChange, question }: { open: boolean; onOpe
           <DialogDescription>Saved as a draft; the Branch Manager approves it before it can go in a test.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          {statesBranch && (
+            <Field label="Branch" htmlFor="q-branch" hint="The question joins this branch's bank.">
+              <NativeSelect
+                id="q-branch"
+                value={branchId}
+                onChange={(e) => {
+                  setBranchId(e.target.value);
+                  setCourseId("");
+                  setTopicId("");
+                }}
+                placeholder="Select a branch"
+                options={(branches.data ?? []).map((b) => ({ value: b.branch_id, label: b.branch_name }))}
+              />
+            </Field>
+          )}
           <Field label="Course" htmlFor="q-course">
             <NativeSelect
               id="q-course"
@@ -227,7 +254,7 @@ function QuestionDialog({ open, onOpenChange, question }: { open: boolean; onOpe
           </div>
         </div>
         <DialogFooter>
-          <Button disabled={!courseId || !stem || save.isPending} onClick={() => save.mutate(undefined)}>
+          <Button disabled={!courseId || !stem || (statesBranch && !branchId) || save.isPending} onClick={() => save.mutate(undefined)}>
             {editing ? "Save changes" : "Save draft"}
           </Button>
         </DialogFooter>

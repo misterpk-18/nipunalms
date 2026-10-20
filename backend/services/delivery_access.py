@@ -3,11 +3,9 @@ at the record's branch (403 when the record is visible but the user may not chan
 from services.context import ACADEMIC_ROLES, CurrentUser, current_user
 from services.errors import Forbidden
 
-# Branch Managers of their session's branch only. Super Admin and Founder / CEO read across branches (and decide Branch Managers'
-# own requests) but do not run a branch's day-to-day work (role separation, decisions 15 and 16).
-MANAGE_ROLES = ("BRANCH_MANAGER",)
-# Giving a student a seat (and taking it away) is the one branch action the Super Admin and Founder / CEO share, in every branch
-ALLOCATE_ROLES = ACADEMIC_ROLES
+# Branch Managers of their session's branch; Super Admin and Founder / CEO for every branch (full read and write)
+MANAGE_ROLES = ACADEMIC_ROLES
+ALLOCATE_ROLES = MANAGE_ROLES
 
 def is_student_only(user: CurrentUser | None = None) -> bool:
     """A learner: the session's role is Student."""
