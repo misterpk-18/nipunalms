@@ -46,7 +46,7 @@ def get_class_session(session_id: int):
         "allocated_count": detail.allocated_count,
         "topic_path": {"topic_id": topic.topic_id, "title": topic.title,
                        "module": {"module_id": topic.module.module_id, "title": topic.module.title}} if topic else None,
-        **({} if delivery_access.is_student_only() else {
+        **({"attendance_claim": detail.attendance_claim} if delivery_access.is_student_only() else {
             "changes": [c.to_dict() for c in detail.changes],
             "meet_events": [e.to_dict() for e in detail.meet_events],
             "open_request": detail.open_request.to_dict() if detail.open_request else None,

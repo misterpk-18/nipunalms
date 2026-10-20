@@ -221,6 +221,8 @@ export type ClassSession = PastDetails & {
   meet_status_label: string;
   organizer_email: string | null;
   join: Join | null;
+  /** A student's "I attended" on an online class: whether they can say it, why not, and when they did. Null for a classroom class. */
+  attendance_claim?: { can_confirm: boolean; reason: string | null; claimed_at: DateTime | null } | null;
   state: string;
   /** What to show: Planned / Confirmed / Rescheduled / In Progress / Held / Partially Held / Cancelled. */
   state_label: string;
@@ -360,7 +362,16 @@ export type TrackRow = {
 export type MyEnrolmentDetail = MyEnrolment & {
   tracks: TrackRow[];
   modules: ModuleRow[];
-  next_sessions: { session_id: number; title: string; starts_at: DateTime; ends_at: DateTime; state: string; mode: string; trainer: string; room: string | null }[];
+  next_sessions: {
+    session_id: number;
+    title: string;
+    starts_at: DateTime;
+    ends_at: DateTime;
+    state: string;
+    mode: string;
+    trainer: string;
+    room: string | null;
+  }[];
   /** The batch's weekly pattern and room; null until a batch is allocated. */
   timetable: { schedule_days: string[]; start_time: string | null; end_time: string | null; location: string | null; mode: string } | null;
   finance: { fee_total: string; verified_paid: string; balance: string; as_of: DateTime } | null;

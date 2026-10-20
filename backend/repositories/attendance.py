@@ -7,7 +7,7 @@ from config.database import db
 from config.timezone import IST
 from repositories import class_sessions as class_sessions_repo
 from models import (
-    AttendanceCorrection, AttendanceRecord, AttendanceRecovery, Batch, BatchAllocation, ClassSession, Enrolment, Student,
+    AttendanceClaim, AttendanceCorrection, AttendanceRecord, AttendanceRecovery, Batch, BatchAllocation, ClassSession, Enrolment, Student,
 )
 
 
@@ -254,3 +254,22 @@ def sessions_missing_attendance(start: date, end: date) -> list[tuple[ClassSessi
     )
     return [(session, missing) for session, missing in db.session.execute(stmt).unique().all()]
 
+
+
+# ---------------------------------------------------------------- students' "I attended"
+
+def claims_for_session(session_id: int) -> dict[int, AttendanceClaim]:
+    """{enrolment id: claim} for one class."""
+    return {c.enrolment_id: c for c in db.session.execute(select(AttendanceClaim).where(AttendanceClaim.session_id == session_id)).scalars()}
+
+
+def find_claim(session_id: int, enrolment_id: int) -> AttendanceClaim | None:
+    return db.session.execute(select(AttendanceClaim).where(
+        AttendanceClaim.session_id == session_id, AttendanceClaim.enrolment_id == enrolment_id)).scalar_one_or_none()
+
+
+def add_claim(session_id: int, enrolment_id: int, user_id: int) -> AttendanceClaim:
+    claim = AttendanceClaim(session_id=session_id, enrolment_id=enrolment_id, claimed_by=user_id)
+    db.session.add(claim)
+    db.session.flush()
+    return claim

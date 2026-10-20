@@ -21,6 +21,7 @@ def _register_json(register: attendance_service.Register) -> dict:
                 "label": attendance_service.attendance_label(row.record, row.recovery),
                 "recovery": row.recovery.to_summary() if row.recovery else None,
                 "correction_pending": row.correction_pending,
+                "student_confirmed_at": row.claimed_at,
             }
             for row in register.rows
         ],
@@ -48,6 +49,7 @@ def get_register(session_id: int):
 def mark_attendance(session_id: int):
     v = Validator(json_body())
     v.choice("default_status", ATTENDANCE_STATUSES, nullable=True)
+    v.boolean("from_confirmations")
 
     def entry_rules(entry: Validator) -> None:
         entry.integer("enrolment_id", required=True, min_value=1)
@@ -56,7 +58,12 @@ def mark_attendance(session_id: int):
 
     v.list_of("entries", entry_rules)
     data = v.validate()
-    return ok(_register_json(attendance_service.mark_attendance(session_id, data.get("entries", []), data.get("default_status"))))
+    return ok(_register_json(attendance_service.mark_attendance(session_id, data.get("entries", []), data.get("default_status"),
+                                                                data.get("from_confirmations", False))))
+
+
+def confirm_attended(session_id: int):
+    return ok(attendance_service.confirm_attended(session_id))
 
 
 def my_attendance():

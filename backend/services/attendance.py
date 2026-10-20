@@ -94,6 +94,7 @@ class RegisterRow:
     record: AttendanceRecord | None
     recovery: AttendanceRecovery | None
     correction_pending: bool
+    claimed_at: datetime | None = None  # when the student said "I attended" (online classes); the trainer's mark is still the record
 
 
 @dataclass
@@ -109,7 +110,8 @@ class Register:
             if row.record is not None:
                 counts[row.record.status] += 1
         marked = sum(counts.values())
-        return {"seats": len(self.rows), "marked": marked, "not_yet_marked": len(self.rows) - marked,
+        claimed = sum(1 for row in self.rows if row.record is None and row.claimed_at is not None)
+        return {"seats": len(self.rows), "marked": marked, "not_yet_marked": len(self.rows) - marked, "confirmed_by_student": claimed,
                 **{status.lower(): n for status, n in counts.items()}}
 
 
@@ -142,11 +144,13 @@ def get_register(session_id: int) -> Register:
 
     recoveries = attendance_repo.recoveries_by_attendance([r.attendance_id for r in records.values()])
     pending = attendance_repo.pending_correction_keys([session_id])
+    claims = attendance_repo.claims_for_session(session_id)
     rows = []
     for enrolment in enrolments:
         record = records.get(enrolment.enrolment_id)
+        claim = claims.get(enrolment.enrolment_id)
         rows.append(RegisterRow(enrolment, record, recoveries.get(record.attendance_id) if record else None,
-                                (session_id, enrolment.enrolment_id) in pending))
+                                (session_id, enrolment.enrolment_id) in pending, claim.claimed_at if claim else None))
     return Register(session, rows, is_locked(session), _can_mark(session))
 
 
@@ -171,8 +175,9 @@ def list_register_sessions(filters: dict, page: int, per_page: int) -> tuple[lis
 
 # ---------------------------------------------------------------- marking
 
-def mark_attendance(session_id: int, entries: list[dict], default_status: str | None) -> Register:
-    """Mark the register: `entries` per enrolment, and/or default_status for every seat with no entry yet.
+def mark_attendance(session_id: int, entries: list[dict], default_status: str | None, from_confirmations: bool = False) -> Register:
+    """Mark the register: `entries` per enrolment, and/or default_status for every seat with no entry yet, and/or `from_confirmations`:
+    Present for every unmarked seat whose student said "I attended" (the trainer is confirming those claims; the rest stay unmarked).
 
     "Mark everyone Present, then fix the exceptions" is one call: default_status="Present" plus the exceptions as entries.
     """
@@ -196,6 +201,10 @@ def mark_attendance(session_id: int, entries: list[dict], default_status: str | 
     existing = attendance_repo.records_for_session(session_id)
     plan = list(entries) + [{"enrolment_id": eid, "status": default_status, "remarks": None}
                             for eid in seats if default_status and eid not in entered and eid not in existing]
+    if from_confirmations:
+        taken = entered | {item["enrolment_id"] for item in plan}
+        plan += [{"enrolment_id": eid, "status": "Present", "remarks": "Confirmed by the student"}
+                 for eid in attendance_repo.claims_for_session(session_id) if eid in seats and eid not in existing and eid not in taken]
     if not plan:
         raise ValidationError("Invalid request data", {"entries": ["Nothing to mark"]})
 
@@ -231,6 +240,59 @@ def mark_attendance(session_id: int, entries: list[dict], default_status: str | 
                link="/progress?tab=attendance", branch_id=session.batch.branch_id, recipient_user_ids=_student_user_ids(enrolment.student_id),
                event_key=f"attendance-absent:{session.session_id}:{enrolment.enrolment_id}")
     return get_register(session_id)
+
+
+# ---------------------------------------------------------------- the student's "I attended"
+
+def _claim_blocker(session: ClassSession, record: AttendanceRecord | None) -> str | None:
+    """Why this student cannot say "I attended" now, or None."""
+    if session.mode == "Classroom":
+        return "Your trainer marks the register in the room for a classroom class."
+    if session.state not in ("Live", "Delivered"):
+        return "You can confirm once the class has started."
+    if is_locked(session):
+        return "The register for this class is locked."
+    if record is not None:
+        return f"Your trainer has already marked you {record.status.lower()}."
+    return None
+
+
+def _my_seat(session: ClassSession) -> Enrolment | None:
+    """The student's enrolment holding a seat in a batch this class serves."""
+    mine = scope.student_enrolment_ids()
+    return next((e for e in attendance_repo.allocated_enrolments(sessions_repo.session_batch_ids(session.session_id)) if e.enrolment_id in mine), None)
+
+
+def claim_state(session: ClassSession) -> dict | None:
+    """What a student sees on an online class: whether they can say "I attended", why not, and when they did. None for a classroom class
+    or someone without a seat in it."""
+    if session.mode == "Classroom":
+        return None
+    enrolment = _my_seat(session)
+    if enrolment is None:
+        return None
+    claim = attendance_repo.find_claim(session.session_id, enrolment.enrolment_id)
+    record = attendance_repo.find_record(session.session_id, enrolment.enrolment_id)
+    reason = _claim_blocker(session, record)
+    return {"can_confirm": claim is None and reason is None, "reason": None if claim else reason, "claimed_at": claim.claimed_at if claim else None}
+
+
+def confirm_attended(session_id: int) -> dict:
+    """The student says they attended an online class. Repeating it changes nothing. The trainer's register stays the record: this
+    only shows the trainer who says they were there."""
+    session = attendance_repo.get_session(session_id)
+    enrolment = _my_seat(session) if session is not None else None
+    if session is None or enrolment is None:
+        raise NotFound("Class session not found")  # not a class of theirs: the same answer as a missing one
+    claim = attendance_repo.find_claim(session_id, enrolment.enrolment_id)
+    if claim is None:
+        blocker = _claim_blocker(session, attendance_repo.find_record(session_id, enrolment.enrolment_id))
+        if blocker:
+            raise BusinessRule(blocker)
+        claim = attendance_repo.add_claim(session_id, enrolment.enrolment_id, current_user().user_id)
+        audit.record("ATTENDANCE_CLAIMED", "class_session", session.session_code, new={"enrolment_id": enrolment.enrolment_id},
+                     branch_id=session.batch.branch_id)
+    return {"session_id": session_id, "claimed_at": claim.claimed_at}
 
 
 # ---------------------------------------------------------------- one enrolment's attendance

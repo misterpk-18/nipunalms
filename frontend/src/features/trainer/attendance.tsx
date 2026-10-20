@@ -66,6 +66,12 @@ export function RegisterForm({ sessionId, onSaved, heading = true }: { sessionId
             ...draft,
             [row.enrolment.enrolment_id]: { status, remarks: draft[row.enrolment.enrolment_id]?.remarks ?? row.attendance?.remarks ?? "" },
           });
+        const confirmed = register.rows.filter((r) => r.student_confirmed_at && effective(r) === null);
+        const markConfirmed = () => {
+          const next: Draft = { ...draft };
+          for (const row of confirmed) next[row.enrolment.enrolment_id] = { status: "Present", remarks: "Confirmed by the student" };
+          setDraft(next);
+        };
         const markAllPresent = () => {
           const next: Draft = { ...draft };
           for (const row of register.rows) if (effective(row) === null) next[row.enrolment.enrolment_id] = { status: "Present", remarks: "" };
@@ -103,6 +109,11 @@ export function RegisterForm({ sessionId, onSaved, heading = true }: { sessionId
                       {row.recovery && (
                         <span className="ml-2">
                           <StatusBadge domain="attendance" code={row.attendance?.status ?? row.label} label={row.label} />
+                        </span>
+                      )}
+                      {row.student_confirmed_at && effective(row) === null && (
+                        <span className="ml-2">
+                          <Tag tone="info">Says they attended</Tag>
                         </span>
                       )}
                       {row.correction_pending && (
@@ -179,6 +190,11 @@ export function RegisterForm({ sessionId, onSaved, heading = true }: { sessionId
                   {dirty && <span className="text-muted-foreground"> · changes not saved</span>}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
+                  {confirmed.length > 0 && (
+                    <Button variant="outline" onClick={markConfirmed}>
+                      Mark the {confirmed.length} who confirmed Present
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={markAllPresent} disabled={unmarked === 0}>
                     Mark everyone else Present
                   </Button>

@@ -41,7 +41,7 @@ def test_register_lists_allocated_seats_not_yet_marked(client, w):
     data = register(client, w, "t1", w.recent).get_json()["data"]
     assert [r["student"]["full_name"] for r in data["rows"]] == ["Anvitha K.", "Learner Two"]
     assert {r["label"] for r in data["rows"]} == {"Not yet marked"}
-    assert data["summary"] == {"seats": 2, "marked": 0, "not_yet_marked": 2, "present": 0, "absent": 0, "late": 0, "excused": 0}
+    assert data["summary"] == {"seats": 2, "marked": 0, "not_yet_marked": 2, "confirmed_by_student": 0, "present": 0, "absent": 0, "late": 0, "excused": 0}
     assert data["can_mark"] is True and data["locked"] is False
 
 

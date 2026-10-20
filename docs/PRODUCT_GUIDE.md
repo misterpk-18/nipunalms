@@ -208,6 +208,10 @@ flowchart TD
 The attendance percentage counts Present and Late over the classes marked while the student held a seat. A recovery is
 reported separately.
 
+For an online class the student can also say **I attended** on the class page once it has started. That is not attendance: the
+trainer's register is the only record. The register shows "Says they attended" beside those students, and the trainer can mark
+them all Present in one step or mark each one themselves.
+
 ---
 
 ## 8. Content, recordings and how long a student can use them

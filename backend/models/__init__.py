@@ -29,14 +29,14 @@ __all__ = [
 ]
 
 # Slice S4: attendance, progress, completion review, certificates
-from models.attendance import AttendanceCorrection, AttendanceRecord, AttendanceRecovery  # noqa: E402
+from models.attendance import AttendanceClaim, AttendanceCorrection, AttendanceRecord, AttendanceRecovery  # noqa: E402
 from models.certificates import (  # noqa: E402
     Certificate, CertificateChangeRequest, CertificateFinancialException, CertificateStatusHistory,
 )
 from models.completion import CompletionReview  # noqa: E402
 from models.progress import EnrolmentProgress, TopicProgress  # noqa: E402
 
-__all__ += ["AttendanceCorrection", "AttendanceRecord", "AttendanceRecovery", "Certificate", "CertificateChangeRequest",
+__all__ += ["AttendanceClaim", "AttendanceCorrection", "AttendanceRecord", "AttendanceRecovery", "Certificate", "CertificateChangeRequest",
             "CertificateFinancialException", "CertificateStatusHistory", "CompletionReview", "EnrolmentProgress", "TopicProgress"]
 
 # Phase 2 / S2 content & recordings

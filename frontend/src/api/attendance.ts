@@ -76,6 +76,8 @@ export type RegisterRow = {
   label: string;
   recovery: RecoveryRef | null;
   correction_pending: boolean;
+  /** When the student said "I attended" (online classes). The trainer's mark is still the record. */
+  student_confirmed_at: DateTime | null;
 };
 
 export type Register = {
@@ -83,7 +85,16 @@ export type Register = {
   locked: boolean;
   lock_days: number;
   can_mark: boolean;
-  summary: { seats: number; marked: number; not_yet_marked: number; present: number; absent: number; late: number; excused: number };
+  summary: {
+    seats: number;
+    marked: number;
+    not_yet_marked: number;
+    confirmed_by_student: number;
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+  };
   rows: RegisterRow[];
 };
 
@@ -199,13 +210,18 @@ export type AttendanceTabCounts = { students_at_risk: number; recoveries: number
 /** A correction in the Branch Manager's queue: `can_decide` is false when the viewer requested it or marked the entry, or only the Founder or a Super Admin may decide it. */
 export type CorrectionRow = Correction & { can_decide?: boolean };
 
-export type MarkBody = { default_status?: AttendanceStatus; entries?: { enrolment_id: number; status: AttendanceStatus; remarks?: string | null }[] };
+export type MarkBody = {
+  default_status?: AttendanceStatus;
+  from_confirmations?: boolean;
+  entries?: { enrolment_id: number; status: AttendanceStatus; remarks?: string | null }[];
+};
 
 export const attendanceApi = {
   sessions: (query: Query) => list<RegisterSession>("/attendance/sessions", query),
   register: (sessionId: number) => get<Register>(`/attendance/sessions/${sessionId}`),
   mark: (sessionId: number, body: MarkBody) => put<Register>(`/attendance/sessions/${sessionId}`, body),
   mine: () => get<StudentAttendance[]>("/me/attendance"),
+  confirmAttended: (sessionId: number) => post<{ session_id: number; claimed_at: DateTime }>(`/me/class-sessions/${sessionId}/attendance-confirmation`),
   recoveries: (query: Query) => list<Recovery>("/attendance/recoveries", query),
   requestRecovery: (body: { attendance_id: number; method: string; reason: string }) => post<Recovery>("/attendance/recoveries", body),
   decideRecovery: (id: number, body: { decision: "Approved" | "Rejected"; decision_note?: string; target_date?: string }) =>

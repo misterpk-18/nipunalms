@@ -379,6 +379,16 @@ const DICTIONARY = {
   noLink: ["No link", "లింక్ లేదు"],
   inPerson: ["In person", "నేరుగా హాజరు"],
   inPersonAt: ["In person · {room}", "నేరుగా హాజరు · {room}"],
+  attendedConfirm: ["I attended this class", "నేను ఈ తరగతికి హాజరయ్యాను"],
+  attendedHelp: [
+    "Tell your trainer you were there. Your trainer marks the register, so this does not change your attendance by itself.",
+    "మీరు ఉన్నారని మీ ట్రైనర్‌కు తెలియజేయండి. హాజరు నమోదు చేసేది ట్రైనరే, కాబట్టి ఇది మీ హాజరును నేరుగా మార్చదు.",
+  ],
+  attendedDone: [
+    "You told your trainer you attended. They will mark the register.",
+    "మీరు హాజరయ్యారని మీ ట్రైనర్‌కు తెలిపారు. వారు హాజరు నమోదు చేస్తారు.",
+  ],
+  attendedSent: ["Thanks. Your trainer can see you confirmed.", "ధన్యవాదాలు. మీరు నిర్ధారించినట్లు మీ ట్రైనర్‌కు కనిపిస్తుంది."],
   joinWaitingLink: [
     "Your branch has not added the Meet link yet. It appears here as soon as they do.",
     "మీ బ్రాంచ్ ఇంకా Meet లింక్‌ను జోడించలేదు. జోడించగానే ఇక్కడ కనిపిస్తుంది.",

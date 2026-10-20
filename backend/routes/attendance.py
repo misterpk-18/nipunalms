@@ -33,6 +33,13 @@ def mark_attendance(session_id: int):
     return attendance_controller.mark_attendance(session_id)
 
 
+@attendance_bp.post("/me/class-sessions/<int:session_id>/attendance-confirmation")
+@login_required
+@require_roles("STUDENT")
+def confirm_attended(session_id: int):
+    return attendance_controller.confirm_attended(session_id)
+
+
 @attendance_bp.get("/me/attendance")
 @login_required
 @require_roles("STUDENT")

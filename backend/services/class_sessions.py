@@ -59,6 +59,7 @@ class SessionDetail:
     meet_events: list = field(default_factory=list)
     open_request: SessionChangeRequest | None = None
     organizer_note: str | None = None
+    attendance_claim: dict | None = None  # a student's "I attended" state on an online class
 
 
 def _now() -> datetime:
@@ -122,7 +123,8 @@ def get_session(session_id: int) -> SessionDetail:
     assert_can_view_session(session)
     allocated = batches_repo.allocated_counts([session.batch_id]).get(session.batch_id, 0)
     if delivery_access.is_student_only():
-        return SessionDetail(session, _join_for(session), allocated)
+        from services import attendance as attendance_service  # imported here: attendance reaches back into this module through progress
+        return SessionDetail(session, _join_for(session), allocated, attendance_claim=attendance_service.claim_state(session))
     return SessionDetail(session, None, allocated, changes=sessions_repo.changes(session_id), meet_events=sessions_repo.meet_events(session_id),
                          open_request=sessions_repo.open_request(session_id), organizer_note=meet.integration_note())
 

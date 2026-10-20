@@ -145,3 +145,15 @@ class AttendanceCorrection(db.Model):
             "decided_at": self.decided_at,
             "decision_note": self.decision_note,
         }
+
+
+class AttendanceClaim(db.Model):
+    """A student's "I attended" for one online class (db 127). Never attendance itself: the trainer's register is the record."""
+
+    __tablename__ = "attendance_claims"
+
+    claim_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    session_id: Mapped[int] = mapped_column(Integer, ForeignKey("class_sessions.session_id"))
+    enrolment_id: Mapped[int] = mapped_column(Integer, ForeignKey("enrolments.enrolment_id"))
+    claimed_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.user_id"))
+    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())

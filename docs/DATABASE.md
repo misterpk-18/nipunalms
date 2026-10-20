@@ -75,6 +75,7 @@ Vijayawada).
 | `124_email_outbox.sql` | Google Workspace slice 2: `email_outbox`, the Gmail outbox | ✅ |
 | `125_google_drive.sql` | Google Workspace slice 3: `google_drive_items`, `google_drive_grants`, Drive folders and who they are shared with | ✅ |
 | `126_drive_batch_group.sql` | Google Workspace: `google_drive_items.group_email`, the Google Group per batch | ✅ |
+| `127_attendance_claims.sql` | `attendance_claims`: a student's "I attended" for an online class | ✅ |
 
 ---
 
@@ -622,3 +623,13 @@ Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP
 Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.2. Depends on 125.
 
 `google_drive_items.group_email` (batch rows only) holds the batch's Google Group, `<batch code>@<domain>`. The batch's students are the group's members and the folder is shared once with the group, so `google_drive_grants` holds the group and the trainers, not each student. The address is kept on the row so a later change of Workspace domain cannot orphan the group. Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/126_drive_batch_group.sql`.
+
+## 127 — Students confirm they attended an online class
+
+Depends on 003, 004 and 040.
+
+| Table | Purpose |
+|---|---|
+| `attendance_claims` | A student's "I attended" for one online class: `session_id`, `enrolment_id`, `claimed_by`, `claimed_at`; one per (`session_id`, `enrolment_id`) |
+
+A claim is not attendance. The register (`attendance_records`) stays the only record, written only by the class's trainer or a Branch Manager; the register shows who claimed so they can confirm or correct. Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/127_attendance_claims.sql`.
