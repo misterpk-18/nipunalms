@@ -7,6 +7,7 @@
 - Give 2–4 concrete options per question and put the recommended one first, labelled "(Recommended)". Batch related questions into one call.
 - If a question has no sensible options or a conventional default exists, do not ask in prose: choose the default and state it in the reply.
 - If `AskUserQuestion` is unavailable, say so and stop; do not fall back to free-text questions.
+- **Follow-ups every time:** end every task with an `AskUserQuestion` offering 2–4 concrete next steps (recommended first), unless the turn was a one-line answer with nothing to follow up.
 
 ## Do not read the whole codebase — use the cartograph
 
@@ -24,3 +25,9 @@ The backend is ~2,900 functions in ~290 files. For any feature or bug fix, read 
 6. **Searchable page** for humans: `flask --app app cartograph build` writes `backend/cartograph.html` (git-ignored).
 
 Limits: it follows plain function and method calls only. ORM model classes, calls through variables and Flask route wiring are not followed — for a change that adds or alters a table or column, also read the model file and follow the migration workflow in `docs/DATABASE.md`. Frontend (TypeScript) is not mapped; use the screen → API table in `docs/DEVELOPMENT.md` Part B.
+
+## Test runs: always logged
+
+- Run backend tests with `cd backend && ./run_tests.sh [pytest args]`, not bare `pytest`. Long runs go in the background.
+- Starting a run deletes the previous runs' log files, then writes `backend/test-logs/<date>_<time>_<label>.log` (live, `tail -f` it) and points `test-logs/latest.log` at it. `test-logs/index.log` is never cleared: one line per run (time, exit code, passed/failed, duration, command). The folder is git-ignored.
+- When reporting a result, give the full path of the log and how many tests have finished; never run a long suite silently.

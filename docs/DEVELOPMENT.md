@@ -192,7 +192,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 
 | Suite | Command | Notes |
 |---|---|---|
-| Backend | `cd backend && ../venv/bin/pytest -q` | Rebuilds `nipunalms_test`; each test runs in a rolled-back transaction |
+| Backend | `cd backend && ./run_tests.sh [pytest args]` | Rebuilds `nipunalms_test`; each test runs in a rolled-back transaction. Every run is logged to `backend/test-logs/` (a new run clears the earlier log files; `latest.log` points at the current one; `index.log` keeps one line per run and is never cleared); plain `../venv/bin/pytest -q` still works for a quick check |
 | Frontend types | `cd frontend && npm run typecheck` | |
 | Frontend build | `cd frontend && npm run build` | Type-check + production build into `dist/` |
 | Lint | `cd frontend && npm run lint` | |

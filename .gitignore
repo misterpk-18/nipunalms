@@ -13,3 +13,4 @@ playwright-report/
 *.log
 .claude/worktrees/
 backend/cartograph.html
+test-logs/
