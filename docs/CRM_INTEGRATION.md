@@ -207,7 +207,7 @@ a course of the admission is running; **Inactive** — student suspended, or all
 - **WhatsApp (round 6, db 107; verified end to end 18 Oct 2026):** the LMS never calls Pinbot. It queues each message in
   `whatsapp_outbox` along with the change that caused it. After the commit, the `whatsapp-send` job posts it to the CRM's
   `POST /lms/whatsapp` (W4), and the CRM applies its own switch, test numbers, consent and backoff. There are nine LMS templates
-  ([whatsapp-templates/](whatsapp-templates/README.md)). A timeout is never resent, and a message older than 48 hours is skipped.
+  (`services/whatsapp_templates.py`). A timeout is never resent, and a message older than 48 hours is skipped.
   A sign-in code or link is wiped from the row once it is handed over. The normal first answer is `Queued`. What happens next
   arrives as `WhatsappStatusUpdated` events (Sent / Delivered / Read / Failed / Skipped, versioned per dedupe key), which the LMS
   applies from db 110; an unknown key or an older version is answered 200. The CRM sends them with

@@ -14,7 +14,7 @@ clean up, and the backlog of open gaps and decisions.
 
 The other docs: [API.md](API.md) (backend architecture, conventions, every endpoint), [DATABASE.md](DATABASE.md)
 (migrations and schema rules), [CRM_INTEGRATION.md](CRM_INTEGRATION.md) (the LMS ↔ CRM contract),
-[GAP_FIX_PLAN.md](GAP_FIX_PLAN.md) and [GAPS.md](GAPS.md) (the gaps against the approved modules and the plan to close them).
+`GAP_FIX_PLAN.md` and `GAPS.md` (the gaps against the approved modules and the plan to close them).
 
 ---
 
@@ -553,13 +553,13 @@ Expect `201` with `"status":"Applied"`. Run it again: `200` with `"replayed":tru
 
 ## Part D — Status and clean-up
 
-Every screen in the prototype is built on `main`, and every screen has been redesigned in the UX plan (U0–U18, [UX_PLAN.md](UX_PLAN.md)):
+Every screen in the prototype is built on `main`, and every screen has been redesigned in the UX plan (U0–U18, `UX_PLAN.md`):
 the shell and navigation, notifications, sign-in and accounts, and the Student, Trainer, Branch Manager, Founder and Super Admin
 workspaces. CRM integration rounds 1–8 are done on both sides (db 090–110, 116, 122; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
 The last three cover WhatsApp through the CRM, the preferred batch, and the batch / allocation / WhatsApp alignment. WhatsApp is on in dev
 and waits only on Pinbot approving the nine templates.
 
-**Gap fix plan** ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md), register [GAPS.md](GAPS.md)): the app was checked against the
+**Gap fix plan** (`GAP_FIX_PLAN.md`, register `GAPS.md`): the app was checked against the
 approved modules 14–27, which found 109 gaps.
 
 | Phase | Commit | Migration |
@@ -579,7 +579,7 @@ Still to do:
 | Item | Notes |
 |---|---|
 | Gap fix phases 7–12 | Assessments, attendance and certificates, content and recordings, notifications and integrations (the CRM restrictions intake), reports and AI, career and guardians (the last after CRM round 4) |
-| Owner actions | The single list is in [UX_PLAN.md](UX_PLAN.md#owner-actions-in-one-place): restart the :5060 API, apply db 111–115 to any other database, submit the WhatsApp templates in Pinbot, and the open CRM questions |
+| Owner actions | The owner's list: restart the :5060 API, apply db 111–115 to any other database, submit the WhatsApp templates in Pinbot, and the open CRM questions |
 | Product / role guide | A guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
 | Deployment | Templates only (`deploy/`, Part F); nothing is deployed |
 

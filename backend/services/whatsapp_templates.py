@@ -1,4 +1,4 @@
-"""The LMS's own WhatsApp templates (drafts in docs/whatsapp-templates/, submitted to Pinbot by the owner).
+"""The LMS's own WhatsApp templates (submitted to Pinbot by the owner).
 
 Same shape as the CRM's registry: name, language, category, body, and the order of the `{{n}}` values. `build()` checks every
 value before a message is queued, because Pinbot rejects a message with an empty value and Meta forbids line breaks. The

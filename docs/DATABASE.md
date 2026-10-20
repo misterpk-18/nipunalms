@@ -334,7 +334,7 @@ The CRM's sales playbook needs real timings before promising a batch (round 3, [
 
 ## 099 — Gap fixes, phase 1
 
-Correctness and privacy fixes from the gap review ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md), [GAPS.md](GAPS.md)).
+Correctness and privacy fixes from the gap review (`GAP_FIX_PLAN.md`, `GAPS.md`).
 
 | Change | Why |
 |---|---|
@@ -345,7 +345,7 @@ Correctness and privacy fixes from the gap review ([GAP_FIX_PLAN.md](GAP_FIX_PLA
 
 ## 100 — Governance and approvals
 
-Independent decisions from the gap review, phase 3 ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+Independent decisions from the gap review, phase 3 (`GAP_FIX_PLAN.md`).
 
 | Change | Why |
 |---|---|
@@ -357,7 +357,7 @@ Independent decisions from the gap review, phase 3 ([GAP_FIX_PLAN.md](GAP_FIX_PL
 
 ## 101 — Academic Calendar
 
-The Nipuna Academic Calendar for working-day targets, phase 4 ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+The Nipuna Academic Calendar for working-day targets, phase 4 (`GAP_FIX_PLAN.md`).
 
 | Change | Why |
 |---|---|
@@ -366,7 +366,7 @@ The Nipuna Academic Calendar for working-day targets, phase 4 ([GAP_FIX_PLAN.md]
 
 ## 102 — Curriculum model (Module 14)
 
-Phase 5 of the gap fix plan ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
+Phase 5 of the gap fix plan (`GAP_FIX_PLAN.md`).
 
 | Change | Why |
 |---|---|
@@ -382,7 +382,7 @@ Phase 5 of the gap fix plan ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)).
 
 ## 103 — Batches and delivery operations (Modules 15 and 16)
 
-Phase 6 of the gap fix plan ([GAP_FIX_PLAN.md](GAP_FIX_PLAN.md)). Stored state names are kept, for the CRM and the views;
+Phase 6 of the gap fix plan (`GAP_FIX_PLAN.md`). Stored state names are kept, for the CRM and the views;
 the API adds Module 15's labels (`state_label`).
 
 | Change | Why |
@@ -422,7 +422,7 @@ The CRM no longer holds curriculum, so the LMS stops reporting it and receiving 
 
 ## 105 — UX phase U1: Curriculum Mapping Pending is removed
 
-A new enrolment is always allocatable. With no Active curriculum version it has none, follows the version of the batch it joins, and receives the version when one is activated ([UX_PLAN.md](UX_PLAN.md)).
+A new enrolment is always allocatable. With no Active curriculum version it has none, follows the version of the batch it joins, and receives the version when one is activated (`UX_PLAN.md`).
 
 | Change | Why |
 |---|---|
@@ -433,7 +433,7 @@ A new enrolment is always allocatable. With no Active curriculum version it has 
 
 ## 106 — UX phase U2: the Academic Coordinator is merged into the Branch Manager
 
-Like the CRM, the LMS has no Academic Coordinator any more ([UX_PLAN.md](UX_PLAN.md)). The Branch Manager does everything the coordinator did.
+Like the CRM, the LMS has no Academic Coordinator any more (`UX_PLAN.md`). The Branch Manager does everything the coordinator did.
 
 | Change | Why |
 |---|---|

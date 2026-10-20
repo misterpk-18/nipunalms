@@ -707,7 +707,7 @@ Nothing here calls an external system.
 
 No LMS endpoint: messages are queued in `whatsapp_outbox` by the service that made the change and handed to the CRM by the `whatsapp-send` job. The CRM endpoint the LMS calls is `POST {CRM_BASE_URL}/lms/whatsapp` (contract in `LMS_WHATSAPP_REPLY.md`, summarised in [CRM_INTEGRATION.md §3.2](CRM_INTEGRATION.md)).
 
-**Triggers** (`services/whatsapp_messages.py`; the template is in `services/whatsapp_templates.py`, drafts in [whatsapp-templates/](whatsapp-templates/README.md)):
+**Triggers** (`services/whatsapp_messages.py`; the template is in `services/whatsapp_templates.py`):
 | Template | Queued by | Dedupe key |
 |---|---|---|
 | `nipuna_lms_class_reminder_u_v1` | job `class-reminders` (confirmed, approved classes that start in 15 minutes to 2 hours); preference group *Learning reminders* (off until the person turns it on) | `class-reminder:<session>:<student>:<start>` |
