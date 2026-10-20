@@ -169,6 +169,12 @@ Codes follow the prototype: `NIT-STU-2026-004182`, `ADM-GNT-2026-000214`, `NIT-G
 |---|---|---|---|
 | POST | `/integrations/crm/events` | CRM service key (`X-Service-Key`) | `CourseUpserted`, `AdmissionQualified`, `AdmissionUpdated`, `AdmissionCancelled`, `FinanceSummaryUpdated`, `BranchUpserted`, `BranchFinanceSnapshot`. A record that hasn't arrived yet is 422 `NOT_YET_APPLIED`. Idempotent on `event_id`; stale `source_version` → `Ignored — stale` |
 | GET | `/integrations/crm/events` | Super Admin | Inbox with status filters |
+| GET | `/google/overview` | Super Admin, Founder | Whether the Google key is set, each Google feature (Meet, Drive, email) with its checklist state and whether it is on, the number of Google calls in each state and emails in each state, and up to 20 calls that failed or gave up (`problems`, each with `what`, `target`, `last_error`, `next_attempt_at`) |
+| GET | `/google/jobs?state=&limit=` | Super Admin, Founder | The queue of Google calls, newest first. `state`: Queued, Running, Failed, Succeeded, Dead |
+| POST | `/google/jobs/{id}/retry` | Super Admin, Founder | Run a Failed call now, or put a Dead one back in the queue with its tries cleared; 422 for any other state. Audited |
+| GET | `/google/emails?status=&limit=` | Super Admin, Founder | The email outbox, newest first (`status`: Queued, Sent, Failed, Skipped; `status_note` says why a message did not go). A sign-in email's subject and body are not kept once it is done |
+| GET | `/google/branches` | Super Admin, Founder | Each branch's Google settings with the addresses actually used (`effective_calendar_mailbox`, `effective_gmail_sender`) |
+| PATCH | `/google/branches/{id}` | Super Admin, Founder, fresh auth | `calendar_mailbox`, `gmail_sender` (email or null to use the branch mailbox), `drive_root_folder_id` (a Drive folder id or null; 422 once the LMS has made folders under the current one). Audited |
 | POST | `/integrations/crm/events/{id}/retry` | Super Admin | Re-apply a failed event |
 | GET | `/integrations/crm/status?since=&crm_admission_id=&crm_person_id=` | CRM service key | What the CRM stores about the LMS, changed since `since`: `persons`, `admissions`, `academics`, `batches`, `certificates`, `as_of`. The optional filters narrow every key to one admission or person and are echoed as `filter`. `as_of` is safe to store as the next `since` (rows can repeat, none are skipped); no paging. Seed rows (`seed_data`) are left out |
 

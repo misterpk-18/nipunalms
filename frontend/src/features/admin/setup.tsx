@@ -9,6 +9,7 @@ import { PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { istDateTime } from "./format";
+import { GoogleWorkspace } from "./google-workspace";
 import { MeetHealth } from "./meet-health";
 import { SetupDialog } from "./setup-dialog";
 import { useBranchOptions } from "@/features/shared/branch-filter";
@@ -122,6 +123,7 @@ export function AdminSetup({ canEdit }: { canEdit: boolean }) {
         )}
       </QueryView>
       <MeetHealth />
+      {canEdit && <GoogleWorkspace />}
       {canEdit && <BranchesSection />}
       {editing && <SetupDialog item={editing} onClose={() => setEditing(null)} />}
     </div>

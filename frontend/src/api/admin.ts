@@ -321,6 +321,51 @@ export type AiStatus = {
   can_switch: boolean;
 };
 
+// ---------------------------------------------------------------- Google Workspace
+
+export type GoogleFeature = { integration_code: string; feature: string; state: string; live: boolean };
+export type GoogleJobState = "Queued" | "Running" | "Failed" | "Succeeded" | "Dead";
+export type GoogleJob = {
+  job_id: number;
+  kind: string;
+  what: string;
+  target: string;
+  state: GoogleJobState;
+  attempts: number;
+  next_attempt_at: DateTime;
+  finished_at: DateTime | null;
+  last_error: string | null;
+  created_at: DateTime;
+};
+export type GoogleOverview = {
+  configured: boolean;
+  features: GoogleFeature[];
+  jobs: Partial<Record<GoogleJobState, number>>;
+  emails: Partial<Record<"Queued" | "Sent" | "Failed" | "Skipped", number>>;
+  problems: GoogleJob[];
+};
+export type GoogleEmail = {
+  outbox_id: number;
+  template: string;
+  to_email: string | null;
+  subject: string | null;
+  status: string;
+  status_note: string | null;
+  attempts: number;
+  created_at: DateTime;
+};
+export type GoogleBranch = {
+  branch_id: number;
+  branch_name: string;
+  branch_mailbox: string;
+  calendar_mailbox: string | null;
+  gmail_sender: string | null;
+  drive_root_folder_id: string | null;
+  effective_calendar_mailbox: string;
+  effective_gmail_sender: string;
+};
+export type GoogleBranchChanges = { calendar_mailbox?: string | null; gmail_sender?: string | null; drive_root_folder_id?: string | null };
+
 // ---------------------------------------------------------------- calls
 
 export const adminKeys = {
@@ -343,6 +388,10 @@ export const adminKeys = {
   needsAction: ["admin", "needs-action"] as const,
   staffOptions: ["admin", "staff-options"] as const,
   aiStatus: ["admin", "ai-status"] as const,
+  google: ["admin", "google"] as const,
+  googleOverview: ["admin", "google", "overview"] as const,
+  googleEmails: ["admin", "google", "emails"] as const,
+  googleBranches: ["admin", "google", "branches"] as const,
 };
 
 export const adminApi = {
@@ -388,4 +437,10 @@ export const adminApi = {
   switchAiOff: (body: { audience: AiAudience; branch_id: number | null; reason: string; remediation?: string }) => post<AiControl>("/ai-controls", body),
   restoreAi: (id: number, restoration_note: string) => post<AiControl>(`/ai-controls/${id}/restore`, { restoration_note }),
   branches: () => get<(BranchRef & { is_active?: boolean })[]>("/reference/branches"),
+
+  googleOverview: () => get<GoogleOverview>("/google/overview"),
+  retryGoogleJob: (id: number) => post<GoogleJob>(`/google/jobs/${id}/retry`),
+  googleEmails: (status: string) => get<GoogleEmail[]>("/google/emails", { status, limit: 20 }),
+  googleBranches: () => get<GoogleBranch[]>("/google/branches"),
+  updateGoogleBranch: (id: number, body: GoogleBranchChanges) => patch<GoogleBranch>(`/google/branches/${id}`, body),
 };

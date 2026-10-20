@@ -13,6 +13,7 @@ from routes.admin_students import admin_students_bp
 from routes.admin_users import admin_users_bp
 from routes.audit_log import audit_log_bp
 from routes.crm_sync import crm_sync_bp
+from routes.google import google_bp
 from routes.integrations import integrations_bp
 from routes.security_controls import security_controls_bp
 
@@ -42,6 +43,7 @@ BLUEPRINTS = [
     class_sessions_bp,
     crm_bp,
     integrations_bp,
+    google_bp,
     security_controls_bp,
     admin_users_bp,
     admin_students_bp,

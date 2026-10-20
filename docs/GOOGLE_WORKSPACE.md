@@ -1,6 +1,6 @@
 # Nipuna LMS — Google Workspace integration (phase 1 design)
 
-Status: **in progress.** Built: configuration, migrations 123 to 125, the Google client, the `google-sync` job with retries, class Calendar events with Meet links (§5.1), Drive folders and shares (§5.2) and the Gmail outbox (§5.3). Not built: the Super Admin job screen, CRM events. Decisions marked **Open** need an answer before the matching step starts.
+Status: **in progress.** Built: configuration, migrations 123 to 125, the Google client, the `google-sync` job with retries, class Calendar events with Meet links (§5.1), Drive folders and shares (§5.2) and the Gmail outbox (§5.3). Not built: CRM events. Decisions marked **Open** need an answer before the matching step starts.
 Today the LMS never calls Google: `services/integrations.py` only records whether an integration is verified, and
 `services/meet.py` records a Meet link a person typed in. Phase 1 makes the LMS call Google for the items below, keeping
 that register as the on/off switch.
@@ -137,15 +137,22 @@ Domain-wide delegation) for the scopes `calendar.events`, `drive.file` and `gmai
 check that every branch mailbox is a real Workspace account; set Meet so people outside the domain can join. No OAuth client
 is needed while Google Sign-In is out.
 
-## 7. API additions
+## 7. API and screen
 
-| Method | Path | Who | Purpose |
-|---|---|---|---|
-| GET | `/google/jobs` | Super Admin, Founder | List queued, failed and dead jobs |
-| POST | `/google/jobs/<id>/retry` | Super Admin | Requeue a dead job |
-| GET / PATCH | `/branches/<id>/google-config` | Super Admin | Per-branch mailbox and Drive root |
+Built. Everything is for Super Admin and Founder, and sits under Setup & health in the admin and founder workspaces. Full detail in
+[API.md](API.md).
 
-Document these in [API.md](API.md) when built.
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/google/overview` | What is on, counts, and the calls that need a person |
+| GET | `/google/jobs` | The queue, filterable by state |
+| POST | `/google/jobs/<id>/retry` | Run a failed call now, or requeue a dead one |
+| GET | `/google/emails` | The email outbox, with why a message did not go |
+| GET / PATCH | `/google/branches[/<id>]` | Per-branch calendar mailbox, email sender and Drive folder (fresh authentication to change) |
+
+The screen is the **Google Workspace** section of Setup & health (`frontend/src/features/admin/google-workspace.tsx`): a note while
+the server has no Google key, each feature On or Off beside its checklist state, the stuck calls with a Try again button, failed
+emails, and a branch picker for the three settings.
 
 ## 8. Build order and tests
 
@@ -154,7 +161,8 @@ Document these in [API.md](API.md) when built.
 3. ✅ Calendar/Meet job wired to the class lifecycle (`tests/test_google_calendar.py`, `tests/test_google_client.py`).
 4. ✅ Gmail outbox beside activation and reminders (`tests/test_email_outbox.py`).
 5. ✅ Drive folders and grants on allocation, transfer and completion (`tests/test_google_drive.py`).
-6. Super Admin job screen; CRM events if wanted.
+6. ✅ Super Admin screen for stuck calls, failed emails and branch settings (`tests/test_google_admin.py`, `frontend/e2e/google-workspace.spec.ts`).
+7. CRM events if wanted.
 
 Tests per step in `backend/tests/test_google_*.py`, run with `./run_tests.sh`. Must cover: register gate off → old behaviour
 unchanged; duplicate job key → one Google call; failed call → backoff then Dead; revoke on batch transfer.
