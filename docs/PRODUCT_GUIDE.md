@@ -19,8 +19,8 @@ how the student is doing.
 
 ```mermaid
 flowchart LR
-    CRM["CRM<br/>admissions and fees"]
-    LMS["LMS<br/>learning"]
+    CRM["CRM - admissions and fees"]
+    LMS["LMS - learning"]
     STU["Student"]
     STAFF["Trainers and managers"]
 
@@ -42,23 +42,23 @@ Each login has exactly one role. A Branch Manager sees only the branch chosen at
 
 ```mermaid
 flowchart TB
-    subgraph Learners
-        S["Student<br/>own course, classes, work, results"]
+    subgraph learners["Learners"]
+        S["Student - own course, classes, work, results"]
     end
-    subgraph Branch["One branch"]
-        T["Trainer<br/>their batches, classes, grading"]
-        BM["Branch Manager<br/>batches, allocation, attendance, approvals"]
+    subgraph branch["One branch"]
+        T["Trainer - their batches, classes, grading"]
+        BM["Branch Manager - batches, allocation, attendance, approvals"]
     end
-    subgraph Company["All branches"]
-        SA["Super Admin<br/>setup, accounts, courses, allocation"]
-        F["Founder / CEO<br/>everything the Super Admin does,<br/>plus the Founder's inbox"]
+    subgraph company["All branches"]
+        SA["Super Admin - setup, accounts, courses, allocation"]
+        F["Founder / CEO - all the Super Admin does, plus the Founder's inbox"]
     end
 
     BM -->|"manages"| T
     BM -->|"serves"| S
     T -->|"teaches"| S
-    SA -->|"reads and decides across"| Branch
-    F -->|"final say on exceptions"| Branch
+    SA -->|"reads and decides across all branches"| BM
+    F -->|"final say on exceptions"| BM
 ```
 
 ---
@@ -69,16 +69,16 @@ What happens between a counsellor saving an admission in the CRM and the student
 
 ```mermaid
 flowchart TD
-    A["CRM sends AdmissionQualified"] --> B{"Event seen before<br/>or older version?"}
+    A["CRM sends AdmissionQualified"] --> B{"Event seen before, or an older version?"}
     B -->|"yes"| B1["Ignored, nothing changes"]
-    B -->|"no"| C["Student record created or reused<br/>one login per person"]
+    B -->|"no"| C["Student record created or reused, one login per person"]
     C --> D["Admission and enrolment created"]
-    D --> E{"Complimentary course<br/>gate met?"}
+    D --> E{"Complimentary course gate met?"}
     E -->|"no"| E1["Provisioning Pending"]
     E -->|"yes"| F["Allocation Pending"]
     C --> G["Activation link made for a new login"]
     G --> H["Student sets their own password"]
-    F --> I["Appears on Waiting for a batch<br/>Branch Manager is told"]
+    F --> I["Appears on Waiting for a batch - Branch Manager is told"]
     I --> J["Branch Manager allocates a batch"]
     J --> K["Allocated, awaiting first regular class"]
     K --> L["First class held, student marked Present or Late"]
@@ -93,9 +93,9 @@ is the day of the first attended class, not the day of allocation.
 ## 4. The life of an enrolment
 
 ```mermaid
-flowchart LR
+flowchart TD
     P["Provisioning Pending"] --> AP["Allocation Pending"]
-    AP -->|"batch seat given"| AW["Allocated,<br/>awaiting first regular class"]
+    AP -->|"batch seat given"| AW["Allocated, awaiting first regular class"]
     AW -->|"first Present or Late"| AC["Active"]
     AW -->|"seat taken away"| AP
     AC --> PA["Paused"]
@@ -116,16 +116,17 @@ A batch is a group of students learning one course at one branch on one timetabl
 
 ```mermaid
 flowchart TD
-    A["Create batch<br/>course, mode, days, times, capacity"] --> B["Add trainers and room"]
+    A["Create batch - course, mode, days, times, capacity"] --> B["Add trainers and room"]
     B --> C{"Readiness checks pass?"}
     C -->|"no"| B
-    C -->|"yes"| D["Propose and confirm<br/>one step for a Branch Manager"]
+    C -->|"yes"| D["Propose and confirm, one step for a Branch Manager"]
     D --> E["Starting"]
-    E --> F["Create classes<br/>from the timetable, with a preview"]
+    E --> F["Create classes from the timetable, with a preview"]
     F --> G["Running"]
-    G <--> H["Full<br/>derived from capacity"]
+    G --> H["Full, derived from capacity"]
+    H --> G
     G --> I["Completed"]
-    A -.-> X["Cancelled<br/>only while no seat is held"]
+    A -.-> X["Cancelled, only while no seat is held"]
     E -.-> Y["On Hold"]
     G -.-> Y
     Y -.-> E
@@ -136,10 +137,10 @@ A warning on confirmation needs a written override reason and is audited. After 
 mode or timetable are *material changes*: each student is asked to agree before the change applies.
 
 ```mermaid
-flowchart LR
+flowchart TD
     M1["Manager asks for a material change"] --> M2["An independent reviewer decides"]
     M2 -->|"approved"| M3["Each student is asked to agree"]
-    M3 --> M4{"Everyone agreed,<br/>or declined with an alternative?"}
+    M3 --> M4{"Everyone agreed, or declined with an alternative?"}
     M4 -->|"yes"| M5["Change applied"]
     M4 -->|"no"| M3
     M2 -->|"rejected"| M6["Nothing changes"]
@@ -153,8 +154,8 @@ Every class moves Scheduled → Live → Delivered. The trainer runs it from one
 
 ```mermaid
 flowchart TD
-    A["Class scheduled<br/>room, or Meet link for online"] --> B{"Link ready?"}
-    B -->|"no"| B1["Trainer taps No Meet link<br/>Branch Managers are alerted"]
+    A["Class scheduled: room, or Meet link for online"] --> B{"Link ready?"}
+    B -->|"no"| B1["Trainer taps No Meet link, Branch Managers are alerted"]
     B1 --> B2["Manager records the link"]
     B2 --> C
     B -->|"yes"| C["Trainer starts the class"]
@@ -163,14 +164,14 @@ flowchart TD
     E --> F["Marks attendance"]
     F --> G["Writes the class log"]
     G --> H["Class is Delivered"]
-    D -->|"late or disrupted"| I["Students told, disruption recorded,<br/>recovery plan agreed"]
+    D -->|"late or disrupted"| I["Students told, disruption recorded, recovery plan agreed"]
     I --> E
 ```
 
 When a class does not happen:
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["Class cannot go ahead"] --> B{"Who asks?"}
     B -->|"trainer"| C["Reschedule request"]
     B -->|"manager"| D["Cancel or reschedule directly, with a reason"]
@@ -178,7 +179,7 @@ flowchart LR
     E -->|"approved"| F["Class moved, everyone told"]
     E -->|"rejected"| G["Trainer told, class stays"]
     D --> F
-    D --> H["A cancelled regular class owes<br/>a replacement until one is held or waived"]
+    D --> H["A cancelled regular class owes a replacement until one is held or waived"]
 ```
 
 ---
@@ -189,18 +190,18 @@ An unmarked seat shows as *Not yet marked*, never as a guessed absence.
 
 ```mermaid
 flowchart TD
-    A["Class Live or Delivered"] --> B["Trainer marks the register<br/>all Present, then the exceptions"]
-    B --> C{"Within 7 days<br/>of the class?"}
+    A["Class Live or Delivered"] --> B["Trainer marks the register: all Present, then the exceptions"]
+    B --> C{"Within 7 days of the class?"}
     C -->|"yes"| D["Can be re-marked"]
     C -->|"no"| E["Locked"]
-    E --> F["Request a correction<br/>with a reason"]
-    F --> G["A different Branch Manager decides<br/>Founder if the requester is a manager"]
+    E --> F["Request a correction with a reason"]
+    F --> G["A different Branch Manager decides - Founder if the requester is a manager"]
     G -->|"approved"| H["Entry changed, old value kept in the audit log"]
     G -->|"rejected"| I["Entry stays"]
     B -->|"student marked Absent"| J["Student is told"]
     J --> K["Student or trainer asks for recovery"]
     K --> L["Branch Manager approves or rejects"]
-    L -->|"approved"| M["Recovery done<br/>recording watched, extra session or assignment"]
+    L -->|"approved"| M["Recovery done: recording watched, extra session or assignment"]
     M --> N["Trainer verifies, recovery Completed"]
 ```
 
@@ -228,38 +229,42 @@ Access to recordings and materials runs from the Joining Date.
 flowchart TD
     J["Joining Date set"] --> A["Access for 1 year"]
     A --> B{"Student asks for more time"}
-    B --> C["Branch Manager approves one extra year<br/>ends on the 2nd anniversary"]
+    B --> C["Branch Manager approves one extra year, ending on the 2nd anniversary"]
     C --> D["Access to 2 years, no further stacking"]
     D --> E{"Asks after the 2nd anniversary?"}
     E -->|"yes"| F["Branch Manager adds a recommendation"]
-    F --> G["Founder or Super Admin decides<br/>and states the new expiry"]
+    F --> G["Founder or Super Admin decides and states the new expiry"]
 ```
 
 ---
 
 ## 9. Assignments and tests
 
+**Assignments**
+
 ```mermaid
 flowchart TD
-    subgraph Assignment
-        A1["Trainer creates and releases"] --> A2["Student submits<br/>file up to 10 MB"]
-        A2 --> A3["Trainer starts review"]
-        A3 --> A4{"Outcome"}
-        A4 -->|"Reviewed with marks"| A5["Provisional result"]
-        A4 -->|"Resubmission requested"| A2
-    end
-    subgraph Test
-        T1["Trainer builds from approved questions"] --> T2{"Formal test?"}
-        T2 -->|"yes"| T3["Branch Manager approves"]
-        T2 -->|"no"| T4["Released"]
-        T3 --> T4
-        T4 --> T5["Student starts an attempt<br/>timer and autosave"]
-        T5 --> T6["Submit, or auto-submit at the deadline"]
-        T6 --> T7{"Needs hand grading?"}
-        T7 -->|"yes"| T8["Trainer grades"]
-        T7 -->|"no"| T9["Scored at once"]
-        T8 --> T10["Provisional result"]
-    end
+    A1["Trainer creates and releases"] --> A2["Student submits a file up to 10 MB"]
+    A2 --> A3["Trainer starts review"]
+    A3 --> A4{"Outcome"}
+    A4 -->|"Reviewed with marks"| A5["Provisional result"]
+    A4 -->|"Resubmission requested"| A2
+```
+
+**Tests**
+
+```mermaid
+flowchart TD
+    T1["Trainer builds the test from approved questions"] --> T2{"Formal test?"}
+    T2 -->|"yes"| T3["Branch Manager approves"]
+    T2 -->|"no"| T4["Released"]
+    T3 --> T4
+    T4 --> T5["Student starts an attempt with timer and autosave"]
+    T5 --> T6["Submit, or auto-submit at the deadline"]
+    T6 --> T7{"Needs hand grading?"}
+    T7 -->|"yes"| T8["Trainer grades"]
+    T7 -->|"no"| T9["Scored at once"]
+    T8 --> T10["Provisional result"]
 ```
 
 Test questions are written by trainers and approved by a Branch Manager who did not write them. Approved questions are frozen;
@@ -273,10 +278,10 @@ A student sees marks and feedback only once a result is published.
 
 ```mermaid
 flowchart LR
-    A["Provisional<br/>trainer's marks"] --> B["Moderated<br/>Branch Manager adjusts with a reason"]
+    A["Provisional: trainer's marks"] --> B["Moderated: Branch Manager adjusts with a reason"]
     B --> C["Published"]
     A --> C
-    C --> D["Student is told<br/>and sees the score"]
+    C --> D["Student is told and sees the score"]
 ```
 
 Practice quizzes and mock tests are scored at once and make no result.
@@ -293,13 +298,13 @@ flowchart TD
     D -->|"Not Yet"| A
     D -->|"Needs Recovery"| R["Recovery work"]
     R --> A
-    D -->|"Complete"| E["Enrolment Completed<br/>certificate enters Eligibility Review"]
+    D -->|"Complete"| E["Enrolment Completed, certificate enters Eligibility Review"]
     E --> F{"Fee cleared?"}
-    F -->|"no"| G["Financial exception asked<br/>Founder or Super Admin decides"]
+    F -->|"no"| G["Financial exception asked - Founder or Super Admin decides"]
     G --> H
     F -->|"yes"| H["Awaiting Approval"]
     H --> I["Branch Manager approves"]
-    I --> J["Issued<br/>number NIT-CERT-year-number, PDF with QR code"]
+    I --> J["Issued: number NIT-CERT-year-number, PDF with QR code"]
     J --> K["Anyone can verify the number online"]
 ```
 
@@ -307,8 +312,8 @@ After issue, a certificate can be changed only through a request:
 
 ```mermaid
 flowchart LR
-    A["Issued"] -->|"correction"| B["New version, same number<br/>earlier version Superseded"]
-    A -->|"revocation"| C["Revoked<br/>Founder or Super Admin decides"]
+    A["Issued"] -->|"correction"| B["New version, same number; earlier version Superseded"]
+    A -->|"revocation"| C["Revoked - Founder or Super Admin decides"]
     C -->|"reinstatement"| A
 ```
 
@@ -322,13 +327,13 @@ The rule behind most approvals: **the person who asked never decides their own r
 
 ```mermaid
 flowchart TD
-    A["Someone asks<br/>correction, change, request"] --> B{"Who asked?"}
+    A["Someone asks for a correction, change or request"] --> B{"Who asked?"}
     B -->|"student, trainer or other staff"| C["A Branch Manager decides"]
     B -->|"a Branch Manager"| D["Founder or Super Admin decides"]
     C --> E{"Routine?"}
     E -->|"yes"| F["Decided alone"]
     E -->|"an exception beyond the branch's limit"| D
-    D --> G["Decision, reason and old and new values<br/>written to the audit log"]
+    D --> G["Decision, reason and old and new values written to the audit log"]
     F --> G
 ```
 
