@@ -89,14 +89,17 @@ def _successions_of(batch_id: int) -> list[BatchSuccession]:
     return list(db.session.execute(stmt).scalars())
 
 
-def load_managed_batch(batch_id: int, *, requester: int | None = None) -> Batch:
+def load_managed_batch(batch_id: int, *, requester: int | None = None, allocating: bool = False) -> Batch:
     """The batch, row-locked, for a change: 404 outside the user's scope, 403 when they may only look. `requester`: the person
-    whose request is being decided, so the Founder / Super Admin may act on a Branch Manager's own request."""
+    whose request is being decided, so the Founder / Super Admin may act on a Branch Manager's own request. `allocating`: the
+    Founder / Super Admin may also give a student a seat."""
     batch = batches_repo.get_batch_for_update(batch_id)
     if batch is None:
         raise NotFound("Batch not found")
     scope.assert_can_view_batch(batch)
-    if not approvals.admin_may_decide(requester):
+    if allocating:
+        delivery_access.assert_can_allocate_branch(batch.branch_id)
+    elif not approvals.admin_may_decide(requester):
         delivery_access.assert_can_manage_branch(batch.branch_id)
     return batch
 

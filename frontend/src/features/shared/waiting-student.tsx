@@ -17,7 +17,18 @@ export function timetableText(b: Pick<WaitingBatch, "schedule_days" | "start_tim
 export const batchName = (b: Pick<WaitingBatch, "display_name" | "batch_code">) => b.display_name ?? b.batch_code;
 
 /** Allocates one student (or one track of a combo) to the batch. A match with warnings asks first and lists them. */
-export function AllocateButton({ row, match, onDone }: { row: WaitingRow; match: WaitingMatch; onDone?: () => void }) {
+export function AllocateButton({
+  row,
+  match,
+  onDone,
+  batchBase = "/branch/batches",
+}: {
+  row: WaitingRow;
+  match: WaitingMatch;
+  onDone?: () => void;
+  /** The role's batch list, where "View batch" goes. */
+  batchBase?: string;
+}) {
   const allocate = useApiMutation(
     () =>
       deliveryApi.allocate(match.batch.batch_id, {
@@ -28,7 +39,7 @@ export function AllocateButton({ row, match, onDone }: { row: WaitingRow; match:
     {
       success: `${row.student.full_name} is in ${batchName(match.batch)}`,
       next: "The student has been told. Their Joining Date is set at the first class they attend (marked Present or Late), not now.",
-      view: { to: `/branch/batches/${match.batch.batch_id}`, label: "View batch" },
+      view: { to: `${batchBase}/${match.batch.batch_id}`, label: "View batch" },
       invalidate: [["branch"], ["delivery"], ["nav"]],
       onSuccess: onDone,
     },
@@ -54,13 +65,17 @@ export function AllocateButton({ row, match, onDone }: { row: WaitingRow; match:
   );
 }
 
-function MatchLine({ row, match, manage }: { row: WaitingRow; match: WaitingMatch; manage: boolean }) {
+function MatchLine({ row, match, manage, batchBase }: { row: WaitingRow; match: WaitingMatch; manage: boolean; batchBase: string }) {
   const b = match.batch;
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-2.5">
       <div className="min-w-0">
         <p className="text-sm font-medium">
-          <Link to="/branch/batches/$id" params={{ id: String(b.batch_id) }} className="text-primary underline-offset-2 hover:underline">
+          <Link
+            to={`${batchBase}/$id` as "/branch/batches/$id"}
+            params={{ id: String(b.batch_id) }}
+            className="text-primary underline-offset-2 hover:underline"
+          >
             {batchName(b)}
           </Link>{" "}
           <span className="font-mono text-xs text-muted-foreground">{b.batch_code}</span>
@@ -82,21 +97,26 @@ function MatchLine({ row, match, manage }: { row: WaitingRow; match: WaitingMatc
         </p>
         {match.warnings.length > 0 && <p className="text-xs text-warning">{match.warnings.join(" ")}</p>}
       </div>
-      {manage && <AllocateButton row={row} match={match} />}
+      {manage && <AllocateButton row={row} match={match} batchBase={batchBase} />}
     </li>
   );
 }
 
-/** `studentBase`: the role's area, whose student page the name opens. No `studentBase`, no link. */
+/** `manage`: may allocate. `canCreateBatch`: may also open a new batch (Branch Manager only). `batchBase`: the role's batch list.
+ * `studentBase`: the role's area, whose student page the name opens. No `studentBase`, no link. */
 export function WaitingStudent({
   row,
   manage,
   withBranch,
+  canCreateBatch = true,
+  batchBase = "/branch/batches",
   studentBase,
 }: {
   row: WaitingRow;
   manage: boolean;
   withBranch: boolean;
+  canCreateBatch?: boolean;
+  batchBase?: string;
   studentBase?: "/branch" | "/admin" | "/founder";
 }) {
   const who = (
@@ -133,7 +153,7 @@ export function WaitingStudent({
           <span>
             No open batch of {row.course.course_code} at {row.branch.branch_name} has a seat left.
           </span>
-          {manage && row.blocked.length === 0 && (
+          {manage && canCreateBatch && row.blocked.length === 0 && (
             <Button asChild size="sm" variant="outline">
               <Link to="/branch/batches" search={{ new: 1, course: row.course.course_id }}>
                 Create a batch
@@ -144,7 +164,7 @@ export function WaitingStudent({
       ) : (
         <ul className="mt-2 divide-y">
           {row.matches.map((m) => (
-            <MatchLine key={`${m.batch.batch_id}-${m.track?.enrolment_track_id ?? 0}`} row={row} match={m} manage={manage} />
+            <MatchLine key={`${m.batch.batch_id}-${m.track?.enrolment_track_id ?? 0}`} row={row} match={m} manage={manage} batchBase={batchBase} />
           ))}
         </ul>
       )}

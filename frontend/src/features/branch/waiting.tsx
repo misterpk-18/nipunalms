@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WaitingStudent } from "@/features/shared/waiting-student";
 
-/** `manage` comes from the route (Branch Manager). */
-export function BranchWaiting({ manage }: { manage: boolean }) {
+/** `manage` comes from the route. The Branch Manager's page can also open Batches and create one; the Super Admin's and Founder's
+ * (`basePath` = their batch list) can only allocate, in any branch. */
+export function BranchWaiting({ manage, basePath = "/branch/batches" }: { manage: boolean; basePath?: string }) {
+  const branchOnly = basePath === "/branch/batches";
   const { branchId, allowedBranches: branches } = useAuth();
   const initial = (useSearch({ strict: false }) as { q?: string }).q ?? "";
   const [q, setQ] = useState(initial);
@@ -50,7 +52,7 @@ export function BranchWaiting({ manage }: { manage: boolean }) {
           search ? "No waiting student matches that search." : "Nobody is waiting for a batch. New admissions from the CRM appear here until they have a seat."
         }
         emptyAction={
-          manage ? (
+          manage && branchOnly ? (
             <Button asChild size="sm" variant="outline">
               <Link to="/branch/batches">Open Batches</Link>
             </Button>
@@ -60,7 +62,15 @@ export function BranchWaiting({ manage }: { manage: boolean }) {
         {(page) => (
           <ul className="space-y-3" aria-label="Students waiting for a batch">
             {page.data.map((row) => (
-              <WaitingStudent key={row.enrolment.enrolment_id} row={row} manage={manage} withBranch={branches.length > 1 && branchId === null} studentBase="/branch" />
+              <WaitingStudent
+                key={row.enrolment.enrolment_id}
+                row={row}
+                manage={manage}
+                withBranch={branches.length > 1 && branchId === null}
+                canCreateBatch={branchOnly}
+                batchBase={basePath}
+                studentBase={branchOnly ? "/branch" : basePath === "/founder/batches" ? "/founder" : "/admin"}
+              />
             ))}
           </ul>
         )}

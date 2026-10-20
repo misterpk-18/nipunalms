@@ -132,10 +132,10 @@ def review_for_enrolment(batch_id: int, enrolment_id: int, transfer: bool = Fals
     interbranch = enrolment_track_id is not None and batch.branch_id != enrolment.service_branch_id
     if interbranch:
         # a component placed elsewhere: the requester manages the student's service branch
-        delivery_access.assert_can_manage_branch(enrolment.service_branch_id)
+        delivery_access.assert_can_allocate_branch(enrolment.service_branch_id)
     else:
         scope.assert_can_view_batch(batch)
-        delivery_access.assert_can_manage_branch(batch.branch_id)
+        delivery_access.assert_can_allocate_branch(batch.branch_id)
     return review(batch, enrolment, transfer=transfer, enrolment_track_id=enrolment_track_id, interbranch=interbranch)
 
 
@@ -165,7 +165,7 @@ def allocate(batch_id: int, enrolment_id: int, reason: str | None, acknowledge_w
              enrolment_track_id: int | None = None) -> BatchAllocation:
     """Give an enrolment its first seat (or a combo track its seat in a track batch), after the review. The enrolment moves to
     'Allocated — awaiting first regular class'. Moving a seat that already exists is a transfer request."""
-    batch = load_managed_batch(batch_id)
+    batch = load_managed_batch(batch_id, allocating=True)
     enrolment = enrolments_repo.get_enrolment_for_update(enrolment_id)
     if enrolment is None:
         raise NotFound("Enrolment not found")
@@ -195,7 +195,7 @@ def deallocate(enrolment_id: int, reason: str, enrolment_track_id: int | None = 
     current = allocations.current_seat(enrolment, enrolment_track_id)
     if current is None:
         raise Conflict("The enrolment is not allocated to a batch" if enrolment_track_id is None else "The track holds no seat")
-    delivery_access.assert_can_manage_branch(enrolment.service_branch_id)
+    delivery_access.assert_can_allocate_branch(enrolment.service_branch_id)
     if enrolment.status in ("Completed", "Withdrawn"):
         raise BusinessRule(f"A {enrolment.status} enrolment keeps its batch history")
     batch = batches_repo.get_batch_for_update(current.batch_id)

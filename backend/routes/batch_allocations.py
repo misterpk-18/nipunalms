@@ -3,7 +3,7 @@ from flask import Blueprint
 from controllers import batch_allocations as allocations_controller
 from routes.decorators import login_required, require_roles
 from services.context import STAFF_ROLES
-from services.delivery_access import MANAGE_ROLES
+from services.delivery_access import ALLOCATE_ROLES
 
 batch_allocations_bp = Blueprint("batch_allocations", __name__)
 
@@ -17,20 +17,20 @@ def roster(batch_id: int):
 
 @batch_allocations_bp.get("/batches/<int:batch_id>/allocation-review")
 @login_required
-@require_roles(*MANAGE_ROLES)
+@require_roles(*ALLOCATE_ROLES)
 def review(batch_id: int):
     return allocations_controller.review(batch_id)
 
 
 @batch_allocations_bp.post("/batches/<int:batch_id>/allocations")
 @login_required
-@require_roles(*MANAGE_ROLES)
+@require_roles(*ALLOCATE_ROLES)
 def allocate(batch_id: int):
     return allocations_controller.allocate(batch_id)
 
 
 @batch_allocations_bp.post("/enrolments/<int:enrolment_id>/deallocate")
 @login_required
-@require_roles(*MANAGE_ROLES)
+@require_roles(*ALLOCATE_ROLES)
 def deallocate(enrolment_id: int):
     return allocations_controller.deallocate(enrolment_id)

@@ -187,6 +187,25 @@ def test_allocation_review_allocate_transfer_deallocate(world, client, login, ma
     assert call(client, login, people["ac"], "post", f"/enrolments/{eid}/deallocate", json={"reason": "again"}).status_code == 409
 
 
+@pytest.mark.parametrize("who", ["admin", "founder"])
+def test_super_admin_and_founder_can_allocate_to_any_branch(world, client, login, make_batch, who):
+    people, batch, student = world
+    eid = student.enrolments[0]["enrolment_id"]
+    vij = make_batch(2, trainers=[people["v1"]], state="Running")
+
+    # the allocation review still decides: a batch at another branch than the admission's service branch is blocked, not forbidden
+    review = data(call(client, login, people[who], "get", f"/batches/{batch.batch_id}/allocation-review?enrolment_id={eid}"), 200)
+    assert review["result"] == "Ready to allocate"
+    assert call(client, login, people[who], "post", f"/batches/{vij.batch_id}/allocations", json={"enrolment_id": eid}).status_code == 422
+
+    allocation = data(call(client, login, people[who], "post", f"/batches/{batch.batch_id}/allocations", json={"enrolment_id": eid, "reason": "seat"}), 201)
+    assert allocation["status"] == "Active"
+    assert data(call(client, login, student.student_code, "get", "/me/enrolments"), 200)[0]["status"] == "Allocated — awaiting first regular class"
+    # taking the seat away is theirs too
+    assert call(client, login, people[who], "post", f"/enrolments/{eid}/deallocate", json={"reason": "x"}).status_code == 200
+
+
+
 def test_allocation_scope_and_version_warning(world, client, login, make_batch, make_student):
     people, batch, student = world
     eid = student.enrolments[0]["enrolment_id"]
