@@ -103,8 +103,47 @@ export type SessionPlan = {
   created: ClassSession[];
 };
 
+// ---------------------------------------------------------------- One student
+
+/** `GET /students/{id}`, narrowed to the Branch Manager's branch: courses serviced by another branch are left out. */
+export type StudentRecord = {
+  student_id: number;
+  student_code: string;
+  full_name: string;
+  name_te: string | null;
+  email: string | null;
+  mobile: string | null;
+  activation_status: string;
+  activated_at: DateTime | null;
+  original_branch: BranchRef;
+  service_branch: BranchRef;
+  admissions: {
+    admission_id: number;
+    admission_code: string;
+    course: { course_id: number; course_code: string; title: string };
+    mode: string;
+    admission_date: DateOnly | null;
+    planned_start_date: DateOnly | null;
+    preferred_batch_code: string | null;
+    seat_type: string | null;
+    crm_status: string;
+  }[];
+  enrolments: {
+    enrolment_id: number;
+    enrolment_code: string;
+    course: { course_id: number; course_code: string; title: string };
+    kind: string;
+    status: string;
+    mode: string;
+    joining_date: DateOnly | null;
+    access_end: DateOnly | null;
+    batch: { batch_id: number; batch_code: string; display_name?: string | null } | null;
+  }[];
+};
+
 export const branchApi = {
   myWork: (branchId: number | null) => get<MyWork>("/branch/my-work", { branch_id: branchId }),
+  student: (id: number) => get<StudentRecord>(`/students/${id}`),
   waiting: (query: Query = {}) => list<WaitingRow>("/branch/waiting", { per_page: 50, ...query }),
   batchWaiting: (batchId: number) => get<BatchWaiting>(`/batches/${batchId}/waiting`),
   progress: (batchId: number) => get<BatchProgress>(`/batches/${batchId}/progress`),

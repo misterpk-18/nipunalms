@@ -197,7 +197,7 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
 |---|---|---|---|
 | GET | `/reference/branches`, `/reference/roles`, `/reference/courses` | Staff | Courses include combo components |
 | GET | `/reference/staff?role=&branch_id=` | Staff | Staff in the caller's branches |
-| GET | `/students/{id}` | Scoped | Student record (student: own only) |
+| GET | `/students/{id}` | Scoped | Student record (student: own only). Branch Manager: `/branch/students/$id`; courses serviced by another branch are left out |
 | GET | `/batches`, `/batches/{id}` | Scoped | Filters `branch_id`, `course_id`, `state`; trainers see assigned batches only |
 | GET | `/class-sessions?batch_id=&from=&to=` | Scoped | |
 

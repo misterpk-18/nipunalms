@@ -60,7 +60,7 @@ export function BranchWaiting({ manage }: { manage: boolean }) {
         {(page) => (
           <ul className="space-y-3" aria-label="Students waiting for a batch">
             {page.data.map((row) => (
-              <WaitingStudent key={row.enrolment.enrolment_id} row={row} manage={manage} withBranch={branches.length > 1 && branchId === null} />
+              <WaitingStudent key={row.enrolment.enrolment_id} row={row} manage={manage} withBranch={branches.length > 1 && branchId === null} studentBase="/branch" />
             ))}
           </ul>
         )}

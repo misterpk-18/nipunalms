@@ -87,13 +87,35 @@ function MatchLine({ row, match, manage }: { row: WaitingRow; match: WaitingMatc
   );
 }
 
-export function WaitingStudent({ row, manage, withBranch }: { row: WaitingRow; manage: boolean; withBranch: boolean }) {
+/** `studentBase`: the role's area, whose student page the name opens. No `studentBase`, no link. */
+export function WaitingStudent({
+  row,
+  manage,
+  withBranch,
+  studentBase,
+}: {
+  row: WaitingRow;
+  manage: boolean;
+  withBranch: boolean;
+  studentBase?: "/branch" | "/admin" | "/founder";
+}) {
+  const who = (
+    <>
+      {row.student.full_name} <span className="font-mono text-xs text-muted-foreground">{row.student.student_code}</span>
+    </>
+  );
   return (
     <li className="rounded-xl border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-medium">
-            {row.student.full_name} <span className="font-mono text-xs text-muted-foreground">{row.student.student_code}</span>
+            {studentBase ? (
+              <Link to={`${studentBase}/students/$id` as never} params={{ id: String(row.student.student_id) } as never} className="hover:underline">
+                {who}
+              </Link>
+            ) : (
+              who
+            )}
           </p>
           <p className="text-sm text-muted-foreground">
             {row.course.title} · {row.mode}
