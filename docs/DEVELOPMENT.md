@@ -203,6 +203,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
 | `jobs list`, `jobs run [name] [--loop]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `email-send`, `google-sync`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally, `jobs run --loop` (every 60 s, `--interval` to change) stands in for cron |
+| `google check [--mailbox X] [--branch N]`, `google send-test --to X` | First-day Google checks: key, delegation per scope, a read of the mailbox's calendar and Drive (read-only); and one real test email. See [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md#first-real-test) |
 | `seed-crm-batches` | Batches (and `bm.*` / `trainer.*` logins) for the students the CRM sent; `*-dev` only, allocates nobody ([details](#batches-for-the-crms-own-students)) |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 | `cartograph files <module>:<function> [--depth 2]`, `cartograph build` | Which files to read before changing a backend function; the searchable map page (see below) |

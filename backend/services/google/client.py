@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 import google.auth
 import urllib3
 from flask import current_app
+import google.auth.transport.urllib3
 from google.auth.transport.urllib3 import AuthorizedHttp
 from google.oauth2 import service_account
 
@@ -72,6 +73,26 @@ def _load_key() -> dict:
     if key not in _key_cache:
         _key_cache[key] = json.loads(key_file.read_text())
     return _key_cache[key]
+
+
+def key_summary() -> dict:
+    """What identifies the service account (never the private key): the address, the client id a Workspace admin authorises, the project."""
+    key = _load_key()
+    return {"type": key.get("type"), "client_email": key.get("client_email"), "client_id": key.get("client_id"), "project_id": key.get("project_id")}
+
+
+def mint_token(subject: str, scopes: list[str]) -> None:
+    """Ask Google for an access token as `subject` for these scopes, and do nothing with it. Fails when the service account has not
+    been authorised (domain-wide delegation) for the mailbox or a scope."""
+    try:
+        credentials = service_account.Credentials.from_service_account_info(_load_key(), scopes=scopes, subject=subject)
+        credentials.refresh(google.auth.transport.urllib3.Request(urllib3.PoolManager()))
+    except GoogleError:
+        raise
+    except google.auth.exceptions.RefreshError as exc:
+        raise GoogleError(f"Google refused the service account for {subject}: {exc}") from exc
+    except (urllib3.exceptions.HTTPError, google.auth.exceptions.TransportError) as exc:
+        raise GoogleError(f"Could not reach Google: {exc}", retryable=True) from exc
 
 
 def request(method: str, url: str, *, subject: str | None, scopes: list[str], body: dict | None = None,

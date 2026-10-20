@@ -137,6 +137,18 @@ Domain-wide delegation) for the scopes `calendar.events`, `drive.file` and `gmai
 check that every branch mailbox is a real Workspace account; set Meet so people outside the domain can join. No OAuth client
 is needed while Google Sign-In is out.
 
+### First real test
+
+Do it with one dev mailbox first, so a mistake cannot email students or share real folders. Nothing calls Google until the last step.
+
+1. **Workspace admin, once** (the steps above): Cloud project with the Calendar, Drive and Gmail APIs enabled; a service account and its JSON key; domain-wide delegation with the three scopes; Meet open to people outside the domain.
+2. **On the server:** save the key as `backend/secrets/google-service-account.json` (git-ignored), and set `GOOGLE_WORKSPACE_DOMAIN` and `GOOGLE_DELEGATED_ADMIN` (a real mailbox in that domain) in `backend/.env`.
+3. **`flask --app app google check`** (from `backend/`, venv active). It prints the service account's **client ID**: that is what goes in the Admin console's delegation list. It then proves delegation for each scope and reads the mailbox's calendar and Drive. Nothing is created. Add `--mailbox` or `--branch ID` to try a branch's mailbox. Exit code 1 means a check failed, with the fix beneath it.
+4. **`flask --app app google send-test --to you@…`** sends one real test email. Use your own address.
+5. **Setup & health:** mark Google Meet, Google Drive material and Email **Working**, each with a note of how you checked it. Until then nothing is queued, so the checks above never touch real classes.
+6. **Try one of each** with a test branch or batch: schedule an online class (a Meet link appears after the next `google-sync`, within 5 minutes; locally `jobs run --loop` does it), allocate a test student (a Drive folder is shared with them), and create a test student (an activation email arrives, if `PUBLIC_BASE_URL` is set).
+7. **Setup & health > Google Workspace** shows anything stuck, with the reason and a Try again button.
+
 ## 7. API and screen
 
 Built. Everything is for Super Admin and Founder, and sits under Setup & health in the admin and founder workspaces. Full detail in
