@@ -85,7 +85,10 @@ export function BranchWaiting({ manage, basePath = "/branch/batches" }: { manage
         <p>
           "Allocate…" with dots means the check found something to look at, such as a different class mode or a timetable clash. You see it before you confirm.
         </p>
-        <p>A student's Joining Date is set at the first class they attend (marked Present or Late), not when they are allocated.</p>
+        <p>
+          A student needs a seat before they can be marked in a class. Their Joining Date is set at the first class of their batch they attend (marked Present
+          or Late), not when they are allocated.
+        </p>
       </HowThisWorks>
     </div>
   );
