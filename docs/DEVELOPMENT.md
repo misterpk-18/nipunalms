@@ -45,13 +45,34 @@ The layout, layers and conventions are the same as `nipuna-crm`.
 | `DATABASE_URL` | Main database `nipunalms`; production config |
 | `DEV_DATABASE_URL` | Dev replica `nipunalms-dev` with staging data; used when `APP_ENV=development` |
 | `TEST_DATABASE_URL` | Optional; defaults to `DATABASE_URL` + `_test` (`nipunalms_test`) |
-| `SECRET_KEY`, `LOG_LEVEL`, `UPLOAD_DIR` | App settings |
+| `SECRET_KEY`, `LOG_LEVEL` | App settings |
+| `STORAGE_BACKEND` | `local` (default: files under `UPLOAD_DIR`) or `s3` (files in `S3_BUCKET`; `UPLOAD_DIR` is then only a staging folder). Tests always use `local`. See "File storage" below |
+| `S3_BUCKET` | Optional override. Default by `APP_ENV`: `development` → `nipunalms-uploads-test`, `production` → `nipunalms-uploads-prod` (both `ap-south-1`) |
+| `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_REGION` | S3 credentials and region (`ap-south-1`). Leave the keys unset on a server with an IAM role and boto3 uses the role |
+| `UPLOAD_DIR` | Local upload / staging folder (default `backend/uploads`) |
 | `PUBLIC_BASE_URL` | Optional. The address people open the LMS at (for example `https://lms.example.com`). Certificate PDFs print `<it>/verify/<number>` with a QR code; unset = the PDF names the number and the `/verify/` path only |
 | `CRM_BASE_URL` | Optional. The CRM API base (dev `http://127.0.0.1:5050/api/v1`) the LMS hands WhatsApp messages to (`POST /lms/whatsapp`, same service key). Unset = WhatsApp not available. Turn it on with `app_settings.whatsapp_enabled` and `whatsapp_approved_templates` (`flask whatsapp status` shows why it is off) |
 | `CRM_SERVICE_KEY` | Shared secret the CRM sends as `X-Service-Key` on `/integrations/crm/*` (dev: `dev-crm-service-key`) |
 | `ANTHROPIC_API_KEY`, `AI_MODEL` | Ask Nipuna; without a key the rule-based fallback answers |
 
 `backend/.env.example` lists the same variables without secrets.
+
+**File storage.** Content files, assignment submissions, CVs and support attachments all go through `services/storage.py`. With `STORAGE_BACKEND=s3` a file is validated on local disk (`UPLOAD_DIR`), uploaded to the bucket and the local copy removed; serving fetches the object once into a temp cache (`<tmp>/nipunalms-s3-cache/<bucket>/`) and sends it through the API, so students never get a bucket URL. The database keeps the same relative key (`content/<hex>-<name>`, `cv/<student>/…`, `support/<request>/…`, `submissions/<assignment>/…`), so it is the same for local and S3. A key that is not in the bucket but still exists under `UPLOAD_DIR` is served from disk, which keeps old files working during the move.
+
+| | Development (`APP_ENV=development`) | Production |
+|---|---|---|
+| Bucket | `nipunalms-uploads-test` | `nipunalms-uploads-prod` |
+| Settings | `STORAGE_BACKEND=s3` in `backend/.env` | `STORAGE_BACKEND=s3` in the server `.env` (the default is `local`) |
+
+Both buckets are in `ap-south-1`, private (all public access blocked), SSE-S3 encrypted, not versioned, tagged `project=nipunalms`. They sit in the account of the `nipuna` AWS profile; the app currently uses the access key in `backend/.env`, which belongs to a shared IAM user: give production its own IAM user or role limited to `s3:GetObject`, `PutObject`, `DeleteObject`, `ListBucket` on the prod bucket.
+
+Move existing local files into the bucket of the current environment (keys stay the same, nothing in the database changes):
+
+```bash
+APP_ENV=development ../venv/bin/flask --app app uploads migrate                 # dry run: lists what would be copied
+APP_ENV=development ../venv/bin/flask --app app uploads migrate --apply         # copy files that are not in the bucket yet
+APP_ENV=development ../venv/bin/flask --app app uploads migrate --apply --delete-local   # also remove each local copy once it is in the bucket
+```
 
 ### 3. Databases
 
@@ -663,8 +684,8 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 | Support SLA | One `support_sla_hours` for all categories and priorities |
 | External channels | Email, quiet hours and delivery status for WhatsApp (Module 26) are not built; WhatsApp and email appear in preferences only when live |
 | Ask Nipuna | No spend ceiling / cost tracking (Module 24 §11); Telugu answer quality untested against a live model; the due-work facts cover the student's own batch seats only, with no per-question detail |
-| Career file storage | CV files on local disk under `UPLOAD_DIR/cv` |
-| Support attachments | Files on local disk under `UPLOAD_DIR/support` (png, jpg, pdf, txt, doc, docx; 5 MB; 3 per message) |
+| Career file storage | CV files under the key `cv/<student>/…` (S3 bucket, or `UPLOAD_DIR/cv` with `STORAGE_BACKEND=local`) |
+| Support attachments | Files under the key `support/<request>/…` (S3 bucket, or `UPLOAD_DIR/support` locally) (png, jpg, pdf, txt, doc, docx; 5 MB; 3 per message) |
 | Email change code | Delivered by WhatsApp only (no email sender). With WhatsApp off the student is told no code was sent and the email stays as it is |
 
 ### Home, Today & reports
@@ -706,8 +727,8 @@ own) is not decided, and nothing is deployed without the owner's go-ahead.** On 
 | Path / unit | What | Template |
 |---|---|---|
 | `/srv/nipunalms/backend` | Flask app (no tests, no local `.env`) | — |
-| `/srv/nipunalms/backend/.env` | Server-only, mode 600, generated on the server: `APP_ENV=production`, `DATABASE_URL`, `SECRET_KEY`, `CRM_SERVICE_KEY`, `UPLOAD_DIR`, optionally `ANTHROPIC_API_KEY`. Production refuses to start with the default `SECRET_KEY` or without `CRM_SERVICE_KEY` | — |
-| `/srv/nipunalms/backend/uploads` | Content files, submissions, CVs (local disk until production storage is decided) | — |
+| `/srv/nipunalms/backend/.env` | Server-only, mode 600, generated on the server: `APP_ENV=production`, `DATABASE_URL`, `SECRET_KEY`, `CRM_SERVICE_KEY`, `STORAGE_BACKEND=s3` (the default is `local`), `AWS_REGION` and the AWS keys unless the instance has a role, optionally `ANTHROPIC_API_KEY`. Production refuses to start with the default `SECRET_KEY` or without `CRM_SERVICE_KEY` | — |
+| `/srv/nipunalms/backend/uploads` | Staging folder with `STORAGE_BACKEND=s3` (files live in `nipunalms-uploads-prod`); the real file store only with `local`. `backup.sh` tars this folder, so with S3 it backs up almost nothing: protect the bucket instead (versioning is off) | — |
 | `/srv/nipunalms/db`, `/srv/nipunalms/deploy` | SQL migrations; these templates and `backup.sh` | — |
 | `/srv/nipunalms/frontend` | Built frontend (`frontend/dist` contents) | — |
 | `/srv/nipunalms/venv` | Python venv: `requirements.txt` + `gunicorn` | — |

@@ -331,13 +331,13 @@ job run is recorded in `job_runs`.
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | GET | `/content-items` | Staff | Filters `course_id`, `batch_id`, `branch_id`, `module_id`, `topic_id`, `content_type`, `q`, `status` (comma list). Trainer: own items + items of batches they teach; BM: their branches; Super Admin / Founder: all |
-| POST | `/content-items` | Trainer, BM, Super Admin | JSON (links) or multipart with `file`. Placement from `topic_id` / `module_id` / `course_id`; branch from the batch or the author's batches (`branch_id` needed for Super Admin). Creates v1 Draft |
+| POST | `/content-items` | Trainer, BM, Super Admin, Founder / CEO | JSON (links) or multipart with `file`. Placement from `topic_id` / `module_id` / `course_id`; branch from the batch or the author's batches (`branch_id` needed for Super Admin). Creates v1 Draft |
 | GET | `/content-items/options` | Staff | Batches the caller may author for, each with `outlines: [{component_id, track_name, modules: [{module_id, title, topics}]}]` (the course's own outline first, then each combo track's; this replaces `versions`) |
 | GET / PATCH | `/content-items/{id}` | Staff / author, BM, Super Admin | Detail with versions and review history; edit metadata, placement, download policy (author only while Draft / Changes Requested; reviewer audited) |
-| POST | `/content-items/{id}/versions` | Author, BM, Super Admin | New file (multipart) or `url`; v2, v3 … earlier versions kept |
-| POST | `/content-items/{id}/submit` | Author, BM, Super Admin | Draft / Changes Requested → Submitted; Branch Managers notified |
-| POST | `/content-items/{id}/review` | BM (branch), Super Admin | `decision` start / approve / request_changes / reject (+ `comment`, `release`); never the uploader |
-| POST | `/content-items/{id}/release`, `/retire` | BM (branch), Super Admin | Approved → Released (previous released version retired, students notified); retire needs a reason |
+| POST | `/content-items/{id}/versions` | Author, BM, Super Admin, Founder / CEO | New file (multipart) or `url`; v2, v3 … earlier versions kept |
+| POST | `/content-items/{id}/submit` | Author, BM, Super Admin, Founder / CEO | Draft / Changes Requested → Submitted; Branch Managers notified |
+| POST | `/content-items/{id}/review` | BM (branch), Super Admin, Founder / CEO | `decision` start / approve / request_changes / reject (+ `comment`, `release`); never a Branch Manager's own upload (the Super Admin and Founder may approve their own) |
+| POST | `/content-items/{id}/release`, `/retire` | BM (branch), Super Admin, Founder / CEO | Approved → Released (previous released version retired, students notified); retire needs a reason |
 | POST | `/content-items/{id}/open` | Student, staff | Students: entitlement + expiry checked, `resource_view` activity recorded; returns link URL / file info |
 | GET | `/content-items/{id}/file?download=` | Student, staff | Serves the file; entitlement, expiry and `download_allowed` enforced here; only safe types shown inline. A `staff_only` item (answer key, marking guide, trainer notes; set on create / edit) is never part of a student's audience: not listed, opened, served or notified |
 | GET | `/me/resources`, `/me/recordings`, `/me/access` | Student | Released items / recordings of the student's own enrolments with access state; Joining Date, expiries and what can still be requested. `?topic_id=` / `?session_id=` narrow them for topic and session pages |
@@ -365,7 +365,8 @@ Job: `flask --app app jobs run recording-check`.
   Both), pending before joining. Settings `access_default_years` / `access_max_years`; the older
   `recording_access_days` is superseded by Module 17 §8 and unused.
 - Uploads: allow-list, 50 MB / 250 MB (datasets, archives) from `app_settings`, magic-number check, notebook JSON check,
-  safe ZIP inspection (paths, nested archives, executables, expansion ratio). Local disk under `UPLOAD_DIR`; no malware
+  safe ZIP inspection (paths, nested archives, executables, expansion ratio). Stored in the S3 bucket of the
+  environment (`STORAGE_BACKEND=s3`) or under `UPLOAD_DIR` (`local`); served only through the API; no malware
   scan yet (backlog).
 - Recordings are references only; Google is never called. Escalation clock from class end: 4 h Branch Manager,
   24 h Super Admin, 48 h Founder (`escalation` on each exception; the job sends the notices once).
@@ -754,7 +755,7 @@ Templates 1-3 (reset code, student activation link, staff invite) are queued by 
 ### 4.17 Student Career, Ask Nipuna, Support and My Account (UX phase 11, `111`)
 
 New and changed endpoints are in the §4.8 tables above (support attachments, career `steps` and `apply_needs`, `answered` and `order=asc` on Ask Nipuna, the email code pair, `next_payment`, the receipt PDF and the branch payment instructions). Rules:
-- **Attachments**: images (png, jpg), PDF, text, Word (doc, docx); 5 MB each, at most 3 per message; the first bytes must match the type. Files are kept on disk under `UPLOAD_DIR/support/<request id>/` and downloaded only through the API.
+- **Attachments**: images (png, jpg), PDF, text, Word (doc, docx); 5 MB each, at most 3 per message; the first bytes must match the type. Files are kept under the key `support/<request id>/…` (S3 bucket, or `UPLOAD_DIR` with `STORAGE_BACKEND=local`) and downloaded only through the API.
 - **Email change** needs the code, which is **delivered by WhatsApp** (the LMS has no email sender), through the same outbox and switch as every other message. With WhatsApp off nothing is sent, the email is not changed and the answer says so.
 - **Receipts**: the CRM's finance summary carries each verified receipt's number, date and amount only, so the PDF is a copy drawn by the LMS from those rows (no official receipt layout, no payment mode). Whether the CRM already issues receipt PDFs is still to be confirmed with the CRM.
 
@@ -776,7 +777,7 @@ New and changed endpoints are in the §4.8 tables above (support attachments, ca
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | GET | `/content-items/review-summary` | BM, SA | `{awaiting, ready, changes, released, questions}`: counts for the tabs of Content & questions (`questions` = drafts waiting for approval) |
-| POST | `/content-items/{id}/claim` | BM, SA | Opening a review takes it: a Submitted version becomes Under Review under this reviewer (never their own upload). Idempotent. `{claimed_by, claimed_by_me, can_decide, reason}`. `GET /content-items` rows now carry `claimed_by` while Under Review |
+| POST | `/content-items/{id}/claim` | BM, SA, Founder | Opening a review takes it: a Submitted version becomes Under Review under this reviewer (never their own upload). Idempotent. `{claimed_by, claimed_by_me, can_decide, reason}`. `GET /content-items` rows now carry `claimed_by` while Under Review |
 | GET | `/results/publish-preview` | BM, SA | `?assignment_id=|test_id=&batch_id=`: `{to_publish, unreviewed, moderated, already_published, awaiting_grading}` for the publish confirm (`unreviewed` = results still Provisional) |
 | POST | `/results/publish` | BM, SA | Also takes `batch_id`, so a publish from one batch's review does not publish the same assessment in another batch |
 | GET | `/assessment-reviews` | Staff | Unready tests also carry `gap_details: [{text, owner: "trainer"|"you", owner_label}]` (each gap with who must fix it) |
@@ -867,7 +868,7 @@ Everything here is Super Admin (the Founder reads where a GET is listed for both
 
 | Area | Branch Manager (session branch) | Super Admin | Founder / CEO |
 |---|---|---|---|
-| Branch day-to-day actions: batches (create, edit, state, confirm, trainers, generate classes), allocate / deallocate, class sessions (create, reschedule, cancel, start, Meet links, rosters, cover, guests), attendance marking and recovery decisions, results moderation and publishing, content review and approval, recordings release, completion decisions, certificate recommend / approve / issue, fee-release requests | yes | no (403) | no (403) |
+| Branch day-to-day actions: batches (create, edit, state, confirm, trainers, generate classes), allocate / deallocate, class sessions (create, reschedule, cancel, start, Meet links, rosters, cover, guests), attendance marking and recovery decisions, results moderation and publishing, content review and approval, recordings release, completion decisions, certificate recommend / approve / issue, fee-release requests | yes | yes, any branch (`?branch_id=` or the record's branch) | yes, any branch |
 | Read across branches (`?branch_id=` narrows): `GET /batches`, batch detail and progress, `/admin/students`, `/attendance/*`, `/progress/*`, `/enrolments`, `/support-requests`, `/issues`, `/finance-summaries`, `/branch/completion`, `/academic/reports`, `/academic/summary` | own branch only (404 elsewhere) | all branches | all branches |
 | Reports | `GET /branch/reports` (and export), `GET /academic/reports` | `GET /branch/reports` and `GET /academic/reports`, both with `?branch_id=` | same |
 | Support: reply, status, reopen, `assign` (reassign) | yes, any request of the branch | reply, status and reopen on requests owned by the Super Admin team (LMS / Account / Device, or assigned to a Super Admin); `assign` on any; others read-only (403). The detail carries `can_respond` | same as the Super Admin |
@@ -875,4 +876,4 @@ Everything here is Super Admin (the Founder reads where a GET is listed for both
 | Founder inbox items (certificate changes, fee exceptions, access extensions beyond the limit, AI budget, Branch Managers' own requests) | no | decide (not their own request) | decide (not their own request) |
 | Admin: users, scopes, hand-outs, CRM sync (including Retry), setup, integrations, security controls, AI controls, audit log, calendar decisions and company holidays, issue assign and notes, course outline, student suspend / reactivate, student activation links, branch payment instructions | no (payment instructions of their branch, calendar proposals and notes on issues of their branch only) | yes | yes |
 
-`@fresh_auth` stays on the same sensitive actions for Super Admin and Founder alike. The independence rule is unchanged: nobody decides their own request (`services/approvals.py`; `admin_may_decide` replaces `founder_may_decide`: the Founder and Super Admin both decide a Branch Manager's own request, and only that). Read-only roles get `403` on actions; a record outside the Branch Manager's branch is `404`.
+`@fresh_auth` stays on the same sensitive actions for Super Admin and Founder alike. The independence rule is unchanged: nobody decides their own request (`services/approvals.py`; a Branch Manager's own request is decided by the Founder or a Super Admin, and only by them). The one exception is content and questions: the Super Admin and Founder may approve and release their own uploads and questions (a Branch Manager still may not). Everything a Branch Manager can do, the Super Admin and Founder can do for any branch (`ACADEMIC_ROLES` in `services/context.py`); a Branch Manager still sees and acts in the session branch only; a record outside the Branch Manager's branch is `404`.
