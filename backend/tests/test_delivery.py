@@ -150,7 +150,7 @@ def test_the_course_page_shows_the_batch_timetable_room_and_trainer(world, clien
     assert call(client, login, student.student_code, "get", f"/me/enrolments/{eid + 9999}").status_code == 404
 
 
-def test_allocation_review_allocate_transfer_deallocate(world, client, login, make_batch, make_student):
+def test_allocation_review_allocate_transfer_deallocate(world, client, login, make_batch, make_student, run_sql):
     people, batch, student = world
     eid = student.enrolments[0]["enrolment_id"]
     queue = data(call(client, login, people["ac"], "get", "/allocation-queue"), 200)
@@ -166,6 +166,7 @@ def test_allocation_review_allocate_transfer_deallocate(world, client, login, ma
     allocation = data(call(client, login, people["ac"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid, "reason": "first seat"}), 201)
     assert allocation["status"] == "Active"
     assert data(call(client, login, student.student_code, "get", "/me/enrolments"), 200)[0]["status"] == "Allocated — awaiting first regular class"
+    assert run_sql("SELECT joining_date FROM enrolments WHERE enrolment_id = :e", e=eid).scalar_one() is None  # set at the first attended class
     assert data(call(client, login, people["ac"], "get", f"/batches/{good.batch_id}"), 200)["state"] == "Full"  # derived from capacity
     assert data(call(client, login, people["ac"], "get", "/allocation-queue"), 200) == []
     assert call(client, login, people["ac"], "post", f"/batches/{good.batch_id}/allocations", json={"enrolment_id": eid}).status_code == 422
