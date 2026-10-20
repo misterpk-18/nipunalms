@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
 from config.database import db
-from models import Branch, BranchGoogleConfig, GoogleJob
+from models import Branch, BranchGoogleConfig, GoogleDriveGrant, GoogleDriveItem, GoogleJob
 
 OPEN_STATES = ("Queued", "Running", "Failed")
 RUNNING_LIMIT = timedelta(minutes=15)
@@ -70,3 +70,35 @@ def gmail_sender(branch_id: int | None) -> str | None:
         return config.gmail_sender
     branch = db.session.get(Branch, branch_id)
     return branch.mailbox if branch is not None else None
+
+
+# ---------------------------------------------------------------- Drive folders and shares
+
+def drive_item(entity_type: str, entity_id: int, branch_id: int) -> GoogleDriveItem | None:
+    return db.session.execute(select(GoogleDriveItem).where(
+        GoogleDriveItem.entity_type == entity_type, GoogleDriveItem.entity_id == entity_id,
+        GoogleDriveItem.branch_id == branch_id)).scalar_one_or_none()
+
+
+def add_drive_item(entity_type: str, entity_id: int, branch_id: int, parent: GoogleDriveItem | None, folder_id: str,
+                   folder_name: str) -> GoogleDriveItem:
+    item = GoogleDriveItem(entity_type=entity_type, entity_id=entity_id, branch_id=branch_id,
+                           parent_item_id=parent.item_id if parent else None, folder_id=folder_id, folder_name=folder_name)
+    db.session.add(item)
+    db.session.flush()
+    return item
+
+
+def live_grants(item_id: int) -> list[GoogleDriveGrant]:
+    return list(db.session.execute(select(GoogleDriveGrant).where(
+        GoogleDriveGrant.item_id == item_id, GoogleDriveGrant.revoked_at.is_(None)).order_by(GoogleDriveGrant.grant_id)).scalars())
+
+
+def set_drive_root(branch_id: int, folder_id: str) -> None:
+    """Remember the branch's Drive folder in its Google settings (creating the row when the branch has none yet)."""
+    config = branch_config(branch_id)
+    if config is None:
+        db.session.add(BranchGoogleConfig(branch_id=branch_id, drive_root_folder_id=folder_id))
+    else:
+        config.drive_root_folder_id = folder_id
+    db.session.flush()

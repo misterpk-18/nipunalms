@@ -73,6 +73,7 @@ Vijayawada).
 | `122_student_activated_at.sql` | CRM round 8: `students.activated_at`, the first activation, so the pull tells the CRM when to confirm an account | ✅ |
 | `123_google_workspace.sql` | Google Workspace slice 1: `branch_google_config`, the `google_jobs` retry queue, the Google Drive material register entry | ✅ |
 | `124_email_outbox.sql` | Google Workspace slice 2: `email_outbox`, the Gmail outbox | ✅ |
+| `125_google_drive.sql` | Google Workspace slice 3: `google_drive_items`, `google_drive_grants`, Drive folders and who they are shared with | ✅ |
 
 ---
 
@@ -601,3 +602,16 @@ Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.3. Depends on 001 (users,
 **Rules enforced:** one message per `dedupe_key`. `has_secret` marks a row that carries a sign-in link; the application blanks its `body` once the message is Sent, Failed or Skipped, so a finished row keeps no link. The `email-send` job sends Queued rows through Gmail; a message past `expires_at` is Skipped, not sent.
 
 Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/124_email_outbox.sql`.
+
+## 125 — Google Workspace, Drive folders and shares
+
+Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.2. Depends on 001, 002, 004 and 123.
+
+| Table | Purpose |
+|---|---|
+| `google_drive_items` | A folder the LMS made: `entity_type` (branch, course or batch), `entity_id`, `branch_id`, `parent_item_id`, Google's `folder_id`, `folder_name`. One row per (`entity_type`, `entity_id`, `branch_id`), so a course has one folder at each branch |
+| `google_drive_grants` | One person's share of a folder: `grantee_email`, `grantee_user_id`, `role` (reader or writer), Google's `permission_id` (needed to remove the share), `granted_at`, `revoked_at` |
+
+**Rules enforced:** at most one live share (`revoked_at` empty) per person per folder, by a partial unique index on (`item_id`, lower-cased email). A removed share keeps its row with `revoked_at` set. The branch folder's id is also kept in `branch_google_config.drive_root_folder_id`.
+
+Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/125_google_drive.sql`.

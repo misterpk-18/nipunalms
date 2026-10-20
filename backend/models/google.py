@@ -81,3 +81,33 @@ class EmailOutbox(db.Model):
         return {"outbox_id": self.outbox_id, "template": self.template, "recipient_user_id": self.recipient_user_id,
                 "dedupe_key": self.dedupe_key, "status": self.status, "status_note": self.status_note, "attempts": self.attempts,
                 "occurred_at": self.occurred_at, "sent_at": self.sent_at, "created_at": self.created_at}
+
+
+class GoogleDriveItem(db.Model):
+    """A Drive folder the LMS made: one per branch, per course at a branch and per batch (db 125)."""
+
+    __tablename__ = "google_drive_items"
+
+    item_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String(10))
+    entity_id: Mapped[int] = mapped_column(Integer)
+    branch_id: Mapped[int] = mapped_column(Integer, ForeignKey("branches.branch_id"))
+    parent_item_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("google_drive_items.item_id"))
+    folder_id: Mapped[str] = mapped_column(String(200))
+    folder_name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+
+
+class GoogleDriveGrant(db.Model):
+    """One person's share of a folder. `revoked_at` set means it has been removed."""
+
+    __tablename__ = "google_drive_grants"
+
+    grant_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    item_id: Mapped[int] = mapped_column(Integer, ForeignKey("google_drive_items.item_id"))
+    grantee_email: Mapped[str] = mapped_column(String(255))
+    grantee_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.user_id"))
+    role: Mapped[str] = mapped_column(String(10))
+    permission_id: Mapped[str] = mapped_column(String(200))
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

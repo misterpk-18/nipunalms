@@ -86,6 +86,6 @@ __all__ += ["BatchCapacityRequest", "BatchHandover", "BatchSuccession", "BatchTr
 from models.whatsapp import WhatsappMessage  # noqa: E402
 
 # Google Workspace integration (db 123)
-from models.google import BranchGoogleConfig, EmailOutbox, GoogleJob  # noqa: E402
+from models.google import BranchGoogleConfig, EmailOutbox, GoogleDriveGrant, GoogleDriveItem, GoogleJob  # noqa: E402
 
-__all__ += ["BranchGoogleConfig", "EmailOutbox", "GoogleJob"]
+__all__ += ["BranchGoogleConfig", "EmailOutbox", "GoogleDriveGrant", "GoogleDriveItem", "GoogleJob"]

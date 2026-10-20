@@ -26,6 +26,7 @@ from repositories import settings as settings_repo
 from repositories import users as users_repo
 from repositories.common import paginate
 from services import approvals, audit, delivery_access, delivery_notices, meet, scope
+from services.google import batch_folders
 from services.context import ACADEMIC_ROLES, actor_id, current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
@@ -483,6 +484,7 @@ def _set_state(batch: Batch, state: str, reason: str | None, event: str = "State
     db.session.flush()  # the database validates the move and raises a readable message
     batches_repo.add_event(batch.batch_id, event, from_value=old, to_value=state, reason=reason, actor_user_id=actor_id())
     audit.record("BATCH_STATE", "batch", batch.batch_id, old={"state": old}, new={"state": state}, reason=reason, branch_id=batch.branch_id)
+    batch_folders.enqueue_sync(batch.batch_id)
 
 
 def _require_confirmer(batch: Batch) -> None:
@@ -701,6 +703,7 @@ def assign_trainer(batch_id: int, trainer_user_id: int, role: str, from_date) ->
     db.session.add(assignment)
     db.session.flush()  # the database checks the person holds the Trainer role at this branch
     db.session.refresh(batch)
+    batch_folders.enqueue_sync(batch.batch_id)
     batches_repo.add_event(batch.batch_id, "Trainer assigned", to_value=f"{assignment.trainer.full_name} ({role})", actor_user_id=actor_id())
     audit.record("BATCH_TRAINER_ASSIGNED", "batch", batch.batch_id, new={"trainer_user_id": trainer_user_id, "role": role}, branch_id=batch.branch_id)
     delivery_notices.notify_users([trainer_user_id], title=f"You are assigned to batch {batch.batch_code}", category="Batch",
@@ -749,6 +752,7 @@ def end_trainer(batch_id: int, batch_trainer_id: int) -> BatchTrainer:
                            "assign another trainer to them first")
     assignment.to_date = max(today_ist(), assignment.from_date)
     db.session.flush()
+    batch_folders.enqueue_sync(batch.batch_id)
     batches_repo.add_event(batch.batch_id, "Trainer ended", from_value=f"{assignment.trainer.full_name} ({assignment.role})", actor_user_id=actor_id())
     audit.record("BATCH_TRAINER_ENDED", "batch", batch.batch_id, old={"trainer_user_id": assignment.trainer_user_id, "role": assignment.role},
                  branch_id=batch.branch_id)

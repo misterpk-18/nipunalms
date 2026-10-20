@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from config.database import db
 from models import GoogleJob
 from repositories import google as google_repo
-from services.google import class_events
+from services.google import batch_folders, class_events
 from services.google.client import GoogleError
 
 logger = logging.getLogger(__name__)
@@ -20,9 +20,12 @@ BACKOFF = (timedelta(minutes=5), timedelta(minutes=15), timedelta(hours=1), time
 MAX_ATTEMPTS = len(BACKOFF) + 1
 BATCH_SIZE = 50
 
-HANDLERS = {class_events.KIND_UPSERT: class_events.handle_upsert, class_events.KIND_CANCEL: class_events.handle_cancel}
-ON_DEAD = {class_events.KIND_UPSERT: class_events.on_dead, class_events.KIND_CANCEL: class_events.on_dead}
-ENABLED = {class_events.KIND_UPSERT: class_events.is_enabled, class_events.KIND_CANCEL: class_events.is_enabled}
+HANDLERS = {class_events.KIND_UPSERT: class_events.handle_upsert, class_events.KIND_CANCEL: class_events.handle_cancel,
+            batch_folders.KIND_SYNC: batch_folders.handle_sync}
+ON_DEAD = {class_events.KIND_UPSERT: class_events.on_dead, class_events.KIND_CANCEL: class_events.on_dead,
+           batch_folders.KIND_SYNC: batch_folders.on_dead}
+ENABLED = {class_events.KIND_UPSERT: class_events.is_enabled, class_events.KIND_CANCEL: class_events.is_enabled,
+           batch_folders.KIND_SYNC: batch_folders.is_enabled}
 
 
 def _now() -> datetime:

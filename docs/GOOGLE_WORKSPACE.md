@@ -1,6 +1,6 @@
 # Nipuna LMS — Google Workspace integration (phase 1 design)
 
-Status: **in progress.** Built: configuration, migrations 123 and 124, the Google client, the `google-sync` job with retries, class Calendar events with Meet links (§5.1) and the Gmail outbox (§5.3). Not built: Drive, the Super Admin job screen, CRM events. Decisions marked **Open** need an answer before the matching step starts.
+Status: **in progress.** Built: configuration, migrations 123 to 125, the Google client, the `google-sync` job with retries, class Calendar events with Meet links (§5.1), Drive folders and shares (§5.2) and the Gmail outbox (§5.3). Not built: the Super Admin job screen, CRM events. Decisions marked **Open** need an answer before the matching step starts.
 Today the LMS never calls Google: `services/integrations.py` only records whether an integration is verified, and
 `services/meet.py` records a Meet link a person typed in. Phase 1 makes the LMS call Google for the items below, keeping
 that register as the on/off switch.
@@ -59,15 +59,15 @@ request ─▶ service ─▶ google_jobs row (same transaction)
 
 ## 4. Database
 
-Migration `123_google_workspace.sql` (built) holds `branch_google_config` and `google_jobs`; `124_email_outbox.sql` (built) holds `email_outbox`; the Drive tables follow in `125`. Depends on `001` (integrations, branches). Follows the migration workflow in
+Migration `123_google_workspace.sql` (built) holds `branch_google_config` and `google_jobs`; `124_email_outbox.sql` (built) holds `email_outbox`; `125_google_drive.sql` (built) holds the Drive tables. Depends on `001` (integrations, branches). Follows the migration workflow in
 [DATABASE.md](DATABASE.md#how-migrations-work); add a section there when it lands.
 
 | Table | Columns (key ones) | Rule |
 |---|---|---|
 | `branch_google_config` | `branch_id` PK/FK, `calendar_mailbox`, `drive_root_folder_id`, `gmail_sender` | Defaults to `branches.mailbox` when null |
 | `google_jobs` | `job_id`, `kind`, `entity_type`, `entity_id`, `payload` jsonb, `state` (Queued/Running/Failed/Succeeded/Dead), `attempts`, `next_attempt_at`, `started_at`, `last_error`, timestamps | The retry queue. One open job per (`kind`, `entity_type`, `entity_id`); the job reads the class as it is when it runs |
-| `google_drive_items` (125) | `entity_type` (branch/course/batch), `entity_id`, `folder_id`, unique per entity | Folder tree |
-| `google_drive_grants` (125) | `folder_item_id` FK, `grantee_email`, `permission_id`, `role`, `granted_at`, `revoked_at` | One row per live share |
+| `google_drive_items` (125, built) | `entity_type` (branch/course/batch), `entity_id`, `branch_id`, `parent_item_id`, `folder_id`, `folder_name` | Folder tree; unique per (`entity_type`, `entity_id`, `branch_id`) |
+| `google_drive_grants` (125, built) | `item_id` FK, `grantee_email`, `grantee_user_id`, `role` (reader/writer), `permission_id`, `granted_at`, `revoked_at` | One live share per person per folder |
 | `email_outbox` (124, built) | `template`, `recipient_user_id`, `branch_id`, `to_email`, `subject`, `body`, `dedupe_key` unique, `status` (Queued/Sent/Failed/Skipped), `status_note`, `attempts`, `next_attempt_at`, `sent_at` | Same idea as `whatsapp_outbox`; drained by the `email-send` job |
 
 No token or key column: the service account needs no stored user tokens.
@@ -86,11 +86,14 @@ No token or key column: the service account needs no stored user tokens.
 
 ### 5.2 Drive material
 
-- Folder path `Nipuna LMS / <branch> / <course> / <batch>`, created lazily on first need, IDs in `google_drive_items`.
-- Grants: on batch allocation (`services/batch_allocations.py`) enqueue `DRIVE_GRANT` for the student's email; on transfer, removal or completion enqueue `DRIVE_REVOKE`. Trainers get access when assigned to the batch.
+- Folders `Nipuna LMS / <course> / <batch code>`, owned by the branch's mailbox and made on demand by the `google-sync` job (`services/google/batch_folders.py`). A folder is found by a tag we put on it, so a retry after a lost reply never makes a second one. The branch folder can be one the branch's admin chose (`branch_google_config.drive_root_folder_id`).
+- Trainers assigned to the batch are editors. Students holding a seat are viewers, and lose access when the seat ends (left, transferred) or the batch is Completed, Cancelled or Archived. Trainers lose access when their assignment ends or the batch is Cancelled or Archived.
+- One `DRIVE_SYNC` job per batch. A seat taken or ended, a trainer assigned or ended, and a batch state change each queue it; the job compares who should have access with the shares it recorded and adds or removes the difference, so any number of changes is one pass and a retry resumes where the last pass stopped.
+- An address with no Google account can only be invited, which makes Google email it; the job asks for that only after Google refuses the quiet share.
+- When retries run out, the branch's managers get a "Drive sharing failed" task.
 - LMS content upload is unchanged; Drive is for shared working material, not the system of record for graded content.
 
-**Open:** per-student shares or one Google Group per batch? Per-student is simpler for phase 1; a group scales better and moves to phase 2 if share counts become a problem.
+**Open:** per-student shares (built) or one Google Group per batch? Per-student is simpler; a group scales better and moves to phase 2 if share counts become a problem.
 
 ### 5.3 Gmail
 
@@ -150,7 +153,7 @@ Document these in [API.md](API.md) when built.
 2. ✅ `client.py` + settings + fakes; `google-sync` job with retry.
 3. ✅ Calendar/Meet job wired to the class lifecycle (`tests/test_google_calendar.py`, `tests/test_google_client.py`).
 4. ✅ Gmail outbox beside activation and reminders (`tests/test_email_outbox.py`).
-5. Drive folders and grants on allocation, transfer and completion.
+5. ✅ Drive folders and grants on allocation, transfer and completion (`tests/test_google_drive.py`).
 6. Super Admin job screen; CRM events if wanted.
 
 Tests per step in `backend/tests/test_google_*.py`, run with `./run_tests.sh`. Must cover: register gate off → old behaviour
