@@ -1,4 +1,4 @@
-"""Files behind content versions: local disk under UPLOAD_DIR (object storage later).
+"""Files behind content versions: local disk under UPLOAD_DIR or the S3 bucket (see services/storage.py).
 
 Uploads are checked before they are kept: extension allow-list, size limit per kind (ordinary file / dataset or archive),
 a magic-number check of the formats that have one, and a safe-archive inspection for ZIP files (no unsafe paths, no
@@ -12,12 +12,12 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
 from repositories import settings as settings_repo
-from services.errors import NotFound, ValidationError
+from services import storage
+from services.errors import ValidationError
 
 DOCUMENT_EXTENSIONS = {"pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "md", "png", "jpg", "jpeg", "gif"}
 CODE_EXTENSIONS = {"py", "ipynb", "sql", "java", "js", "ts", "json", "sh", "html", "css", "yml", "yaml"}
@@ -65,10 +65,6 @@ def _limit_bytes(extension: str) -> int:
     return settings_repo.get_int(key, 250 if extension in LARGE_EXTENSIONS else 50) * 1024 * 1024
 
 
-def _root() -> Path:
-    return Path(current_app.config["UPLOAD_DIR"])
-
-
 def _fail(message: str, field: str = "file") -> ValidationError:
     return ValidationError(message, {field: [message]})
 
@@ -81,8 +77,7 @@ def save_content_file(upload: FileStorage, folder: str = "content") -> StoredFil
         raise _fail(f"File type not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
 
     relative = Path(folder) / f"{secrets.token_hex(8)}-{name}"
-    target = _root() / relative
-    target.parent.mkdir(parents=True, exist_ok=True)
+    target = storage.staging_path(str(relative))
     upload.save(target)
     try:
         size = target.stat().st_size
@@ -92,6 +87,7 @@ def save_content_file(upload: FileStorage, folder: str = "content") -> StoredFil
         if size > limit:
             raise _fail(f"The file is larger than the {limit // (1024 * 1024)} MB limit for this kind of file")
         _check_contents(target, extension)
+        storage.publish(str(relative))
     except Exception:
         target.unlink(missing_ok=True)
         raise
@@ -142,15 +138,12 @@ def _inspect_archive(path: Path) -> None:
 
 
 def delete_file(relative_path: str) -> None:
-    (_root() / relative_path).unlink(missing_ok=True)
+    storage.delete(relative_path)
 
 
 def resolve(relative_path: str) -> Path:
-    """The file on disk; 404 if it went missing. Paths come from the database, never from a request."""
-    target = (_root() / relative_path).resolve()
-    if _root().resolve() not in target.parents or not target.is_file():
-        raise NotFound("The file is not available")
-    return target
+    """A local path to the stored file; 404 if it went missing. Paths come from the database, never from a request."""
+    return storage.resolve(relative_path)
 
 
 def is_inline(filename: str | None) -> bool:

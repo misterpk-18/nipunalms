@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
@@ -21,7 +20,7 @@ from repositories import users as users_repo
 from repositories.common import paginate
 from services import assessment_scope as access
 from services import assignments as assignments_service
-from services import notifications, results, scope
+from services import notifications, results, scope, storage
 from services.context import current_user
 from services.errors import BusinessRule, Conflict, Forbidden, NotFound, ValidationError
 
@@ -41,9 +40,7 @@ def _store_file(upload: FileStorage, assignment_id: int) -> dict:
     if len(content) > MAX_FILE_BYTES:
         raise ValidationError("The file is too large", {"file": [f"At most {MAX_FILE_BYTES // (1024 * 1024)} MB"]})
     relative = Path("submissions") / str(assignment_id) / f"{secrets.token_hex(8)}-{name}"
-    target = Path(current_app.config["UPLOAD_DIR"]) / relative
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(content)
+    storage.put_bytes(str(relative), content)
     return {"file_path": str(relative), "original_filename": upload.filename, "mime_type": upload.mimetype, "file_size_bytes": len(content)}
 
 
@@ -123,9 +120,7 @@ def file_location(submission_id: int) -> tuple[Path, str, str | None]:
     submission = load_submission(submission_id)
     if not submission.file_path:
         raise NotFound("This version has no file")
-    path = Path(current_app.config["UPLOAD_DIR"]) / submission.file_path
-    if not path.is_file():
-        raise NotFound("The file is no longer available")
+    path = storage.resolve(submission.file_path)
     return path, submission.original_filename or path.name, submission.mime_type
 
 

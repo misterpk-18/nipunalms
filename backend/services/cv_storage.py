@@ -2,11 +2,11 @@
 import secrets
 from pathlib import Path
 
-from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
-from services.errors import NotFound, ValidationError
+from services import storage
+from services.errors import ValidationError
 
 ALLOWED_EXTENSIONS = {"pdf", "doc", "docx"}
 MAX_CV_BYTES = 5 * 1024 * 1024
@@ -27,16 +27,11 @@ def save_cv(upload: FileStorage | None, student_id: int) -> dict:
         raise ValidationError("The file is too large", {"file": [f"At most {MAX_CV_BYTES // (1024 * 1024)} MB"]})
 
     relative = Path("cv") / str(student_id) / f"{secrets.token_hex(8)}-{name}"
-    target = Path(current_app.config["UPLOAD_DIR"]) / relative
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(content)
+    storage.put_bytes(str(relative), content)
     return {"file_path": str(relative), "original_filename": upload.filename, "mime_type": upload.mimetype,
             "file_size_bytes": len(content)}
 
 
 def absolute_path(relative_path: str) -> Path:
     """The stored file; 404 when it is missing from disk."""
-    path = Path(current_app.config["UPLOAD_DIR"]) / relative_path
-    if not path.is_file():
-        raise NotFound("The CV file is not available")
-    return path
+    return storage.resolve(relative_path)

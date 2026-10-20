@@ -8,11 +8,10 @@ import mimetypes
 import secrets
 from pathlib import Path
 
-from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
-from services import content_files
+from services import content_files, storage
 from services.errors import ValidationError
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "pdf", "txt", "doc", "docx"}
@@ -54,9 +53,7 @@ def validate(upload: FileStorage) -> tuple[str, str, bytes]:
 def store(upload: FileStorage, support_request_id: int, name: str, content: bytes) -> dict:
     """Keep a validated file. Returns file_path, original_filename, mime_type and file_size_bytes."""
     relative = Path("support") / str(support_request_id) / f"{secrets.token_hex(8)}-{name}"
-    target = Path(current_app.config["UPLOAD_DIR"]) / relative
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(content)
+    storage.put_bytes(str(relative), content)
     return {"file_path": str(relative), "original_filename": upload.filename or name,
             "mime_type": mimetypes.guess_type(name)[0] or "application/octet-stream", "file_size_bytes": len(content)}
 

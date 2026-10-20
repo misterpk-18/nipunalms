@@ -38,8 +38,14 @@ class BaseConfig:
     # The address people open the LMS at (https://lms.example.com): printed, with a QR code, on certificate PDFs so they can be verified. Unset = no QR code.
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL")
 
-    # Uploaded files (assignment submissions, content): local disk until production storage is decided
+    # Uploaded files (content, submissions, CVs, support attachments). STORAGE_BACKEND=local keeps them under UPLOAD_DIR;
+    # s3 keeps them in S3_BUCKET (UPLOAD_DIR is then only the staging folder). Credentials are the AWS_* values in .env.
     UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))
+    STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")
+    S3_BUCKET = os.getenv("S3_BUCKET")
+    AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
+    AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
+    AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024
 
     # Ask Nipuna: without a key the rule-based fallback is used (a later slice)
@@ -52,6 +58,7 @@ class DevelopmentConfig(BaseConfig):
     # Local development and frontend testing run against the staging replica (nipunalms-dev)
     SQLALCHEMY_DATABASE_URI = os.getenv("DEV_DATABASE_URL") or os.getenv("DATABASE_URL")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")
+    S3_BUCKET = os.getenv("S3_BUCKET", "nipunalms-uploads-test")
 
 
 class TestingConfig(BaseConfig):
@@ -62,8 +69,10 @@ class TestingConfig(BaseConfig):
     CRM_SERVICE_KEY = "test-crm-service-key"
     CRM_BASE_URL = None  # tests never hand WhatsApp to a real CRM; a test that needs it sets it
     UPLOAD_DIR = Path(os.getenv("TEST_UPLOAD_DIR", "/tmp/nipunalms-test-uploads"))
+    STORAGE_BACKEND = "local"  # tests never touch AWS; the S3 path is tested with a fake client
     ANTHROPIC_API_KEY = None  # tests never call the real API
 
 
 class ProductionConfig(BaseConfig):
     DEBUG = False
+    S3_BUCKET = os.getenv("S3_BUCKET", "nipunalms-uploads-prod")
