@@ -582,7 +582,7 @@ Still to do:
 | Gap fix phases 7–12 | Assessments, attendance and certificates, content and recordings, notifications and integrations (the CRM restrictions intake), reports and AI, career and guardians (the last after CRM round 4) |
 | Owner actions | The owner's list: restart the :5060 API, apply db 111–115 to any other database, submit the WhatsApp templates in Pinbot, and the open CRM questions |
 | Product / role guide | A guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
-| Deployment | Templates only (`deploy/`, Part F); nothing is deployed |
+| Deployment | Running on its own t3.micro over http at `3.111.225.125` (Part F); no users yet, Google features off, no host name or TLS |
 
 ## Part E — Backlog
 
