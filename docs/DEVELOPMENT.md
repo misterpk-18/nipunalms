@@ -582,7 +582,7 @@ Still to do:
 | Gap fix phases 7–12 | Assessments, attendance and certificates, content and recordings, notifications and integrations (the CRM restrictions intake), reports and AI, career and guardians (the last after CRM round 4) |
 | Owner actions | The owner's list: restart the :5060 API, apply db 111–115 to any other database, submit the WhatsApp templates in Pinbot, and the open CRM questions |
 | Product / role guide | A guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
-| Deployment | Running on its own t3.micro over http at `3.111.225.125` (Part F); no users yet, Google features off, no host name or TLS |
+| Deployment | Running on its own t3.micro at `https://3-111-225-125.sslip.io` (Part F); no users yet, Google features off, not yet linked to the CRM |
 
 ## Part E — Backlog
 
@@ -729,15 +729,14 @@ CRM's VPC and subnet; the CRM's instance is not shared or touched. Made by `depl
 
 | What | Value |
 |---|---|
-| Instance / address | `i-061429318c69b7a9e`, Elastic IP `3.111.225.125`, **http only** until a host name and certificate exist (`PUBLIC_BASE_URL=http://3.111.225.125`) |
+| Instance / address | `i-061429318c69b7a9e`, Elastic IP `3.111.225.125`. **https at `https://3-111-225-125.sslip.io`** (Let's Encrypt via certbot, renews itself; http redirects). `PUBLIC_BASE_URL` is that address. A real host name can replace it later: point DNS at the IP, `sudo certbot --nginx -d <name>`, change `server_name` and `PUBLIC_BASE_URL`, restart |
 | Access | Security group `sg-06bce7d7e6ac85202` (80, 443 open; 22 only from the admin's IP: add a rule when that changes). Key pair `nipunalms-prod`, private key `~/.ssh/nipunalms-prod.pem` on the admin's laptop |
 | Uploads | `STORAGE_BACKEND=s3`, bucket `nipunalms-uploads-prod`, reached through the instance role `nipunalms` (that bucket only) |
 | Database | Local Postgres 16, database `nipunalms`, all 47 `db/*.sql` applied once; no seed or test data (`seed-dev` is never run in production) |
 | Google | Key at `/srv/nipunalms/backend/secrets/google-sa-key.json` (mode 600). Branch mailboxes set (Guntur `trainer@`, Vijayawada `contactus@`). The Meet, Drive and Email register rows are **Not Verified**, so nothing calls Google yet |
-| CRM | Not linked: `CRM_SERVICE_KEY` is generated on the server and `CRM_BASE_URL` is unset. Linking is a separate step |
+| CRM | Not linked yet. The production CRM is `https://nipunacrm.com/api/v1` (it will be the LMS's `CRM_BASE_URL`); the plan and each side's steps are in `nipuna crm-docs/LMS_PRODUCTION_LINK_PLAN.md`. Until the key is handed over, `CRM_BASE_URL` stays unset and the CRM's `LMS_SYNC_FROM_DATE` is `2099-12-31` |
 
-Open before real students use it: a host name with TLS (`certbot --nginx`, then set `PUBLIC_BASE_URL` to the https address and
-restart), a copy of the nightly dump kept off the server, and the first Super Admin (`flask --app app create-admin`).
+Open before real students use it: a copy of the nightly dump kept off the server, and the first Super Admin (`flask --app app create-admin`).
 
 ### 1. Layout on the server
 
