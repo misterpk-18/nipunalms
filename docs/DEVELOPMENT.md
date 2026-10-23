@@ -719,11 +719,25 @@ placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 
 ## Part F — Deployment
 
-The LMS is not deployed yet. `deploy/` holds the templates for a server laid out like the CRM's EC2 test server
+`deploy/` holds the templates for a server laid out like the CRM's EC2 test server
 (`~/nipuna-crm/docs/DEVELOPMENT.md` Part C): nginx serves the built frontend and proxies `/api` to gunicorn, Postgres
-runs on the same machine, cron runs the jobs and the nightly backup. **Which host it runs on (the CRM's instance or its
-own) is not decided, and nothing is deployed without the owner's go-ahead.** On a shared host the LMS keeps
-`127.0.0.1:5060` and the CRM `5050`; a t3.micro (1 GB) is tight for both.
+runs on the same machine, cron runs the jobs and the nightly backup.
+
+**Production server (23 Oct 2026).** The LMS has its own `t3.micro` (Ubuntu 24.04, 20 GB gp3, 2 GB swap) in ap-south-1b, in the
+CRM's VPC and subnet; the CRM's instance is not shared or touched. Made by `deploy/aws-provision.sh`, set up by
+`deploy/server-setup.sh`.
+
+| What | Value |
+|---|---|
+| Instance / address | `i-061429318c69b7a9e`, Elastic IP `3.111.225.125`, **http only** until a host name and certificate exist (`PUBLIC_BASE_URL=http://3.111.225.125`) |
+| Access | Security group `sg-06bce7d7e6ac85202` (80, 443 open; 22 only from the admin's IP: add a rule when that changes). Key pair `nipunalms-prod`, private key `~/.ssh/nipunalms-prod.pem` on the admin's laptop |
+| Uploads | `STORAGE_BACKEND=s3`, bucket `nipunalms-uploads-prod`, reached through the instance role `nipunalms` (that bucket only) |
+| Database | Local Postgres 16, database `nipunalms`, all 47 `db/*.sql` applied once; no seed or test data (`seed-dev` is never run in production) |
+| Google | Key at `/srv/nipunalms/backend/secrets/google-sa-key.json` (mode 600). Branch mailboxes set (Guntur `trainer@`, Vijayawada `contactus@`). The Meet, Drive and Email register rows are **Not Verified**, so nothing calls Google yet |
+| CRM | Not linked: `CRM_SERVICE_KEY` is generated on the server and `CRM_BASE_URL` is unset. Linking is a separate step |
+
+Open before real students use it: a host name with TLS (`certbot --nginx`, then set `PUBLIC_BASE_URL` to the https address and
+restart), a copy of the nightly dump kept off the server, and the first Super Admin (`flask --app app create-admin`).
 
 ### 1. Layout on the server
 
