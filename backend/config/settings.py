@@ -57,6 +57,9 @@ class BaseConfig:
     GOOGLE_SA_KEY_FILE = os.getenv("GOOGLE_SA_KEY_FILE") or None
     # The address LMS emails come from unless a branch sets its own: a no-reply mailbox in the Workspace domain (a sample until the real one is given)
     GOOGLE_EMAIL_SENDER = os.getenv("GOOGLE_EMAIL_SENDER") or None
+    # When that address is only a Google alias of a real user, the user's mailbox (Google accepts only its login) and the name shown in From
+    GOOGLE_EMAIL_SENDER_MAILBOX = os.getenv("GOOGLE_EMAIL_SENDER_MAILBOX") or None
+    GOOGLE_EMAIL_SENDER_NAME = os.getenv("GOOGLE_EMAIL_SENDER_NAME") or None
     GOOGLE_REQUEST_TIMEOUT = float(os.getenv("GOOGLE_REQUEST_TIMEOUT", "15"))
 
     # Ask Nipuna: without a key the rule-based fallback is used (a later slice)
@@ -82,7 +85,7 @@ class TestingConfig(BaseConfig):
     UPLOAD_DIR = Path(os.getenv("TEST_UPLOAD_DIR", "/tmp/nipunalms-test-uploads"))
     STORAGE_BACKEND = "local"  # tests never touch AWS; the S3 path is tested with a fake client
     ANTHROPIC_API_KEY = None  # tests never call the real API
-    GOOGLE_WORKSPACE_DOMAIN = GOOGLE_DELEGATED_ADMIN = GOOGLE_SA_SECRET_NAME = GOOGLE_SA_KEY_FILE = GOOGLE_EMAIL_SENDER = None  # tests never call Google; a test that needs it sets them
+    GOOGLE_WORKSPACE_DOMAIN = GOOGLE_DELEGATED_ADMIN = GOOGLE_SA_SECRET_NAME = GOOGLE_SA_KEY_FILE = GOOGLE_EMAIL_SENDER = GOOGLE_EMAIL_SENDER_MAILBOX = GOOGLE_EMAIL_SENDER_NAME = None  # tests never call Google; a test that needs it sets them
 
 
 class ProductionConfig(BaseConfig):

@@ -217,6 +217,19 @@ def test_gmail_gets_a_well_formed_message_as_the_sending_mailbox(app, monkeypatc
     assert parsed.get_content().strip() == "Line one\nLine two"
 
 
+def test_an_alias_sender_acts_as_the_mailbox_that_owns_it_and_shows_its_name(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(google_client, "request", lambda method, url, **kw: calls.append(kw) or {"id": "m2"})
+    app.config.update(GOOGLE_EMAIL_SENDER="lms@example.test", GOOGLE_EMAIL_SENDER_MAILBOX="admin@example.test", GOOGLE_EMAIL_SENDER_NAME="Nipuna LMS")
+    gmail.send("lms@example.test", "student@example.test", "Hi", "Body")
+    gmail.send("trainer@example.test", "student@example.test", "Hi", "Body")  # any other sender is not an alias
+    app.config.update(GOOGLE_EMAIL_SENDER=None, GOOGLE_EMAIL_SENDER_MAILBOX=None, GOOGLE_EMAIL_SENDER_NAME=None)
+    alias, other = calls
+    assert alias["subject"] == "admin@example.test"
+    assert message_from_bytes(base64.urlsafe_b64decode(alias["body"]["raw"]), policy=policy.default)["From"] == "Nipuna LMS <lms@example.test>"
+    assert other["subject"] == "trainer@example.test"
+
+
 def test_the_job_is_registered_and_does_nothing_while_off(app):
     assert "email-send" in JOBS and JOBS["email-send"]() == {"state": "Switched off", "sent": 0}
     assert "emails" in JOBS["class-reminders"]()
