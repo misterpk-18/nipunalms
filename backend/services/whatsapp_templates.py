@@ -56,7 +56,7 @@ BATCH_CHANGE_AGREEMENT = Template(
     ("student", "branch", "course", "now", "proposed", "reason", "reply_by"), SERVICE)
 
 PASSWORD_RESET_CODE = Template(
-    "nipuna_lms_password_reset_code_auth_v1", "Authentication",
+    "nipuna_lms_password_reset_code_auth_v2", "Authentication",
     "*{{1}}* is your verification code. For your security, do not share this code. This code expires in 10 minutes.",
     ("code",), SERVICE, button="code", essential=True)
 STUDENT_ACTIVATION_LINK = Template(
