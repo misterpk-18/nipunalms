@@ -1,123 +1,235 @@
-# Production test plan
+# Combined CRM and LMS production test plan
 
-The production LMS is at `https://3-111-225-125.sslip.io`. It starts clean: two staff accounts (Founder / CEO and Super Admin), the reference data from `db/*.sql`, no students, no courses. This plan tests every feature on it, then puts it back to that clean state.
+Tests the CRM (`https://nipunacrm.com`) and the LMS (`https://3-111-225-125.sslip.io`) together, from the first setting that links them to the clean-up that makes them ready for real students. It follows how the two systems really behave: the CRM pushes events to the LMS after each commit, the LMS answers a status pull, and WhatsApp for LMS notices goes LMS → CRM → Pinbot.
 
-**Rules for testing on production**
-- Use only your own addresses. Test people use plus-addresses of one Gmail inbox (`manojtungala1014+student@gmail.com` and so on), so every email and invitation reaches you.
-- Name everything `TEST` (batch titles, class titles) so it is easy to find and remove.
-- The clean baseline is `/srv/nipunalms/backups/BASELINE-clean-after-go-live.dump` on the server. It holds the two admin accounts, the Google features marked Working and the WhatsApp switch. The nightly prune never deletes it.
-- Do not hand the site to real students until Phase 9 (cleanup) is done and signed off.
+Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.md` (the LMS link, commands) and `~/nipuna-crm/docs/API.md` steps 22, 23, 28. Updated 26 Oct 2026.
 
-## Where things stand before testing
+---
 
-| Area | State |
-|---|---|
-| https, API, database, cron, backups | Running (checked 26 Oct 2026) |
-| Google Meet, Drive, Email | Marked Working by the Super Admin; on |
-| Google live trial (Meet, group, Drive, removal, email, retry) | Passed on a scratch database on 23 Oct 2026 |
-| WhatsApp from the LMS | On, with `nipuna_lms_password_reset_code_auth_v2` only. Cannot send until the CRM holds the key and names v2 |
-| CRM to LMS | Not connected. The CRM cutoff is `2099-12-31`, the CRM has no LMS address or key |
-| Accounts for testing | Founder and Super Admin only. A Branch Manager and a Trainer are needed for Phases 4 to 7 |
+## 1. Where both systems stand (checked 26 Oct 2026)
 
-## Phases
+| | CRM (`nipuna-crm-test`, answers as `nipunacrm.com`) | LMS (`nipunalms-prod`) |
+|---|---|---|
+| Server | `t3.micro`, Ubuntu, 15.252.72.136, **no reserved IP** | `t3.micro`, Ubuntu, 3.111.225.125 (Elastic IP) |
+| Address | `https://nipunacrm.com/api/v1` (Let's Encrypt to 14 Jan 2027) | `https://3-111-225-125.sslip.io/api/v1` (to 21 Jan 2027) |
+| Data | 2 persons, 2 leads, 0 admissions, 0 payments, 8 courses, 2 branches, 7 staff | 2 staff (Founder, Super Admin), 0 students, 0 courses, 0 CRM events |
+| Link settings | No `LMS_BASE_URL`, no `LMS_SERVICE_KEY`, cutoff `LMS_SYNC_FROM_DATE=2099-12-31` | `CRM_BASE_URL` set; `CRM_SERVICE_KEY` generated, not shared |
+| Cron | `flask jobs run` every minute. **No `lms worker` line** | `flask jobs run` every 5 minutes |
+| WhatsApp | On, sends only to 2 test numbers | On, template list holds `nipuna_lms_password_reset_code_auth_v2` only; cannot send until the CRM holds the key |
+| Google | none | Meet, Drive and Email Working and on |
+| Backups | Dumps from 10 and 15 Oct in `/srv/nipuna/backups` | `BASELINE-clean-after-go-live.dump` and nightly dumps |
 
-### Phase 1: Access and health (no new accounts)
+**Gaps this plan must close first**
+1. The CRM's template registry still says `nipuna_lms_password_reset_code_auth_v1`. The approved name is **v2** (the LMS already uses v2). A CRM code change.
+2. No `lms worker` cron on the CRM server, so retries and the status pull would not run.
+3. `LMS_WEB_URL` and `LMS_WHATSAPP_STATUS_EVENTS` are not set on the CRM server.
+4. The CRM server has no reserved IP: if it is stopped and started, `nipunacrm.com` breaks until DNS is edited, and the LMS's WhatsApp calls and the CRM's pushes stop.
+5. Only one WhatsApp template (the password reset code, v2) is known to be approved. Every step marked **WA** needs the template named there.
+
+---
+
+## 2. Decisions before anything runs
+
+| # | Decision | Why it matters | Recommended |
+|---|---|---|---|
+| D1 | **Where to run the money flow** (lead, invoice, payment, admission). | An admission needs an accepted payment plan and a **verified first payment**. Run in the production CRM, that writes a real invoice, payment and receipt number. Ledgers cannot be row-deleted in the CRM, so cleaning up means restoring a dump. | Run the full flow once on the **local dev pair** (already linked, no ledger impact). In production run only the non-money steps (phases B, C, K, L). Run the money flow in production only if D2 is yes. |
+| D2 | Accept a TEST admission, invoice and payment in the production CRM, then restore the CRM from a dump taken just before? | The restore also discards anything entered in the meantime, so this is safe only while the CRM holds no real admissions and nobody is entering real data. | Yes, but only in a booked window, with a dump taken at its start |
+| D3 | Accounts needed on production | Branch Manager and Trainer in the LMS, a counsellor and Accounts user in the CRM (the 7 staff may already cover these) | Plus-addresses of one inbox, passwords shown once |
+| D4 | WhatsApp numbers | The CRM only messages its 2 test numbers; every other row is Skipped | Use those numbers only for TEST people |
+| D5 | Window and owner | Each step names an owner; the CRM team does the CRM-side steps | Agree one 2-hour window per phase group |
+
+**Rules for every test**
+- Name every test thing `TEST` (person, lead, class, batch).
+- Use only your own addresses (plus-addresses of one Gmail inbox) and the CRM test numbers.
+- Take the backups in section 3 first, and check the cutoff is still `2099-12-31` before any phase that could send an admission.
+- Do not give real students access until phase M is signed off.
+
+---
+
+## 3. Pre-flight (both sides)
+
+| # | Action | Owner | Done when |
+|---|---|---|---|
+| P1 | Dump both databases: CRM `pg_dump -Fc` to `/srv/nipuna/backups/nipunacrm-before-link-test-<date>.dump`; LMS keep `BASELINE-clean-after-go-live.dump` and take a fresh one | CRM team, LMS | Both files exist, sizes sane |
+| P2 | CRM registry: rename the LMS password-reset template to `nipuna_lms_password_reset_code_auth_v2`; deploy | CRM team | Registry and Pinbot agree |
+| P3 | Hand over the LMS service key (password-manager share) | You | CRM team confirms they hold it |
+| P4 | CRM `.env`: `LMS_WEB_URL=https://3-111-225-125.sslip.io` (the "Open in LMS" link) | CRM team | The link shows on Waiting for batch |
+| P5 | CRM `.env`: `LMS_BASE_URL=https://3-111-225-125.sslip.io` and `LMS_SERVICE_KEY=<key>`; **keep `LMS_SYNC_FROM_DATE=2099-12-31`**; restart | CRM team | `flask lms outbox` shows no unexpected Pending rows |
+| P6 | CRM cron: add `* * * * * cd /srv/nipuna/backend && APP_ENV=production /srv/nipuna/venv/bin/flask --app app lms worker --duration 55 >> /srv/nipuna/lms-worker.log 2>&1` | CRM team | The log fills every minute |
+| P7 | CRM `.env`: `LMS_WHATSAPP_STATUS_EVENTS=1` (the LMS handles `WhatsappStatusUpdated`) | CRM team | Set after phase J.1 passes |
+| P8 | Reserve an Elastic IP for the CRM instance (or accept the risk in writing) | You or the CRM team | `nipunacrm.com` stays valid across a stop and start |
+| P9 | Confirm `academics_managed_in_lms` is on in the CRM (batches, allocation, completion and certificates are read-only there) | CRM team | The CRM answers 409 `MANAGED_IN_LMS` to a batch write |
+
+---
+
+## 4. Phases
+
+Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../venv/bin/flask --app app lms …`; on the LMS server `cd /srv/nipunalms/backend && APP_ENV=production ../venv/bin/flask --app app …`.
+
+### A. Baseline and health (no link yet)
 
 | # | Test | Expected |
 |---|---|---|
-| 1.1 | Open `http://3-111-225-125.sslip.io` | Redirects to https, valid certificate |
-| 1.2 | `/api/v1/health` | `status ok, database ok` |
-| 1.3 | Sign in as the Founder, then as the Super Admin | Both land on their dashboards; a wrong password is refused |
-| 1.4 | Founder opens Setup & health, Google Workspace | Meet, Drive and Email show Working and On; no stuck calls |
-| 1.5 | Send a request without a key to `/integrations/crm/events` | 401 |
-| 1.6 | Reload a deep link such as `/academic/schedule` | The app loads |
+| A1 | Both health URLs | 200, `database ok` |
+| A2 | LMS events endpoint with no key, then a wrong key | 401 both times |
+| A3 | Sign in to each system as an admin | Dashboards load; a wrong password is refused |
+| A4 | LMS Setup & health, Google Workspace | Meet, Drive, Email Working and on; nothing stuck |
+| A5 | CRM `lms outbox` | Empty or only Pending rows (waiting for the link) |
 
-### Phase 2: CRM link (needs the key handover and the CRM team)
-
-| # | Test | Expected |
-|---|---|---|
-| 2.1 | Key handed over by password manager; CRM sets `LMS_BASE_URL` and `LMS_SERVICE_KEY`, keeps cutoff `2099-12-31` | CRM outbox shows no unexpected Pending rows |
-| 2.2 | CRM sends branches, then courses | LMS Setup shows them Applied; the pull returns courses and no admissions |
-| 2.3 | One admission named TEST (cutoff set to today, then back) | A student and an activation link appear in the LMS; same event sent again is a replay |
-| 2.4 | The CRM renames the password-reset template to v2 | CRM and LMS name the same template |
-
-### Phase 3: Student activation and sign-in (needs the test admission)
+### B. Link bring-up (after P1 to P6; cutoff still `2099-12-31`)
 
 | # | Test | Expected |
 |---|---|---|
-| 3.1 | Open the activation link, set a password | Signed in; the link cannot be used twice |
-| 3.2 | Check the inbox | Activation email from `Nipuna LMS <lms@nipunatechnologies.com>`, not in Spam |
-| 3.3 | Forgot password with the student's phone | WhatsApp code (v2) reaches the CRM test number only; no account is revealed for an unknown number |
-| 3.4 | Switch email off in the student's preferences | Reminders stop; the activation and sign-in emails still go (they are essential) |
+| B1 | CRM `lms backfill --branches` | `BranchUpserted` for both branches Delivered; LMS inbox shows them Applied |
+| B2 | CRM `lms backfill` (courses; no admissions exist, and the cutoff blocks any) | 8 `CourseUpserted` Delivered; LMS Courses shows them; an out-of-order 422 `NOT_YET_APPLIED` retries by itself |
+| B3 | CRM `lms outbox --failed` | No Failed rows, no Super Admin task |
+| B4 | CRM `lms pull --full` | Counts, no errors; `lms holds` empty |
+| B5 | CRM `lms finance-snapshot --force` | `BranchFinanceSnapshot` Delivered; the LMS shows branch finance |
+| B6 | CRM `lms reconcile` | Drift 0 (exit 0) |
+| B7 | LMS Super Admin screen CRM sync | Every event Applied; none Failed |
+| B8 | Check LMS branch settings after `BranchUpserted` | The branches' Google mailbox settings (Guntur `trainer@`, Vijayawada `contactus@`) are unchanged; the CRM's branch email only sets the default mailbox |
 
-### Phase 4: Batch, trainer and seat (needs a Branch Manager and a Trainer)
-
-| # | Test | Expected |
-|---|---|---|
-| 4.1 | Branch Manager creates a TEST batch at Guntur with the trainer | The batch shows Ready or says what is missing |
-| 4.2 | Allocate the test student a seat | Student sees the batch; a Drive sync job runs within 5 minutes |
-| 4.3 | Check Drive | Folder tree "Nipuna LMS / course / batch" under the Guntur mailbox; the batch group `<batch code>@nipunatechnologies.com` has the student as member; folder shared with the group (reader) and the trainer (writer) |
-| 4.4 | Move the seat to another batch, or end it | Student leaves the group and loses folder access |
-
-### Phase 5: Online class and Meet (needs Phase 4)
+### C. Catalogue and branch changes (non-money)
 
 | # | Test | Expected |
 |---|---|---|
-| 5.1 | Schedule an online class for a few days ahead | Within 5 minutes the class shows a Meet link; the student and trainer get a Google invitation |
-| 5.2 | Open the class as the student | The Meet link and the schedule are visible; guests cannot see each other's addresses |
-| 5.3 | Reschedule the class | The Calendar event moves; students get the update and a rescheduled notice |
-| 5.4 | Cancel the class | The event is cancelled; students get the cancellation |
-| 5.5 | Switch the class to Classroom | The event is removed |
+| C1 | CRM Course Master: rename a course title | `CourseUpserted` with the next version; the LMS shows the new title; sending the same event again is a replay (200) |
+| C2 | CRM: change a combo's components | The LMS reconciles components; one still used by an outline module is refused with 422 and nothing changes |
+| C3 | CRM branch edit: city | `BranchUpserted` Applied |
+| C4 | Send an older `source_version` by hand | Stored as "Ignored: stale"; nothing changes |
 
-### Phase 6: Attendance (needs Phase 5)
+### D. Lead to admission (money flow, see D1 and D2)
 
-| # | Test | Expected |
-|---|---|---|
-| 6.1 | Student presses "I attended" on an online class | Confirmed, but attendance is not changed |
-| 6.2 | Trainer opens the register | The student shows "Says they attended"; "Mark the N who confirmed Present" marks them with the remark |
+| # | Test | Owner | Expected |
+|---|---|---|---|
+| D1 | CRM: new enquiry and lead named TEST, counselling, qualification | Counsellor | Lead 360 shows the six checks |
+| D2 | Convert to a deal, create the invoice and accept a payment plan | Counsellor | No admission, receipt or LMS access yet |
+| D3 | Record a payment, then **verify** it | Accounts | An admission is created automatically; one `AdmissionQualified` and one `FinanceSummaryUpdated` are written in the same transaction |
+| D4 | Wait up to a minute (push after commit; the worker is the retry) | CRM | `lms outbox` shows both Delivered |
+| D5 | LMS inbox | LMS | Both Applied; a student, account and **Waiting for a batch** appear, with the student's branch and course; no warnings |
+| D6 | Same payment verified again or event resent | Both | A replay (200); no second student, no second login |
+| D7 | CRM "LMS access" screen | CRM | The admission shows login created, not activated |
 
-### Phase 7: Notices by email and WhatsApp
-
-| # | Test | Expected |
-|---|---|---|
-| 7.1 | A class starts within about two hours | Reminder email arrives (WhatsApp once the CRM holds the key) |
-| 7.2 | Publish a result; issue a certificate | Result email; certificate email with a working verify link |
-| 7.3 | A batch change that needs the student's agreement | Email asks for agree or decline |
-| 7.4 | Setup & health, Google Workspace | Sent counts rise; nothing is stuck |
-
-### Phase 8: Failure and recovery
+### E. Activation and sign-in
 
 | # | Test | Expected |
 |---|---|---|
-| 8.1 | Stop the API (`sudo systemctl stop nipunalms`) for two minutes, start it | The site is back; jobs resume; nothing is lost |
-| 8.2 | Restart the whole server | Services start by themselves; the site is back in about a minute |
-| 8.3 | Remove a student's email and trigger a notice | The notice is Skipped with the reason; no error |
-| 8.4 | Restore drill: restore the baseline into a scratch database and open it | The dump restores without errors |
-| 8.5 | Certificate renewal dry run | `sudo certbot renew --dry-run` succeeds |
+| E1 | LMS Branch Manager opens the student's activation link (Student Accounts, "Activation link from: CRM provisioning") | The link is shown and can be copied or reissued |
+| E2 | Activation **email** from `Nipuna LMS <lms@nipunatechnologies.com>` | Arrives in the inbox, not in Spam, link works once |
+| E3 | **WA**: activation link template `nipuna_lms_student_activation_link_u_v1` | Queued; reaches the test number only once the template is approved, otherwise recorded as Skipped with the reason |
+| E4 | Student sets a password and signs in | Dashboard loads |
+| E5 | CRM pull | `lms_activated_at` appears in the CRM; **WA** `nipuna_lms_account_activated_u_v1` goes to the test number once approved |
+| E6 | **WA** password reset | The v2 code reaches the test number; an unknown number gets the same neutral answer |
 
-### Phase 9: Cleanup (required before real students)
+### F. Batch, allocation and the pull back (LMS owns batches)
 
-1. In Google: delete the TEST batch group (Admin console, Groups) and trash the TEST Drive folders under the Guntur mailbox; cancel TEST Calendar events.
-2. On the server, restore the clean baseline:
-   ```bash
-   sudo systemctl stop nipunalms
-   pg_restore --clean --if-exists -d "${DATABASE_URL/+psycopg/}" /srv/nipunalms/backups/BASELINE-clean-after-go-live.dump
-   sudo systemctl start nipunalms
-   ```
-3. Check: users 2, students 0, `crm_events` 0, the Google features still Working.
-4. Delete the test uploads (if any) from the S3 bucket `nipunalms-uploads-prod`.
-5. Tell the CRM team to keep the cutoff at `2099-12-31` until the real start date.
+| # | Test | Expected |
+|---|---|---|
+| F1 | CRM: try to create a batch or allocate | 409 `MANAGED_IN_LMS` |
+| F2 | LMS Branch Manager creates a TEST batch at Guntur with a trainer and allocates the student | The batch shows Ready; the student leaves Waiting for a batch |
+| F3 | CRM pull (within a minute) | The CRM shows the batch, timetable, seats left and the allocation; "Waiting for batch" clears; the batch-delay tasks close |
+| F4 | **WA** `nipuna_batch_allocated_u_v1` | Sent once per new Active allocation; a move messages the new batch; a timetable change sends nothing |
+| F5 | LMS: move the student to another batch | CRM shows the move; one new message |
+| F6 | Drive: folders and the batch group `<batch code>@nipunatechnologies.com` | Student is a group member; folder shared with the group (reader) and the trainer (writer) |
 
-## Sign-off
+### G. Delivery: online class, Meet and attendance (LMS)
+
+| # | Test | Expected |
+|---|---|---|
+| G1 | Schedule an online class | Meet link and invitations within 5 minutes; guests cannot see each other |
+| G2 | Reschedule, then cancel | Event moves, then is cancelled; students get the notices (email, **WA** when approved) |
+| G3 | Student presses "I attended"; trainer marks those who confirmed Present | Attendance unchanged until the trainer acts |
+| G4 | Class reminder, result published, certificate issued | Emails arrive; certificate email has a working verify link |
+| G5 | Pull | Completion and certificates reach the CRM |
+
+### H. Money after admission (CRM changes, LMS reflects)
+
+| # | Test | Expected |
+|---|---|---|
+| H1 | Record and verify the second instalment | `FinanceSummaryUpdated`; the LMS shows the new paid, balance and next due date |
+| H2 | Reverse a payment through a correction (approval) | The LMS balance rises again |
+| H3 | Change the fee (approved fee change) | Totals update on both sides |
+| H4 | Change an instalment due date | LMS schedule updates (per invoice, not per admission) |
+| H5 | Pause, then resume the admission | `AdmissionUpdated` status Paused, then Active; the LMS shows the admission with that status |
+| H6 | Transfer the service branch | The LMS ends the seats and moves certificate entries not yet issued to the new branch |
+| H7 | Cancel the admission | `AdmissionCancelled`; the LMS withdraws only that admission's enrolments |
+| H8 | Refund or waiver | Balance on both sides agrees |
+
+### I. Person changes
+
+| # | Test | Expected |
+|---|---|---|
+| I1 | CRM: edit the person's name, phone, email or language | A full-refresh `AdmissionQualified`; the LMS updates the person, never creates a second login; the student's existing login keeps its original email |
+| I2 | CRM: change the planned start date | Refresh sent; LMS shows it |
+| I3 | CRM: complimentary course for the paid admission | Sent after the paid one; one per offer |
+
+### J. LMS to CRM WhatsApp and the status events back
+
+| # | Test | Expected |
+|---|---|---|
+| J1 | LMS hands a message to `POST /lms/whatsapp` for the test number | CRM accepts (201); then `WhatsappStatusUpdated` Sent / Delivered / Read comes back and the LMS outbox row follows |
+| J2 | Same for a number that is not a test number | The CRM marks it Skipped and the LMS sees Skipped |
+| J3 | Pinbot rejects (template not approved) | Failed with the provider's error shown on both sides, no retry loop |
+| J4 | Wrong key for `/lms/whatsapp` | 401; the LMS shows the configuration problem |
+| J5 | A message older than `WHATSAPP_MAX_AGE_HOURS` | Skipped, no flood |
+
+### K. Resilience (both directions)
+
+| # | Test | Expected |
+|---|---|---|
+| K1 | Stop the LMS API for 3 minutes while the CRM creates a change | CRM rows stay Pending with backoff; when the LMS health answers 200 the rows are released at once and Delivered |
+| K2 | Stop the CRM for 3 minutes | The LMS keeps working; the LMS's outbound WhatsApp waits and retries; the pull resumes by itself |
+| K3 | CRM sends a wrong key | 401 on the LMS; the CRM run stops and the row stays Pending, attempts not counted |
+| K4 | Same event twice; same id with a different payload | Replay 200; different payload 409 |
+| K5 | A 12th failed attempt | The row is Failed with a Super Admin task; `lms requeue` after the fix |
+| K6 | Reboot each server | Services and cron come back; no data lost |
+| K7 | `lms reconcile` after all of the above | Drift 0 |
+
+### L. Security and privacy
+
+| # | Test | Expected |
+|---|---|---|
+| L1 | http to https on both sites | Redirects; certificates valid |
+| L2 | Grep both servers' logs for the service key and for activation tokens | None found (the CRM keeps only `activation_token_issued = true`) |
+| L3 | Role checks | A student cannot open staff screens; a Branch Manager cannot see another branch |
+| L4 | LMS keeps CRM payloads for 1 year | The purge job is **not built yet**: build it before real data |
+| L5 | `sudo certbot renew --dry-run` on both | Succeeds |
+
+### M. Clean-up and go-live switch (required before real students)
+
+| # | Action | Owner | Expected |
+|---|---|---|---|
+| M1 | Google: delete the TEST batch group, trash the TEST folders, cancel the TEST events | LMS | Nothing named TEST left |
+| M2 | Restore the LMS: stop, `pg_restore --clean --if-exists` the baseline, start | LMS | 2 staff, 0 students, 0 CRM events, Google features still Working |
+| M3 | Restore the CRM from the dump taken in P1 (only if no real data has been entered since) | CRM team | 0 admissions, 0 payments; the receipt counter is back where it was |
+| M4 | CRM: `lms backfill --branches` and `lms backfill` so the LMS gets branches and courses again | CRM team | Both Applied; `reconcile` drift 0 |
+| M5 | Keep `LMS_SYNC_FROM_DATE=2099-12-31` until the real start date; the CRM names the date to the LMS team before it moves | CRM team | Real admissions start only on that date |
+| M6 | Delete test files from the LMS S3 bucket | LMS | Bucket holds only real files |
+| M7 | Sign-off | You | Table below complete |
+
+---
+
+## 5. Evidence to keep per phase
+
+- CRM: output of `lms outbox`, `lms holds`, `lms reconcile`, and the `lms-worker.log` lines.
+- LMS: the CRM sync screen (events Applied, none Failed), the Google Workspace screen, and `flask whatsapp status` / `whatsapp list`.
+- Screenshots of the student's inbox (activation, invitation, reminder) and of the test number's WhatsApp.
+
+## 6. Sign-off
 
 | Phase | Done by | Date | Result |
 |---|---|---|---|
-| 1 Access and health | | | |
-| 2 CRM link | | | |
-| 3 Student activation | | | |
-| 4 Batch, trainer, seat | | | |
-| 5 Online class and Meet | | | |
-| 6 Attendance | | | |
-| 7 Notices | | | |
-| 8 Failure and recovery | | | |
-| 9 Cleanup | | | |
+| Pre-flight P1 to P9 | | | |
+| A Baseline and health | | | |
+| B Link bring-up | | | |
+| C Catalogue and branch changes | | | |
+| D Lead to admission | | | |
+| E Activation and sign-in | | | |
+| F Batch, allocation, pull | | | |
+| G Online class, Meet, attendance | | | |
+| H Money after admission | | | |
+| I Person changes | | | |
+| J WhatsApp both ways | | | |
+| K Resilience | | | |
+| L Security and privacy | | | |
+| M Clean-up and go-live switch | | | |
