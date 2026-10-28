@@ -256,5 +256,5 @@ def test_every_notification_sent_from_the_services_carries_a_link():
                 link = next((k.value for k in node.keywords if k.arg == "link"), None)
                 if link is None or (isinstance(link, ast.Constant) and link.value is None):
                     missing.append(f"{path}:{node.lineno}")
-    assert missing == ["services/crm.py:117"]  # the CRM wrapper passes **notice through; its callers carry the link
+    assert missing == ["services/crm.py:128"]  # the CRM wrapper passes **notice through; its callers carry the link
 

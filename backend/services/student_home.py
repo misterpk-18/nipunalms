@@ -66,7 +66,7 @@ def _next_class() -> dict:
         "batch": session.batch.to_summary(),
         "meet_status": session.meet_status,
         "meet_status_label": meet.status_label(session.meet_status),
-        "organizer_email": session.batch.branch.mailbox if session.mode != "Classroom" else None,
+        "organizer_email": meet.organizer_email(session) if session.mode != "Classroom" else None,
         "join": {"enabled": join["enabled"], "reason": join["reason"], "url": join.get("url")},
     }
 

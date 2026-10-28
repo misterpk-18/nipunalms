@@ -110,7 +110,7 @@ def item(session, now: datetime | None = None) -> dict:
         "batch": session.batch.to_summary(),
         "topic": {"topic_id": session.topic.topic_id, "title": session.topic.title} if session.topic else None,
         "meet": {"status": session.meet_status, "label": meet.status_label(session.meet_status), "link": session.meet_link,
-                 "organizer_email": session.batch.branch.mailbox if session.mode != "Classroom" else None, "link_requested_at": requested_at},
+                 "organizer_email": meet.organizer_email(session) if session.mode != "Classroom" else None, "link_requested_at": requested_at},
         "attendance": {**summary, "locked": register.locked, "can_mark": register.can_mark},
         "recording": {"count": len(recordings), "mapping": "Mapped" if recordings else "Pending Verification"},
         "approval_status": session.approval_status,

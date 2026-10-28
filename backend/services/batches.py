@@ -176,7 +176,7 @@ def readiness_checks(batch: Batch, allocated: int) -> list[dict]:
     else:
         verified = meet.is_verified()
         checks.append({"key": "meet", "label": "Meet organizer", "status": "pass" if verified else "pending",
-                       "detail": f"{batch.branch.mailbox} — " + ("Verified" if verified else "Pending Verification") + f" ({meet.integration_note()})"})
+                       "detail": f"{batch.branch.organizer_mailbox} — " + ("Verified" if verified else "Pending Verification") + f" ({meet.integration_note()})"})
     return checks
 
 
@@ -266,7 +266,7 @@ def _resources_item(batch: Batch) -> dict:
     except ValidationError as exc:
         return _item("resources", label, "fail", exc.details["capacity"][0])
     sides = ", ".join(f"{f.split('_')[0]} {getattr(batch, f)}" for f in CAPACITY_SIDES if getattr(batch, f) is not None)
-    online = f"; organizer {batch.branch.mailbox} ({meet.integration_note()})" if batch.mode != "Classroom" else ""
+    online = f"; organizer {batch.branch.organizer_mailbox} ({meet.integration_note()})" if batch.mode != "Classroom" else ""
     return _item("resources", label, "pass", f"{batch.capacity} seats ({sides}){online}")
 
 

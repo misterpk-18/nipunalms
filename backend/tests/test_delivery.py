@@ -284,6 +284,25 @@ def test_online_session_meet_lifecycle(world, client, login):
     assert call(client, login, people["ac"], "put", f"/class-sessions/{classroom['session_id']}/meet", json={"meet_link": "https://meet.google.com/a-b-c"}).status_code == 422
 
 
+def test_the_organizer_shown_is_the_branch_google_setting_not_the_crm_branch_email(world, client, login):
+    """BranchUpserted overwrites `branches.mailbox` with the CRM's branch email; the screens and the Meet log must still name the
+    calendar that holds the event (seen in the production link test, 28 Oct 2026)."""
+    from config.database import db
+    from models import Branch, BranchGoogleConfig
+    people, batch, student = world
+    db.session.get(Branch, 1).mailbox = "guntur@nipunacareers.com"
+    db.session.merge(BranchGoogleConfig(branch_id=1, calendar_mailbox="trainer@nipunatechnologies.com"))
+    db.session.commit()
+
+    start = future(4)
+    body = {"batch_id": batch.batch_id, "title": "Online", "mode": "Live Online", "starts_at": iso(start), "ends_at": iso(start + timedelta(hours=1))}
+    session = data(call(client, login, people["ac"], "post", "/class-sessions", json=body), 201)[0]
+    assert session["organizer_email"] == "trainer@nipunatechnologies.com"
+    detail = data(call(client, login, people["ac"], "get", f"/class-sessions/{session['session_id']}"), 200)
+    assert detail["organizer_email"] == "trainer@nipunatechnologies.com"
+    assert {e["organizer_email"] for e in detail["meet_events"]} == {"trainer@nipunatechnologies.com"}
+
+
 def test_reschedule_cancel_history_and_notices(world, client, login, allocate):
     people, batch, student = world
     allocate(student, batch)

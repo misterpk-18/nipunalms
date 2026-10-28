@@ -27,7 +27,7 @@ def initial_status(mode: str) -> str:
 
 def organizer_email(session: ClassSession) -> str:
     """The branch mailbox that organizes the meeting (Module 16 §2): the student service branch's, whoever teaches."""
-    return session.batch.branch.mailbox
+    return session.batch.branch.organizer_mailbox
 
 
 def integration_note() -> str:

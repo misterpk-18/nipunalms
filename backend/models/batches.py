@@ -282,7 +282,7 @@ class ClassSession(db.Model):
             "meet_link": self.meet_link if include_link else None,
             "meet_status": self.meet_status,
             "meet_status_label": MEET_STATUS_LABELS[self.meet_status],
-            "organizer_email": self.batch.branch.mailbox if self.mode != "Classroom" else None,
+            "organizer_email": self.batch.branch.organizer_mailbox if self.mode != "Classroom" else None,
             "join": join,
             "state": self.state,
             "state_label": self.state_label,

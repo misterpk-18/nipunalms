@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config.database import db
 
@@ -23,6 +23,16 @@ class Branch(db.Model):
     source_version: Mapped[int] = mapped_column(Integer, default=0)  # last BranchUpserted applied; 0 = made in the LMS (db 096)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=db.func.now())
+
+    google_config: Mapped["BranchGoogleConfig | None"] = relationship(uselist=False, viewonly=True)
+
+    @property
+    def organizer_mailbox(self) -> str:
+        """Whose calendar holds this branch's class events: the branch's Google setting, else `mailbox` (which the CRM's
+        BranchUpserted overwrites). Same rule as `repositories.google.branch_mailbox`."""
+        if self.google_config is not None and self.google_config.calendar_mailbox:
+            return self.google_config.calendar_mailbox
+        return self.mailbox
 
     def to_dict(self) -> dict:
         return {
