@@ -15,7 +15,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 | Data | 2 persons, 2 leads, 0 admissions, 0 payments, 8 courses, 2 branches, 7 staff | 2 staff (Founder, Super Admin), 0 students, 0 courses, 0 CRM events |
 | Link settings | No `LMS_BASE_URL`, no `LMS_SERVICE_KEY`, cutoff `LMS_SYNC_FROM_DATE=2099-12-31` | `CRM_BASE_URL` set; `CRM_SERVICE_KEY` generated, not shared |
 | Cron | `flask jobs run` every minute. **No `lms worker` line** | `flask jobs run` every 5 minutes |
-| WhatsApp | On, sends only to the test numbers (to be one: +91 9392329248) | On, template list holds `nipuna_lms_password_reset_code_auth_v2` only; cannot send until the CRM holds the key. **v2 verified end to end on the local dev pair on 28 Oct 2026** (LMS reset code, CRM, Pinbot, arrived with the Copy code button; the CRM sent language code `en` and Pinbot accepted it); not yet on production |
+| WhatsApp | On, sends only to the test numbers (to be one: +91 9392329248) | On, approved list holds the seven approved LMS templates (28 Oct); cannot send until the CRM holds the key. **v2 verified end to end on the local dev pair on 28 Oct 2026** (LMS reset code, CRM, Pinbot, arrived with the Copy code button; the CRM sent language code `en` and Pinbot accepted it); not yet on production |
 | Google | none | Meet, Drive and Email Working and on |
 | Backups | Dumps from 10 and 15 Oct in `/srv/nipuna/backups` | `BASELINE-clean-after-go-live.dump` and nightly dumps |
 
@@ -24,7 +24,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 2. No `lms worker` cron on the CRM server, so retries and the status pull would not run.
 3. `LMS_WEB_URL` and `LMS_WHATSAPP_STATUS_EVENTS` are not set on the CRM server.
 4. The CRM server has no reserved IP: if it is stopped and started, `nipunacrm.com` breaks until DNS is edited, and the LMS's WhatsApp calls and the CRM's pushes stop.
-5. Only **three** templates are approved in Pinbot (CRM's panel check of 23 Oct, plus the v2 note): `nipuna_lms_password_reset_code_auth_v2`, `nipuna_batch_allocated_u_v1` and `nipuna_lms_account_activated_u_v1`. The other eight `nipuna_lms_*` templates (activation link, staff invite, class reminder, cancelled, rescheduled, result, certificate, batch change) were **not submitted**, so those WhatsApp messages are recorded as Skipped or Failed. That is expected, not a test failure, and their email twins still go. Submitting them to Pinbot is the owner's job.
+5. **Pinbot's template report (screenshot, 28 Oct 2026) shows seven LMS templates Approved:** `nipuna_lms_password_reset_code_auth_v2` (26 Oct) and, from 24 Oct, certificate issued, batch change agreement, result published, class rescheduled, class cancelled and class reminder (all `_u_v1`). `nipuna_lms_staff_account_invite_u_v1` was **Rejected**. The status of `nipuna_lms_student_activation_link_u_v1` was below the visible rows and is **not yet known**. The CRM's own `nipuna_batch_allocated_u_v1` and `nipuna_lms_account_activated_u_v1` are approved per the CRM team. The production LMS's approved list now holds the seven. Any step that needs the rejected or unknown template is recorded as Skipped or Failed and is not a test failure.
 
 ---
 
@@ -116,7 +116,7 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 |---|---|---|
 | E1 | LMS Branch Manager opens the student's activation link (Student Accounts, "Activation link from: CRM provisioning") | The link is shown and can be copied or reissued |
 | E2 | Activation **email** from `Nipuna LMS <lms@nipunatechnologies.com>` | Arrives in the inbox, not in Spam, link works once |
-| E3 | **WA**: activation link template `nipuna_lms_student_activation_link_u_v1` | **Expected: Skipped or Failed** (template not submitted). Passes when the reason is recorded, nothing retries, and the email carries the link |
+| E3 | **WA**: activation link template `nipuna_lms_student_activation_link_u_v1` | If its status is Approved the message reaches the test number; if not, **expected Skipped or Failed** with the reason recorded and nothing retried. The email carries the link either way |
 | E4 | Student sets a password and signs in | Dashboard loads |
 | E5 | CRM pull | `lms_activated_at` appears in the CRM; **WA** `nipuna_lms_account_activated_u_v1` (approved) reaches the test number |
 | E6 | **WA** password reset | The v2 code reaches the test number; an unknown number gets the same neutral answer |
