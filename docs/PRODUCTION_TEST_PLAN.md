@@ -15,7 +15,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 | Data | 2 persons, 2 leads, 0 admissions, 0 payments, 8 courses, 2 branches, 7 staff | 2 staff (Founder, Super Admin), 0 students, 0 courses, 0 CRM events |
 | Link settings | No `LMS_BASE_URL`, no `LMS_SERVICE_KEY`, cutoff `LMS_SYNC_FROM_DATE=2099-12-31` | `CRM_BASE_URL` set; `CRM_SERVICE_KEY` generated, not shared |
 | Cron | `flask jobs run` every minute. **No `lms worker` line** | `flask jobs run` every 5 minutes |
-| WhatsApp | On, sends only to 2 test numbers | On, template list holds `nipuna_lms_password_reset_code_auth_v2` only; cannot send until the CRM holds the key |
+| WhatsApp | On, sends only to 2 test numbers | On, template list holds `nipuna_lms_password_reset_code_auth_v2` only; cannot send until the CRM holds the key. **v2 verified end to end on the local dev pair on 28 Oct 2026** (LMS reset code, CRM, Pinbot, arrived with the Copy code button); not yet on production |
 | Google | none | Meet, Drive and Email Working and on |
 | Backups | Dumps from 10 and 15 Oct in `/srv/nipuna/backups` | `BASELINE-clean-after-go-live.dump` and nightly dumps |
 
