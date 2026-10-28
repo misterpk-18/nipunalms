@@ -15,7 +15,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 | Data | 2 persons, 2 leads, 0 admissions, 0 payments, 8 courses, 2 branches, 7 staff | 2 staff (Founder, Super Admin), 0 students, 0 courses, 0 CRM events |
 | Link settings | No `LMS_BASE_URL`, no `LMS_SERVICE_KEY`, cutoff `LMS_SYNC_FROM_DATE=2099-12-31` | `CRM_BASE_URL` set; `CRM_SERVICE_KEY` generated, not shared |
 | Cron | `flask jobs run` every minute. **No `lms worker` line** | `flask jobs run` every 5 minutes |
-| WhatsApp | On, sends only to 2 test numbers | On, template list holds `nipuna_lms_password_reset_code_auth_v2` only; cannot send until the CRM holds the key. **v2 verified end to end on the local dev pair on 28 Oct 2026** (LMS reset code, CRM, Pinbot, arrived with the Copy code button); not yet on production |
+| WhatsApp | On, sends only to the test numbers (to be one: +91 9392329248) | On, template list holds `nipuna_lms_password_reset_code_auth_v2` only; cannot send until the CRM holds the key. **v2 verified end to end on the local dev pair on 28 Oct 2026** (LMS reset code, CRM, Pinbot, arrived with the Copy code button; the CRM sent language code `en` and Pinbot accepted it); not yet on production |
 | Google | none | Meet, Drive and Email Working and on |
 | Backups | Dumps from 10 and 15 Oct in `/srv/nipuna/backups` | `BASELINE-clean-after-go-live.dump` and nightly dumps |
 
@@ -24,7 +24,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 2. No `lms worker` cron on the CRM server, so retries and the status pull would not run.
 3. `LMS_WEB_URL` and `LMS_WHATSAPP_STATUS_EVENTS` are not set on the CRM server.
 4. The CRM server has no reserved IP: if it is stopped and started, `nipunacrm.com` breaks until DNS is edited, and the LMS's WhatsApp calls and the CRM's pushes stop.
-5. Only one WhatsApp template (the password reset code, v2) is known to be approved. Every step marked **WA** needs the template named there.
+5. Only **three** templates are approved in Pinbot (CRM's panel check of 23 Oct, plus the v2 note): `nipuna_lms_password_reset_code_auth_v2`, `nipuna_batch_allocated_u_v1` and `nipuna_lms_account_activated_u_v1`. The other eight `nipuna_lms_*` templates (activation link, staff invite, class reminder, cancelled, rescheduled, result, certificate, batch change) were **not submitted**, so those WhatsApp messages are recorded as Skipped or Failed. That is expected, not a test failure, and their email twins still go. Submitting them to Pinbot is the owner's job.
 
 ---
 
@@ -34,8 +34,8 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 |---|---|---|---|
 | D1 | **Where to run the money flow** (lead, invoice, payment, admission). | An admission needs an accepted payment plan and a **verified first payment**. Run in the production CRM, that writes a real invoice, payment and receipt number. Ledgers cannot be row-deleted in the CRM, so cleaning up means restoring a dump. | Run the full flow once on the **local dev pair** (already linked, no ledger impact). In production run only the non-money steps (phases B, C, K, L). Run the money flow in production only if D2 is yes. |
 | D2 | Accept a TEST admission, invoice and payment in the production CRM, then restore the CRM from a dump taken just before? | The restore also discards anything entered in the meantime, so this is safe only while the CRM holds no real admissions and nobody is entering real data. | Yes, but only in a booked window, with a dump taken at its start |
-| D3 | Accounts needed on production | Branch Manager and Trainer in the LMS, a counsellor and Accounts user in the CRM (the 7 staff may already cover these) | Plus-addresses of one inbox, passwords shown once |
-| D4 | WhatsApp numbers | The CRM only messages its 2 test numbers; every other row is Skipped | Use those numbers only for TEST people |
+| D3 | Accounts and roles | The production CRM has **no Sales user** and one Accounts user. The CRM team's answer (28 Oct): the **Guntur Branch Manager** plays counsellor and Branch Manager, the **Accounts user** verifies the payment (the two-person rule holds), and the test uses the **standard fee, no extra discount, no payment correction**, because a discount above the limit, a fee below the floor or a correction each need a second approver and there is none | In the LMS: a Branch Manager and a Trainer on plus-addresses of one inbox, passwords shown once |
+| D4 | WhatsApp numbers | Production holds two test numbers; the CRM team removes the second before the window, so **one number only (+91 9392329248)** is messaged. Every TEST person's phone is set to it; any other number is Skipped | Use that number for every TEST person |
 | D5 | Window and owner | Each step names an owner; the CRM team does the CRM-side steps | Agree one 2-hour window per phase group |
 
 **Rules for every test**
@@ -116,9 +116,9 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 |---|---|---|
 | E1 | LMS Branch Manager opens the student's activation link (Student Accounts, "Activation link from: CRM provisioning") | The link is shown and can be copied or reissued |
 | E2 | Activation **email** from `Nipuna LMS <lms@nipunatechnologies.com>` | Arrives in the inbox, not in Spam, link works once |
-| E3 | **WA**: activation link template `nipuna_lms_student_activation_link_u_v1` | Queued; reaches the test number only once the template is approved, otherwise recorded as Skipped with the reason |
+| E3 | **WA**: activation link template `nipuna_lms_student_activation_link_u_v1` | **Expected: Skipped or Failed** (template not submitted). Passes when the reason is recorded, nothing retries, and the email carries the link |
 | E4 | Student sets a password and signs in | Dashboard loads |
-| E5 | CRM pull | `lms_activated_at` appears in the CRM; **WA** `nipuna_lms_account_activated_u_v1` goes to the test number once approved |
+| E5 | CRM pull | `lms_activated_at` appears in the CRM; **WA** `nipuna_lms_account_activated_u_v1` (approved) reaches the test number |
 | E6 | **WA** password reset | The v2 code reaches the test number; an unknown number gets the same neutral answer |
 
 ### F. Batch, allocation and the pull back (LMS owns batches)
@@ -128,7 +128,7 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 | F1 | CRM: try to create a batch or allocate | 409 `MANAGED_IN_LMS` |
 | F2 | LMS Branch Manager creates a TEST batch at Guntur with a trainer and allocates the student | The batch shows Ready; the student leaves Waiting for a batch |
 | F3 | CRM pull (within a minute) | The CRM shows the batch, timetable, seats left and the allocation; "Waiting for batch" clears; the batch-delay tasks close |
-| F4 | **WA** `nipuna_batch_allocated_u_v1` | Sent once per new Active allocation; a move messages the new batch; a timetable change sends nothing |
+| F4 | **WA** `nipuna_batch_allocated_u_v1` (approved) | Reaches the test number once per new Active allocation; a move messages the new batch; a timetable change sends nothing |
 | F5 | LMS: move the student to another batch | CRM shows the move; one new message |
 | F6 | Drive: folders and the batch group `<batch code>@nipunatechnologies.com` | Student is a group member; folder shared with the group (reader) and the trainer (writer) |
 
@@ -147,13 +147,13 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 | # | Test | Expected |
 |---|---|---|
 | H1 | Record and verify the second instalment | `FinanceSummaryUpdated`; the LMS shows the new paid, balance and next due date |
-| H2 | Reverse a payment through a correction (approval) | The LMS balance rises again |
-| H3 | Change the fee (approved fee change) | Totals update on both sides |
+| H2 | Reverse a payment through a correction | **Not in production** (needs a second approver the CRM does not have). Run on the dev pair | The LMS balance rises again |
+| H3 | Change the fee (approved fee change) | **Not in production** (same reason). Run on the dev pair | Totals update on both sides |
 | H4 | Change an instalment due date | LMS schedule updates (per invoice, not per admission) |
 | H5 | Pause, then resume the admission | `AdmissionUpdated` status Paused, then Active; the LMS shows the admission with that status |
 | H6 | Transfer the service branch | The LMS ends the seats and moves certificate entries not yet issued to the new branch |
 | H7 | Cancel the admission | `AdmissionCancelled`; the LMS withdraws only that admission's enrolments |
-| H8 | Refund or waiver | Balance on both sides agrees |
+| H8 | Refund or waiver | **Not in production** (needs approvals). Run on the dev pair | Balance on both sides agrees |
 
 ### I. Person changes
 
