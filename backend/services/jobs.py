@@ -8,6 +8,7 @@ from services import attempts as attempts_service
 from services import attendance as attendance_service
 from services import batch_allocations as batch_allocations_service
 from services import recordings as recordings_service
+from services import crm as crm_service
 from services import email_messages, emails, session_ops
 from services import support as support_service
 from services import whatsapp, whatsapp_messages
@@ -72,12 +73,18 @@ def google_sync() -> dict:
     return google_jobs.run_due()
 
 
+def crm_payload_purge() -> dict:
+    """Empty CRM event payloads older than a year (services/crm.PAYLOAD_RETENTION). Safe to run every few minutes."""
+    return crm_service.purge_old_payloads()
+
+
 JOBS: dict[str, Callable[[], object]] = {
     "allocation-escalation": allocation_escalation,
     "attempts-expire": attempts_expire,
     "attendance-unconfirmed": attendance_unconfirmed,
     "class-log-check": class_log_check,
     "class-reminders": class_reminders,
+    "crm-payload-purge": crm_payload_purge,
     "email-send": email_send,
     "google-sync": google_sync,
     "recording-check": recording_check,

@@ -34,7 +34,18 @@ from services.notifications import notify
 logger = logging.getLogger(__name__)
 
 STALE = "Ignored — stale"
+PAYLOAD_RETENTION = timedelta(days=365)  # agreed with the CRM team (28 Oct 2026): payloads are kept for a year
 CLEARABLE_PERSON_FIELDS = ("email", "name_te")
+
+def purge_old_payloads(now: datetime | None = None) -> dict:
+    """Job `crm-payload-purge`: empty the payload of applied or stale events older than a year, since it holds a person's name,
+    phone and email. Failed and waiting events are left alone because a retry needs them. Re-running does nothing new."""
+    now = now or datetime.now(timezone.utc)
+    emptied = crm_repo.redact_payloads_before(now - PAYLOAD_RETENTION, ("Applied", STALE))
+    db.session.commit()
+    return {"payloads_emptied": emptied}
+
+
 OPEN_STATUSES = ("Allocation Pending", "Allocated — awaiting first regular class", "Active", "Paused", "Provisioning Pending")
 
 

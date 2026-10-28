@@ -5,7 +5,7 @@ pull query takes an optional PullScope: the records of one CRM admission or pers
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, Text, cast, func, or_, select, update
 
 from config.database import db
 from models import (
@@ -25,6 +25,16 @@ class PullScope:
 
 def get_event_by_event_id(event_id: str) -> CrmEvent | None:
     return db.session.execute(select(CrmEvent).where(CrmEvent.event_id == event_id)).scalar_one_or_none()
+
+
+def redact_payloads_before(cutoff: datetime, statuses: tuple[str, ...]) -> int:
+    """Empty the payload of every event in `statuses` received before `cutoff`; the number emptied. The row stays (event id, type,
+    version, outcome), so a repeat of the event is still recognised."""
+    result = db.session.execute(
+        update(CrmEvent)
+        .where(CrmEvent.status.in_(statuses), CrmEvent.received_at < cutoff, cast(CrmEvent.payload, Text) != "{}")
+        .values(payload={}))
+    return result.rowcount
 
 
 def get_event(crm_event_id: int) -> CrmEvent | None:

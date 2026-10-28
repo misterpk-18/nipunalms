@@ -243,7 +243,7 @@ a course of the admission is running; **Inactive** — student suspended, or all
 | Staff accounts | Same email in both systems today; single sign-on or provisioning from the CRM later |
 | Course fee and branches | `CourseUpserted` carries neither the standard fee nor the branches offering a course; ask the CRM if the LMS needs them |
 | Round 4 request | Written 3 Oct 2026 in `nipuna crm-docs/LMS_ROUND4_REQUEST.md`: date of birth and guardians in `AdmissionQualified`, a `PersonRestrictionsUpdated` event (channel opt-outs, consents), cancellation and refund detail, placement endpoints (D5), and the new batch states coming in gap fix phase 6. Also tells the CRM about the `historical` flag, the certificate fee gate and reinstatement (Revoked → Issued). Waiting for the CRM |
-| Real data | Everything runs on dev databases only. Never point it at real student data until the service key, transport and retention are agreed |
+| Real data | Everything runs on dev databases only. Never point it at real student data until the service key, transport and retention are agreed. **Agreed on 28 Oct 2026:** https (production LMS and CRM), the service key handed over in person, and CRM event payloads kept for 1 year: the job `crm-payload-purge` then empties the payload of applied and stale events (the record, type, version and result stay; failed events keep theirs for a retry). A deletion or erasure request is handled by hand, with no new event type |
 
 ---
 
