@@ -57,7 +57,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 | P5 | CRM `.env`: `LMS_BASE_URL=https://3-111-225-125.sslip.io` and `LMS_SERVICE_KEY=<key>`; **keep `LMS_SYNC_FROM_DATE=2099-12-31`**; restart | CRM team | `flask lms outbox` shows no unexpected Pending rows |
 | P6 | CRM cron: add `* * * * * cd /srv/nipuna/backend && APP_ENV=production /srv/nipuna/venv/bin/flask --app app lms worker --duration 55 >> /srv/nipuna/lms-worker.log 2>&1` | CRM team | The log fills every minute |
 | P7 | CRM `.env`: `LMS_WHATSAPP_STATUS_EVENTS=1` (the LMS handles `WhatsappStatusUpdated`) | CRM team | Set after phase J.1 passes |
-| P8 | Reserve an Elastic IP for the CRM instance (or accept the risk in writing) | You or the CRM team | `nipunacrm.com` stays valid across a stop and start |
+| P8 | Reserve an Elastic IP for the CRM instance. **Decision 28 Oct 2026: not reserved, risk accepted** | You | A stop and start of the CRM server breaks `nipunacrm.com` until DNS is edited, and the link pauses until then |
 | P9 | Confirm `academics_managed_in_lms` is on in the CRM (batches, allocation, completion and certificates are read-only there) | CRM team | The CRM answers 409 `MANAGED_IN_LMS` to a batch write |
 
 ---
