@@ -6,7 +6,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 
 ---
 
-## 1. Where both systems stand (checked 26 Oct 2026)
+## 1. Where both systems stand (checked 26 Oct 2026, CRM side updated 28 Oct)
 
 | | CRM (`nipuna-crm-test`, answers as `nipunacrm.com`) | LMS (`nipunalms-prod`) |
 |---|---|---|
@@ -15,16 +15,16 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 | Data | 2 persons, 2 leads, 0 admissions, 0 payments, 8 courses, 2 branches, 7 staff | 2 staff (Founder, Super Admin), 0 students, 0 courses, 0 CRM events |
 | Link settings | No `LMS_BASE_URL`, no `LMS_SERVICE_KEY`, cutoff `LMS_SYNC_FROM_DATE=2099-12-31` | `CRM_BASE_URL` set; `CRM_SERVICE_KEY` generated, not shared |
 | Cron | `flask jobs run` every minute. **No `lms worker` line** | `flask jobs run` every 5 minutes |
-| WhatsApp | On, sends only to the test numbers (to be one: +91 9392329248) | On, approved list holds the seven approved LMS templates (28 Oct); cannot send until the CRM holds the key. **v2 verified end to end on the local dev pair on 28 Oct 2026** (LMS reset code, CRM, Pinbot, arrived with the Copy code button; the CRM sent language code `en` and Pinbot accepted it); not yet on production |
+| WhatsApp | On, sends only to the test numbers (to be one: +91 9392329248). Registry names `nipuna_lms_password_reset_code_auth_v2` since 28 Oct 07:39 IST (P2) | On, approved list holds the seven approved LMS templates (28 Oct); cannot send until the CRM holds the key. **v2 verified end to end on the local dev pair on 28 Oct 2026** (LMS reset code, CRM, Pinbot, arrived with the Copy code button; the CRM sent language code `en` and Pinbot accepted it); not yet on production |
 | Google | none | Meet, Drive and Email Working and on |
-| Backups | Dumps from 10 and 15 Oct in `/srv/nipuna/backups` | `BASELINE-clean-after-go-live.dump` and nightly dumps |
+| Backups | Last dump `nipunacrm-before-sample-delete-2026-10-20-2218.dump` (20 Oct) in `/srv/nipuna/backups` | `BASELINE-clean-after-go-live.dump` and nightly dumps |
 
 **Gaps this plan must close first**
-1. The CRM's template registry still says `nipuna_lms_password_reset_code_auth_v1`. The approved name is **v2** (the LMS already uses v2). A CRM code change.
+1. ~~The CRM's template registry still says `nipuna_lms_password_reset_code_auth_v1`.~~ **Closed 28 Oct:** the CRM deployed the v2 name (P2).
 2. No `lms worker` cron on the CRM server, so retries and the status pull would not run.
 3. `LMS_WEB_URL` and `LMS_WHATSAPP_STATUS_EVENTS` are not set on the CRM server.
 4. The CRM server has no reserved IP: if it is stopped and started, `nipunacrm.com` breaks until DNS is edited, and the LMS's WhatsApp calls and the CRM's pushes stop.
-5. **Pinbot's template report (screenshot, 28 Oct 2026) shows seven LMS templates Approved:** `nipuna_lms_password_reset_code_auth_v2` (26 Oct) and, from 24 Oct, certificate issued, batch change agreement, result published, class rescheduled, class cancelled and class reminder (all `_u_v1`). `nipuna_lms_staff_account_invite_u_v1` was **Rejected**. The status of `nipuna_lms_student_activation_link_u_v1` was below the visible rows and is **not yet known**. The CRM's own `nipuna_batch_allocated_u_v1` and `nipuna_lms_account_activated_u_v1` are approved per the CRM team. The production LMS's approved list now holds the seven. Any step that needs the rejected or unknown template is recorded as Skipped or Failed and is not a test failure.
+5. **Pinbot's template report (screenshot, 28 Oct 2026) shows seven LMS templates Approved:** `nipuna_lms_password_reset_code_auth_v2` (26 Oct) and, from 24 Oct, certificate issued, batch change agreement, result published, class rescheduled, class cancelled and class reminder (all `_u_v1`). `nipuna_lms_staff_account_invite_u_v1` and `nipuna_lms_student_activation_link_u_v1` were **Rejected**; v2 drafts are in `docs/WHATSAPP_RESUBMIT_SPEC.md`, and both teams think the IP-based `sslip.io` address on the button is the likeliest cause, so they wait for a real LMS hostname. Meta's reasons, and the status of the CRM's own `nipuna_batch_allocated_u_v1` and `nipuna_lms_account_activated_u_v1`, are still to be read from the panel (Manoj). The production LMS's approved list holds the seven. Any step that needs a rejected or unconfirmed template is recorded as Skipped or Failed and is not a test failure.
 
 ---
 
@@ -34,9 +34,9 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 |---|---|---|---|
 | D1 | **Where to run the money flow** (lead, invoice, payment, admission). | An admission needs an accepted payment plan and a **verified first payment**. Run in the production CRM, that writes a real invoice, payment and receipt number. Ledgers cannot be row-deleted in the CRM, so cleaning up means restoring a dump. | Run the full flow once on the **local dev pair** (already linked, no ledger impact). In production run only the non-money steps (phases B, C, K, L). Run the money flow in production only if D2 is yes. |
 | D2 | Accept a TEST admission, invoice and payment in the production CRM, then restore the CRM from a dump taken just before? | The restore also discards anything entered in the meantime, so this is safe only while the CRM holds no real admissions and nobody is entering real data. | Yes, but only in a booked window, with a dump taken at its start |
-| D3 | Accounts and roles | The production CRM has **no Sales user** and one Accounts user. The CRM team's answer (28 Oct): the **Guntur Branch Manager** plays counsellor and Branch Manager, the **Accounts user** verifies the payment (the two-person rule holds), and the test uses the **standard fee, no extra discount, no payment correction**, because a discount above the limit, a fee below the floor or a correction each need a second approver and there is none | In the LMS: a Branch Manager and a Trainer on plus-addresses of one inbox, passwords shown once |
+| D3 | Accounts and roles | The production CRM has **no Sales user** and one Accounts user. The CRM team's answer (28 Oct): the **Guntur Branch Manager** plays counsellor and Branch Manager, the **Accounts user** verifies the payment (the two-person rule holds), and the test uses the **standard fee, no extra discount, no payment correction**, because a discount above the limit, a fee below the floor or a correction each need a second approver and there is none. The course is **`NIT-CRS-047` Java Full Stack Developer, Guntur, standard fee INR 25,000.00**, on plan **`TWO_INSTALMENTS`** (50% at admission, 50% after 12 days, so H1 and H4 have a second instalment). Production has no offers and needs none: a standard-price fee version is approved by the Branch Manager alone, and no settings change | In the LMS: a Branch Manager and a Trainer on plus-addresses of one inbox, passwords shown once |
 | D4 | WhatsApp numbers | Production holds two test numbers; the CRM team removes the second before the window, so **one number only (+91 9392329248)** is messaged. Every TEST person's phone is set to it; any other number is Skipped | Use that number for every TEST person |
-| D5 | Window and owner | Each step names an owner; the CRM team does the CRM-side steps | Agree one 2-hour window per phase group |
+| D5 | Window and owner | Each step names an owner; the CRM team does the CRM-side steps. With the key already handed over, the CRM team needs **one hour's notice**: P4, P5, P6 and removing the second test number 30 minutes before (one restart), the dump at the start (under a minute) | Agree one 2-hour window per phase group |
 
 **Rules for every test**
 - Name every test thing `TEST` (person, lead, class, batch).
@@ -51,7 +51,7 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 | # | Action | Owner | Done when |
 |---|---|---|---|
 | P1 | Dump both databases: CRM `pg_dump -Fc` to `/srv/nipuna/backups/nipunacrm-before-link-test-<date>.dump`; LMS keep `BASELINE-clean-after-go-live.dump` and take a fresh one | CRM team, LMS | Both files exist, sizes sane |
-| P2 | CRM registry: rename the LMS password-reset template to `nipuna_lms_password_reset_code_auth_v2`; deploy | CRM team | Registry and Pinbot agree |
+| P2 | CRM registry: rename the LMS password-reset template to `nipuna_lms_password_reset_code_auth_v2`; deploy | CRM team | **Done 28 Oct 07:39 IST.** Registry has v2 and not v1; outbox empty; key still unset |
 | P3 | Hand over the LMS service key (password-manager share) | You | CRM team confirms they hold it |
 | P4 | CRM `.env`: `LMS_WEB_URL=https://3-111-225-125.sslip.io` (the "Open in LMS" link) | CRM team | The link shows on Waiting for batch |
 | P5 | CRM `.env`: `LMS_BASE_URL=https://3-111-225-125.sslip.io` and `LMS_SERVICE_KEY=<key>`; **keep `LMS_SYNC_FROM_DATE=2099-12-31`**; restart | CRM team | `flask lms outbox` shows no unexpected Pending rows |
@@ -59,6 +59,20 @@ Sources: `docs/CRM_INTEGRATION.md` (this repo), `~/nipuna-crm/docs/DEVELOPMENT.m
 | P7 | CRM `.env`: `LMS_WHATSAPP_STATUS_EVENTS=1` (the LMS handles `WhatsappStatusUpdated`) | CRM team | Set after phase J.1 passes |
 | P8 | Reserve an Elastic IP for the CRM instance. **Decision 28 Oct 2026: not reserved, risk accepted** | You | A stop and start of the CRM server breaks `nipunacrm.com` until DNS is edited, and the link pauses until then |
 | P9 | Confirm `academics_managed_in_lms` is on in the CRM (batches, allocation, completion and certificates are read-only there) | CRM team | The CRM answers 409 `MANAGED_IN_LMS` to a batch write |
+| P10 | The Guntur Branch Manager and the Accounts user each sign in to the CRM once (the CRM team does not hold their passwords) | You | Both sign in |
+
+**CRM numbers to compare after the restore.** As reported on 28 Oct 07:40 IST; the CRM team counts again right after the P1 dump, and M3 compares against that count.
+
+| Table | Rows | | Guntur counter | Last value | First TEST number |
+|---|---|---|---|---|---|
+| persons | 2 | | `RECEIPT-GNT-2627` | 0 | `GNT-R-2627-00001` |
+| leads | 2 | | `TRANSACTION-GNT` | 0 | `TXN-GNT-00001` |
+| pipeline_entries | 2 | | `INVOICE-GNT-2627` | 0 | first Guntur invoice of 2026-27 |
+| tasks | 5 | | `ADMISSION-GNT-2026` | 0 | first Guntur admission of 2026 |
+| notifications | 10 | | | | |
+| invoices, payments, admissions | 0, 0, 0 | | | | |
+| audit_log | 90 | | | | |
+| whatsapp_outbox, lms_outbox | 8, 0 | | | | |
 
 ---
 
@@ -103,8 +117,8 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 | # | Test | Owner | Expected |
 |---|---|---|---|
 | D1 | CRM: new enquiry and lead named TEST, counselling, qualification | Counsellor | Lead 360 shows the six checks |
-| D2 | Convert to a deal, create the invoice and accept a payment plan | Counsellor | No admission, receipt or LMS access yet |
-| D3 | Record a payment, then **verify** it | Accounts | An admission is created automatically; one `AdmissionQualified` and one `FinanceSummaryUpdated` are written in the same transaction |
+| D2 | Convert to a deal for `NIT-CRS-047` at the standard fee (INR 25,000.00), create the invoice and accept `TWO_INSTALMENTS` | Counsellor | No admission, receipt or LMS access yet |
+| D3 | Record the first instalment (INR 12,500.00), then **verify** it | Accounts | Receipt `GNT-R-2627-00001`, transaction `TXN-GNT-00001`; an admission is created automatically; one `AdmissionQualified` and one `FinanceSummaryUpdated` are written in the same transaction |
 | D4 | Wait up to a minute (push after commit; the worker is the retry) | CRM | `lms outbox` shows both Delivered |
 | D5 | LMS inbox | LMS | Both Applied; a student, account and **Waiting for a batch** appear, with the student's branch and course; no warnings |
 | D6 | Same payment verified again or event resent | Both | A replay (200); no second student, no second login |
@@ -192,7 +206,7 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 | L1 | http to https on both sites | Redirects; certificates valid |
 | L2 | Grep both servers' logs for the service key and for activation tokens | None found (the CRM keeps only `activation_token_issued = true`) |
 | L3 | Role checks | A student cannot open staff screens; a Branch Manager cannot see another branch |
-| L4 | LMS keeps CRM payloads for 1 year | The purge job is **not built yet**: build it before real data |
+| L4 | LMS keeps CRM payloads for 1 year | Job `crm-payload-purge` is listed by `flask jobs list` and runs without error (built 28 Oct) |
 | L5 | `sudo certbot renew --dry-run` on both | Succeeds |
 
 ### M. Clean-up and go-live switch (required before real students)
@@ -201,7 +215,7 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 |---|---|---|---|
 | M1 | Google: delete the TEST batch group, trash the TEST folders, cancel the TEST events | LMS | Nothing named TEST left |
 | M2 | Restore the LMS: stop, `pg_restore --clean --if-exists` the baseline, start. The baseline predates the two LMS test accounts (Branch Manager, Trainer) and the 28 Oct approved-template list, so they go with it; then set `whatsapp_approved_templates` to the seven approved names again (`flask whatsapp status` shows them) | LMS | 2 staff, 0 students, 0 CRM events, Google features still Working, seven templates approved |
-| M3 | Restore the CRM from the dump taken in P1 (only if no real data has been entered since) | CRM team | 0 admissions, 0 payments; the receipt counter is back where it was |
+| M3 | Restore the CRM from the dump taken in P1 (only if no real data has been entered since) | CRM team | Row counts equal the count taken after the P1 dump; 0 invoices, payments and admissions; all four Guntur counters back at 0 |
 | M4 | CRM: `lms backfill --branches` and `lms backfill` so the LMS gets branches and courses again | CRM team | Both Applied; `reconcile` drift 0 |
 | M5 | Keep `LMS_SYNC_FROM_DATE=2099-12-31` until the real start date; the CRM names the date to the LMS team before it moves | CRM team | Real admissions start only on that date |
 | M6 | Delete test files from the LMS S3 bucket | LMS | Bucket holds only real files |
@@ -219,7 +233,7 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 
 | Phase | Done by | Date | Result |
 |---|---|---|---|
-| Pre-flight P1 to P9 | | | |
+| Pre-flight P1 to P10 | | | |
 | A Baseline and health | | | |
 | B Link bring-up | | | |
 | C Catalogue and branch changes | | | |
