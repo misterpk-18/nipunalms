@@ -273,6 +273,21 @@ def test_a_group_made_before_a_lost_reply_is_reused(world, allocate, drive):  # 
     assert sync_jobs(batch)[0].state == "Succeeded"
 
 
+def test_a_new_group_google_cannot_read_yet_is_retried_not_dead(world, allocate, drive):  # noqa: F811
+    """Seen in production on 28 Oct 2026: the group was made, then listing its members answered 404 groupKey."""
+    people, batch, student = world
+    seat(student, batch, allocate)
+    # folders: 3 lookups + 3 creates, the group, then listing its members
+    drive.fail = [None] * 7 + [GoogleError("Google returned 404: Resource Not Found: groupKey", status=404)]
+    assert run() == {"done": 0, "retry": 1, "dead": 0}
+    [job] = sync_jobs(batch)
+    assert job.state == "Failed" and "not readable yet" in job.last_error
+    job.next_attempt_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db.session.commit()
+    assert run()["done"] == 1
+    assert email_of(student) in drive.groups[group_of(batch)]
+
+
 def test_a_trainer_without_a_google_account_is_invited(world, allocate, drive):  # noqa: F811
     people, batch, student = world
     drive.no_google.add(people["g1"].email.lower())

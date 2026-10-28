@@ -165,10 +165,16 @@ def _ensure_group(batch: Batch, item: GoogleDriveItem) -> str:
 
 
 def _group_members(address: str) -> dict[str, str]:
-    """{lower-case email: role} for everyone in the group."""
+    """{lower-case email: role} for everyone in the group. The group was just made or found, so a 404 means Google has not made
+    a new group readable yet (it can take a minute): try again later."""
     members, token = {}, None
     while True:
-        page = _directory("GET", f"/{quote(address, safe='@')}/members", params={"maxResults": 200, **({"pageToken": token} if token else {})})
+        try:
+            page = _directory("GET", f"/{quote(address, safe='@')}/members", params={"maxResults": 200, **({"pageToken": token} if token else {})})
+        except GoogleError as exc:
+            if exc.status == 404:
+                raise GoogleError(f"The group {address} is not readable yet: {exc}", status=404, retryable=True) from exc
+            raise
         members.update({m["email"].lower(): m.get("role", "MEMBER") for m in page.get("members", [])})
         token = page.get("nextPageToken")
         if not token:
