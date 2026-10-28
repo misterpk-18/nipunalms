@@ -200,7 +200,7 @@ Commands: on the CRM server `cd /srv/nipuna/backend && APP_ENV=production ../ven
 | # | Action | Owner | Expected |
 |---|---|---|---|
 | M1 | Google: delete the TEST batch group, trash the TEST folders, cancel the TEST events | LMS | Nothing named TEST left |
-| M2 | Restore the LMS: stop, `pg_restore --clean --if-exists` the baseline, start | LMS | 2 staff, 0 students, 0 CRM events, Google features still Working |
+| M2 | Restore the LMS: stop, `pg_restore --clean --if-exists` the baseline, start. The baseline predates the two LMS test accounts (Branch Manager, Trainer) and the 28 Oct approved-template list, so they go with it; then set `whatsapp_approved_templates` to the seven approved names again (`flask whatsapp status` shows them) | LMS | 2 staff, 0 students, 0 CRM events, Google features still Working, seven templates approved |
 | M3 | Restore the CRM from the dump taken in P1 (only if no real data has been entered since) | CRM team | 0 admissions, 0 payments; the receipt counter is back where it was |
 | M4 | CRM: `lms backfill --branches` and `lms backfill` so the LMS gets branches and courses again | CRM team | Both Applied; `reconcile` drift 0 |
 | M5 | Keep `LMS_SYNC_FROM_DATE=2099-12-31` until the real start date; the CRM names the date to the LMS team before it moves | CRM team | Real admissions start only on that date |
