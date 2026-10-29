@@ -463,7 +463,6 @@ const DICTIONARY = {
   backToTasks: ["Back to tasks", "పనులకు తిరిగి వెళ్ళండి"],
   assignmentBrief: ["The brief", "బ్రీఫ్"],
   attachmentsLabel: ["Attachments", "జోడింపులు"],
-  submitYourWork: ["Submit your work", "మీ పనిని సమర్పించండి"],
   yourSubmission: ["Your submission", "మీ సమర్పణ"],
   earlierVersions: ["Your earlier versions", "మీ మునుపటి సమర్పణలు"],
   detailsTitle: ["Details", "వివరాలు"],

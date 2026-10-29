@@ -14,8 +14,6 @@ import { fmtDateTime } from "@/features/shared/format";
 import { useApiMutation } from "@/lib/mutation";
 import { useT } from "@/lib/i18n";
 
-const SUBMIT_ID = "submit-your-work";
-
 function VersionCard({ version }: { version: Submission }) {
   const t = useT();
   return (
@@ -112,25 +110,10 @@ function SubmissionForm({ assignment }: { assignment: Assignment }) {
           {errorMessage(submit.error)}
         </StatusNote>
       )}
-      <Button type="submit" disabled={submit.isPending || (!text && !link && !file)}>
+      <Button type="submit" disabled={submit.isPending || (!text.trim() && !link.trim() && !file)}>
         {submit.isPending ? t("submitting") : label}
       </Button>
     </form>
-  );
-}
-
-/** The submit button at the top of the page: takes the student to the form below the brief. */
-function JumpToSubmit({ label }: { label: string }) {
-  return (
-    <Button
-      onClick={() => {
-        const form = document.getElementById(SUBMIT_ID);
-        form?.scrollIntoView({ behavior: "smooth", block: "start" });
-        document.getElementById("sub-text")?.focus({ preventScroll: true });
-      }}
-    >
-      {label}
-    </Button>
   );
 }
 
@@ -146,13 +129,6 @@ export function AssignmentDetail() {
           const my = a.my!;
           const result = my.result;
           const handedIn = my.state === "Submitted" || my.state === "Under Review";
-          const topButton = my.window.allowed
-            ? my.window.mode === "resubmission"
-              ? t("submitResubmission")
-              : my.window.mode === "replacement"
-                ? t("replaceMine")
-                : t("submitYourWork")
-            : null;
           const feedback = [...my.versions].reverse().find((v) => v.review?.feedback)?.review?.feedback;
           return (
             <>
@@ -164,7 +140,6 @@ export function AssignmentDetail() {
                   <>
                     <Tag tone={a.is_required ? "info" : "neutral"}>{a.is_required ? t("required") : t("optional")}</Tag>
                     <StatusBadge domain="work" code={my.state} />
-                    {topButton && <JumpToSubmit label={topButton} />}
                   </>
                 }
               />
@@ -187,11 +162,9 @@ export function AssignmentDetail() {
                     </>
                   )}
                 </Section>
-                <div id={SUBMIT_ID} className="scroll-mt-24">
-                  <Section title={t("yourSubmission")}>
-                    <SubmissionForm assignment={a} />
-                  </Section>
-                </div>
+                <Section title={t("yourSubmission")}>
+                  <SubmissionForm assignment={a} />
+                </Section>
                 {my.versions.length > 0 && (
                   <Section title={t("earlierVersions")}>
                     <ul className="space-y-2">
