@@ -749,7 +749,7 @@ Open before real students use it: a copy of the nightly dump kept off the server
 | `/srv/nipunalms/frontend` | Built frontend (`frontend/dist` contents) | — |
 | `/srv/nipunalms/venv` | Python venv: `requirements.txt` + `gunicorn` | — |
 | `nipunalms.service` (systemd) | gunicorn, 2 workers, `127.0.0.1:5060`, `app:create_app()`, restarts automatically | `deploy/nipunalms.service` |
-| `/etc/nginx/sites-available/nipunalms` | Static frontend with SPA fallback, `/api/` → `127.0.0.1:5060`, 260 MB upload limit (the API applies the per-type limits); certbot adds TLS and the HTTP → HTTPS redirect | `deploy/nginx-nipunalms.conf` |
+| `/etc/nginx/sites-available/nipunalms` | Static frontend with SPA fallback, `/api/` → `127.0.0.1:5060`, 260 MB upload limit (the API applies the per-type limits); certbot adds TLS and the HTTP → HTTPS redirect. The access log (`masked` format) shows activation tokens as `[token]`, and pages send `Referrer-Policy: no-referrer`; keep both in every server block certbot writes | `deploy/nginx-nipunalms.conf` |
 | `ubuntu` crontab | `flask --app app jobs run` every 5 minutes → `/srv/nipunalms/jobs.log`; `backup.sh` at 02:30 | `deploy/crontab` |
 | `/srv/nipunalms/backups` | Nightly `pg_dump -Fc` and an uploads tarball, 14 days kept (`RETENTION_DAYS`) | `deploy/backup.sh` |
 

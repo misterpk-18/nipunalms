@@ -10,7 +10,8 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/srv/nipunalms/backend
 Environment=APP_ENV=production
-ExecStart=/srv/nipunalms/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5060 --timeout 120 --access-logfile - "app:create_app()"
+# No gunicorn access log: nginx logs every request, with activation tokens masked; gunicorn's would repeat them in the journal
+ExecStart=/srv/nipunalms/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5060 --timeout 120 "app:create_app()"
 Restart=always
 RestartSec=3
 
