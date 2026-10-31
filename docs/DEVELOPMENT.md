@@ -729,7 +729,7 @@ CRM's VPC and subnet; the CRM's instance is not shared or touched. Made by `depl
 
 | What | Value |
 |---|---|
-| Instance / address | `i-061429318c69b7a9e`, Elastic IP `3.111.225.125`. **https at `https://3-111-225-125.sslip.io`** (Let's Encrypt via certbot, renews itself; http redirects). `PUBLIC_BASE_URL` is that address. A real host name can replace it later: point DNS at the IP, `sudo certbot --nginx -d <name>`, change `server_name` and `PUBLIC_BASE_URL`, restart |
+| Instance / address | `i-061429318c69b7a9e`, Elastic IP `3.111.225.125`. **https at `https://3-111-225-125.sslip.io`** (Let's Encrypt via certbot, renews itself; http redirects). `PUBLIC_BASE_URL` is that address. **`https://nipunalms.com` and `https://www.nipunalms.com`** (31 Oct 2026) are served by the same nginx site and the same certificate (SANs: the sslip.io name, both domains; expires 29 Jan 2027, `certbot.timer` renews it; http redirects). Done with `certbot --nginx --cert-name 3-111-225-125.sslip.io --expand -d <sslip> -d nipunalms.com -d www.nipunalms.com` after adding the names to both `server_name` lines. `PUBLIC_BASE_URL` still names the sslip.io address (it builds the links in emails, certificates and calendar events); switching it to the domain is a separate step, restart `nipunalms` after |
 | Access | Security group `sg-06bce7d7e6ac85202` (80, 443 open; 22 only from the admin's IP: add a rule when that changes). Key pair `nipunalms-prod`, private key `~/.ssh/nipunalms-prod.pem` on the admin's laptop |
 | Uploads | `STORAGE_BACKEND=s3`, bucket `nipunalms-uploads-prod`, reached through the instance role `nipunalms` (that bucket only) |
 | Database | Local Postgres 16, database `nipunalms`, all 47 `db/*.sql` applied once; no seed or test data (`seed-dev` is never run in production) |
@@ -773,10 +773,15 @@ crontab /srv/nipunalms/deploy/crontab
 ```bash
 (cd frontend && npm run build)    # build on the laptop
 rsync -az --delete -e "$KEY" --exclude '.env' --exclude '__pycache__' --exclude '.pytest_cache' \
-  --exclude 'uploads/' --exclude 'tests/' --exclude 'api.http' backend db deploy ubuntu@$IP:/srv/nipunalms/
+  --exclude 'uploads/' --exclude 'tests/' --exclude 'api.http' --exclude 'secrets/' --exclude '*.log' \
+  --exclude 'test-logs/' --exclude 'cartograph.html' backend db deploy ubuntu@$IP:/srv/nipunalms/
 rsync -az --delete -e "$KEY" frontend/dist/ ubuntu@$IP:/srv/nipunalms/frontend/
 $KEY ubuntu@$IP 'sudo systemctl restart nipunalms && systemctl is-active nipunalms'
 ```
+
+The excludes keep each side's own files: the server's `.env` and Google key (`backend/secrets/`) are never overwritten or
+deleted, and the laptop's logs, test logs and cartograph page never go up. Run it once with `-n --itemize-changes` first to
+see what would change.
 
 ### 4. Migrations
 
