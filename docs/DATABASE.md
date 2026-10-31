@@ -2,7 +2,7 @@
 
 The `nipunalms` PostgreSQL schema: what each migration creates and the rules the database enforces. Derived from the
 prototype at https://nipuna-lms-prototype.lovable.app/ (sample data only) and the approved LMS modules 14–27. The API on
-top of it is in [API.md](API.md); the CRM contract in [CRM_INTEGRATION.md](CRM_INTEGRATION.md).
+top of it is in [API.md](API.md); the CRM contract in [INTEGRATIONS.md Part A](INTEGRATIONS.md).
 
 **Core flow:** CRM qualifying payment → `AdmissionQualified` event → Student (one per CRM Person) + LMS login + Admission
 projection + Enrolment (paid standalone / combo with tracks / complimentary) → curriculum mapping → batch allocation →
@@ -128,7 +128,7 @@ enrolment student = admission student; one enrolment per admission and course; o
 enrolments.
 
 The CRM columns these tables feed, and the outbox events that carry them, are listed in
-[CRM_INTEGRATION.md §2.2](CRM_INTEGRATION.md#22-lms--crm-what-the-crm-stores-about-the-lms).
+[INTEGRATIONS.md Part A §2.2](INTEGRATIONS.md#22-lms--crm-what-the-crm-stores-about-the-lms).
 
 ## 004 — Batches & class sessions
 
@@ -286,7 +286,7 @@ owner is the source record's own owner, else the last person who logged a step. 
 
 ## 090 — CRM round-1 fixes
 
-The fixes from the CRM's first live run (round 1, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+The fixes from the CRM's first live run (round 1, [INTEGRATIONS.md Part A §5](INTEGRATIONS.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -297,7 +297,7 @@ The fixes from the CRM's first live run (round 1, [CRM_INTEGRATION.md §5](CRM_I
 
 ## 095 — CRM round 2: the status pull
 
-What the CRM needed before applying the pull (round 2, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+What the CRM needed before applying the pull (round 2, [INTEGRATIONS.md Part A §5](INTEGRATIONS.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -309,7 +309,7 @@ What the CRM needed before applying the pull (round 2, [CRM_INTEGRATION.md §5](
 
 ## 096 — CRM branches and finance snapshots
 
-Round-2 owner decisions D3 and D4 ([CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+Round-2 owner decisions D3 and D4 ([INTEGRATIONS.md Part A §5](INTEGRATIONS.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -319,7 +319,7 @@ Round-2 owner decisions D3 and D4 ([CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5
 
 ## 097 — CRM round 3: curriculum catalogue and mapping (removed again in 104)
 
-The CRM mapped admissions to curricula; the LMS reported its catalogue (round 3, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+The CRM mapped admissions to curricula; the LMS reported its catalogue (round 3, [INTEGRATIONS.md Part A §5](INTEGRATIONS.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -329,7 +329,7 @@ The CRM mapped admissions to curricula; the LMS reported its catalogue (round 3,
 
 ## 098 — Batch timetable
 
-The CRM's sales playbook needs real timings before promising a batch (round 3, [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+The CRM's sales playbook needs real timings before promising a batch (round 3, [INTEGRATIONS.md Part A §5](INTEGRATIONS.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -416,7 +416,7 @@ the API adds Module 15's labels (`state_label`).
 
 ## 104 — CRM round 5: the CRM holds no curriculum
 
-The CRM no longer holds curriculum, so the LMS stops reporting it and receiving mapping events ([CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+The CRM no longer holds curriculum, so the LMS stops reporting it and receiving mapping events ([INTEGRATIONS.md Part A §5](INTEGRATIONS.md#5-integration-rounds)).
 
 | Change | Why |
 |---|---|
@@ -577,12 +577,12 @@ Tests: `backend/tests/test_course_outline.py`.
 | Index `students_activated_at_idx` | The pull filters persons on `provisioned_at > since OR activated_at > since` |
 | Backfill | Already-activated students take the student login's `password_changed_at` (else `updated_at`) |
 
-The pull returns it as `persons[].lms_activated_at` ([CRM_INTEGRATION.md §2.2](CRM_INTEGRATION.md)). Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/122_student_activated_at.sql`; no student had activated, so the backfill updated 0 rows.
+The pull returns it as `persons[].lms_activated_at` ([INTEGRATIONS.md Part A §2.2](INTEGRATIONS.md)). Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/122_student_activated_at.sql`; no student had activated, so the backfill updated 0 rows.
 Tests: `backend/tests/test_lms_sync.py` (`test_status_endpoint_reports_the_activation_separately_from_the_provisioning`).
 
 ## 123 — Google Workspace, first slice
 
-Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md). Depends on 001 (branches, integrations, `set_updated_at`).
+Design: [INTEGRATIONS.md Part B](INTEGRATIONS.md). Depends on 001 (branches, integrations, `set_updated_at`).
 
 | Table | Purpose |
 |---|---|
@@ -595,7 +595,7 @@ A new register row, `GOOGLE_DRIVE` (Google Drive material), sits beside the exis
 
 ## 124 — Google Workspace, email outbox
 
-Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.3. Depends on 001 (users, branches) and 123.
+Design: [INTEGRATIONS.md Part B](INTEGRATIONS.md) §5.3. Depends on 001 (users, branches) and 123.
 
 | Table | Purpose |
 |---|---|
@@ -607,7 +607,7 @@ Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP
 
 ## 125 — Google Workspace, Drive folders and shares
 
-Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.2. Depends on 001, 002, 004 and 123.
+Design: [INTEGRATIONS.md Part B](INTEGRATIONS.md) §5.2. Depends on 001, 002, 004 and 123.
 
 | Table | Purpose |
 |---|---|
@@ -620,7 +620,7 @@ Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP
 
 ## 126 — Google Workspace, a Google Group per batch
 
-Design: [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) §5.2. Depends on 125.
+Design: [INTEGRATIONS.md Part B](INTEGRATIONS.md) §5.2. Depends on 125.
 
 `google_drive_items.group_email` (batch rows only) holds the batch's Google Group, `<batch code>@<domain>`. The batch's students are the group's members and the folder is shared once with the group, so `google_drive_grants` holds the group and the trainers, not each student. The address is kept on the row so a later change of Workspace domain cannot orphan the group. Applied in place to `nipunalms-dev` with `psql -d nipunalms-dev -v ON_ERROR_STOP=1 -1 -f db/126_drive_batch_group.sql`.
 

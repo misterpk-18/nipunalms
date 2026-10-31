@@ -18,7 +18,7 @@ INSTALLMENT_SCOPES = ("admission", "invoice")
 ZERO = Decimal("0.00")
 
 # The CRM's own column names and values (nipuna-crm db), accepted as sent and mapped to the LMS vocabulary.
-# person_id / admission_id are the names docs/CRM_INTEGRATION.md documents for the CRM's IDs.
+# person_id / admission_id are the names docs/INTEGRATIONS.md Part A documents for the CRM's IDs.
 FIELD_ALIASES = {"phone": "mobile", "course_title": "title", "delivery_mode": "mode",
                  "person_id": "crm_person_id", "admission_id": "crm_admission_id",
                  "complimentary_of_admission_id": "complimentary_of_crm_admission_id"}

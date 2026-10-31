@@ -1,4 +1,4 @@
-"""Google Workspace slice 4 (docs/GOOGLE_WORKSPACE.md §7): what the Super Admin and Founder see and do. No Google is called."""
+"""Google Workspace slice 4 (docs/INTEGRATIONS.md Part B §7): what the Super Admin and Founder see and do. No Google is called."""
 from datetime import datetime, timedelta, timezone
 
 import pytest

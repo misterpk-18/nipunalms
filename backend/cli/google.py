@@ -9,7 +9,7 @@ from services.google import check as google_check
 from services.google import gmail
 from services.google.client import GoogleError
 
-google_cli = AppGroup("google", help="Check the Google Workspace connection (docs/GOOGLE_WORKSPACE.md).")
+google_cli = AppGroup("google", help="Check the Google Workspace connection (docs/INTEGRATIONS.md Part B).")
 
 
 def _mailbox(mailbox: str | None, branch: int | None) -> str | None:

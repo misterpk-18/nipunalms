@@ -20,4 +20,4 @@ Admission and finance; the LMS receives admissions from it and shows read-only f
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Start here: setup, databases, staging accounts, running and testing, the frontend, running with the local CRM, status, backlog and deployment |
 | [docs/API.md](docs/API.md) | Backend architecture, conventions, domain model and every endpoint with its rules |
 | [docs/DATABASE.md](docs/DATABASE.md) | Migrations and the rules the schema enforces |
-| [docs/CRM_INTEGRATION.md](docs/CRM_INTEGRATION.md) | The LMS ↔ CRM contract, how each side runs it, open items and the history of the integration rounds |
+| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) | Part A the LMS ↔ CRM contract, how each side runs it, open items and the integration rounds; Part B Google Workspace (Meet, Drive, Gmail); Part C the WhatsApp template forms |

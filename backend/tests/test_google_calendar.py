@@ -1,4 +1,4 @@
-"""Google Workspace slice 1 (docs/GOOGLE_WORKSPACE.md): class Calendar events and Meet links through the google-sync job.
+"""Google Workspace slice 1 (docs/INTEGRATIONS.md Part B): class Calendar events and Meet links through the google-sync job.
 No test reaches Google: `client.request` is replaced by a fake that records what would have been sent."""
 from datetime import datetime, timedelta, timezone
 

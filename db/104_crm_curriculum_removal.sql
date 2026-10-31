@@ -1,4 +1,4 @@
--- 104: round 5, the CRM no longer holds curriculum (docs/CRM_INTEGRATION.md)
+-- 104: round 5, the CRM no longer holds curriculum (docs/INTEGRATIONS.md Part A)
 -- Depends on: 070 (admission_academic_state wraps admission_academic_core), 095, 097, 098, 103
 --   The LMS owns curriculum alone: it maps an admission to its course's Active version itself and never waits on the CRM.
 --   AdmissionCurriculumMapped is no longer a valid event type; curriculum_versions[], curriculum_status and

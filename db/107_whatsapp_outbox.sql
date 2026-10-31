@@ -1,4 +1,4 @@
--- 107: UX phase U6, WhatsApp through the CRM (docs/UX_PLAN.md, CRM_INTEGRATION.md round 6)
+-- 107: UX phase U6, WhatsApp through the CRM (docs/UX_PLAN.md, INTEGRATIONS.md Part A round 6)
 -- Depends on: 001 (users, app_settings), 003 (students)
 --   The LMS never calls Pinbot. A message is written here in the same transaction as the change it reports, and the
 --   `whatsapp-send` job posts it to the CRM's POST /lms/whatsapp after the commit. The CRM applies its own switch, test-number

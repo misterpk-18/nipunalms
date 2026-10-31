@@ -352,4 +352,4 @@ Sensitive decisions (approving or issuing a certificate, deciding corrections) a
 | Set the project up and run it | [DEVELOPMENT.md](DEVELOPMENT.md) |
 | Every endpoint, role rule and status | [API.md](API.md) |
 | The tables, migrations and what the database enforces | [DATABASE.md](DATABASE.md) |
-| The CRM contract and its events | [CRM_INTEGRATION.md](CRM_INTEGRATION.md) |
+| The CRM contract and its events | [INTEGRATIONS.md Part A](INTEGRATIONS.md) |

@@ -1,4 +1,4 @@
--- 123: Google Workspace integration, first slice (docs/GOOGLE_WORKSPACE.md): per-branch Google settings and the retry queue
+-- 123: Google Workspace integration, first slice (docs/INTEGRATIONS.md Part B): per-branch Google settings and the retry queue
 -- Depends on: 001 (branches, integrations, set_updated_at)
 --   The LMS calls Google only from a background job: a request writes its own change and a `google_jobs` row in one
 --   transaction, and the `google-sync` job calls Google after the commit. At most one open job per (kind, entity), so
@@ -48,4 +48,4 @@ CREATE TRIGGER trg_google_jobs_updated_at
 -- Register: Drive material is not the same thing as the Drive recordings entry
 INSERT INTO integrations (integration_code, integration_name, requirement, configuration_status, verification_status, owner, notes) VALUES
     ('GOOGLE_DRIVE', 'Google Drive material', 'Folders per branch, course and batch, shared with the batch''s students and trainers',
-        'Not Configured', 'Not Verified', 'Super Admin', 'Service account with domain-wide delegation required; see docs/GOOGLE_WORKSPACE.md');
+        'Not Configured', 'Not Verified', 'Super Admin', 'Service account with domain-wide delegation required; see docs/INTEGRATIONS.md Part B');

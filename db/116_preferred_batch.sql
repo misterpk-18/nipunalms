@@ -1,4 +1,4 @@
--- 116: CRM round 4 (D19): the counsellor's preferred batch on AdmissionQualified (docs/CRM_INTEGRATION.md)
+-- 116: CRM round 4 (D19): the counsellor's preferred batch on AdmissionQualified (docs/INTEGRATIONS.md Part A)
 -- Depends on: 003 (admissions)
 --   admissions.preferred_batch_code: the LMS batch_code the CRM delivery plan prefers. A preference only: the Branch Manager still
 --   allocates. Not a foreign key, because the batch may not exist (yet) or may be retired; the Waiting for a batch screen marks the

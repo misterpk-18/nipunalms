@@ -1,4 +1,4 @@
-"""A class's Google Calendar event and its Meet link (docs/GOOGLE_WORKSPACE.md §5.1).
+"""A class's Google Calendar event and its Meet link (docs/INTEGRATIONS.md Part B §5.1).
 
 A Live Online or Hybrid class gets one event in its branch's calendar mailbox, with a Meet conference. When Google returns the
 link, the class moves to Meet "Linked" in the same log (`meet_events`) a hand-entered link uses. A moved class patches the same

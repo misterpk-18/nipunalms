@@ -1,4 +1,4 @@
-"""Email through Gmail (docs/GOOGLE_WORKSPACE.md §5.3).
+"""Email through Gmail (docs/INTEGRATIONS.md Part B §5.3).
 
 Same shape as WhatsApp (services/whatsapp.py): a message is written to `email_outbox` in the same transaction as the change it
 reports (`enqueue`), and the `email-send` job sends it after the commit (`send_pending`). The switch is the `EMAIL` entry of the

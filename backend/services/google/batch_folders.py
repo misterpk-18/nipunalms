@@ -1,4 +1,4 @@
-"""A batch's Google Drive folder, its Google Group, and who has access (docs/GOOGLE_WORKSPACE.md §5.2).
+"""A batch's Google Drive folder, its Google Group, and who has access (docs/INTEGRATIONS.md Part B §5.2).
 
 Folders: `Nipuna LMS / <course> / <batch code>`, owned by the branch's mailbox and made on demand. The students holding a seat are
 members of one Google Group per batch (`<batch code>@<workspace domain>`), and the folder is shared once with that group as viewers;

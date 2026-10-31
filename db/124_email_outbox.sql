@@ -1,4 +1,4 @@
--- 124: Google Workspace integration, second slice (docs/GOOGLE_WORKSPACE.md §5.3): the email outbox
+-- 124: Google Workspace integration, second slice (docs/INTEGRATIONS.md Part B §5.3): the email outbox
 -- Depends on: 001 (users, branches, set_updated_at), 123 (Google Workspace)
 --   Like whatsapp_outbox: a message is written in the same transaction as the change it reports, and the `email-send` job
 --   sends it through Gmail after the commit. A message that cannot or should not go out is kept as Skipped with the reason.

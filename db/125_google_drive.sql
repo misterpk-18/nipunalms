@@ -1,4 +1,4 @@
--- 125: Google Workspace integration, third slice (docs/GOOGLE_WORKSPACE.md §5.2): Drive folders and who they are shared with
+-- 125: Google Workspace integration, third slice (docs/INTEGRATIONS.md Part B §5.2): Drive folders and who they are shared with
 -- Depends on: 001 (users, branches), 002 (courses), 004 (batches), 123 (Google Workspace)
 --   One folder per branch, per course at a branch and per batch, created on demand by the `google-sync` job, owned by the
 --   branch's mailbox. A batch's folder is shared with its trainers (editors) and the students holding a seat (viewers).

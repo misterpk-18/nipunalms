@@ -1,4 +1,4 @@
-"""Google Workspace slice 2 (docs/GOOGLE_WORKSPACE.md §5.3): the email outbox and the `email-send` job. Gmail is faked: no test
+"""Google Workspace slice 2 (docs/INTEGRATIONS.md Part B §5.3): the email outbox and the `email-send` job. Gmail is faked: no test
 reaches Google."""
 import base64
 from datetime import datetime, timedelta, timezone

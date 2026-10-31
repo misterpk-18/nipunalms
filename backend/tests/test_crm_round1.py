@@ -1,4 +1,4 @@
-"""Fixes from the CRM's round-1 run (docs/CRM_INTEGRATION.md §5, round 1, F2–F8)."""
+"""Fixes from the CRM's round-1 run (docs/INTEGRATIONS.md Part A §5, round 1, F2–F8)."""
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -99,7 +99,7 @@ def test_the_database_refuses_a_single_course_with_components(combo, run_sql):
 
 # ---------------------------------------------------------------- F4: the CRM's documented field names
 
-MINIMAL = {  # docs/CRM_INTEGRATION.md §2.1 minimal example, as written
+MINIMAL = {  # docs/INTEGRATIONS.md Part A §2.1 minimal example, as written
     "person": {"person_id": 148, "person_code": "PER-GNT-00148", "full_name": "Anvitha K.",
                "phone": "9876543210", "email": "anvitha@example.test", "preferred_language": "English"},
     "admission": {"admission_id": 1001, "admission_code": "NIT-GNT-2026-000001", "course_code": "NIT-CRS-047",

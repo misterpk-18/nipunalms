@@ -19,7 +19,7 @@ The backend is ~2,900 functions in ~290 files. For any feature or bug fix, read 
    flask --app app cartograph files <module>:<function> [--depth 2]    # e.g. services.batches:readiness_report; part of a name is enough
    ```
    It prints **READ** (the function and what it calls), **CHECK** (its direct callers), and **SAME MODULE IN OTHER LAYERS**.
-3. **Read only those**, and the matching section of `docs/` (API.md for endpoints, DATABASE.md for tables, CRM_INTEGRATION.md for CRM events). Open a file from the "other layers" list only if the change reaches that layer.
+3. **Read only those**, and the matching section of `docs/` (API.md for endpoints, DATABASE.md for tables, INTEGRATIONS.md for CRM events and Google Workspace). Open a file from the "other layers" list only if the change reaches that layer.
 4. **A few more are fine** — the one test file for the module (`backend/tests/test_<module>*.py`), and a sibling function as a pattern. Anything beyond that needs a reason; if you reach for a broad scan, run the cartograph again with a different function or `--depth 3` first.
 5. **Before changing a function's signature or result**, open every file under CHECK, then run the module's tests.
 6. **Searchable page** for humans: `flask --app app cartograph build` writes `backend/cartograph.html` (git-ignored).

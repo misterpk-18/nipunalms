@@ -1,4 +1,4 @@
-"""Emails beside the WhatsApp class and study notices (docs/GOOGLE_WORKSPACE.md §5.3): cancelled and rescheduled classes, a published
+"""Emails beside the WhatsApp class and study notices (docs/INTEGRATIONS.md Part B §5.3): cancelled and rescheduled classes, a published
 result, an issued certificate and a batch change that needs the student's agreement. Gmail is faked."""
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace

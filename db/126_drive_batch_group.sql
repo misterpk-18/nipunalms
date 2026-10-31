@@ -1,4 +1,4 @@
--- 126: Google Workspace integration: a Google Group per batch (docs/GOOGLE_WORKSPACE.md §5.2)
+-- 126: Google Workspace integration: a Google Group per batch (docs/INTEGRATIONS.md Part B §5.2)
 -- Depends on: 125 (google_drive_items)
 --   A batch's students are members of one Google Group, and the batch's Drive folder is shared once with that group, instead of
 --   with each student. The group's address is kept on the batch's folder row so a later change of Workspace domain cannot orphan it.

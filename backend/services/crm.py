@@ -720,7 +720,7 @@ HANDLERS: dict[str, Callable[[CrmEvent, dict], Handled]] = {
 # ---------------------------------------------------------------- what the CRM pulls back
 
 def status_since(since: datetime, crm_admission_id: str | None = None, crm_person_id: str | None = None) -> dict:
-    """The values the CRM stores about the LMS that changed after `since` (see docs/CRM_INTEGRATION.md):
+    """The values the CRM stores about the LMS that changed after `since` (see docs/INTEGRATIONS.md Part A):
     persons.lms_user_id / lms_provisioned_at / lms_activated_at; admissions.lms_status / lms_last_activity_at; the academic
     columns the LMS now owns (enrolment_status, allocations and joining date, completion); batches; certificates from the
     LMS Certificate Register. Curriculum stays in the LMS: the CRM no longer holds it (db 104).

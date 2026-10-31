@@ -10,11 +10,11 @@ clean up, and the backlog of open gaps and decisions.
 | [C — Running with the local CRM](#part-c--running-with-the-local-crm) | Both systems on one laptop, the smoke test, checking received events |
 | [D — Status and clean-up](#part-d--status-and-clean-up) | What is built, what is left to tidy |
 | [E — Backlog](#part-e--backlog) | Open product decisions and gaps found while building |
-| [F — Deployment](#part-f--deployment) | The server templates in `deploy/`: API service, nginx, cron jobs, backups, redeploy and migrations |
+| [F — Deployment](#part-f--deployment) | The server templates in `deploy/`: API service, nginx, cron jobs, backups, redeploy and migrations; the October 2026 production test |
 
-The other docs: [API.md](API.md) (backend architecture, conventions, every endpoint), [DATABASE.md](DATABASE.md)
-(migrations and schema rules), [CRM_INTEGRATION.md](CRM_INTEGRATION.md) (the LMS ↔ CRM contract),
-`GAP_FIX_PLAN.md` and `GAPS.md` (the gaps against the approved modules and the plan to close them).
+The other docs: [PRODUCT_GUIDE.md](PRODUCT_GUIDE.md) (what the product does), [API.md](API.md) (backend architecture,
+conventions, every endpoint), [DATABASE.md](DATABASE.md) (migrations and schema rules) and [INTEGRATIONS.md](INTEGRATIONS.md)
+(the CRM contract, Google Workspace and the WhatsApp templates). These five are the only docs; keep it that way.
 
 ---
 
@@ -30,7 +30,7 @@ nipunalms/
 ├── deploy/           Server templates: systemd unit, nginx site, crontab, backup script (Part F)
 ├── docs/             The project docs (this folder) and the content data request (PDF)
 ├── nipuna crm-docs/  Only while a CRM integration round is open: the round's brief, replies and test results (see
-│                     CRM_INTEGRATION.md §5; deleted once the round is recorded there)
+│                     INTEGRATIONS.md Part A §5; deleted once the round is recorded there)
 └── venv/             Python virtualenv
 ```
 
@@ -202,7 +202,7 @@ Other backend commands (from `backend/`, prefix `APP_ENV=development ../venv/bin
 | `create-test-db` | Rebuild `nipunalms_test` by hand |
 | `crm-outbox list` | Values queued in the LMS outbox (not delivered: the CRM pulls instead) |
 | `jobs list`, `jobs run [name] [--loop]` | Background jobs (`services/jobs.JOBS`): `recording-check`, `support-escalate-overdue`, `allocation-escalation`, `attempts-expire`, `attendance-unconfirmed`, `session-delay-check`, `class-log-check`, `class-reminders`, `email-send`, `google-sync`, `whatsapp-send`. Each run is recorded in `job_runs`. Locally, `jobs run --loop` (every 60 s, `--interval` to change) stands in for cron |
-| `google check [--mailbox X] [--branch N]`, `google send-test --to X` | First-day Google checks: key, delegation per scope, a read of the mailbox's calendar and Drive (read-only); and one real test email. See [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md#first-real-test) |
+| `google check [--mailbox X] [--branch N]`, `google send-test --to X` | First-day Google checks: key, delegation per scope, a read of the mailbox's calendar and Drive (read-only); and one real test email. See [INTEGRATIONS.md Part B](INTEGRATIONS.md#first-real-test) |
 | `seed-crm-batches` | Batches (and `bm.*` / `trainer.*` logins) for the students the CRM sent; `*-dev` only, allocates nobody ([details](#batches-for-the-crms-own-students)) |
 | `api-http` | Regenerate `backend/api.http` after adding endpoints |
 | `cartograph files <module>:<function> [--depth 2]`, `cartograph build` | Which files to read before changing a backend function; the searchable map page (see below) |
@@ -233,11 +233,17 @@ port. `admin-u17` locks `trainer.g3@nipuna.test` by failing six sign-ins and unl
 
 ### 7. Docs to keep up to date
 
+Five docs only: [PRODUCT_GUIDE.md](PRODUCT_GUIDE.md), [API.md](API.md), [DATABASE.md](DATABASE.md),
+[INTEGRATIONS.md](INTEGRATIONS.md) and this file. Add to one of them rather than starting a new doc.
+
 | When you… | Update |
 |---|---|
 | Add or change a migration | [DATABASE.md](DATABASE.md) (status table + a section) |
 | Add or change an endpoint | [API.md](API.md) (endpoint table + rules), `backend/api.http` |
-| Change what the LMS accepts from or sends to the CRM | [CRM_INTEGRATION.md](CRM_INTEGRATION.md) §2 and §4 |
+| Change what the LMS accepts from or sends to the CRM | [INTEGRATIONS.md](INTEGRATIONS.md) Part A §2 and §4 |
+| Change a Google feature or a WhatsApp template | [INTEGRATIONS.md](INTEGRATIONS.md) Part B or Part C |
+| Change the product's behaviour as users see it | [PRODUCT_GUIDE.md](PRODUCT_GUIDE.md) |
+| Change how the server is set up or deployed | Part F of this file |
 | Change a screen or frontend convention | Part B of this file |
 | Find a gap or make a product decision | Part E of this file |
 | Change setup, environments or test commands | Part A of this file |
@@ -484,7 +490,7 @@ formatter, `useCanAdminister`).
 
 Both systems on one laptop, each with its own dev database: CRM `nipunacrm-dev` on :5050 ↔ LMS `nipunalms-dev` on
 :5060. The CRM never touches the LMS database: it posts events to `POST /api/v1/integrations/crm/events` and pulls
-`GET /api/v1/integrations/crm/status`. The contract is [CRM_INTEGRATION.md](CRM_INTEGRATION.md).
+`GET /api/v1/integrations/crm/status`. The contract is [INTEGRATIONS.md Part A](INTEGRATIONS.md).
 
 ### 1. Connection
 
@@ -556,7 +562,7 @@ Expect `201` with `"status":"Applied"`. Run it again: `200` with `"replayed":tru
 
 Every screen in the prototype is built on `main`, and every screen has been redesigned in the UX plan (U0–U18, `UX_PLAN.md`):
 the shell and navigation, notifications, sign-in and accounts, and the Student, Trainer, Branch Manager, Founder and Super Admin
-workspaces. CRM integration rounds 1–8 are done on both sides (db 090–110, 116, 122; [CRM_INTEGRATION.md §5](CRM_INTEGRATION.md#5-integration-rounds)).
+workspaces. CRM integration rounds 1–8 are done on both sides (db 090–110, 116, 122; [INTEGRATIONS.md Part A §5](INTEGRATIONS.md#5-integration-rounds)).
 The last three cover WhatsApp through the CRM, the preferred batch, and the batch / allocation / WhatsApp alignment. WhatsApp is on in dev
 and waits only on Pinbot approving the nine templates.
 
@@ -590,7 +596,7 @@ Open product decisions and gaps found while building. Newest at the bottom of ea
 
 ### CRM connection
 
-Open items and decisions are in [CRM_INTEGRATION.md §4](CRM_INTEGRATION.md#4-open-items) (activation link delivery,
+Open items and decisions are in [INTEGRATIONS.md Part A §4](INTEGRATIONS.md#4-open-items) (activation link delivery,
 placement, support cross-link, staff accounts, course fee). LMS-side gaps:
 
 | Item | Notes |
@@ -812,3 +818,46 @@ Checked locally (3 Oct 2026): the API under gunicorn with the unit's command and
 `/api/v1/health`, production refuses the default secret, and `backup.sh` (with `LMS_ROOT` pointing at a scratch folder)
 writes a restorable dump and an uploads tarball and prunes old files. nginx was not tested (not installed locally).
 
+
+### 6. Production test (28 Oct – 1 Nov 2026)
+
+The combined CRM + LMS test ran in production, phases A to M, with both databases dumped first and restored at the end. The
+two teams worked through notes (`nipuna crm-docs/` here, `nipuna lms-docs/` in the CRM repo), since deleted. The production
+LMS's TEST accounts and the CRM's TEST person, lead and admission were used; every WhatsApp went to the one test number.
+
+| Phase | Result |
+|---|---|
+| A Baseline, B Link bring-up, C Catalogue and branches | Passed. Branches and 8 courses Applied; a stale `source_version` is "Ignored: stale" |
+| D Lead to admission, E Activation and sign-in | Passed. One payment, one student, one login; replays changed nothing. E3 (activation link by WhatsApp) Skipped: template Rejected |
+| F Batch and allocation | Passed. F6 (Drive group) passed once the student's email had no `+` in it (Google refuses such a member) |
+| G Online class, Meet, attendance, results, certificate | Passed, G1–G5 (certificate issued and pulled by the CRM) |
+| H Money after admission | H1, H4–H7 passed (H6/H7 on a second TEST admission). H2, H3, H8 run on the dev pair only (they need a second approver) |
+| I Person changes | I1, I2 passed; I3 Skipped (no offers in production) |
+| J WhatsApp and status events | J1–J5 passed. Delivered and Read Skipped: Pinbot's delivery webhook is not pointed at the production CRM |
+| K Resilience | K1–K4, K6, K7 passed (LMS down 3½ minutes: the CRM held its events and delivered them; CRM unreachable: the LMS's WhatsApp waited and retried; both servers rebooted). K5 Skipped (run on the dev pair) |
+| L Security | L1, L4, L5 passed. L2 failed (activation tokens in the nginx and gunicorn logs), fixed: nginx masks them as `[token]` and sends `Referrer-Policy: no-referrer`, gunicorn keeps no access log |
+| M Clean-up | Both restored on 31 Oct – 1 Nov: the LMS from `BASELINE-clean-after-go-live.dump`, the CRM from its 28 Oct dump, then branches and courses backfilled. Evidence dumps `nipunalms-after-link-test-2026-10-31.dump` and the CRM's `nipunacrm-after-link-test-2026-10-31.dump` |
+
+**Fixed in the LMS during or after the test:** the Meet organizer shown is the branch's Google setting; a new batch group Google
+cannot read yet is retried; a student's Submit needs something to submit; tokens out of the logs; a member address Google refuses
+no longer fails the batch's Drive sync; an email change re-syncs the student's batch groups; class reminders are on by default.
+
+**Incidents.**
+- The CRM's cutoff had been lowered to 2026-10-28 for the test. On 31 Oct two real admissions reached the LMS and were emailed
+  activation links. The links were revoked unused, the cutoff went back to 2099-12-31, and the CRM replayed the real rows after
+  its restore with their codes unchanged.
+- The CRM wrote the service key into its server's journal during its L2 check. A new key was put in place on both sides at the
+  restore, and the old one removed.
+
+**After the restore.**
+- The LMS keeps its code counters at their test values, so no test code is issued again. The next Guntur batch is
+  `NIT-GNT-BAT-2026-000002`, and `NIT-CERT-2026-000001` and `ENR-000001`–`000004` stay unused.
+- Until go-live the CRM's cutoff is 2099-12-31, and its `reconcile` shows drift 2: the two real admissions
+  `NIT-VIJ-2026-000001` and `NIT-GNT-2026-000003`.
+- **Go-live:** the CRM sets `LMS_SYNC_FROM_DATE=2026-10-31`, restarts and runs `lms backfill`. The two students then get a fresh
+  invite.
+
+**Still open:**
+- The activation link and staff invite templates (resubmit with a real LMS hostname, [INTEGRATIONS.md Part C](INTEGRATIONS.md#part-c--whatsapp-templates)).
+- Pinbot's delivery webhook for the production CRM.
+- On the CRM side, its "account activated" message on Invited and `end_reason` on Active allocations; fixes are ready.

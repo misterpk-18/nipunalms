@@ -1,4 +1,4 @@
-"""Google Workspace slice 3 (docs/GOOGLE_WORKSPACE.md §5.2): a batch's Drive folder shared with its trainers, and with one Google
+"""Google Workspace slice 3 (docs/INTEGRATIONS.md Part B §5.2): a batch's Drive folder shared with its trainers, and with one Google
 Group per batch whose members are the students holding a seat. Drive and the Directory are faked: no test reaches Google."""
 import re
 from datetime import datetime, timedelta, timezone

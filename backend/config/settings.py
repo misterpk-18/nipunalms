@@ -48,7 +48,7 @@ class BaseConfig:
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024
 
-    # Google Workspace (docs/GOOGLE_WORKSPACE.md). One service account acts as the branch mailboxes through domain-wide delegation.
+    # Google Workspace (docs/INTEGRATIONS.md Part B). One service account acts as the branch mailboxes through domain-wide delegation.
     # The key is read from GOOGLE_SA_SECRET_NAME (Secret Manager, production) or GOOGLE_SA_KEY_FILE (a git-ignored file, development).
     # Unset values mean "Not Configured": nothing calls Google and the LMS behaves as it did before.
     GOOGLE_WORKSPACE_DOMAIN = os.getenv("GOOGLE_WORKSPACE_DOMAIN") or None

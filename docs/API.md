@@ -40,7 +40,7 @@ success, roll back on error); every exception becomes `{"error": {...}}`.
 |---|---|---|
 | Separate system | Own repo, own database (`nipunalms`), own API (`:5060`) and SPA (`:5174`) | CRM stays authoritative for Admission and finance; LMS owns learning (Module 27 authority split) |
 | Schema ownership | SQL files in `db/` are the source of truth; models map existing tables; never `db.create_all()` | Triggers, views, enums and constraints |
-| CRM → LMS | CRM posts versioned, idempotent events to `POST /api/v1/integrations/crm/events` (service key). The LMS stores every event in `crm_events` and upserts Student, Admission projection, Enrolments and the finance summary. Contract: [CRM_INTEGRATION.md](CRM_INTEGRATION.md) | Durable handoff, retry of the same event, late events cannot undo newer decisions |
+| CRM → LMS | CRM posts versioned, idempotent events to `POST /api/v1/integrations/crm/events` (service key). The LMS stores every event in `crm_events` and upserts Student, Admission projection, Enrolments and the finance summary. Contract: [INTEGRATIONS.md Part A](INTEGRATIONS.md) | Durable handoff, retry of the same event, late events cannot undo newer decisions |
 | Finance in LMS | Read-only projection (`finance_summaries`) of what the CRM sends; the LMS never edits money | "CRM is authoritative for Admission and finance" |
 | Identity | One `students` row per CRM Person (`crm_person_id` unique) = one LMS account. Student logs in with Student ID (`NIT-STU-2026-004182`) or email; mobile is never a login key | Shared family mobile is not identity proof (M29) |
 | Activation | Single-use, expiring activation token (hash stored); the student sets their own password. Staff can issue / reissue (supervised activation) | M29 assisted activation |
@@ -177,7 +177,7 @@ Codes follow the prototype: `NIT-STU-2026-004182`, `ADM-GNT-2026-000214`, `NIT-G
 | POST | `/integrations/crm/events/{id}/retry` | Super Admin | Re-apply a failed event |
 | GET | `/integrations/crm/status?since=&crm_admission_id=&crm_person_id=` | CRM service key | What the CRM stores about the LMS, changed since `since`: `persons`, `admissions`, `academics`, `batches`, `certificates`, `as_of`. The optional filters narrow every key to one admission or person and are echoed as `filter`. `as_of` is safe to store as the next `since` (rows can repeat, none are skipped); no paging. Seed rows (`seed_data`) are left out |
 
-Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2](CRM_INTEGRATION.md#2-the-contract).
+Payloads, validation rules and response handling are in [INTEGRATIONS.md Part A §2](INTEGRATIONS.md#2-the-contract).
 
 **Rules:**
 - Every event is stored once in `crm_events`. Replaying an `event_id` returns the first result; the same `event_id`
@@ -194,7 +194,7 @@ Payloads, validation rules and response handling are in [CRM_INTEGRATION.md §2]
   finance snapshot.
 - Values the CRM keeps (`persons.lms_user_id`, `admissions.lms_status`, `batches.lms_course_id`, …) are queued in
   `crm_outbox` in the same transaction as the change and are also served by `/integrations/crm/status`. Mapping:
-  [CRM_INTEGRATION.md §2.2](CRM_INTEGRATION.md#22-lms--crm-what-the-crm-stores-about-the-lms).
+  [INTEGRATIONS.md Part A §2.2](INTEGRATIONS.md#22-lms--crm-what-the-crm-stores-about-the-lms).
 
 ### 4.3 Reference & backbone reads
 
@@ -688,7 +688,7 @@ Nothing here calls an external system.
   `BranchFinanceSnapshot`: `{state: "Configured" | "Partial Data", unit ("INR" money as a string, or "count"), value,
   target, period, as_of, stale, missing_branches, detail}`. With no snapshot for any branch in view they stay
   `{"state": "Not Configured", "reason", "refreshed_at"}`, never 0
-  ([CRM_INTEGRATION.md §2.1](CRM_INTEGRATION.md#21-crm--lms-events), finance snapshot figures).
+  ([INTEGRATIONS.md Part A §2.1](INTEGRATIONS.md#21-crm--lms-events), finance snapshot figures).
 - The AI rupee ceiling is `app_settings.ai_monthly_ceiling_inr`; absent = `Configuration Pending` (Founder decision).
   "Critical integration failures" counts the readiness register (Failed / Misconfigured), not live monitoring.
 
@@ -711,7 +711,7 @@ Nothing here calls an external system.
 
 ### 4.13 WhatsApp through the CRM (UX phase 6, `107`)
 
-No LMS endpoint: messages are queued in `whatsapp_outbox` by the service that made the change and handed to the CRM by the `whatsapp-send` job. The CRM endpoint the LMS calls is `POST {CRM_BASE_URL}/lms/whatsapp` (contract in `LMS_WHATSAPP_REPLY.md`, summarised in [CRM_INTEGRATION.md §3.2](CRM_INTEGRATION.md)).
+No LMS endpoint: messages are queued in `whatsapp_outbox` by the service that made the change and handed to the CRM by the `whatsapp-send` job. The CRM endpoint the LMS calls is `POST {CRM_BASE_URL}/lms/whatsapp` (contract in `LMS_WHATSAPP_REPLY.md`, summarised in [INTEGRATIONS.md Part A §3.2](INTEGRATIONS.md)).
 
 **Triggers** (`services/whatsapp_messages.py`; the template is in `services/whatsapp_templates.py`):
 | Template | Queued by | Dedupe key |

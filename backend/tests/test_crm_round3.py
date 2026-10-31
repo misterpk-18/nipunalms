@@ -1,4 +1,4 @@
-"""Rounds 3 and 5 (docs/CRM_INTEGRATION.md): the crm_admission_id / crm_person_id filter on the pull, and the CRM holding no
+"""Rounds 3 and 5 (docs/INTEGRATIONS.md Part A): the crm_admission_id / crm_person_id filter on the pull, and the CRM holding no
 curriculum (db 104). The LMS follows the course outline itself (db 121) and never waits on the CRM."""
 from datetime import datetime, timedelta, timezone
 

@@ -1,4 +1,4 @@
-"""What the Super Admin and Founder see of the Google Workspace integration (docs/GOOGLE_WORKSPACE.md §7): which features are on, the
+"""What the Super Admin and Founder see of the Google Workspace integration (docs/INTEGRATIONS.md Part B §7): which features are on, the
 queue of Google calls and emails with what went wrong, a retry for a stuck call, and each branch's Google settings."""
 import re
 
