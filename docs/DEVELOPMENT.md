@@ -861,3 +861,41 @@ no longer fails the batch's Drive sync; an email change re-syncs the student's b
 - The activation link and staff invite templates (resubmit with a real LMS hostname, [INTEGRATIONS.md Part C](INTEGRATIONS.md#part-c--whatsapp-templates)).
 - Pinbot's delivery webhook for the production CRM.
 - Closed on the CRM side on 1 Nov 2026: the "account activated" message now goes when the student first sets a password, and `end_reason` is no longer stored on an Active allocation.
+
+### 7. Go-live checklist
+
+Go-live is the day real students reach the LMS: the CRM moves its cutoff and backfills. Until then the CRM's
+`LMS_SYNC_FROM_DATE` is `2099-12-31`, and the two real admissions from 31 Oct 2026 (`NIT-VIJ-2026-000001` and
+`NIT-GNT-2026-000003`, both AWS with DevOps) wait in the CRM. `NIT-VIJ-2026-000001`'s planned start is 2 Nov 2026.
+Production as checked on 1 Nov 2026 is the starting point; tick each line on the day.
+
+**Before the day (LMS):**
+
+| # | Step | Who | Done when |
+|---|---|---|---|
+| G1 | Pick the start date and tell the CRM team (M5) | Manoj | The CRM confirms the date |
+| G2 | Invite the real staff on Users: a Branch Manager for Guntur and Vijayawada, the trainers for the first batches, and Academic Coordinators. Each gets an emailed link; the staff invite WhatsApp is not approved | Super Admin | Each has signed in once. Today there are only the Founder and the Super Admin |
+| G3 | Course content for the courses starting first (AWS with DevOps, `NIT-CRS-007`, at least): modules and topics | Academic team | The course shows its outline. All 8 courses have none today; classes can run without it, but topics, assignments and completion cannot be tracked |
+| G4 | Academic calendar: the year's holidays and closures | Super Admin | Listed on the calendar. There are none today, so working-day targets count every day |
+| G5 | Setup & health: mark Meet organizer Guntur and Vijayawada, Google Workspace and CRM verified once checked; Production authentication as set | Super Admin | Nothing pending that is in use. Meet, Drive and Email are verified already |
+| G6 | One batch per first course and branch, with a lead trainer, Ready | Branch Manager | It is offered under Waiting for a batch |
+| G7 | `/srv/nipunalms/deploy/backup.sh` on the LMS, and a CRM dump | LMS, CRM team | Both files exist |
+
+**On the day:**
+
+| # | Step | Who | Done when |
+|---|---|---|---|
+| G8 | CRM: `LMS_SYNC_FROM_DATE=2026-10-31`, restart, `lms backfill`, wait for the worker. A later date would leave the 31 Oct admissions behind | CRM team | `lms outbox` has no Failed rows; the earlier Superseded rows are replaced by Delivered ones |
+| G9 | LMS: CRM sync screen | LMS | Every event Applied. The two students appear under Waiting for a batch, and their activation emails are sent (their earlier links were revoked) |
+| G10 | CRM: `lms reconcile` | CRM team | Drift 0 (it is 2 until then) |
+| G11 | Allocate both students | Branch Manager | The CRM pull shows the allocation. The student joins the batch's Google group, and the CRM sends `batch_allocated` |
+| G12 | First class: scheduled online, Meet link and invitations; reminders go by WhatsApp and email (on by default) | Trainer | Arrives on both channels |
+
+**The first week:** check the CRM sync screen, Setup & health (stuck Google calls), the email outbox and `jobs.log` daily.
+`reconcile` should stay at drift 0. **To pause:** the CRM sets the cutoff back to `2099-12-31` and restarts. Nothing already
+in the LMS is removed, and new admissions wait in the CRM.
+
+**Not needed for the day:**
+- The two WhatsApp templates still rejected (activation link, staff invite). Their forms are in [INTEGRATIONS.md Part C](INTEGRATIONS.md#part-c--whatsapp-templates); until they are approved, both go by email.
+- Pinbot's delivery webhook (Delivered and Read).
+- AI provider, telephony and recordings.
