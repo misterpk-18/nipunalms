@@ -10,6 +10,7 @@ from config.database import db
 from config.timezone import today_ist
 from models import Batch, BatchAllocation, Enrolment
 from repositories import batches as batches_repo
+from repositories import students as students_repo
 from services.errors import BusinessRule
 from services.google import batch_folders, class_events
 
@@ -87,6 +88,15 @@ def _close(allocation: BatchAllocation, status: str, reason: str | None) -> None
     allocation.reason = reason or allocation.reason
     batch_folders.enqueue_sync(allocation.batch_id)
     class_events.enqueue_for_batch(allocation.batch_id)
+
+
+def email_changed(student_id: int) -> None:
+    """A student's email changed: the groups of the batches they sit in, and the invitations to those batches' upcoming online
+    classes, follow the new address (the sync takes the old one out)."""
+    enrolment_ids = {e.enrolment_id for e in students_repo.enrolments_of_student(student_id)}
+    for batch_id in sorted(batches_repo.batch_ids_for_enrolments(enrolment_ids)):
+        batch_folders.enqueue_sync(batch_id)
+        class_events.enqueue_for_batch(batch_id)
 
 
 def end(enrolment: Enrolment, status: str = "Ended", *, reason: str | None = None, enrolment_track_id: int | None = None) -> None:

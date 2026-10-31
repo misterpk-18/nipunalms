@@ -181,9 +181,16 @@ def _group_members(address: str) -> dict[str, str]:
             return members
 
 
-def _sync_group(address: str, wanted: dict[str, int | None]) -> tuple[int, int, list[GoogleError]]:
-    """Make the group's plain members exactly the wanted students (owners and managers are never touched)."""
-    base, failures, added, removed = f"/{quote(address, safe='@')}/members", [], 0, 0
+def _refuses_member(exc: GoogleError) -> bool:
+    """Google will never take this address as a member: 400 (not a valid member) or 404 memberKey (seen in production on 29 Oct
+    2026 for a Gmail address with a + in it). A 404 on the group itself, 403, 412, 429 and 5xx are about the group or the setup."""
+    return exc.status == 400 or (exc.status == 404 and "groupkey" not in str(exc).lower())
+
+
+def _sync_group(address: str, wanted: dict[str, int | None]) -> tuple[int, int, list[GoogleError], list[str]]:
+    """Make the group's plain members exactly the wanted students (owners and managers are never touched). An address Google
+    refuses as a member comes back in `refused`, not as a failure: it would fail the same way on every pass and hold up the batch."""
+    base, failures, refused, added, removed = f"/{quote(address, safe='@')}/members", [], [], 0, 0
     current = _group_members(address)
     for email in wanted:
         if email in current:
@@ -194,6 +201,9 @@ def _sync_group(address: str, wanted: dict[str, int | None]) -> tuple[int, int, 
         except GoogleError as exc:
             if exc.status == 409:  # already a member
                 continue
+            if _refuses_member(exc):
+                refused.append(email)
+                continue
             failures.append(exc)
     for email, role in current.items():
         if role == "MEMBER" and email not in wanted:
@@ -203,7 +213,16 @@ def _sync_group(address: str, wanted: dict[str, int | None]) -> tuple[int, int, 
             except GoogleError as exc:
                 if exc.status not in (404, 410):
                     failures.append(exc)
-    return added, removed, failures
+    return added, removed, failures, refused
+
+
+def _tell_refused(batch: Batch, email: str) -> None:
+    """Once per batch and address (the notice's event key): the student cannot open the folder until their email is corrected."""
+    delivery_notices.notify_branch_managers(
+        batch.branch_id, title=f"Google would not add a student to batch {batch.batch_code}", category="Batch", action_required=True,
+        body=f"Google refused {email} as a member of the batch's group, so this student cannot open the batch's Drive folder. "
+             "Correct the student's email in the CRM (Google does not take every address, for example a Gmail address with a + in it).",
+        event_key=f"drive-member-refused-{batch.batch_id}-{email}"[:200], link="/branch/batches")
 
 
 # ---------------------------------------------------------------- called from the google-sync job
@@ -223,11 +242,14 @@ def handle_sync(batch_id: int) -> str:
         item = _batch_item(mailbox, batch)
 
     failures: list[GoogleError] = []
+    refused: list[str] = []
     joined = left = 0
     if students or item.group_email:  # a batch that has never had a student needs no group
         address = _ensure_group(batch, item)
-        joined, left, group_failures = _sync_group(address, students)
+        joined, left, group_failures, refused = _sync_group(address, students)
         failures += group_failures
+        for email in refused:
+            _tell_refused(batch, email)
 
     wanted: dict[str, tuple[str, int | None, str]] = {email: ("writer", user_id, "user") for email, user_id in trainers.items()}
     if item.group_email:
@@ -260,7 +282,8 @@ def handle_sync(batch_id: int) -> str:
     db.session.flush()
     if failures:
         raise GoogleError(f"{len(failures)} share change(s) failed; first: {failures[0]}", retryable=any(f.retryable for f in failures))
-    return f"{joined} joined and {left} left the group, {added} shared, {removed} unshared, {len(students)} students and {len(trainers)} trainers with access"
+    note = f"{joined} joined and {left} left the group, {added} shared, {removed} unshared, {len(students) - len(refused)} students and {len(trainers)} trainers with access"
+    return note + (f"; Google refused {len(refused)} as members: {', '.join(refused)}" if refused else "")
 
 
 def on_dead(job_kind: str, batch_id: int, error: str) -> None:

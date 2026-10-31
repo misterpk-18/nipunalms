@@ -15,7 +15,7 @@ from models import EmailChangeCode, Student, User
 from repositories import email_change as email_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
-from services import audit, whatsapp_messages
+from services import allocations, audit, whatsapp_messages
 from services.context import current_user
 from services.errors import Forbidden, NotFound, TooManyAttempts, ValidationError
 from services.security import hash_token
@@ -91,6 +91,7 @@ def confirm(code: str) -> Student:
     row.used_at = now
     student.email = user.email = row.new_email
     db.session.flush()
+    allocations.email_changed(student.student_id)
     audit.record("STUDENT_EMAIL_CHANGED", "student", student.student_code, actor_user_id=user.user_id,
                  old={"email": old}, new={"email": row.new_email}, branch_id=student.service_branch_id)
     return student

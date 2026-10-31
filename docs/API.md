@@ -716,7 +716,7 @@ No LMS endpoint: messages are queued in `whatsapp_outbox` by the service that ma
 **Triggers** (`services/whatsapp_messages.py`; the template is in `services/whatsapp_templates.py`):
 | Template | Queued by | Dedupe key |
 |---|---|---|
-| `nipuna_lms_class_reminder_u_v1` | job `class-reminders` (confirmed, approved classes that start in 15 minutes to 2 hours); preference group *Learning reminders* (off until the person turns it on) | `class-reminder:<session>:<student>:<start>` |
+| `nipuna_lms_class_reminder_u_v1` | job `class-reminders` (confirmed, approved classes that start in 15 minutes to 2 hours); preference group *Learning reminders* (on until the person turns it off; opt-in until 1 Nov 2026) | `class-reminder:<session>:<student>:<start>` |
 | `nipuna_lms_class_cancelled_u_v1` | `class_sessions.cancel` | `class-cancelled:<session>:<student>` |
 | `nipuna_lms_class_rescheduled_u_v1` | `class_sessions` reschedule (only a change of time) | `class-rescheduled:<session>:<student>:<new start>` |
 | `nipuna_lms_result_published_u_v1` | `results.publish` (no marks in the message) | `result-published:<result>:<published at>` |

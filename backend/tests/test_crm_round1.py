@@ -225,6 +225,18 @@ def test_requalifying_refreshes_the_person_and_admission_but_never_the_learning(
     assert _scalar("SELECT count(*) FROM users WHERE student_id IS NOT NULL") == 1
 
 
+def test_a_new_email_from_the_crm_brings_the_students_batches_up_to_date(catalog, crm_event, monkeypatch):
+    from services import allocations
+    changed = []
+    monkeypatch.setattr(allocations, "email_changed", changed.append)
+    crm_event("AdmissionQualified", helpers.admission_data())
+    assert changed == []  # a new student has no batch yet
+    crm_event("AdmissionQualified", helpers.admission_data(), source_version=2)
+    assert changed == []  # the same email: nothing to do
+    crm_event("AdmissionQualified", helpers.admission_data(email="another@example.test"), source_version=3)
+    assert changed == [_scalar("SELECT student_id FROM students")]
+
+
 def test_a_field_the_crm_does_not_send_is_kept(catalog, crm_event):
     crm_event("AdmissionQualified", helpers.admission_data(name_te="అన్విత"))
     crm_event("AdmissionQualified", helpers.admission_data(), source_version=2)  # no name_te key at all

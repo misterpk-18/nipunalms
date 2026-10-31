@@ -360,6 +360,7 @@ def _upsert_student(person: dict, original_branch_id: int, service_branch_id: in
     """One student per CRM Person; the LMS login is created the first time only. Returns the raw activation token of a new login."""
     warnings: list[str] = []
     student = students_repo.get_student_by_crm_person_id(person["crm_person_id"])
+    existed, known_email = student is not None, student.email if student is not None else None
     if student is None:
         student = Student(crm_person_id=person["crm_person_id"], full_name=person["full_name"],
                           original_branch_id=original_branch_id, service_branch_id=service_branch_id)
@@ -372,6 +373,8 @@ def _upsert_student(person: dict, original_branch_id: int, service_branch_id: in
     if person.get("person_code"):
         student.crm_person_code = person["person_code"]
     db.session.flush()
+    if existed and student.email != known_email:
+        allocations.email_changed(student.student_id)  # their batch groups and class invitations follow the new address
 
     token = None
     if users_repo.get_by_student_id(student.student_id) is None:

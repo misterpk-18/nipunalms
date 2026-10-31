@@ -12,8 +12,9 @@ from services.context import current_user
 from services import whatsapp
 from services.errors import BusinessRule, NotFound, ValidationError
 
-# Groups whose external channels start enabled (essential service messages); the others start muted
-DEFAULT_EXTERNAL_ON = {"Service"}
+# Groups whose external channels start enabled (service messages and class reminders); the others start muted until the person
+# turns them on. Learning reminders were off by default until 1 Nov 2026: then no student got a class reminder unless they asked
+DEFAULT_EXTERNAL_ON = {"Service", "Learning reminders"}
 
 
 def _now() -> datetime:

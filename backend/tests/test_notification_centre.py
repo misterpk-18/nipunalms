@@ -156,16 +156,17 @@ class TestPreferences:
         groups = {g["group"]: g["settings"] for g in data["groups"]}
         assert set(groups) == {"Service", "Learning reminders", "Placement", "Promotions & alumni"}
         assert groups["Service"] == {"In-app": True, "WhatsApp": True, "Email": True}
+        assert groups["Learning reminders"] == {"In-app": True, "WhatsApp": True, "Email": True}
         assert groups["Promotions & alumni"] == {"In-app": True, "WhatsApp": False, "Email": False}
 
     def test_preferences_are_saved_per_user(self, client, world):
         h = world.h(world.students.s1)
         response = client.put(f"{API}/preferences", headers=h, json={"preferences": [
-            {"group": "Learning reminders", "channel": "WhatsApp", "enabled": True},
+            {"group": "Learning reminders", "channel": "WhatsApp", "enabled": False},
             {"group": "Service", "channel": "Email", "enabled": False}]})
         assert response.status_code == 200
         groups = {g["group"]: g["settings"] for g in response.get_json()["data"]["groups"]}
-        assert groups["Learning reminders"]["WhatsApp"] is True and groups["Service"]["Email"] is False
+        assert groups["Learning reminders"]["WhatsApp"] is False and groups["Service"]["Email"] is False
         other = client.get(f"{API}/preferences", headers=world.h(world.students.s2)).get_json()["data"]["groups"]
         assert {g["group"]: g["settings"] for g in other}["Service"]["Email"] is True
 

@@ -122,13 +122,17 @@ def test_a_message_past_its_expiry_is_skipped_not_sent(email_on, make_student):
     assert fake.sent == [] and (activation_row().status, activation_row().status_note) == ("Skipped", "Too old to send")
 
 
-def test_a_reminder_waits_for_the_student_to_choose_email(email_on, world):  # noqa: F811
-    from models import Student
+def test_a_reminder_goes_until_the_student_switches_reminder_email_off(email_on, world):  # noqa: F811
+    from models import Student, User
+    from repositories import notifications as notifications_repo
     student = db.session.get(Student, world.students.s1.student_id)
     values = {"student": "S", "branch": "B", "class_title": "C", "course": "J", "start": "now", "mode": "M"}
-    message = emails.enqueue(email_templates.CLASS_REMINDER, values, dedupe_key="pref-1", student=student)
+    assert emails.enqueue(email_templates.CLASS_REMINDER, values, dedupe_key="pref-1", student=student).status == "Queued"
+    user = db.session.execute(select(User).where(User.student_id == student.student_id)).scalar_one()
+    notifications_repo.set_preference(user.user_id, "Learning reminders", "Email", False)
+    message = emails.enqueue(email_templates.CLASS_REMINDER, values, dedupe_key="pref-2", student=student)
     assert (message.status, message.status_note) == ("Skipped", "The person switched email off for this kind of message")
-    assert emails.enqueue(email_templates.CLASS_REMINDER, {**values, "mode": ""}, dedupe_key="pref-2", student=student).status_note == "No mode"
+    assert emails.enqueue(email_templates.CLASS_REMINDER, {**values, "mode": ""}, dedupe_key="pref-3", student=student).status_note == "No mode"
 
 
 # ---------------------------------------------------------------- sending, retries
@@ -187,20 +191,20 @@ def test_class_reminders_by_email_follow_the_confirmed_class_and_the_students_ch
     make_session(world.batches.b1, t1, now + timedelta(minutes=65), hours=0.5, title="Not confirmed")
     reminders = lambda: [r for r in rows() if r.template == "class_reminder"]  # noqa: E731
 
-    assert email_messages.class_reminders() == {"emails": 1}
-    (message,) = reminders()
-    assert message.status == "Skipped" and "switched email off" in message.status_note  # reminders are opt-in
+    assert email_messages.class_reminders() == {"emails": 1}  # reminders are on until the person turns them off
+    queued = [r for r in reminders() if r.status == "Queued"]
+    assert len(queued) == 1 and queued[0].subject == "Reminder: Reminder class starts at " + queued[0].subject.rsplit("starts at ", 1)[1]
+    assert queued[0].expires_at == soon.starts_at and queued[0].to_email == world.students.s1.email
+    assert email_messages.class_reminders() == {"emails": 0}  # the same class and time is never reminded twice
 
     run_sql("DELETE FROM email_outbox WHERE template = 'class_reminder'")
     from flask import current_app
     with current_app.test_client() as client:
         assert client.put(f"{API}/notifications/preferences", headers=world.h(world.students.s1),
-                          json={"preferences": [{"group": "Learning reminders", "channel": "Email", "enabled": True}]}).status_code == 200
+                          json={"preferences": [{"group": "Learning reminders", "channel": "Email", "enabled": False}]}).status_code == 200
     assert email_messages.class_reminders() == {"emails": 1}
-    queued = [r for r in reminders() if r.status == "Queued"]
-    assert len(queued) == 1 and queued[0].subject == "Reminder: Reminder class starts at " + queued[0].subject.rsplit("starts at ", 1)[1]
-    assert queued[0].expires_at == soon.starts_at and queued[0].to_email == world.students.s1.email
-    assert email_messages.class_reminders() == {"emails": 0}  # the same class and time is never reminded twice
+    (message,) = reminders()
+    assert message.status == "Skipped" and "switched email off" in message.status_note
 
 
 # ---------------------------------------------------------------- Gmail and the job

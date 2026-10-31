@@ -68,6 +68,15 @@ class TestEmailChange:
         actions = db.session.execute(select(AuditLog.action)).scalars().all()
         assert "STUDENT_EMAIL_CHANGED" in actions and "EMAIL_CHANGE_CODE_REQUESTED" in actions
 
+    def test_a_confirmed_email_brings_the_students_batches_up_to_date(self, client, world, switched_on, fixed_code, monkeypatch):
+        from services import allocations
+        changed = []
+        monkeypatch.setattr(allocations, "email_changed", changed.append)
+        ask_code(client, world, "new.address@example.test")
+        assert changed == []
+        assert confirm(client, world, fixed_code).status_code == 200
+        assert changed == [world.students.s1.student_id]
+
     def test_a_code_works_once_and_not_for_another_address(self, client, world, switched_on, fixed_code):
         assert ask_code(client, world, "one@example.test").status_code == 200
         assert confirm(client, world, fixed_code).status_code == 200

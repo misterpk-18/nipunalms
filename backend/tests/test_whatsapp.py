@@ -134,23 +134,21 @@ def test_class_reminders_follow_the_confirmed_class_and_its_time(world, make_ses
     soon = make_session(world.batches.b1, t1, now + timedelta(minutes=30), hours=0.5, title="Reminder class", confirmed_at=now, confirmed_by=bm)
     make_session(world.batches.b1, t1, now + timedelta(minutes=65), hours=0.5, title="Not confirmed")
     make_session(world.batches.b1, t1, now + timedelta(hours=5), hours=1, title="Too far away", confirmed_at=now, confirmed_by=bm)
-    # reminders are a kind of message people choose: off until they turn them on
-    assert whatsapp_messages.class_reminders() == {"reminders": 1}
-    (message,) = messages()
-    assert message.status == "Skipped" and "switched WhatsApp off" in message.status_note
-
-    run_sql("DELETE FROM whatsapp_outbox")
-    client_headers = world.h(world.students.s1)
-    assert world.h  # logged in
-    from flask import current_app
-
-    with current_app.test_client() as client:
-        assert client.put(f"{API}/notifications/preferences", headers=client_headers,
-                          json={"preferences": [{"group": "Learning reminders", "channel": "WhatsApp", "enabled": True}]}).status_code == 200
+    # reminders are on until the person turns them off
     assert whatsapp_messages.class_reminders() == {"reminders": 1}
     (message,) = messages("Queued")
     assert message.params[2] == "Reminder class" and message.expires_at == soon.starts_at
     assert whatsapp_messages.class_reminders() == {"reminders": 0}  # the same class and time is never reminded twice
+
+    run_sql("DELETE FROM whatsapp_outbox")
+    from flask import current_app
+
+    with current_app.test_client() as client:
+        assert client.put(f"{API}/notifications/preferences", headers=world.h(world.students.s1),
+                          json={"preferences": [{"group": "Learning reminders", "channel": "WhatsApp", "enabled": False}]}).status_code == 200
+    assert whatsapp_messages.class_reminders() == {"reminders": 1}
+    (message,) = messages()
+    assert message.status == "Skipped" and "switched WhatsApp off" in message.status_note
 
 
 # ---------------------------------------------------------------- the job

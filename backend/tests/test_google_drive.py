@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import select
 
 from config.database import db
-from models import GoogleDriveGrant, GoogleDriveItem, GoogleJob, Notification
+from models import GoogleDriveGrant, GoogleDriveItem, GoogleJob, Notification, Student
 from services import allocations, batches as batches_service, integrations
 from services.google import batch_folders
 from services.google import client as google_client
@@ -25,6 +25,7 @@ class FakeDrive:
         self.calls, self.folders, self.permissions = [], {}, {}  # folders: lms_key -> id; permissions: id -> (folder, email, role, type)
         self.groups = {}  # group address -> {member email: role}
         self.no_google = set()  # addresses Drive can only invite
+        self.not_members = set()  # addresses the Directory refuses as group members (404 memberKey)
         self.fail = []  # errors to raise on the next calls, first in first out
         self.counter = 0
 
@@ -72,6 +73,8 @@ class FakeDrive:
         if method == "POST":
             if body["email"] in members:
                 raise GoogleError("Google returned 409: Member already exists.", status=409)
+            if body["email"] in self.not_members:
+                raise GoogleError("Google returned 404: Resource Not Found: memberKey", status=404)
             members[body["email"]] = body["role"]
             return {}
         if method == "DELETE":
@@ -324,6 +327,51 @@ def test_one_failed_group_change_is_retried_and_the_rest_is_kept(world, allocate
     db.session.commit()
     assert run()["done"] == 1
     assert set(drive.groups[group_of(batch)]) == {email_of(student), email_of(other)}
+
+
+def test_a_student_google_refuses_as_a_member_does_not_hold_up_the_batch(world, allocate, make_student, drive):  # noqa: F811
+    """Seen in production on 29 Oct 2026: a Gmail address with a + in it got 404 memberKey, and the batch's job died on every sync."""
+    people, batch, student = world
+    other = make_student()
+    drive.not_members.add(email_of(student))
+    seat(student, batch, allocate)
+    seat(other, batch, allocate)
+    assert run() == {"done": 1, "retry": 0, "dead": 0}
+    assert set(drive.groups[group_of(batch)]) == {email_of(other)}
+    assert (group_of(batch), "reader") in live()
+    [job] = sync_jobs(batch)
+    assert f"Google refused 1 as members: {email_of(student)}" in job.payload["result"]
+    notices = db.session.execute(select(Notification).where(Notification.title.startswith("Google would not add"))).scalars().all()
+    assert notices and {n.event_key for n in notices} == {f"drive-member-refused-{batch.batch_id}-{email_of(student)}"}
+
+    batch_folders.enqueue_sync(batch.batch_id)  # any later change runs the batch again: still done, and no second notice
+    db.session.commit()
+    assert run() == {"done": 1, "retry": 0, "dead": 0}
+    assert len(db.session.execute(select(Notification).where(Notification.title.startswith("Google would not add"))).scalars().all()) == len(notices)
+
+
+def test_a_new_email_replaces_the_old_one_in_the_group(world, allocate, drive):  # noqa: F811
+    """Seen in production on 29 Oct 2026: the CRM changed a student's email and the group kept the old address."""
+    people, batch, student = world
+    seat(student, batch, allocate)
+    run()
+    old = email_of(student)
+    db.session.get(Student, student.student_id).email = "new.address@example.test"
+    allocations.email_changed(student.student_id)
+    db.session.commit()
+    assert run()["done"] == 1
+    assert set(drive.groups[group_of(batch)]) == {"new.address@example.test"} and old not in drive.groups[group_of(batch)]
+
+
+def test_a_group_member_refused_for_lack_of_rights_still_fails_the_job(world, allocate, drive):  # noqa: F811
+    """403 is about the setup (the delegation or the group's settings), not the address, so it is not set aside."""
+    people, batch, student = world
+    seat(student, batch, allocate)
+    drive.fail = [None] * 8 + [GoogleError("Google returned 403: Not Authorized to access this resource/api", status=403)]
+    assert run() == {"done": 0, "retry": 0, "dead": 1}
+    titles = db.session.execute(select(Notification.title)).scalars().all()
+    assert any(t.startswith("Drive sharing failed") for t in titles)
+    assert not any(t.startswith("Google would not add") for t in titles)
 
 
 def test_when_the_retries_run_out_the_branch_managers_are_told(world, allocate, drive):  # noqa: F811
