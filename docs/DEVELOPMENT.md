@@ -588,7 +588,7 @@ Still to do:
 | Gap fix phases 7–12 | Assessments, attendance and certificates, content and recordings, notifications and integrations (the CRM restrictions intake), reports and AI, career and guardians (the last after CRM round 4) |
 | Owner actions | The owner's list: restart the :5060 API, apply db 111–115 to any other database, submit the WhatsApp templates in Pinbot, and the open CRM questions |
 | Product / role guide | A guide like the CRM's `PRODUCT_GUIDE.md`. Not started |
-| Deployment | Running on its own t3.micro at `https://3-111-225-125.sslip.io` (Part F); no users yet, Google features off, not yet linked to the CRM |
+| Deployment | Running on its own t3.micro at `https://nipunalms.com` (Part F). Linked to the production CRM, which answers on the same domain since 1 Nov 2026; Google Meet, Drive and Email are on. Production-tested 28 Oct – 1 Nov 2026 (Part F §6). Real students start at go-live, when the CRM moves its cutoff |
 
 ## Part E — Backlog
 
@@ -860,4 +860,4 @@ no longer fails the batch's Drive sync; an email change re-syncs the student's b
 **Still open:**
 - The activation link and staff invite templates (resubmit with a real LMS hostname, [INTEGRATIONS.md Part C](INTEGRATIONS.md#part-c--whatsapp-templates)).
 - Pinbot's delivery webhook for the production CRM.
-- On the CRM side, its "account activated" message on Invited and `end_reason` on Active allocations; fixes are ready.
+- Closed on the CRM side on 1 Nov 2026: the "account activated" message now goes when the student first sets a password, and `end_reason` is no longer stored on an Active allocation.
