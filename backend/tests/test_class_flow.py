@@ -48,6 +48,8 @@ def counts(client, w, who="t1"):
 
 def running_class(w, **columns):
     """A class that began 30 minutes ago and ends in 90 (inside today's window for the trainer)."""
+    if (now() - timedelta(minutes=30)).astimezone(IST).date() != now().astimezone(IST).date():
+        pytest.skip("too close to midnight IST: a class that began 30 minutes ago began yesterday")
     return w.make_session(w.b1, w.t1, now() - timedelta(minutes=30), title="Running class", topic_id=w.topics[0], **columns)
 
 

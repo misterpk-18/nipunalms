@@ -68,7 +68,8 @@ def build(make_user, make_student, make_batch, make_session, allocate, login) ->
 
     w.recent = delivered(w.recent_start, w.topics[0], "Recent class")
     w.older = delivered(w.older_start, w.topics[1], "Older class")
-    w.future = make_session(w.b1, w.t1, now + timedelta(days=3), title="Future class")
+    # a fixed hour, like the classes above: at "now + 3 days" it clashed with tests' own 10:00 classes when run in the morning
+    w.future = make_session(w.b1, w.t1, (now + timedelta(days=3)).replace(hour=16, minute=0, second=0, microsecond=0), title="Future class")
     w.delivered = delivered
 
     w.h = {name: login(getattr(w, name).email) for name in ("t1", "t2", "ac", "ac2", "bm", "admin", "founder", "ac_v", "bm_v", "s1", "s2", "s3")}
