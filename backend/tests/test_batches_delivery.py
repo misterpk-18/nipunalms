@@ -86,6 +86,17 @@ def test_proposal_and_confirmation_by_a_branch_manager(world, client, login, mak
     assert r.status_code == 422 and "trainer already teaches" in r.get_json()["error"]["message"]
 
 
+def test_one_trainer_may_teach_a_hybrid_batch(world, client, login, make_batch):
+    """The lead teaches the classroom and the online learners together; a co-trainer is optional."""
+    people, _, _ = world
+    batch = make_batch(1, trainers=[people["g1"]], mode="Hybrid")
+    data(call(client, login, people["ac"], "patch", f"/batches/{batch.batch_id}", json=ready_fields(classroom_capacity=20, online_capacity=10)), 200)
+    readiness = data(call(client, login, people["ac"], "get", f"/batches/{batch.batch_id}/readiness"), 200)
+    people_item = next(c for c in readiness["checklist"] if c["key"] == "people")
+    assert people_item["status"] == "pass" and people_item["detail"].startswith("Lead ") and "second trainer" not in people_item["detail"]
+    assert data(call(client, login, people["ac"], "post", f"/batches/{batch.batch_id}/proposal", json={}), 200)["state"] == "Proposed"
+
+
 def test_hold_resume_complete_and_archive(world, client, login, make_batch, make_session, allocate, run_sql):
     people, _, student = world
     batch = confirmed_batch(client, login, people, make_batch)

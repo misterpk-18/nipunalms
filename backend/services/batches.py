@@ -228,8 +228,7 @@ def _people_item(batch: Batch) -> dict:
         missing.append("no lead trainer")
     if missing:
         return _item("people", label, "fail", "; ".join(missing))
-    if batch.mode == "Hybrid" and len(live) < 2:
-        return _item("people", label, "pending", f"{lead.trainer.full_name} leads; a hybrid batch needs a second trainer for remote learners")
+    # one trainer may teach a hybrid batch's classroom and online learners together; a co-trainer is optional (owner, 1 Nov 2026)
     return _item("people", label, "pass", f"Lead {lead.trainer.full_name}" + (f" + {len(live) - 1} more" if len(live) > 1 else ""))
 
 
