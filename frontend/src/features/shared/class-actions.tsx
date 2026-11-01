@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/auth/auth";
 import { MoreHorizontal } from "lucide-react";
 import { deliveryApi, type ClassLog, type ClassSession } from "@/api/delivery";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
@@ -325,6 +326,8 @@ export function ClassDetails({
   manage: boolean;
   approve: boolean;
 }) {
+  const { workspace } = useAuth();
+  const batchPage = workspace === "admin" ? "/admin/batches/$id" : workspace === "founder" ? "/founder/batches/$id" : "/branch/batches/$id";
   const detail = useQuery({ queryKey: ["delivery", "session", session.session_id], queryFn: () => deliveryApi.session(session.session_id) });
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -347,7 +350,7 @@ export function ClassDetails({
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
                 <dt className="text-muted-foreground">Batch</dt>
                 <dd>
-                  <Link to="/branch/batches/$id" params={{ id: String(d.batch.batch_id) }} className="text-primary underline-offset-2 hover:underline">
+                  <Link to={batchPage} params={{ id: String(d.batch.batch_id) }} className="text-primary underline-offset-2 hover:underline">
                     {d.batch.display_name ?? d.batch.batch_code}
                   </Link>
                 </dd>

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ActionDialog, fmtDate, fmtDay, fmtTime, issuesOf, type DialogField } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
+import { useAuth } from "@/auth/auth";
 import { useApiMutation } from "@/lib/mutation";
 import { WaitingStudent } from "@/features/shared/waiting-student";
 
@@ -203,6 +204,7 @@ export function ConfirmBatchDialog({
 
 /** The students on the waiting list this batch could take, each with Allocate. */
 export function AddStudentsDialog({ batch, trigger }: { batch: BatchDetail; trigger: ReactNode }) {
+  const { workspace } = useAuth();
   const [open, setOpen] = useState(false);
   const query = useQuery({ queryKey: ["branch", "batch-waiting", batch.batch_id], queryFn: () => branchApi.batchWaiting(batch.batch_id), enabled: open });
   return (
@@ -225,7 +227,14 @@ export function AddStudentsDialog({ batch, trigger }: { batch: BatchDetail; trig
           {(d) => (
             <ul className="space-y-3" aria-label="Students waiting for this batch">
               {d.students.map((row) => (
-                <WaitingStudent key={row.enrolment.enrolment_id} row={row} manage withBranch={false} />
+                <WaitingStudent
+                  key={row.enrolment.enrolment_id}
+                  row={row}
+                  manage
+                  withBranch={false}
+                  canCreateBatch={workspace === "branch"}
+                  batchBase={`/${workspace}/batches`}
+                />
               ))}
             </ul>
           )}
@@ -279,6 +288,7 @@ function PlanTable({ classes }: { classes: PlannedClass[] }) {
 
 /** Create classes from the batch's timetable: a preview that skips holidays and closures, then one click to create them all. */
 export function CreateClassesDialog({ batch, trigger }: { batch: BatchDetail; trigger: ReactNode }) {
+  const { workspace } = useAuth();
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState("");
   const [until, setUntil] = useState("");
@@ -300,7 +310,7 @@ export function CreateClassesDialog({ batch, trigger }: { batch: BatchDetail; tr
   const create = useApiMutation(() => branchApi.generate(batch.batch_id, { ...range, override_reason: reason || undefined }), {
     success: (r) => `${r.created.length} classes created`,
     next: "The students and the trainer have been told.",
-    view: { to: "/branch/schedule", label: "View schedule" },
+    view: workspace === "branch" ? { to: "/branch/schedule", label: "View schedule" } : undefined,
     invalidate: INVALIDATE,
     onSuccess: () => setOpen(false),
     silentValidation: true,

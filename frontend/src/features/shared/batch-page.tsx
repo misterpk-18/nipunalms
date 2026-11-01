@@ -1,4 +1,5 @@
-/** What the route lets this role do on the batch page: Branch Manager `manage` and `approve`, read-only (both false) for Super Admin and Founder. */
+/** What the route lets this role do on the batch page: `manage` and `approve` for the Branch Manager, Super Admin and Founder. The API still decides
+ * each request: an admin decides only a Branch Manager's own requests. */
 export type BatchAccess = { manage: boolean; approve: boolean };
 
 /** One batch: a step bar (Created, Trainer, Ready, Confirmed, Students, Classes), the one next action as the main button, and everything about the batch below. */
@@ -226,7 +227,7 @@ export function BatchPage({ id, basePath, manage, approve }: { id: string; baseP
                   <Section>
                     <Body batch={batch} progress={progress} manage={manage} approve={approve} />
                   </Section>
-                  {manage && <HelpLinks />}
+                  {manage && <HelpLinks basePath={basePath} />}
                 </div>
               )}
             </QueryView>
@@ -237,18 +238,26 @@ export function BatchPage({ id, basePath, manage, approve }: { id: string; baseP
   );
 }
 
-function HelpLinks(): ReactNode {
+/** Links into the role's own workspace; only the Branch Manager has Schedule & calendar. */
+function HelpLinks({ basePath }: { basePath: string }): ReactNode {
+  const waiting = basePath === "/admin/batches" ? "/admin/waiting" : basePath === "/founder/batches" ? "/founder/waiting" : "/branch/waiting";
   return (
     <p className="text-xs text-muted-foreground">
       Students waiting for a batch are on{" "}
-      <Link to="/branch/waiting" className="text-primary underline-offset-2 hover:underline">
+      <Link to={waiting} className="text-primary underline-offset-2 hover:underline">
         Waiting for a batch
       </Link>
-      . Classes of all batches are on{" "}
-      <Link to="/branch/schedule" className="text-primary underline-offset-2 hover:underline">
-        Schedule & calendar
-      </Link>
       .
+      {waiting === "/branch/waiting" && (
+        <>
+          {" "}
+          Classes of all batches are on{" "}
+          <Link to="/branch/schedule" className="text-primary underline-offset-2 hover:underline">
+            Schedule & calendar
+          </Link>
+          .
+        </>
+      )}
     </p>
   );
 }
