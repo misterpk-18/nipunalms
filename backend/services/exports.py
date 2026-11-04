@@ -8,6 +8,8 @@ import csv
 import io
 from datetime import date, datetime
 
+from config.timezone import IST
+
 FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
 
 
@@ -15,7 +17,7 @@ def safe_cell(value) -> str:
     if value is None:
         return ""
     if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M")
+        return (value.astimezone(IST) if value.tzinfo else value).strftime("%Y-%m-%d %H:%M")
     if isinstance(value, date):
         return value.isoformat()
     text = str(value)

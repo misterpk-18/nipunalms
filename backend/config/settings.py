@@ -20,7 +20,7 @@ def _derive_test_database_url(url: str | None) -> str | None:
 class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
-    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "connect_args": {"options": "-c timezone=Asia/Kolkata"}}  # the database session speaks IST too
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
     API_PREFIX = "/api/v1"

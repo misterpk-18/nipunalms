@@ -219,7 +219,7 @@ def _engagement(block: dict | None, now: datetime) -> dict:
         "state": "Stale" if stale else "Fresh", "refreshed_at": refreshed, "window_days": engagement["window_days"],
         "level": None if stale else engagement["level"],
         "message": ("No learning activity has been recorded yet; shown as Stale rather than as zero." if refreshed is None
-                    else f"Last learning activity was recorded {refreshed:%d %b %Y}; shown as Stale rather than as zero.") if stale else None,
+                    else f"Last learning activity was recorded {refreshed.astimezone(IST):%d %b %Y}; shown as Stale rather than as zero.") if stale else None,
     }
 
 
