@@ -147,6 +147,22 @@ def test_a_branch_managers_own_reschedule_request_is_decided_by_the_founder(clie
     assert bm_items(client, w) == []
 
 
+
+def test_a_branch_managers_own_batch_request_waits_in_the_inbox_and_links_to_the_batch(client, w, run_sql):
+    run_sql("INSERT INTO batch_capacity_requests (batch_id, from_capacity, to_capacity, resource_validation, academic_review, requested_by) "
+            "VALUES (:b, 30, 32, 'Two more lab seats', 'Same pace for 32', :bm)", b=w.b1.batch_id, bm=w.ac.user_id)
+
+    (item,) = [i for i in bm_items(client, w) if i["kind"] == "bm_batch_request"]
+    assert item["title"].startswith("Coordinator Guntur asks for more seats for") and "(30 to 32)" in item["title"]
+    assert item["detail"]["request_type"] == "capacity" and item["detail"]["batch"]["batch_id"] == w.b1.batch_id
+    assert item["from_branch_manager"] is True and item["action"] == "Open batch"
+    assert inbox(client, w, "founder")["counts"]["bm_batch_request"] == 1  # and so the nav badge counts it
+
+    run_sql("UPDATE batch_capacity_requests SET status = 'Approved', decided_by = :u, decided_at = now() WHERE batch_id = :b",
+            b=w.b1.batch_id, u=w.founder.user_id)
+    assert [i for i in bm_items(client, w) if i["kind"] == "bm_batch_request"] == []
+
+
 # ---------------------------------------------------------------- the CRM tiles
 
 def test_the_founder_summary_says_when_the_crm_has_sent_its_figures(client, w, crm_event):

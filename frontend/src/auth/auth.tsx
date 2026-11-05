@@ -28,7 +28,7 @@ type AuthContextValue = {
   signIn: (login: string, password: string) => Promise<Profile>;
   /** Branch Manager with several branches: fix the branch for this session after sign-in. */
   selectBranch: (branchId: number) => Promise<Profile>;
-  /** Ends the session so the Branch Manager signs in again and picks another branch. */
+  /** Clears the session's branch: the same session goes back to the branch picker. */
   changeBranch: () => Promise<void>;
   /** Start a session from a login-shaped response (activation signs the person in). */
   startSession: (result: LoginResult) => Profile;
@@ -110,11 +110,9 @@ export function AuthProvider({ children, onSignedOut }: { children: ReactNode; o
         return picked;
       },
       changeBranch: async () => {
-        try {
-          await authApi.changeBranch();
-        } finally {
-          clearSession();
-        }
+        await authApi.changeBranch();
+        queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" }); // nothing from the old branch stays on screen
+        await me.refetch();
       },
       startSession,
       signOut: async () => {

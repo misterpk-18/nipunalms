@@ -3,7 +3,8 @@
 Certificate change requests (correction, revocation, reinstatement), certificate
 release exceptions for an unpaid fee, access extensions beyond the Branch Manager's limit that carry the Branch Manager's
 recommendation, the monthly AI budget while nobody has approved it, and the Branch Managers' own requests (a Branch Manager's
-request cannot be reviewed at the branch, so it comes here). Only what the signed-in person can decide appears. Each item carries
+request cannot be reviewed at the branch, so it comes here): class moves, attendance corrections, and batch requests (capacity,
+transfer, material change, merge / split), which link to the batch's Requests tab where they are decided. Only what the signed-in person can decide appears. Each item carries
 the record as its own screen shows it (`detail`), so the side panel needs no second read. The same builders feed the nav badges.
 
 A Super Admin opens the same list: they hold the Founder's powers too, and the same independence rules apply to them.
@@ -15,6 +16,7 @@ say why (nobody decides their own request); the counts and nav badges include on
 """
 from datetime import datetime, timezone
 
+from models import BatchCapacityRequest, BatchTransferRequest, MaterialChange
 from repositories import dashboards as dash_repo
 from repositories import founder_inbox as inbox_repo
 from repositories import students as students_repo
@@ -24,10 +26,11 @@ from services.context import current_user
 
 # The pages of the Founder workspace ("other" is the home page itself: the AI budget and the Branch Managers' own requests)
 GROUPS = ("certificates", "access", "other")
-KINDS = ("certificate", "fee_exception", "access_extension", "ai_budget", "bm_reschedule", "bm_correction")
+KINDS = ("certificate", "fee_exception", "access_extension", "ai_budget", "bm_reschedule", "bm_correction", "bm_batch_request")
 # The Founder workspace page that lists each kind
 PAGES = {"certificate": "/founder/certificates", "fee_exception": "/founder/certificates",
-         "access_extension": "/founder/access", "ai_budget": "/founder", "bm_reschedule": "/founder", "bm_correction": "/founder"}
+         "access_extension": "/founder/access", "ai_budget": "/founder", "bm_reschedule": "/founder", "bm_correction": "/founder",
+         "bm_batch_request": "/founder/batches"}
 CHANGE_TITLES = {"Correction": "Correction to certificate", "Revocation": "Revocation of certificate", "Reinstatement": "Reinstatement of certificate"}
 
 
@@ -98,6 +101,33 @@ def _branch_manager_items() -> list[dict]:
     return items
 
 
+def _batch_request(request) -> tuple[str, str, object, str]:
+    """(type, what it asks, the batch it is decided on, one line of why) for a Branch Manager's batch request."""
+    if isinstance(request, BatchCapacityRequest):
+        return "capacity", f"more seats for {request.batch.batch_code} ({request.from_capacity} to {request.to_capacity})", request.batch, request.academic_review
+    if isinstance(request, BatchTransferRequest):
+        return "transfer", f"a transfer into {request.to_batch.batch_code}", request.to_batch, request.reason
+    if isinstance(request, MaterialChange):
+        return "material_change", f"a change to {request.batch.batch_code}: {request.proposed_plan}", request.batch, request.reason
+    return "succession", f"to {request.kind.lower()} {request.from_batch.batch_code} into {request.to_batch.batch_code}", request.from_batch, request.reason
+
+
+def _batch_request_items() -> list[dict]:
+    """A Branch Manager's own capacity, transfer, material-change and merge / split requests: decided on the batch's Requests tab."""
+    items = []
+    for request in inbox_repo.batch_requests_by(users_repo.user_ids_with_role("BRANCH_MANAGER", None)):
+        if not approvals.can_decide_branch_request(request.requested_by):
+            continue
+        kind, asks, batch, why = _batch_request(request)
+        ident = f"{kind}-{getattr(request, 'request_id', None) or getattr(request, 'change_id', None) or request.succession_id}"
+        detail = {"request_type": kind, "batch": {"batch_id": batch.batch_id, "batch_code": batch.batch_code}, "asks": asks, "reason": why,
+                  "requested_by": {"user_id": request.requester.user_id, "full_name": request.requester.full_name},
+                  "requested_at": request.requested_at, "can_decide": True}
+        items.append(_item("bm_batch_request", ident, f"{request.requester.full_name} asks for {asks}", request.requested_at, "Open batch",
+                           detail, where=batch.branch.branch_name, from_bm=True))
+    return items
+
+
 def _sort_key(item: dict):
     since = item["since"]
     return (since is None, since or datetime.max.replace(tzinfo=timezone.utc))
@@ -107,7 +137,7 @@ def inbox(group: str | None = None) -> dict:
     """Items oldest first (the AI budget, which has no date, last), the count per kind and whether the
     CRM has sent its finance figures yet. `group` narrows it to one page of the workspace."""
     builders = {"certificates": (_certificate_items,), "access": (_access_items,),
-                "other": (_ai_items, _branch_manager_items)}
+                "other": (_ai_items, _branch_manager_items, _batch_request_items)}
     if current_user().role_code == "BRANCH_MANAGER":
         builders = {"certificates": builders["certificates"]}  # the Branch Manager's section in Completion: certificate requests only
     items = [item for name, build in builders.items() if group in (None, name) for fn in build for item in fn()]

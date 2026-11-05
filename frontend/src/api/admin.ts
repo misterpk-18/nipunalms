@@ -105,6 +105,8 @@ export type StaffUser = {
 
 /** What happened to the message that carries a link: Queued / Sent, or Skipped / Failed with the reason. */
 export type WhatsappOutcome = { state: string; note: string | null };
+/** The email sent beside a new link: the same states, and the address it went to, masked. */
+export type EmailDelivery = WhatsappOutcome & { to: string | null };
 
 /** Create and reset carry the temporary password exactly once; create and invite also carry the one-time invite link. */
 export type StaffUserWithPassword = StaffUser & {
@@ -112,6 +114,7 @@ export type StaffUserWithPassword = StaffUser & {
   invite_path?: string;
   invite_expires_at?: DateTime;
   whatsapp?: WhatsappOutcome;
+  email_delivery?: EmailDelivery;
 };
 
 /** An account created by the role-separation split; the raw link comes back once, from issuing it. */
@@ -131,6 +134,8 @@ export type SplitHandout = {
   handed_out_at: DateTime | null;
   handed_out_by: string | null;
   invite_path?: string;
+  whatsapp?: WhatsappOutcome;
+  email_delivery?: EmailDelivery;
 };
 
 export type ScopeInput = { role_code: RoleCode; branch_id?: number | null; expires_at?: DateTime | null };
@@ -219,6 +224,7 @@ export type ActivationIssued = {
   expires_at: DateTime;
   activation_status: string;
   whatsapp: WhatsappOutcome;
+  email_delivery: EmailDelivery;
 };
 export type StudentFilters = {
   q?: string;

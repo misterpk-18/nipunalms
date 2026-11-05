@@ -2,18 +2,18 @@
 
 Student tokens are issued when the LMS login is created from a CRM admission, and by staff ("Send new link"). Staff get an
 invite token when a Super Admin creates their account or presses "Resend invite". Both go out by WhatsApp (templates 2 and 3)
-and the raw token is also shown once to whoever issued it, as the copy-link fallback. Only the SHA-256 of a token is stored.
+and by email to the address on file, and the raw token is also shown once to whoever issued it, as the copy-link fallback. Only the SHA-256 of a token is stored.
 """
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from config.database import db
-from models import StaffInvite, Student, StudentActivation, User, UserRoleScope, WhatsappMessage
+from models import EmailOutbox, StaffInvite, Student, StudentActivation, User, UserRoleScope, WhatsappMessage
 from repositories import settings as settings_repo
 from repositories import students as students_repo
 from repositories import users as users_repo
 from repositories import staff_invites as invites_repo
-from services import audit, email_messages, whatsapp_messages
+from services import audit, email_messages, emails, whatsapp_messages
 from services.auth import LoginResult, check_password_policy, open_session
 from services.context import ADMIN_ROLES, BRANCH_ROLES, current_user
 from services.errors import BusinessRule, NotFound
@@ -25,6 +25,7 @@ class IssuedActivation:
     token: str  # raw; never stored
     activation: StudentActivation
     message: WhatsappMessage | None = None  # the WhatsApp message queued with the link (None: a repeat)
+    email: EmailOutbox | None = None  # the email queued beside it
 
 
 @dataclass
@@ -32,6 +33,7 @@ class IssuedInvite:
     token: str  # raw; never stored
     invite: StaffInvite
     message: WhatsappMessage | None = None
+    email: EmailOutbox | None = None
 
 
 def issue(student: Student, *, channel: str, issued_by: int | None) -> IssuedActivation:
@@ -57,8 +59,8 @@ def issue(student: Student, *, channel: str, issued_by: int | None) -> IssuedAct
     student.activation_status = "Activation Pending"
     db.session.flush()
     message = whatsapp_messages.student_activation_link(student, token, activation)
-    email_messages.student_activation_link(student, token, activation)
-    return IssuedActivation(token=token, activation=activation, message=message)
+    email = email_messages.student_activation_link(student, token, activation)
+    return IssuedActivation(token=token, activation=activation, message=message, email=email)
 
 
 def issue_as_staff(student_id: int) -> IssuedActivation:
@@ -96,8 +98,8 @@ def issue_invite(user: User, *, issued_by: int | None, role_name: str, branch_na
     db.session.add(invite)
     db.session.flush()
     message = whatsapp_messages.staff_invite(user, token, invite, role_name, branch_name)
-    email_messages.staff_invite(user, token, invite, role_name, branch_name)
-    return IssuedInvite(token=token, invite=invite, message=message)
+    email = email_messages.staff_invite(user, token, invite, role_name, branch_name)
+    return IssuedInvite(token=token, invite=invite, message=message, email=email)
 
 
 # ---------------------------------------------------------------- checking and using a token
@@ -117,6 +119,11 @@ def mask_email(email: str | None) -> str | None:
         return None
     name, domain = email.split("@", 1)
     return f"{name[:1]}••••@{domain}"
+
+
+def email_delivery(email: EmailOutbox | None) -> dict:
+    """The screen's line about the email sent with a new link: on its way to a masked address, or why it will not go."""
+    return {**emails.outcome(email), "to": mask_email(email.to_email if email else None)}
 
 
 def _find(token: str) -> tuple[StudentActivation | StaffInvite, str]:

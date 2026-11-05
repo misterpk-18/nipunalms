@@ -47,7 +47,9 @@ export function AdminStudentPage({ area }: { area: CentralArea }) {
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <NextStepButton area={area} studentId={s.student_id} step={s.suggested_step} size="default" />
                 {s.suggested_step.action === "send_link" && (
-                  <span className="text-xs text-muted-foreground">The link goes by WhatsApp. If it cannot, you get a link to copy and pass on.</span>
+                  <span className="text-xs text-muted-foreground">
+                    The link goes by WhatsApp and email. If neither can, you get a link to copy and pass on.
+                  </span>
                 )}
               </div>
             </section>

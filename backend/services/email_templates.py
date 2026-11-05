@@ -43,6 +43,11 @@ STAFF_ACCOUNT_INVITE = Template(
     "this email address.\n\nChoose your password here:\n{link}\n\nThe link works once and expires on {expires}. If you were not "
     "expecting this, please tell your Super Admin." + SIGNATURE,
     ("name", "role", "branch", "link", "expires"), essential=True)
+PASSWORD_RESET_CODE = Template(
+    "password_reset_code", SERVICE, "Your Nipuna LMS password reset code",
+    "Hello {name},\n\nYour code to reset your Nipuna LMS password is {code}. It works once and expires in {minutes} minutes.\n\n"
+    "If you did not ask for it, you can ignore this email; your password stays the same." + SIGNATURE,
+    ("name", "code", "minutes"), essential=True)
 CLASS_REMINDER = Template(
     "class_reminder", REMINDERS, "Reminder: {class_title} starts at {start}",
     "Hello {student},\n\nThis is a reminder from Nipuna Technologies, {branch}. Your class {class_title} for {course} starts at "
@@ -77,5 +82,5 @@ BATCH_CHANGE_AGREEMENT = Template(
     "answer." + SIGNATURE,
     ("student", "branch", "course", "now", "proposed", "reason", "reply_by"))
 
-TEMPLATES = {t.name: t for t in (STUDENT_ACTIVATION_LINK, STAFF_ACCOUNT_INVITE, CLASS_REMINDER, CLASS_CANCELLED, CLASS_RESCHEDULED,
+TEMPLATES = {t.name: t for t in (STUDENT_ACTIVATION_LINK, STAFF_ACCOUNT_INVITE, PASSWORD_RESET_CODE, CLASS_REMINDER, CLASS_CANCELLED, CLASS_RESCHEDULED,
                                  RESULT_PUBLISHED, CERTIFICATE_ISSUED, BATCH_CHANGE_AGREEMENT)}

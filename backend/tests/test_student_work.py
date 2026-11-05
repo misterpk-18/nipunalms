@@ -74,6 +74,9 @@ def test_overdue_work_comes_first_and_a_closed_window_is_missed(client, world, r
     assert titles(data["todo"]) == ["Second task"]
     assert [(i["title"], i["state"]) for i in data["done"]] == [(released_assignment["title"], "Missed")]
     assert second["assignment_id"] != aid
+    # Home's Due Work counts the same open work: the missed task is not "open" there either
+    due = client.get(f"{API}/me/home", headers=world.h["s1"]).get_json()["data"]["due_work"]
+    assert due["assignments"] == 1 and due["nearest"]["title"] == "Second task"
 
 
 def test_a_resubmission_request_is_to_do_again(client, world, released_assignment):

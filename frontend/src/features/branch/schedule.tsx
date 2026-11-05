@@ -48,7 +48,8 @@ function RequestRow({ request, approve: manager }: { request: RescheduleRequest;
   );
   const reject = useDelivery((v: { id: number; note: string }) => deliveryApi.rejectRequest(v.id, v.note), "Not approved. The trainer has been told.");
   const [dialog, setDialog] = useState<"approve" | "reject" | null>(null);
-  const soon = new Date(request.session.starts_at).getTime() - Date.now() < DAY_MS;
+  const untilStart = new Date(request.session.starts_at).getTime() - Date.now();
+  const soon = untilStart >= 0 && untilStart < DAY_MS; // a class already past is not short notice
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-2.5">
       <div className="min-w-0">

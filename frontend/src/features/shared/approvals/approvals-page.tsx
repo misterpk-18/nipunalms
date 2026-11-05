@@ -5,7 +5,7 @@ import type { InboxKind } from "@/api/founder";
 import { ApprovalsInbox } from "./inbox";
 
 /** What the Approvals page lists: certificate requests and fee releases, access extensions, the AI budget and Branch Managers' own requests. */
-const KINDS: InboxKind[] = ["certificate", "fee_exception", "access_extension", "ai_budget", "bm_reschedule", "bm_correction"];
+const KINDS: InboxKind[] = ["certificate", "fee_exception", "access_extension", "ai_budget", "bm_reschedule", "bm_correction", "bm_batch_request"];
 
 export function ApprovalsPage({ page }: { page: string }) {
   return (

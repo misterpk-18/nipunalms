@@ -8,7 +8,18 @@ import type { RescheduleRequest } from "./delivery";
 import type { DateTime } from "./types";
 
 export type InboxGroup = "certificates" | "access" | "other";
-export type InboxKind = "certificate" | "fee_exception" | "access_extension" | "ai_budget" | "bm_reschedule" | "bm_correction";
+export type InboxKind = "certificate" | "fee_exception" | "access_extension" | "ai_budget" | "bm_reschedule" | "bm_correction" | "bm_batch_request";
+
+/** A Branch Manager's own batch request; it is decided on the batch's Requests tab, which the item opens. */
+export type BatchRequestDetail = {
+  request_type: "capacity" | "transfer" | "material_change" | "succession";
+  batch: { batch_id: number; batch_code: string };
+  asks: string;
+  reason: string;
+  requested_by: { user_id: number; full_name: string };
+  requested_at: DateTime;
+  can_decide: boolean;
+};
 
 export type AiBudgetDetail = { state: "Configuration Pending" } | { state: "Configured"; amount_inr: number };
 
@@ -37,7 +48,8 @@ export type InboxItem =
   | Base<"access_extension", StaffExtensionRequest>
   | Base<"ai_budget", AiBudgetDetail>
   | Base<"bm_reschedule", RescheduleRequest & { can_decide: boolean }>
-  | Base<"bm_correction", Correction & { can_decide: boolean }>;
+  | Base<"bm_correction", Correction & { can_decide: boolean }>
+  | Base<"bm_batch_request", BatchRequestDetail>;
 
 export type FounderInbox = {
   as_of: DateTime;

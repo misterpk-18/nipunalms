@@ -133,11 +133,20 @@ def test_a_manager_with_one_branch_gets_it_without_picking(client, people):
     assert data["needs_branch"] is False and data["branch"]["branch_id"] == 2 and data["branches"] == []
 
 
-def test_change_branch_ends_the_session(client, people):
+def test_change_branch_returns_the_same_session_to_the_picker(client, people):
     headers = headers_of(sign_in(client, people["bm_both"], branch_id=1))
 
     assert client.post(f"{API}/auth/change-branch", headers=headers).status_code == 204
-    assert client.get(f"{API}/auth/me", headers=headers).status_code == 401
+    me = client.get(f"{API}/auth/me", headers=headers).get_json()["data"]
+    assert me["needs_branch"] is True and me["branch"] is None  # still signed in, nothing else works until a pick
+    picked = client.post(f"{API}/auth/branch", json={"branch_id": 2}, headers=headers).get_json()["data"]
+    assert picked["branch"]["branch_id"] == 2
+
+
+def test_a_manager_with_one_branch_has_nothing_to_change(client, people):
+    headers = headers_of(sign_in(client, people["bm2"]))
+    response = client.post(f"{API}/auth/change-branch", headers=headers)
+    assert response.status_code == 422 and "only one branch" in response.get_json()["error"]["message"]
 
 
 def test_only_a_branch_manager_picks_or_changes_branch(client, h):

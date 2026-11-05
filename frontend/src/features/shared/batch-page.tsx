@@ -18,6 +18,7 @@ import { StateBadge, fmtDate, fmtDay, fmtRange } from "@/features/shared/deliver
 import { ClassActions } from "./class-actions";
 import { AddStudentsDialog, AssignTrainerDialog, ConfirmBatchDialog, CreateClassesDialog, FINISHABLE, FinishSetupDialog } from "./batch-dialogs";
 import { NewClassDialog } from "./new-class";
+import { useUrlParams } from "@/features/shared/url-params";
 
 const TABS = ["Overview", "Students", "Classes", "Trainers", "Checks", "Requests", "History"] as const;
 type Tab = (typeof TABS)[number];
@@ -160,7 +161,9 @@ function ClassesTab({ batch, progress, manage, approve }: { batch: BatchDetail; 
 }
 
 function Body({ batch, progress, manage, approve }: { batch: BatchDetail; progress: BatchProgress } & BatchAccess) {
-  const [tab, setTab] = useState<Tab>("Overview");
+  // `?tab=requests` (the Approvals inbox) opens straight on that section
+  const [params] = useUrlParams();
+  const [tab, setTab] = useState<Tab>(() => TABS.find((t) => t.toLowerCase() === params["tab"]) ?? "Overview");
   return (
     <>
       <PillTabs

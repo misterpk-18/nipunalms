@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { DataTable, Note, PageHead, QueryView, Section, StatusBadge } from "@/components/lms/ui";
 import { useApiMutation } from "@/lib/mutation";
 import { FilterField, FormDialog, Pager, SecretDialog, type Secret } from "@/features/shared/form-parts";
-import { istDateTime, whatsappLine } from "./format";
+import { deliveryLine, istDateTime } from "./format";
 import { useUrlParams } from "@/features/shared/url-params";
 
 /** What each role can do, in one line: shown beside the role in the picker so nobody has to remember. */
@@ -53,7 +53,7 @@ function secretsOf(user: StaffUserWithPassword): Secret[] {
 
 function secretNote(user: StaffUserWithPassword): string {
   if (user.invite_path) {
-    return `${whatsappLine(user.whatsapp ?? { state: "Skipped", note: null }, user.full_name)} The link works once. ${
+    return `${deliveryLine(user.whatsapp, user.email_delivery, user.full_name)} The link works once. ${
       user.temporary_password ? "Or give the temporary password. " : ""
     }Either way ${user.full_name} chooses their own password. Shown only now.`;
   }
@@ -462,7 +462,7 @@ function HandoutSection() {
       {secret?.handout.invite_path && (
         <SecretDialog
           title={secret.title}
-          description={`Give this link to ${secret.handout.full_name} (${secret.handout.email}). It works once, then they choose their own password. Shown only now.`}
+          description={`${deliveryLine(secret.handout.whatsapp, secret.handout.email_delivery, secret.handout.full_name)} It works once, then they choose their own password. Shown only now.`}
           secrets={[{ label: "Activation link", value: `${window.location.origin}${secret.handout.invite_path}` }]}
           onClose={() => setSecret(null)}
         />

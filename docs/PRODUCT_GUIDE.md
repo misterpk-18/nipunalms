@@ -38,7 +38,8 @@ The LMS never edits money. It only shows a read-only summary of what the CRM sen
 
 ## 2. Who uses it
 
-Each login has exactly one role. A Branch Manager sees only the branch chosen at sign-in.
+Each login has exactly one role. A Branch Manager sees only the branch chosen at sign-in. Students can switch every screen
+between English and Telugu; staff screens are English only (the EN / తెలుగు switch shows on the sign-in pages for everyone).
 
 ```mermaid
 flowchart TB
@@ -327,12 +328,14 @@ Each issued, superseded or revoked version is sent back to the CRM.
 
 ## 12. Who decides what
 
-The rule behind most approvals: **the person who asked never decides their own request.**
+The rule behind most approvals: **the person who asked never decides their own request.** A Branch Manager decides the routine
+ones. The Founder and the Super Admin can decide anything a Branch Manager can (they are the backstop when a manager is away),
+and they alone decide a Branch Manager's own requests and the exceptions beyond a branch's limit.
 
 ```mermaid
 flowchart TD
     A["Someone asks for a correction, change or request"] --> B{"Who asked?"}
-    B -->|"student, trainer or other staff"| C["A Branch Manager decides"]
+    B -->|"student, trainer or other staff"| C["A Branch Manager decides (Founder or Super Admin may step in)"]
     B -->|"a Branch Manager"| D["Founder or Super Admin decides"]
     C --> E{"Routine?"}
     E -->|"yes"| F["Decided alone"]

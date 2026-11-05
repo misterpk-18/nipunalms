@@ -89,8 +89,8 @@ const DICTIONARY = {
   ],
   resetTitle: ["Reset your password", "మీ పాస్‌వర్డ్‌ను రీసెట్ చేయండి"],
   resetAskHelp: [
-    "Enter your Student ID or email. We'll send a 6-digit code to the WhatsApp number on file.",
-    "మీ Student ID లేదా ఇమెయిల్ ఇవ్వండి. రికార్డులో ఉన్న WhatsApp నంబర్‌కు 6 అంకెల కోడ్ పంపుతాము.",
+    "Enter your Student ID or email. We'll send a 6-digit code to the WhatsApp number on file; staff also get it at their work email.",
+    "మీ Student ID లేదా ఇమెయిల్ ఇవ్వండి. రికార్డులో ఉన్న WhatsApp నంబర్‌కు 6 అంకెల కోడ్ పంపుతాము; సిబ్బందికి వారి ఆఫీస్ ఇమెయిల్‌కు కూడా వస్తుంది.",
   ],
   sendCode: ["Send me a code", "కోడ్ పంపండి"],
   codeSent: ["If the account exists, we've sent a code.", "ఖాతా ఉంటే, మేము కోడ్ పంపాము."],
@@ -384,10 +384,7 @@ const DICTIONARY = {
     "Tell your trainer you were there. Your trainer marks the register, so this does not change your attendance by itself.",
     "మీరు ఉన్నారని మీ ట్రైనర్‌కు తెలియజేయండి. హాజరు నమోదు చేసేది ట్రైనరే, కాబట్టి ఇది మీ హాజరును నేరుగా మార్చదు.",
   ],
-  attendedDone: [
-    "You told your trainer you attended. They will mark the register.",
-    "మీరు హాజరయ్యారని మీ ట్రైనర్‌కు తెలిపారు. వారు హాజరు నమోదు చేస్తారు.",
-  ],
+  attendedDone: ["You told your trainer you attended. They will mark the register.", "మీరు హాజరయ్యారని మీ ట్రైనర్‌కు తెలిపారు. వారు హాజరు నమోదు చేస్తారు."],
   attendedSent: ["Thanks. Your trainer can see you confirmed.", "ధన్యవాదాలు. మీరు నిర్ధారించినట్లు మీ ట్రైనర్‌కు కనిపిస్తుంది."],
   joinWaitingLink: [
     "Your branch has not added the Meet link yet. It appears here as soon as they do.",
@@ -684,6 +681,14 @@ const DICTIONARY = {
   extBody: [
     "{course}: your access will run until {date}, the second anniversary of your Joining Date.",
     "{course}: మీ యాక్సెస్ {date} వరకు ఉంటుంది, ఇది మీ జాయినింగ్ తేదీ రెండో వార్షికోత్సవం.",
+  ],
+  materialsPaused: [
+    "{course} is paused, so its recordings and files are hidden until it resumes. Please contact your branch.",
+    "{course} నిలిపివేయబడింది, కాబట్టి అది మళ్లీ మొదలయ్యే వరకు దాని రికార్డింగ్‌లు, ఫైళ్లు కనిపించవు. దయచేసి మీ బ్రాంచ్‌ను సంప్రదించండి.",
+  ],
+  extBodyBeyond: [
+    "{course}: the second anniversary of your Joining Date ({date}) has passed, so your branch cannot extend this itself. Your Branch Manager adds a recommendation and the Founder or a Super Admin decides the new end date.",
+    "{course}: మీ జాయినింగ్ తేదీ రెండో వార్షికోత్సవం ({date}) దాటిపోయింది, కాబట్టి మీ బ్రాంచ్ స్వయంగా దీన్ని పొడిగించలేదు. మీ బ్రాంచ్ మేనేజర్ సిఫార్సు చేస్తారు, కొత్త ముగింపు తేదీని ఫౌండర్ లేదా సూపర్ అడ్మిన్ నిర్ణయిస్తారు.",
   ],
   extWhat: ["What should be extended?", "ఏది పొడిగించాలి?"],
   extBoth: ["Recordings and files", "రికార్డింగ్‌లు, ఫైళ్లు"],

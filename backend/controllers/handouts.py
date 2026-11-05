@@ -3,7 +3,9 @@ from datetime import datetime, timezone
 from flask import request
 
 from controllers.common import Validator, created, get_page_params, ok, paginated
+from services import activation as activation_service
 from services import handouts as handouts_service
+from services.whatsapp import outcome as whatsapp_outcome
 
 
 def handout_dict(h) -> dict:
@@ -39,7 +41,8 @@ def list_handouts():
 
 def issue_link(handout_id: int):
     handout, issued = handouts_service.issue_link(handout_id)
-    return created({**handout_dict(handout), "invite_path": f"/activate?token={issued.token}"})  # shown once
+    return created({**handout_dict(handout), "invite_path": f"/activate?token={issued.token}",  # shown once
+                    "whatsapp": whatsapp_outcome(issued.message), "email_delivery": activation_service.email_delivery(issued.email)})
 
 
 def mark_handed_out(handout_id: int):

@@ -6,6 +6,7 @@ import { ApiError } from "@/api/client";
 import { AuthPage } from "@/components/lms/auth-page";
 import { KeyValue, LoadingSkeleton, Section } from "@/components/lms/ui";
 import { fmtDate } from "@/features/shared/format";
+import { VerifyForm } from "@/features/shared/verify-form";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/verify/$number")({
@@ -54,6 +55,11 @@ function VerifyCertificate() {
           </p>
         ) : (
           <Found c={query.data} />
+        )}
+        {!query.isPending && (
+          <div className="mt-6 border-t pt-4">
+            <VerifyForm label="Check another number" />
+          </div>
         )}
       </Section>
     </AuthPage>

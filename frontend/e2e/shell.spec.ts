@@ -153,9 +153,7 @@ test("a Branch Manager of two branches picks one at sign-in, works in it, and ca
 
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Change branch" }).click();
-  // the session ends; signing in again offers the picker
-  await expect(page).toHaveURL(/\/login/);
-  await signInOnly(page, USERS.bmMulti);
+  // the same session goes straight back to the picker: no second sign-in
   await expect(page.getByRole("heading", { name: "Choose a branch" })).toBeVisible();
   await page.getByRole("button", { name: /Vijayawada/ }).click();
   await expect(page).toHaveURL(/\/branch$/);

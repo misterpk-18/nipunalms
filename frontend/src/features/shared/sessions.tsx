@@ -60,7 +60,8 @@ export function SessionActions({ session, manager, trainer: isTrainer }: { sessi
   const canRun = trainer && !awaitingApproval && (open || session.state === "Live");
   const runLabel = session.state === "Live" ? "Continue class" : ended ? "Add class log" : "Run class";
   const online = session.mode !== "Classroom";
-  const within24 = new Date(session.starts_at).getTime() - Date.now() < DAY_MS;
+  const untilStart = new Date(session.starts_at).getTime() - Date.now();
+  const within24 = untilStart >= 0 && untilStart < DAY_MS; // a class already past is not short notice
   const times = [
     { name: "starts_at", label: "New start (IST)", type: "datetime" as const, required: true, value: toIstInput(session.starts_at) },
     { name: "ends_at", label: "New end (IST)", type: "datetime" as const, required: true, value: toIstInput(session.ends_at) },

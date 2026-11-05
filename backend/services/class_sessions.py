@@ -486,13 +486,15 @@ def _change(session: ClassSession, change_type: str, reason: str, *, new_start: 
     return SessionChange(session_id=session.session_id, change_type=change_type, reason=reason, old_starts_at=session.starts_at,
                          old_ends_at=session.ends_at, new_starts_at=new_start, new_ends_at=new_end, old_trainer_user_id=session.trainer_user_id,
                          new_trainer_user_id=new_trainer, notice_hours=round(notice.total_seconds() / 3600, 1),
-                         short_notice=notice < SHORT_NOTICE, changed_by=actor_id(),
+                         short_notice=timedelta(0) <= notice < SHORT_NOTICE, changed_by=actor_id(),
                          emergency_reason=(emergency or {}).get("emergency_reason"), next_action=(emergency or {}).get("next_action"))
 
 
 def _require_emergency_detail(session: ClassSession, emergency: dict | None) -> None:
-    """Module 15 §14: less than 24 hours' notice is an emergency; say why advance notice was impossible and what happens next."""
-    if session.starts_at - _now() >= SHORT_NOTICE or session.approval_status == "Pending":
+    """Module 15 §14: less than 24 hours' notice is an emergency; say why advance notice was impossible and what happens next.
+    A class whose start has already passed is not short notice: there is nothing left to warn about, so nothing is asked."""
+    notice = session.starts_at - _now()
+    if notice >= SHORT_NOTICE or notice < timedelta(0) or session.approval_status == "Pending":
         return
     missing = [f for f in ("emergency_reason", "next_action") if not (emergency or {}).get(f)]
     if missing:

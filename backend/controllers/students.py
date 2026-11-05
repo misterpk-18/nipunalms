@@ -24,4 +24,5 @@ def issue_activation(student_id: int):
         "expires_at": issued.activation.expires_at,
         "activation_status": student.activation_status,
         "whatsapp": whatsapp_outcome(issued.message),
+        "email_delivery": activation_service.email_delivery(issued.email),
     })

@@ -237,3 +237,35 @@ def test_an_alias_sender_acts_as_the_mailbox_that_owns_it_and_shows_its_name(app
 def test_the_job_is_registered_and_does_nothing_while_off(app):
     assert "email-send" in JOBS and JOBS["email-send"]() == {"state": "Switched off", "sent": 0}
     assert "emails" in JOBS["class-reminders"]()
+
+
+# ---------------------------------------------------------------- staff reset codes and the link's email line
+
+def test_a_staff_reset_code_also_goes_to_the_work_email(email_on, client, make_user):
+    user = make_user(roles=[("TRAINER", 1)])
+    client.post(f"{API}/auth/reset-code", json={"login": user.email})
+
+    (row,) = [r for r in rows() if r.template == "password_reset_code"]
+    assert row.status == "Queued" and row.to_email == user.email and row.has_secret
+    assert "expires in 10 minutes" in row.body
+    fake = FakeGmail()
+    emails.send_pending(sender=fake)
+    assert fake.sent[0]["subject"] == "Your Nipuna LMS password reset code"
+    assert rows()[-1].body == ""  # the code is forgotten once sent
+
+
+def test_a_student_reset_code_stays_on_whatsapp(email_on, client, make_student):
+    student = make_student()
+    client.post(f"{API}/auth/reset-code", json={"login": student.student_code})
+    assert not [r for r in rows() if r.template == "password_reset_code"]
+
+
+def test_a_new_activation_link_says_where_the_email_went(email_on, client, make_student, make_user, login):
+    student = make_student(activate=False)
+    admin = make_user(roles=[("SUPER_ADMIN", None)])
+    response = client.post(f"{API}/students/{student.student_id}/activation", headers=login(admin.email))
+
+    email = response.get_json()["data"]["email_delivery"]
+    assert response.status_code == 201
+    assert email["state"] == "Queued" and email["note"] is None
+    assert email["to"].startswith(student.email[0]) and "••••@" in email["to"] and email["to"] != student.email

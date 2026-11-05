@@ -35,6 +35,14 @@ def staff_invite(user: User, token: str, invite: StaffInvite, role_name: str, br
         dedupe_key=f"staff-invite:{invite.invite_id}", user=user, branch_id=branch_id, expires_at=invite.expires_at)
 
 
+def password_reset_code(user: User, code: str, code_id: int, minutes: int) -> EmailOutbox | None:
+    """Staff only: the reset code at their work email (students get theirs by WhatsApp)."""
+    now = _now()
+    return emails.enqueue(
+        templates.PASSWORD_RESET_CODE, {"name": user.full_name, "code": code, "minutes": str(minutes)},
+        dedupe_key=f"pwd-reset:{user.user_id}:{code_id}", user=user, occurred_at=now, expires_at=now + timedelta(minutes=minutes))
+
+
 def _mode(session: ClassSession, batch: Batch) -> str:
     if session.mode == "Classroom":
         return ", ".join(part for part in ("Classroom", session.room, batch.branch.branch_name) if part)

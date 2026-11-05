@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useApiMutation } from "@/lib/mutation";
 import { SecretDialog } from "@/features/shared/form-parts";
 import { areaLink, areaTo, type CentralArea } from "@/features/shared/central-area";
-import { istDateTime, whatsappLine } from "./format";
+import { deliveryLine, istDateTime } from "./format";
 
 /** The list, the open student and the home all change with any account action. */
 export const ACCOUNT_KEYS = () => [[...adminKeys.studentsAll], ["admin", "student"], [...adminKeys.needsAction], ["nav", "counts"]];
@@ -54,7 +54,7 @@ export function NextStepButton({ area, studentId, step, size = "sm" }: { area: C
       {issued && (
         <SecretDialog
           title="Activation link ready"
-          description={`${whatsappLine(issued.whatsapp, issued.student_code)} It works once, expires ${istDateTime(issued.expires_at)} and is shown only now. Any earlier link no longer works.`}
+          description={`${deliveryLine(issued.whatsapp, issued.email_delivery, issued.student_code)} It works once, expires ${istDateTime(issued.expires_at)} and is shown only now. Any earlier link no longer works.`}
           secrets={[{ label: "Activation link", value: `${window.location.origin}${issued.activation_path}` }]}
           onClose={() => setIssued(null)}
         />

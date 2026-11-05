@@ -6,6 +6,7 @@ import { FileText, Link2, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { contentApi, CONTENT_TYPES, openContentFile, type Playback, type StudentRecording, type StudentResource } from "@/api/content";
 import { errorMessage } from "@/api/client";
+import { deliveryApi } from "@/api/delivery";
 import { EmptyState } from "@/components/lms/empty-state";
 import { NativeSelect } from "@/components/lms/forms";
 import { PageHead, PillTabs, QueryView, StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
@@ -296,11 +297,18 @@ export function Materials() {
   const navigate = useNavigate({ from: "/materials" });
   const recordings = useQuery({ queryKey: ["me", "recordings"], queryFn: () => contentApi.recordings() });
   const files = useQuery({ queryKey: ["me", "resources", "all"], queryFn: () => contentApi.resources() });
+  const enrolments = useQuery({ queryKey: ["delivery", "my-enrolments"], queryFn: deliveryApi.myEnrolments });
+  const paused = (enrolments.data ?? []).filter((e) => e.status === "Paused");
   const counts: Partial<Record<Tab, number>> = { recordings: recordings.data?.length, files: files.data?.length };
   const labels: Record<Tab, string> = { recordings: t("recordings"), files: t("tabFiles") };
   return (
     <div className="mx-auto max-w-6xl">
       <PageHead title={t("classMaterials")} description={t("materialsHelp")} />
+      {paused.map((e) => (
+        <div key={e.enrolment_id} className="mb-3">
+          <StatusNote tone="warning">{t("materialsPaused", { course: e.course.title })}</StatusNote>
+        </div>
+      ))}
       <PillTabs
         tabs={TABS}
         value={tab}

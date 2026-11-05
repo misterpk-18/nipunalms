@@ -313,6 +313,26 @@ def test_class_log_partially_held_and_original_slot(world, client, login):
     assert change["short_notice"] and change["next_action"] == "Class moves to tomorrow"
 
 
+def test_a_class_already_past_moves_or_cancels_without_an_emergency_reason(world, client, login, run_sql):
+    people, batch, _ = world
+    near = datetime.now(IST) + timedelta(hours=5)
+    ids = [data(call(client, login, people["ac"], "post", "/class-sessions", json={
+        "batch_id": batch.batch_id, "title": title, "starts_at": iso(near + timedelta(hours=2 * n)),
+        "ends_at": iso(near + timedelta(hours=2 * n + 1))}), 201)[0]["session_id"]
+        for n, title in enumerate(("Missed A", "Missed B"))]
+    for hours, sid in zip((6, 3), ids):  # both already past, at different times
+        run_sql("UPDATE class_sessions SET starts_at = now() - make_interval(hours => :h), ends_at = now() - make_interval(hours => :h - 1) "
+                "WHERE session_id = :sid", h=hours, sid=sid)
+
+    later = future(2)
+    move = {"starts_at": iso(later), "ends_at": iso(later + timedelta(hours=1)), "reason": "It never ran"}
+    data(call(client, login, people["ac"], "post", f"/class-sessions/{ids[0]}/reschedule", json=move), 200)
+    data(call(client, login, people["ac"], "post", f"/class-sessions/{ids[1]}/cancel", json={"reason": "It never ran"}), 200)
+    for sid in ids:
+        change = data(call(client, login, people["ac"], "get", f"/class-sessions/{sid}"), 200)["changes"][0]
+        assert change["short_notice"] is False and change["emergency_reason"] is None
+
+
 def test_room_and_student_clashes_need_the_branch_managers_reason(world, client, login, make_batch, allocate, make_session):
     people, batch, student = world
     allocate(student, batch)
@@ -410,6 +430,26 @@ def test_substitute_cover_is_approved_verified_then_applied(world, client, login
     session = data(call(client, login, outsider.email, "get", f"/class-sessions/{sid}"), 200)
     assert session["trainer"]["full_name"] == "Trainer Cover" and session["changes"][-1]["change_type"] == "Trainer changed"
     assert any("Trainer change" in t for t in titles_for(_user_of(student)))
+
+
+
+def test_the_class_trainer_asks_for_cover_and_a_branch_manager_decides(world, client, login, make_user):
+    people, batch, _ = world
+    colleague = make_user(roles=[("TRAINER", 1)], full_name="Trainer Colleague")
+    start = future(3)
+    sid = data(call(client, login, people["ac"], "post", "/class-sessions", json={"batch_id": batch.batch_id, "title": "Need cover",
+                                                                                "starts_at": iso(start), "ends_at": iso(start + timedelta(hours=1))}), 201)[0]["session_id"]
+    ask = {"cover_role": "Substitute", "cover_user_id": colleague.user_id, "reason": "Medical appointment", "scope": "The planned topic",
+           "handover": "Slides in the batch folder"}
+    assert call(client, login, colleague.email, "post", f"/class-sessions/{sid}/cover-requests", json=ask).status_code in (403, 404)  # not their class
+    req = data(call(client, login, people["g1"], "post", f"/class-sessions/{sid}/cover-requests", json=ask), 201)
+    assert req["status"] == "Pending"
+    assert call(client, login, people["g1"], "post", f"/session-cover-requests/{req['request_id']}/decision",
+                json={"decision": "Approved"}).status_code == 403  # a trainer never decides
+    decided = data(call(client, login, people["bm"], "post", f"/session-cover-requests/{req['request_id']}/decision",
+                        json={"decision": "Approved"}), 200)
+    assert decided["status"] == "Approved"
+    assert any("Cover approved" in t for t in titles_for(people["g1"].user_id))  # the trainer who asked is told
 
 
 # ---------------------------------------------------------------- Meet (G070, G071, G104)

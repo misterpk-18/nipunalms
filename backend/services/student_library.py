@@ -15,7 +15,7 @@ from services import access
 from services.context import current_user
 from services.errors import Forbidden
 
-UNUSABLE_STATUSES = ("Withdrawn", "Provisioning Pending")
+UNUSABLE_STATUSES = ("Withdrawn", "Provisioning Pending", "Paused")  # a paused course hides its recordings and files until it resumes
 
 
 @dataclass

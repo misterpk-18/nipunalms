@@ -1,6 +1,7 @@
 """Self-service password reset (UX phase U7): the person asks for a code on the sign-in page and sets a new password with it.
 
-The code goes by WhatsApp (template 1) to the number on file. An email fallback is not built yet: the LMS has no email sender.
+The code goes by WhatsApp (template 1) to the number on file; staff also get it at their work email, since a staff account often
+has no number. Students keep WhatsApp only.
 The answer to a request is always the same, so the page never shows whether an account exists. Only the code's hash is
 stored; a code is single use, lasts 10 minutes, is burned after 5 wrong tries, and a person gets at most 5 codes an hour.
 """
@@ -11,7 +12,7 @@ from config.database import db
 from models import PasswordResetCode, User
 from repositories import password_reset as reset_repo
 from repositories import sessions as sessions_repo
-from services import audit, whatsapp_messages
+from services import audit, email_messages, whatsapp_messages
 from services.auth import check_password_policy, find_login_user
 from services.errors import ValidationError
 from services.security import hash_password, hash_token
@@ -48,8 +49,9 @@ def request_code(login: str) -> None:
     db.session.add(row)
     db.session.flush()
     message = whatsapp_messages.password_reset_code(user, code, row.code_id)
+    email = email_messages.password_reset_code(user, code, row.code_id, CODE_MINUTES) if user.student_id is None else None
     audit.record("PASSWORD_RESET_CODE_REQUESTED", "user", user.user_id, actor_user_id=user.user_id,
-                 new={"sent": bool(message and message.status == "Queued")})
+                 new={"sent": bool(message and message.status == "Queued"), "emailed": bool(email and email.status == "Queued")})
 
 
 def reset(login: str, code: str, new_password: str) -> None:

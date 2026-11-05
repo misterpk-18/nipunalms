@@ -105,7 +105,8 @@ export function ClassActions({
   const awaiting = session.approval_status === "Pending";
   const online = session.mode !== "Classroom";
   const started = Date.now() >= new Date(session.starts_at).getTime();
-  const within24 = new Date(session.starts_at).getTime() - Date.now() < DAY_MS;
+  const untilStart = new Date(session.starts_at).getTime() - Date.now();
+  const within24 = untilStart >= 0 && untilStart < DAY_MS; // a class already past is not short notice
   const canStart = manager && open && !awaiting && Date.now() >= new Date(session.starts_at).getTime() - START_OPENS_MS;
   const canDeliver = manager && (session.state === "Live" || (open && started && !awaiting));
   const primary = primaryFor(session, manager, approver);

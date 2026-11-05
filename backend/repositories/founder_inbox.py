@@ -2,7 +2,10 @@
 from sqlalchemy import select
 
 from config.database import db
-from models import AttendanceCorrection, CertificateChangeRequest, CertificateFinancialException, SessionChangeRequest
+from models import (
+    AttendanceCorrection, BatchCapacityRequest, BatchSuccession, BatchTransferRequest, CertificateChangeRequest,
+    CertificateFinancialException, MaterialChange, SessionChangeRequest,
+)
 
 
 def pending_certificate_requests() -> list[CertificateChangeRequest]:
@@ -33,3 +36,19 @@ def corrections_by(user_ids: list[int]) -> list[AttendanceCorrection]:
     stmt = (select(AttendanceCorrection).where(AttendanceCorrection.status == "Pending", AttendanceCorrection.requested_by.in_(user_ids))
             .order_by(AttendanceCorrection.requested_at, AttendanceCorrection.correction_id))
     return list(db.session.execute(stmt).scalars().unique())
+
+
+# A batch request waits in these states: Pending, or Pending Approval for a material change (its students are asked only after)
+BATCH_REQUESTS = ((BatchCapacityRequest, "Pending"), (BatchTransferRequest, "Pending"), (MaterialChange, "Pending Approval"),
+                  (BatchSuccession, "Pending"))
+
+
+def batch_requests_by(user_ids: list[int]) -> list:
+    """Open capacity, transfer, material-change and merge / split requests raised by these people, oldest first."""
+    if not user_ids:
+        return []
+    rows = []
+    for model, waiting in BATCH_REQUESTS:
+        stmt = select(model).where(model.status == waiting, model.requested_by.in_(user_ids)).order_by(model.requested_at)
+        rows += db.session.execute(stmt).scalars().unique()
+    return sorted(rows, key=lambda r: r.requested_at)

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { todayIso } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 import { useT } from "@/lib/i18n";
 
@@ -100,7 +101,13 @@ function ExtensionDialog({ row, onClose }: { row: AccessOverview; onClose: () =>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("extTitle")}</DialogTitle>
-          <DialogDescription>{t("extBody", { course: row.enrolment.course.title, date: formatDate(row.second_expiry) })}</DialogDescription>
+          <DialogDescription>
+            {/* after the second anniversary only the Founder or a Super Admin can extend (the server's needs_exception rule) */}
+            {t(row.second_expiry && todayIso() > row.second_expiry ? "extBodyBeyond" : "extBody", {
+              course: row.enrolment.course.title,
+              date: formatDate(row.second_expiry),
+            })}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <Field label={t("extWhat")} htmlFor="ext-scope">

@@ -274,11 +274,15 @@ def select_branch(branch_id: int) -> CurrentUser:
 
 
 def change_branch() -> None:
-    """Ends the session; the person signs in again and picks a branch (the frontend returns to the branch picker)."""
+    """Clears the session's branch, so the same session is back at the branch picker (no new sign-in). Only for a manager of
+    several branches: with one branch there is nothing to pick."""
     current = current_user()
     if current.role_code != "BRANCH_MANAGER":
         raise Forbidden("Only a Branch Manager changes branch")
-    sessions_repo.revoke(current.session_id, "change branch")
+    held = {s.branch_id for s in users_repo.active_scopes(current.user_id) if s.role.role_code == "BRANCH_MANAGER"}
+    if len(held) < 2:
+        raise BusinessRule("Your account has only one branch")
+    sessions_repo.set_branch(current.session_id, None)
     audit.record("BRANCH_CHANGE", "user", current.user_id, new={"from_branch_id": current.active_branch_id})
 
 

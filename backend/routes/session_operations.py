@@ -103,7 +103,7 @@ def resolve_disruption(disruption_id: int):
 
 @session_operations_bp.post("/class-sessions/<int:session_id>/cover-requests")
 @login_required
-@require_roles(*MANAGE_ROLES)
+@require_roles(*TEACHING_ROLES)  # the class's own trainer may ask; the service checks it is theirs
 def request_cover(session_id: int):
     return controller.request_cover(session_id)
 

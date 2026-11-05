@@ -10,7 +10,7 @@ from repositories import tests as tests_repo
 from services import assessment_scope as access
 from services.ai_facts import format_ist
 from services.assessment_rules import effective_status
-from services.assignments import task_state
+from services.assignments import submission_window, task_state
 
 # A task still needs the student's action in these states; Submitted / Under Review / Reviewed do not
 OPEN_TASK_STATES = {"Upcoming", "Due", "Overdue", "Resubmission Requested"}
@@ -31,7 +31,10 @@ def open_items(student: Student) -> tuple[list[tuple], list[tuple]]:
     assignments = []
     for a in released:
         enrolment_id = seats[a.batch_id].enrolment_id
-        state = task_state(a, versions.get((a.assignment_id, enrolment_id), []), results.get((a.assignment_id, enrolment_id)), now)
+        mine = versions.get((a.assignment_id, enrolment_id), [])
+        state = task_state(a, mine, results.get((a.assignment_id, enrolment_id)), now)
+        if state == "Overdue" and not submission_window(a, mine, now)["allowed"]:
+            continue  # its window closed: Tasks and Tests files it under Done as Missed, so it is not open work
         if state in OPEN_TASK_STATES:
             assignments.append((a, state))
 

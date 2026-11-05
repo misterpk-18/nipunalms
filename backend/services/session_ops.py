@@ -372,7 +372,8 @@ def check_class_logs() -> dict:
 # ---------------------------------------------------------------- substitute and assistant cover (Module 15 §11)
 
 def request_cover(session_id: int, data: dict) -> SessionCoverRequest:
-    session = _load_for_change(session_id)
+    """A manager arranges cover, or the class's own trainer asks for it, naming the colleague who agreed; a Branch Manager decides."""
+    session = _load_for_change(session_id, allow_own_trainer=True)
     _require_open(session, "covered")
     cover_id = data["cover_user_id"]
     if cover_id == session.trainer_user_id:
@@ -422,10 +423,20 @@ def decide_cover(request_id: int, decision: str, note: str | None) -> SessionCov
             raise ValidationError("A reason is required", {"note": ["Say why"]})
         request.status, request.decision_note = "Rejected", note
         db.session.flush()
+        _tell_requester(request, f"Cover not approved: {request.session.title}", note)
         return request
     request.approved_by, request.approved_at, request.decision_note, request.status = actor_id(), _now(), note, "Approved"
     db.session.flush()
+    _tell_requester(request, f"Cover approved: {request.session.title}", note or "The colleague you named will cover the class.")
     return _apply_cover_when_ready(request)
+
+
+def _tell_requester(request: SessionCoverRequest, title: str, body: str) -> None:
+    """The person who asked for cover hears the decision (a trainer asking for their own class, or a manager)."""
+    delivery_notices.notify_users([request.requested_by], category="Session", title=title, body=body,
+                                  event_key=f"cover-decision-{request.request_id}",
+                                  link="/trainer/sessions" if request.requested_by == request.planned_trainer_user_id else "/branch/class-day",
+                                  branch_id=request.session.batch.branch_id)
 
 
 def verify_cover(request_id: int, note: str) -> SessionCoverRequest:

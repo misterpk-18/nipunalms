@@ -71,7 +71,7 @@ export const authApi = {
   login: (login: string, password: string, branch_id?: number) => post<LoginResult>("/auth/login", { login, password, ...(branch_id ? { branch_id } : {}) }),
   /** Branch Manager with several branches: pick the branch for this session (answers the profile). */
   selectBranch: (branch_id: number) => post<Profile>("/auth/branch", { branch_id }),
-  /** Ends the session; the person signs in again and picks a branch. */
+  /** Clears the session's branch; the profile then asks for a pick (`needs_branch`). */
   changeBranch: () => post<null>("/auth/change-branch"),
   logout: () => post<null>("/auth/logout"),
   me: () => get<Profile>("/auth/me"),

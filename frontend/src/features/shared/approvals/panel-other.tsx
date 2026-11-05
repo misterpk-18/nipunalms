@@ -1,5 +1,7 @@
-/** The monthly AI budget, and a Branch Manager's own reschedule or attendance request. */
+/** The monthly AI budget, and a Branch Manager's own reschedule, attendance or batch request. */
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useAuth } from "@/auth/auth";
 import { attendanceApi } from "@/api/attendance";
 import { deliveryApi } from "@/api/delivery";
 import { founderApi, type AiBudgetDetail, type InboxItem } from "@/api/founder";
@@ -126,6 +128,55 @@ export function BranchManagerRequestPanel({ item, onClose }: { item: Extract<Inb
       <PanelPart title="Why">
         <p className="text-sm">{d.reason}</p>
       </PanelPart>
+    </PanelFrame>
+  );
+}
+
+const BATCH_REQUEST_LABEL = {
+  capacity: "More seats",
+  transfer: "Transfer",
+  material_change: "Change to a confirmed batch",
+  succession: "Merge or split",
+} as const;
+
+/** A Branch Manager's own batch request: read it here, decide it on the batch's Requests tab (which asks before anything changes). */
+export function BatchRequestPanel({ item, onClose }: { item: Extract<InboxItem, { kind: "bm_batch_request" }>; onClose: () => void }) {
+  const { workspace } = useAuth();
+  const d = item.detail;
+
+  return (
+    <PanelFrame
+      open
+      onClose={onClose}
+      title={item.title}
+      description={item.where ?? undefined}
+      fromBranchManager
+      bar={
+        <Button asChild>
+          <Link
+            to={workspace === "admin" ? "/admin/batches/$id" : "/founder/batches/$id"}
+            params={{ id: String(d.batch.batch_id) }}
+            search={{ tab: "requests" }}
+          >
+            Open the batch's Requests
+          </Link>
+        </Button>
+      }
+    >
+      <PanelPart title="The request">
+        <KeyValue
+          items={[
+            ["Kind", BATCH_REQUEST_LABEL[d.request_type]],
+            ["Batch", d.batch.batch_code],
+            ["Asked by", `${d.requested_by.full_name}, ${fmtDateTime(d.requested_at)}`],
+            ["Why", d.reason],
+          ]}
+        />
+      </PanelPart>
+      <p className="text-sm text-muted-foreground">
+        A Branch Manager cannot decide their own request, so it waits for you. Approve or reject it on the batch's Requests tab: it shows the full request and
+        asks you to confirm.
+      </p>
     </PanelFrame>
   );
 }

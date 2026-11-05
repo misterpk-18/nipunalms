@@ -107,7 +107,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const switchBranch = async () => {
     await changeBranch();
-    void navigate({ to: "/login" });
+    void navigate({ to: "/branch" }); // the branch picker shows over it until a branch is chosen
   };
 
   const exit = async () => {

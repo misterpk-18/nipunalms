@@ -435,10 +435,12 @@ def test_access_window_pending_available_and_expired(client, login, world, run_s
     assert client.get(f"{API}/content-items/{item_id}/file", headers=student).status_code == 422
 
 
-def test_withdrawn_enrolments_grant_nothing(client, login, world, run_sql):
+@pytest.mark.parametrize("status", ["Withdrawn", "Paused"])
+def test_withdrawn_or_paused_enrolments_grant_nothing(client, login, world, run_sql, status):
     item = create_item(client, auth(login, world.people.t1), world)
     release_item(client, world, login, item["content_item_id"])
-    run_sql("UPDATE enrolments SET status = 'Withdrawn' WHERE student_id = :s", s=world.students.s1.student_id)
+    assert get(client, "/me/resources", auth(login, world.students.s1)) != []
+    run_sql("UPDATE enrolments SET status = :st WHERE student_id = :s", st=status, s=world.students.s1.student_id)
     assert get(client, "/me/resources", auth(login, world.students.s1)) == []
 
 

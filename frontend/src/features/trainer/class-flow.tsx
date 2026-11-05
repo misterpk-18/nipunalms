@@ -4,21 +4,23 @@
  * so a refresh, or another device, picks up at the same step.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { attendanceKeys } from "@/api/attendance";
+import { useAuth } from "@/auth/auth";
 import { dashboardKeys, dashboardsApi, type ClassLogDraft, type ClassOutcome, type FlowStep, type TodaySession } from "@/api/dashboards";
 import { deliveryApi } from "@/api/delivery";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { StepBar } from "@/components/lms/step-bar";
 import { StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RegisterForm } from "@/features/trainer/attendance";
 import { fmtDate, fmtRange } from "@/features/shared/format";
-import { fmtTime } from "@/features/shared/delivery-ui";
+import { ActionDialog, fmtTime } from "@/features/shared/delivery-ui";
 import { fromIstInput, toIstInput } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 import { cn } from "@/lib/utils";
@@ -424,6 +426,116 @@ export function FinishedClass({ session }: { session: TodaySession }) {
 // ---------------------------------------------------------------- the flow
 
 /** One class, expanded: its steps, the current one open. */
+const DISRUPTION_KINDS = [
+  { value: "Delayed start", label: "The class started late" },
+  { value: "Failed start", label: "The class could not start" },
+  { value: "Connection failure", label: "Connection failure during the class" },
+  { value: "Compromised link", label: "The Meet link is compromised" },
+  { value: "Other", label: "Something else" },
+];
+const CAUSES = [
+  { value: "Unknown", label: "Not sure" },
+  { value: "Institute", label: "The institute (room, power, equipment)" },
+  { value: "Provider", label: "Google Meet or the internet provider" },
+  { value: "Trainer", label: "Me" },
+];
+
+/** Report a problem with a class: a disruption the system cannot see, or cover by a colleague. Both reach the Branch Manager's Class day. */
+function ReportProblem({ session }: { session: TodaySession }) {
+  const { profile } = useAuth();
+  const refresh = useRefresh();
+  const [open, setOpen] = useState<"disruption" | "cover" | null>(null);
+  const trainers = useQuery({ queryKey: ["delivery", "staff", "TRAINER", "all"], queryFn: () => deliveryApi.staff("TRAINER"), enabled: open === "cover" });
+  const colleagues = [...new Map((trainers.data ?? []).filter((u) => u.user_id !== profile?.user.user_id).map((u) => [u.user_id, u.full_name]))]
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const disrupt = useApiMutation(
+    (v: Record<string, string>) =>
+      deliveryApi.recordDisruption(session.session_id, {
+        kind: v["kind"]!,
+        cause: v["cause"],
+        delay_minutes: v["kind"] === "Delayed start" && v["delay_minutes"] ? Number(v["delay_minutes"]) : null,
+        detail: v["detail"] || undefined,
+      }),
+    {
+      success: "Reported to the Branch Manager",
+      next: "They see it on Class day and agree a recovery plan with the students.",
+      onSuccess: () => void refresh(),
+    },
+  );
+  const cover = useApiMutation(
+    (v: Record<string, string>) =>
+      deliveryApi.requestCover(session.session_id, {
+        cover_role: v["cover_role"]!,
+        cover_user_id: Number(v["cover_user_id"]),
+        reason: v["reason"]!,
+        scope: v["scope"]!,
+        handover: v["handover"]!,
+      }),
+    { success: "Cover request sent", next: "A Branch Manager decides it. Until it is approved you are still the trainer of this class." },
+  );
+  const canCover = session.state === "Scheduled" || session.state === "Rescheduled";
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm">
+            Report a problem
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onSelect={() => setOpen("disruption")}>Late start or connection problem</DropdownMenuItem>
+          {canCover && <DropdownMenuItem onSelect={() => setOpen("cover")}>I need a colleague to cover this class</DropdownMenuItem>}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ActionDialog
+        open={open === "disruption"}
+        onOpenChange={(o) => !o && setOpen(null)}
+        title="Report a problem with this class"
+        description="The Branch Managers are told at once and agree a recovery or replacement plan with the students."
+        fields={[
+          { name: "kind", label: "What happened", type: "select", required: true, options: DISRUPTION_KINDS },
+          { name: "delay_minutes", label: "How many minutes late", type: "number", min: 0, showIf: (v) => v["kind"] === "Delayed start" },
+          { name: "cause", label: "Cause", type: "select", options: CAUSES },
+          { name: "detail", label: "What else should the Branch Manager know", type: "textarea" },
+        ]}
+        submitLabel="Send to the Branch Manager"
+        onSubmit={(v) => disrupt.mutateAsync(v)}
+      />
+      <ActionDialog
+        open={open === "cover"}
+        onOpenChange={(o) => !o && setOpen(null)}
+        title="Ask for cover"
+        description="Name the colleague who agreed to take the class. A Branch Manager approves it; until then the class stays yours."
+        fields={[
+          {
+            name: "cover_role",
+            label: "Cover as",
+            type: "select",
+            options: [
+              { value: "Substitute", label: "Substitute (teaches instead of me)" },
+              { value: "Assistant", label: "Assistant (helps me teach)" },
+            ],
+          },
+          {
+            name: "cover_user_id",
+            label: "Colleague",
+            type: "select",
+            required: true,
+            options: colleagues,
+            hint: trainers.isPending ? "Loading trainers…" : undefined,
+          },
+          { name: "reason", label: "Why", type: "textarea", required: true },
+          { name: "scope", label: "What they should cover", type: "textarea", required: true, value: session.topic ? session.topic.title : "" },
+          { name: "handover", label: "Handover notes (slides, where the class is up to)", type: "textarea", required: true },
+        ]}
+        submitLabel="Send request"
+        onSubmit={(v) => cover.mutateAsync(v)}
+      />
+    </>
+  );
+}
+
 export function ClassFlow({ session, label }: { session: TodaySession; label?: string }) {
   const refresh = useRefresh();
   const { draft, patch, flush, discard } = useDraft(session);
@@ -477,13 +589,16 @@ export function ClassFlow({ session, label }: { session: TodaySession; label?: s
         </>
       )}
       {!finished && (
-        <p className="mt-4 text-xs text-muted-foreground">
-          Need a different time or day?{" "}
-          <Link to="/trainer/sessions" className="text-primary underline">
-            Ask for a reschedule from Sessions
-          </Link>
-          .
-        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {session.state !== "Cancelled" && <ReportProblem session={session} />}
+          <p className="text-xs text-muted-foreground">
+            Need a different time or day?{" "}
+            <Link to="/trainer/sessions" className="text-primary underline">
+              Ask for a reschedule from Sessions
+            </Link>
+            .
+          </p>
+        </div>
       )}
     </section>
   );

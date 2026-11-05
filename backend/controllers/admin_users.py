@@ -1,6 +1,7 @@
 from flask import request
 
 from controllers.common import Validator, created, get_page_params, json_body, ok, paginated, require_changes
+from services import activation as activation_service
 from services import admin_users as users_service
 from services.whatsapp import outcome as whatsapp_outcome
 
@@ -17,7 +18,7 @@ def _with_invite(user, issued, password: str | None = None) -> dict:
     """The user plus their invite link. The temporary password is offered only when no WhatsApp message will carry the link."""
     queued = bool(issued.message and issued.message.status == "Queued")
     data = {**user.to_admin_dict(), "invite_path": f"/activate?token={issued.token}", "invite_expires_at": issued.invite.expires_at,
-            "whatsapp": whatsapp_outcome(issued.message)}
+            "whatsapp": whatsapp_outcome(issued.message), "email_delivery": activation_service.email_delivery(issued.email)}
     if password is not None and not queued:
         data["temporary_password"] = password
     return data

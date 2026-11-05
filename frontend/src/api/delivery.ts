@@ -829,7 +829,8 @@ export const deliveryApi = {
     post<Allocation>(`/enrolments/${enrolmentId}/deallocate`, { reason, enrolment_track_id }),
   enrolments: (query: Query) => list<EnrolmentRow>("/enrolments", { per_page: 100, ...query }),
   allocationQueue: (query: Query = {}) => list<EnrolmentRow>("/allocation-queue", { per_page: 100, ...query }),
-  staff: (role: string, branchId: number) => get<{ user_id: number; full_name: string }[]>("/reference/staff", { role, branch_id: branchId }),
+  /** Staff holding a role; leave out the branch for every branch (a trainer picking cover from anywhere). */
+  staff: (role: string, branchId?: number) => get<{ user_id: number; full_name: string }[]>("/reference/staff", { role, branch_id: branchId }),
   courses: () => get<(CourseRef & { is_combo: boolean })[]>("/reference/courses"),
 
   // sessions

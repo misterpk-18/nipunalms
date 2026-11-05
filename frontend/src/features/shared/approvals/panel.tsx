@@ -2,7 +2,7 @@
 import type { InboxItem } from "@/api/founder";
 import { AccessPanel } from "./panel-access";
 import { CertificateRequestPanel, FeeExceptionPanel } from "./panel-certificate";
-import { AiBudgetPanel, BranchManagerRequestPanel } from "./panel-other";
+import { AiBudgetPanel, BatchRequestPanel, BranchManagerRequestPanel } from "./panel-other";
 
 export function InboxPanel({ item, onClose }: { item: InboxItem; onClose: () => void }) {
   switch (item.kind) {
@@ -27,5 +27,7 @@ export function InboxPanel({ item, onClose }: { item: InboxItem; onClose: () => 
     case "bm_reschedule":
     case "bm_correction":
       return <BranchManagerRequestPanel key={item.key} item={item} onClose={onClose} />;
+    case "bm_batch_request":
+      return <BatchRequestPanel key={item.key} item={item} onClose={onClose} />;
   }
 }

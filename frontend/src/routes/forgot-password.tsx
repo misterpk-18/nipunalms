@@ -18,7 +18,7 @@ export const Route = createFileRoute("/forgot-password")({ component: ForgotPass
 
 const MIN_LENGTH = 10;
 
-/** Self-service reset: ask for a code (sent by WhatsApp), then set a new password with it. */
+/** Self-service reset: ask for a code (sent by WhatsApp; staff also by email), then set a new password with it. */
 function ForgotPassword() {
   const t = useT();
   const [login, setLogin] = useState("");
