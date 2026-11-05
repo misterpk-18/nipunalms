@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { assessmentsApi, batchesForAuthoring, batchesForAuthoringIn, QUESTION_TYPES, type Question, type QuestionType } from "@/api/assessments";
 import { Field, NativeSelect } from "@/components/lms/forms";
 import { DataTable, PillTabs, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -307,14 +308,27 @@ export function QuestionBank({ canApprove = false, initialStatus = "All" }: { ca
                 c: (q) => (
                   <div className="flex flex-wrap gap-2">
                     {canApprove && q.status === "Draft" && (
-                      <Button size="sm" onClick={() => approve.mutate(q)}>
-                        Approve
-                      </Button>
+                      <ConfirmDialog
+                        title={`Approve ${q.question_code} v${q.version}?`}
+                        consequence="It is frozen and can go in tests. Nobody can edit it after this; a change makes a new version."
+                        confirmLabel="Approve"
+                        onConfirm={() => approve.mutateAsync(q)}
+                      >
+                        <Button size="sm">Approve</Button>
+                      </ConfirmDialog>
                     )}
                     {canApprove && q.status !== "Retired" && (
-                      <Button size="sm" variant="outline" onClick={() => retire.mutate(q)}>
-                        Retire
-                      </Button>
+                      <ConfirmDialog
+                        title={`Retire ${q.question_code} v${q.version}?`}
+                        consequence="It can no longer go in new tests; tests that already use it keep it. A retired question cannot be brought back, but a trainer can make a new version of it."
+                        confirmLabel="Retire"
+                        destructive
+                        onConfirm={() => retire.mutateAsync(q)}
+                      >
+                        <Button size="sm" variant="outline">
+                          Retire
+                        </Button>
+                      </ConfirmDialog>
                     )}
                     {!canApprove && q.status === "Draft" && q.author.user_id === profile?.user.user_id && (
                       <Button size="sm" variant="outline" onClick={() => setEditing(q)}>

@@ -204,12 +204,13 @@ test("add students from the waiting list on the batch page", async ({ page }, in
   const row = dialog.getByRole("list", { name: "Students waiting for this batch" }).getByRole("listitem").filter({ hasText: LEARNER_A });
   await expect(row).toContainText("seats left");
   await row.getByRole("button", { name: "Allocate" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Allocate" }).click();
   await expect(page.getByText(`${LEARNER_A} is in`)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("tab", { name: /^Students\s*1/ })).toBeVisible();
 });
 
-test("Waiting for a batch lists matching batches with one-click Allocate", async ({ page }, info) => {
+test("Waiting for a batch lists matching batches; Allocate asks first", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.bmGnt);
   await page.goto("/branch/waiting");
@@ -222,6 +223,7 @@ test("Waiting for a batch lists matching batches with one-click Allocate", async
   await expect(line).toContainText("seats left");
   await expect(line).toContainText("Tue, Thu · 15:00–17:00");
   await line.getByRole("button", { name: "Allocate" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Allocate" }).click();
   await expect(page.getByText(`${LEARNER_B} is in`)).toBeVisible();
   await expect(page.getByRole("list", { name: "Students waiting for a batch" }).getByText(LEARNER_B)).toHaveCount(0);
 });

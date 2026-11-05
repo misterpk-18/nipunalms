@@ -20,6 +20,7 @@ import {
 } from "@/api/delivery";
 import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { DataTable, Note, QueryView, StatusBadge, Tag } from "@/components/lms/ui";
 import { ActionDialog, fmtDate, fmtDay } from "@/features/shared/delivery-ui";
 import { useDelivery } from "@/features/shared/sessions";
@@ -340,22 +341,25 @@ export function HandoverDialog({ batch, row, targets }: { batch: BatchDetail; ro
 
 const who = (u: { full_name: string } | null) => u?.full_name ?? "—";
 
+/** Approve asks first and says what approving does (`consequence`); Reject asks for the reason. */
 function DecisionButtons({
   onApprove,
   onReject,
   what,
+  consequence,
   approveLabel = "Approve",
 }: {
-  onApprove: () => Promise<unknown> | unknown;
+  onApprove: () => Promise<unknown>;
   onReject: (note: string) => Promise<unknown>;
   what: string;
+  consequence: ReactNode;
   approveLabel?: string;
 }) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      <Button size="sm" onClick={() => void onApprove()}>
-        {approveLabel}
-      </Button>
+      <ConfirmDialog title={`Approve the ${what}?`} consequence={consequence} confirmLabel={approveLabel} onConfirm={onApprove}>
+        <Button size="sm">{approveLabel}</Button>
+      </ConfirmDialog>
       <ActionDialog
         trigger={
           <Button size="sm" variant="outline">
@@ -429,7 +433,8 @@ function CapacityRequests({ batch, manager, approver }: { batch: BatchDetail; ma
               r.status === "Pending" ? (
                 <DecisionButtons
                   what="capacity request"
-                  onApprove={() => decide.mutate({ id: r.request_id, decision: "Approved" })}
+                  consequence={`The batch can take up to ${r.to_capacity} students from now on (it has ${r.from_capacity} seats today).`}
+                  onApprove={() => decide.mutateAsync({ id: r.request_id, decision: "Approved" })}
                   onReject={(note) => decide.mutateAsync({ id: r.request_id, decision: "Rejected", note })}
                 />
               ) : (
@@ -572,7 +577,8 @@ function TransferRequests({ batch, manager, approver }: { batch: BatchDetail; ma
                             {approver && (
                               <DecisionButtons
                                 what="transfer"
-                                onApprove={() => decide.mutate({ id: r.request_id, decision: "Approved" })}
+                                consequence={`The student's seat moves to ${r.to_batch.batch_code}. The seat they hold now ends and stays in the batch history.`}
+                                onApprove={() => decide.mutateAsync({ id: r.request_id, decision: "Approved" })}
                                 onReject={(note) => decide.mutateAsync({ id: r.request_id, decision: "Rejected", note })}
                               />
                             )}
@@ -727,7 +733,8 @@ function MaterialChanges({
                           {approver && c.status === "Pending Approval" && (
                             <DecisionButtons
                               what="material change"
-                              onApprove={() => decide.mutate({ id: c.change_id, decision: "Approved" })}
+                              consequence="Each student of the batch is then asked to agree. Nothing changes for them until the change is applied."
+                              onApprove={() => decide.mutateAsync({ id: c.change_id, decision: "Approved" })}
                               onReject={(note) => decide.mutateAsync({ id: c.change_id, decision: "Rejected", note })}
                             />
                           )}
@@ -926,7 +933,12 @@ function Successions({
                     s.status === "Pending" ? (
                       <DecisionButtons
                         what="request"
-                        onApprove={() => decide.mutate({ id: s.succession_id, decision: "Approved" })}
+                        consequence={
+                          s.kind === "Merge"
+                            ? `Every student of ${s.from_batch.batch_code} moves into ${s.to_batch.batch_code} from ${fmtDay(s.effective_from)}.`
+                            : `The chosen students move from ${s.from_batch.batch_code} to ${s.to_batch.batch_code} from ${fmtDay(s.effective_from)}.`
+                        }
+                        onApprove={() => decide.mutateAsync({ id: s.succession_id, decision: "Approved" })}
                         onReject={(note) => decide.mutateAsync({ id: s.succession_id, decision: "Rejected", note })}
                       />
                     ) : (

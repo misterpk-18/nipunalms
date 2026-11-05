@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { LinkIcon, RotateCcw } from "lucide-react";
 import { adminApi, adminKeys, type ActivationIssued, type SuggestedStep } from "@/api/admin";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { useApiMutation } from "@/lib/mutation";
 import { SecretDialog } from "@/features/shared/form-parts";
@@ -28,18 +29,23 @@ export function NextStepButton({ area, studentId, step, size = "sm" }: { area: C
   if (step.action === "open")
     return (
       <Button asChild size={size}>
-        <Link {...areaLink(area, "/students/$id", { id: String(studentId) })}>
-          {step.action_label}
-        </Link>
+        <Link {...areaLink(area, "/students/$id", { id: String(studentId) })}>{step.action_label}</Link>
       </Button>
     );
   if (!canEdit) return null;
   return (
     <>
       {step.action === "send_link" ? (
-        <Button size={size} disabled={issue.isPending} onClick={() => issue.mutate()}>
-          <LinkIcon className="size-3.5" aria-hidden /> {step.action_label}
-        </Button>
+        <ConfirmDialog
+          title={`${step.action_label}?`}
+          consequence="A new one-time link goes to the student by WhatsApp and email; if neither can, you get the link to copy and pass on. Any earlier link for this student stops working."
+          confirmLabel={step.action_label}
+          onConfirm={() => issue.mutateAsync().then(() => undefined)}
+        >
+          <Button size={size} disabled={issue.isPending}>
+            <LinkIcon className="size-3.5" aria-hidden /> {step.action_label}
+          </Button>
+        </ConfirmDialog>
       ) : (
         <Button size={size} disabled={reactivate.isPending} onClick={() => reactivate.mutate()}>
           <RotateCcw className="size-3.5" aria-hidden /> {step.action_label}

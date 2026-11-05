@@ -140,6 +140,10 @@ test.describe("Super Admin", () => {
       .getByRole("region", { name: "Suggested next step" })
       .getByRole("button", { name: /Send new link|Send activation link/ })
       .click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: /Send new link|Send activation link/ })
+      .click();
     const link = await page.getByRole("textbox", { name: "Activation link" }).inputValue();
     expect(link).toContain("/activate?token=");
     await page.getByRole("button", { name: "Done" }).click();
@@ -196,6 +200,7 @@ test.describe("Super Admin", () => {
     await page.keyboard.press("Escape");
 
     await failed.getByRole("button", { name: /^Retry/ }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Retry" }).click();
     await expect(page.getByRole("listitem").filter({ hasText: "NIT-CRS-999" }).first()).toContainText("has not reached the LMS yet");
 
     await page.getByRole("tab", { name: /Sent to the CRM/ }).click();

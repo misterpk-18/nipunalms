@@ -16,7 +16,7 @@ export function timetableText(b: Pick<WaitingBatch, "schedule_days" | "start_tim
 
 export const batchName = (b: Pick<WaitingBatch, "display_name" | "batch_code">) => b.display_name ?? b.batch_code;
 
-/** Allocates one student (or one track of a combo) to the batch. A match with warnings asks first and lists them. */
+/** Allocates one student (or one track of a combo) to the batch. It always asks first; a match with warnings lists them. */
 export function AllocateButton({
   row,
   match,
@@ -47,9 +47,16 @@ export function AllocateButton({
   const label = match.track ? `Allocate ${match.track.track_code}` : "Allocate";
   if (match.warnings.length === 0)
     return (
-      <Button size="sm" disabled={allocate.isPending} onClick={() => allocate.mutate(undefined)}>
-        {label}
-      </Button>
+      <ConfirmDialog
+        title={`Allocate ${row.student.full_name} to ${batchName(match.batch)}?`}
+        consequence="The student gets a seat in this batch and is told about it. To undo it, remove them from the batch's Students tab with a reason."
+        confirmLabel="Allocate"
+        onConfirm={() => allocate.mutateAsync(undefined)}
+      >
+        <Button size="sm" disabled={allocate.isPending}>
+          {label}
+        </Button>
+      </ConfirmDialog>
     );
   return (
     <ConfirmDialog

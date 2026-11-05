@@ -6,21 +6,8 @@ import { GettingStartedCard } from "@/components/lms/getting-started";
 import { NeedsYouList, type NeedsYouItem } from "@/components/lms/needs-you-list";
 import { PageHead, QueryView, StatusBadge } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
-import { useApiMutation } from "@/lib/mutation";
+import { RetryCrmButton } from "./crm-sync";
 import { ageText } from "@/features/shared/format";
-
-/** Retry on a failed CRM update, right from the home: it either goes through or says why not. */
-function RetryButton({ eventId }: { eventId: number }) {
-  const retry = useApiMutation((id: number) => adminApi.retryEvent(id), {
-    success: "The CRM update went through",
-    invalidate: [[...adminKeys.needsAction], [...adminKeys.syncAll]],
-  });
-  return (
-    <Button size="sm" disabled={retry.isPending} onClick={() => retry.mutate(eventId)}>
-      <RefreshCw className="size-3.5" aria-hidden /> Retry
-    </Button>
-  );
-}
 
 function toItems(data: NeedsAction, canRetry: boolean): NeedsYouItem[] {
   return data.rows.map((row) => ({
@@ -31,7 +18,7 @@ function toItems(data: NeedsAction, canRetry: boolean): NeedsYouItem[] {
     to: row.to,
     search: row.search,
     action: row.action,
-    ...(row.retry && canRetry ? { extra: <RetryButton eventId={row.retry.crm_event_id} /> } : {}),
+    ...(row.retry && canRetry ? { extra: <RetryCrmButton eventId={row.retry.crm_event_id} /> } : {}),
   }));
 }
 

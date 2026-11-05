@@ -96,7 +96,7 @@ test("learner schedule groups upcoming classes by day and has a Past tab", async
 
 // Test debt (UX phase U14): this needs the freshly seeded database, where Sample Learner K. still waits for a Power BI batch. The Branch Manager's
 // batch and waiting-list flows are covered against any database by branch-u14.spec.ts.
-test("coordinator creates a batch with the wizard and allocates a waiting student in one click", async ({ page }) => {
+test("coordinator creates a batch with the wizard and allocates a waiting student after confirming", async ({ page }) => {
   await login(page, USERS.coordGnt);
   await page.goto("/branch/waiting");
   await expect(page.getByRole("heading", { level: 1, name: "Waiting for a batch" })).toBeVisible();
@@ -119,6 +119,7 @@ test("coordinator creates a batch with the wizard and allocates a waiting studen
   const waiting = page.getByRole("listitem").filter({ hasText: "Sample Learner K." }).first();
   await expect(waiting).toContainText("NIT-GNT-BAT-2026-");
   await waiting.getByRole("button", { name: "Allocate" }).first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Allocate" }).click();
   await expect(page.getByText(/Sample Learner K\. is in/)).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "Sample Learner K." })).toHaveCount(0);
 });

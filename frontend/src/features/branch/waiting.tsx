@@ -1,4 +1,4 @@
-/** Waiting for a batch: every student with an admission and no seat yet, the batches that could take them and a one-click Allocate. */
+/** Waiting for a batch: every student with an admission and no seat yet, the batches that could take them and Allocate (it asks first). */
 import { useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -28,7 +28,7 @@ export function BranchWaiting({ manage, basePath = "/branch/batches" }: { manage
     <div className="mx-auto max-w-5xl space-y-4">
       <PageHead
         title="Waiting for a batch"
-        description="Students who have joined and have no batch yet. Each one shows the batches that could take them; allocate in one click."
+        description="Students who have joined and have no batch yet. Each one shows the batches that could take them; allocate from here."
       />
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-xl border bg-card px-4 py-2" role="status">
@@ -83,7 +83,8 @@ export function BranchWaiting({ manage, basePath = "/branch/batches" }: { manage
       <HowThisWorks>
         <p>A batch is offered when it teaches the student's course at their branch and has a seat left. Closed, on-hold and full batches are not listed.</p>
         <p>
-          "Allocate…" with dots means the check found something to look at, such as a different class mode or a timetable clash. You see it before you confirm.
+          Allocate always asks before the seat is given. "Allocate…" with dots means the check found something to look at, such as a different class mode or a
+          timetable clash; the question lists it.
         </p>
         <p>
           A student needs a seat before they can be marked in a class. Their Joining Date is set at the first class of their batch they attend (marked Present

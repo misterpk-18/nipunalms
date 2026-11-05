@@ -3,6 +3,7 @@ import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { adminApi, adminKeys, CRM_EVENT_STATUSES, OUTBOX_STATUSES, type CrmEvent, type EventFilters, type OutboxFilters } from "@/api/admin";
+import { ConfirmDialog } from "@/components/lms/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,38 @@ function useRetry() {
     success: "The CRM update went through",
     invalidate: [[...adminKeys.syncAll], [...adminKeys.needsAction], ["nav", "counts"]],
   });
+}
+
+/** Retry asks first: applying the update again can create or change the student, admission or course it is about. Used here and on the home. */
+export function RetryCrmButton({
+  eventId,
+  summary,
+  variant = "default",
+  onDone,
+}: {
+  eventId: number;
+  summary?: string;
+  variant?: "default" | "outline";
+  onDone?: () => void;
+}) {
+  const retry = useRetry();
+  return (
+    <ConfirmDialog
+      title="Try this CRM update again?"
+      consequence={
+        <>
+          {summary ? `${summary}. ` : ""}The LMS applies what the CRM sent once more, so the student, admission or course it is about may be created or changed
+          now. If it fails again, the new reason shows on the row.
+        </>
+      }
+      confirmLabel="Retry"
+      onConfirm={() => retry.mutateAsync(eventId, { onSuccess: onDone }).then(() => undefined)}
+    >
+      <Button size="sm" variant={variant} disabled={retry.isPending} aria-label={summary ? `Retry ${summary}` : undefined}>
+        <RefreshCw className="size-3.5" aria-hidden /> Retry
+      </Button>
+    </ConfirmDialog>
+  );
 }
 
 /** `canEdit` (Retry) comes from the route; Super Admin and Founder both retry. */
@@ -91,7 +124,6 @@ export function AdminCrmSync({ canEdit }: { canEdit: boolean }) {
 }
 
 function EventRow({ event, canRetry, onOpen }: { event: CrmEvent; canRetry: boolean; onOpen: () => void }) {
-  const retry = useRetry();
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 py-3" data-event={event.event_id}>
       <div className="min-w-0 flex-1 space-y-1">
@@ -111,17 +143,21 @@ function EventRow({ event, canRetry, onOpen }: { event: CrmEvent; canRetry: bool
         <Button variant="outline" size="sm" onClick={onOpen} aria-label={`Details of ${event.summary}`}>
           Details
         </Button>
-        {canRetry && event.can_retry && (
-          <Button size="sm" disabled={retry.isPending} onClick={() => retry.mutate(event.crm_event_id)} aria-label={`Retry ${event.summary}`}>
-            <RefreshCw className="size-3.5" aria-hidden /> Retry
-          </Button>
-        )}
+        {canRetry && event.can_retry && <RetryCrmButton eventId={event.crm_event_id} summary={event.summary} />}
       </div>
     </li>
   );
 }
 
-function Attention({ canEdit, params, setParams }: { canEdit: boolean; params: Record<string, string | undefined>; setParams: (patch: Record<string, string | undefined>) => void }) {
+function Attention({
+  canEdit,
+  params,
+  setParams,
+}: {
+  canEdit: boolean;
+  params: Record<string, string | undefined>;
+  setParams: (patch: Record<string, string | undefined>) => void;
+}) {
   const page = pageOf(params);
   const query = useQuery({
     queryKey: adminKeys.syncEvents({ attention: "true", page }),
@@ -158,7 +194,6 @@ function AllUpdates({ canEdit }: { canEdit: boolean }) {
   const [filters, setFilters] = useState<EventFilters>({});
   const summary = useQuery({ queryKey: adminKeys.syncSummary, queryFn: adminApi.syncSummary });
   const query = useQuery({ queryKey: adminKeys.syncEvents(filters), queryFn: () => adminApi.syncEvents(filters), placeholderData: keepPreviousData });
-  const retry = useRetry();
   return (
     <>
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -229,17 +264,7 @@ function AllUpdates({ canEdit }: { canEdit: boolean }) {
                       <Button variant="outline" size="sm" onClick={() => setParams({ event: String(e.crm_event_id) })} aria-label={`Details of ${e.summary}`}>
                         Details
                       </Button>
-                      {canEdit && e.can_retry && e.status === "Failed" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={retry.isPending}
-                          onClick={() => retry.mutate(e.crm_event_id)}
-                          aria-label={`Retry ${e.summary}`}
-                        >
-                          <RefreshCw className="size-3.5" aria-hidden /> Retry
-                        </Button>
-                      )}
+                      {canEdit && e.can_retry && e.status === "Failed" && <RetryCrmButton eventId={e.crm_event_id} summary={e.summary} variant="outline" />}
                     </div>
                   ),
                 },
@@ -260,7 +285,6 @@ function Json({ value }: { value: unknown }) {
 /** One update: a plain summary first, then (folded away) exactly what the CRM sent and what the LMS did with it. */
 function EventDialog({ canEdit, id, onClose }: { canEdit: boolean; id: number; onClose: () => void }) {
   const query = useQuery({ queryKey: adminKeys.syncEvent(id), queryFn: () => adminApi.syncEvent(id) });
-  const retry = useRetry();
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto">
@@ -281,11 +305,7 @@ function EventDialog({ canEdit, id, onClose }: { canEdit: boolean; id: number; o
                 ]}
               />
               {e.plain_cause && <p className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{e.plain_cause}</p>}
-              {canEdit && e.can_retry && e.status === "Failed" && (
-                <Button size="sm" disabled={retry.isPending} onClick={() => retry.mutate(e.crm_event_id, { onSuccess: onClose })}>
-                  <RefreshCw className="size-3.5" aria-hidden /> Retry
-                </Button>
-              )}
+              {canEdit && e.can_retry && e.status === "Failed" && <RetryCrmButton eventId={e.crm_event_id} summary={e.summary} onDone={onClose} />}
               <HowThisWorks title="Technical details">
                 <KeyValue
                   items={[
