@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { PASSWORD, USERS, login } from "./helpers";
+import { PASSWORD, USERS, createUpcomingClass, login } from "./helpers";
 
 /**
  * UX phase U12: the trainer's Today flow (the only way to run a class), Sessions as a schedule, Attendance as "Unmarked &
@@ -144,19 +144,20 @@ test("Sessions is a schedule: Run class opens the Today flow and a past class ge
 
 test("a reschedule request shows under My requests, and the decision comes back with its reason", async ({ page, request }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
+  await createUpcomingClass(request, "E2E reschedule target", 4); // the staging "PCA lab" is in the past now
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/sessions");
   await page
-    .getByRole("row", { name: /PCA lab/ })
+    .getByRole("row", { name: /E2E reschedule target/ })
     .getByRole("button", { name: "Request reschedule" })
     .click();
   await page.getByRole("dialog").getByLabel("Reason").fill("Lab clash with an exam");
   await page.getByRole("dialog").getByRole("button", { name: "Send request" }).click();
-  await expect(page.getByRole("row", { name: /PCA lab/ }).getByText("Reschedule requested")).toBeVisible();
+  await expect(page.getByRole("row", { name: /E2E reschedule target/ }).getByText("Reschedule requested")).toBeVisible();
 
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "My requests" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "My requests" })).toBeVisible();
-  const card = page.getByRole("listitem").filter({ hasText: "Move PCA lab" });
+  const card = page.getByRole("listitem").filter({ hasText: "Move E2E reschedule target" });
   await expect(card).toContainText("Waiting for a decision");
   await expect(card).toContainText("Lab clash with an exam");
   await expect(card).toContainText("Waiting for the Branch Manager");
@@ -164,7 +165,7 @@ test("a reschedule request shows under My requests, and the decision comes back 
   // the Branch Manager says no, with a reason
   const bm = await apiLogin(request, USERS.bmGnt);
   const open = await (await request.get("/api/v1/reschedule-requests?status=Open", { headers: auth(bm.token) })).json();
-  const mine = open.data.find((r: { session: { title: string } }) => r.session.title === "PCA lab");
+  const mine = open.data.find((r: { session: { title: string } }) => r.session.title === "E2E reschedule target");
   const rejected = await request.post(`/api/v1/reschedule-requests/${mine.request_id}/reject`, {
     headers: auth(bm.token),
     data: { note: "Exam week, please keep the date" },
@@ -173,10 +174,10 @@ test("a reschedule request shows under My requests, and the decision comes back 
 
   await page.reload();
   await page.getByRole("tab", { name: /Decided/ }).click();
-  await expect(page.getByRole("listitem").filter({ hasText: "Move PCA lab" })).toContainText("Their note: Exam week, please keep the date");
+  await expect(page.getByRole("listitem").filter({ hasText: "Move E2E reschedule target" })).toContainText("Their note: Exam week, please keep the date");
   const trainer = await apiLogin(request, USERS.trainerG1);
   const notices = await (await request.get("/api/v1/notifications?per_page=50", { headers: auth(trainer.token) })).json();
-  const told = notices.data.find((n: { title: string }) => n.title === "Reschedule not approved: PCA lab");
+  const told = notices.data.find((n: { title: string }) => n.title === "Reschedule not approved: E2E reschedule target");
   expect(told?.link).toBe("/trainer/requests");
 });
 

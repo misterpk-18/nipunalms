@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { USERS, login } from "./helpers";
+import { USERS, createUpcomingClass, login } from "./helpers";
 
 /**
  * Delivery slice (S1) across roles: learner course navigation, batch creation and allocation, scheduling, the trainer's
@@ -154,7 +154,8 @@ test("coordinator schedules classes; trainer starts and delivers one and asks to
   await expect(page.getByRole("row", { name: /E2E weekly revision/ })).toHaveCount(3);
 });
 
-test("trainer runs the class from Today's flow, and requests a reschedule", async ({ page }) => {
+test("trainer runs the class from Today's flow, and requests a reschedule", async ({ page, request }) => {
+  await createUpcomingClass(request, "E2E reschedule target"); // the staging "PCA lab" is in the past now
   await login(page, USERS.trainerG1);
   await page.goto("/trainer/sessions");
   // Sessions is the schedule: a class is run from Today, so there is no Start or Mark delivered here
@@ -176,11 +177,11 @@ test("trainer runs the class from Today's flow, and requests a reschedule", asyn
   await page.goto("/trainer/sessions");
   await expect(page.getByRole("row", { name: /E2E live class/ })).toContainText("Held");
 
-  const target = page.getByRole("row", { name: /PCA lab/ });
+  const target = page.getByRole("row", { name: /E2E reschedule target/ });
   await target.getByRole("button", { name: "Request reschedule" }).click();
   await dialog(page).getByLabel("Reason").fill("Lab clash with an exam");
   await dialog(page).getByRole("button", { name: "Send request" }).click();
-  await expect(page.getByRole("row", { name: /PCA lab/ }).getByText("Reschedule requested")).toBeVisible();
+  await expect(page.getByRole("row", { name: /E2E reschedule target/ }).getByText("Reschedule requested")).toBeVisible();
 });
 
 test("coordinator approves the request; the session is rescheduled with history", async ({ page }) => {
@@ -189,7 +190,7 @@ test("coordinator approves the request; the session is rescheduled with history"
   const request = page
     .getByRole("region", { name: "Needs decision" })
     .getByRole("listitem")
-    .filter({ hasText: /PCA lab.*Lab clash with an exam/ });
+    .filter({ hasText: /E2E reschedule target.*Lab clash with an exam/ });
   await request.getByRole("button", { name: "Approve", exact: true }).click();
   // a class that starts within 24 hours needs an emergency reason and a next step for the students
   for (const [label, text] of [
@@ -201,7 +202,7 @@ test("coordinator approves the request; the session is rescheduled with history"
   }
   await dialog(page).getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("Approved. The class moved")).toBeVisible();
-  await expect(page.getByRole("row", { name: /PCA lab/ }).first()).toContainText("Moved");
+  await expect(page.getByRole("row", { name: /E2E reschedule target/ }).first()).toContainText("Moved");
 });
 
 test("super admin builds the outline of a course that has none; the Branch Manager reads it, the student's course page stays", async ({ page }) => {

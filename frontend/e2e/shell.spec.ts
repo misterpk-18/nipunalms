@@ -62,6 +62,8 @@ const ROLES = [
   },
   {
     name: "super admin",
+    // Branch work: the Super Admin and Founder use the Branch Manager's day-to-day pages across branches (ADMIN_NAV / FOUNDER_NAV)
+    shares: ["/branch"],
     user: USERS.admin,
     home: "/admin",
     nav: [
@@ -85,6 +87,7 @@ const ROLES = [
   },
   {
     name: "founder",
+    shares: ["/branch"],
     user: USERS.founder,
     home: "/founder",
     nav: [
@@ -108,6 +111,10 @@ const ROLES = [
   },
 ];
 
+/** Every other role's workspace, less the ones this role shares on purpose. */
+const othersOf = (role: (typeof ROLES)[number]) =>
+  ROLES.filter((r) => r.name !== role.name && !("shares" in role && (role.shares as string[]).includes(r.home)));
+
 for (const role of ROLES) {
   test(`${role.name} lands on ${role.home} and its sidebar is exactly its own navigation`, async ({ page }, info) => {
     test.skip(info.project.name === "mobile", "sidebar is desktop only");
@@ -116,15 +123,14 @@ for (const role of ROLES) {
     const nav = page.getByRole("navigation", { name: "Main" });
     for (const item of role.nav) await expect(nav.getByRole("link", { name: item, exact: true }).first()).toBeVisible();
     // one nav per account: no link into any other role's workspace, and no switcher
-    for (const other of ROLES.filter((r) => r.name !== role.name))
-      await expect(nav.locator(`a[href="${other.home}"]`), `${role.name} has no link to ${other.home}`).toHaveCount(0);
+    for (const other of othersOf(role)) await expect(nav.locator(`a[href="${other.home}"]`), `${role.name} has no link to ${other.home}`).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Acting as" })).toHaveCount(0);
   });
 
   test(`${role.name} is refused every other role's pages`, async ({ page }, info) => {
     test.skip(info.project.name === "mobile", "desktop flow");
     await login(page, role.user);
-    for (const other of ROLES.filter((r) => r.name !== role.name)) {
+    for (const other of othersOf(role)) {
       await page.goto(other.home);
       await expect(page.getByText(/cannot open this page/), `${role.name} opening ${other.home}`).toBeVisible();
     }

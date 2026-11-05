@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 export const PASSWORD = "Nipuna-staging-1";
 
@@ -25,4 +25,21 @@ export async function login(page: Page, loginId: string, password = PASSWORD) {
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).not.toHaveURL(/\/login/);
+}
+
+/**
+ * An upcoming class for Trainer R. Sample's Guntur batch (NIT-GNT-BAT-2026-000001), `daysAhead` days from now, 10:00–12:00 IST,
+ * created by the Guntur Branch Manager. The staging classes sit in Sep–Oct 2026, so a test that needs a class still to come makes one.
+ */
+export async function createUpcomingClass(request: APIRequestContext, title: string, daysAhead = 3) {
+  const login = await request.post("/api/v1/auth/login", { data: { login: USERS.bmGnt, password: PASSWORD } });
+  const headers = { Authorization: `Bearer ${(await login.json()).data.token}` };
+  const batches = (await (await request.get("/api/v1/batches?per_page=100", { headers })).json()).data as { batch_id: number; batch_code: string }[];
+  const batch = batches.find((b) => b.batch_code === "NIT-GNT-BAT-2026-000001")!;
+  const day = new Date(Date.now() + daysAhead * 86_400_000).toISOString().slice(0, 10);
+  const made = await request.post("/api/v1/class-sessions", {
+    headers,
+    data: { batch_id: batch.batch_id, title, starts_at: `${day}T10:00:00+05:30`, ends_at: `${day}T12:00:00+05:30` },
+  });
+  expect(made.status(), await made.text()).toBe(201);
 }

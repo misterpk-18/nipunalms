@@ -380,8 +380,10 @@ test("the Super Admin sets how students pay at a branch and the Branch Manager o
   await login(page, USERS.admin);
   await page.goto("/admin/setup");
   await page.getByLabel("Branch for the payment instructions").selectOption({ label: "Guntur" });
-  await page.getByLabel("Payment instructions", { exact: true }).fill(PAYMENT);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  const instructions = page.getByLabel("Payment instructions", { exact: true });
+  await instructions.fill(PAYMENT);
+  // Setup & health has other Save buttons: use the one beside this box
+  await instructions.locator("xpath=..").getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { PASSWORD, USERS, login } from "./helpers";
+import { createUpcomingClass, login, PASSWORD, USERS } from "./helpers";
 
 /**
  * UX phase U11: the student's Career, Ask Nipuna, Support and My Account screens. Needs a freshly seeded dev database
@@ -52,7 +52,8 @@ test("Career: a four-step checklist, and Apply says what it needs", async ({ pag
   await expect(page.getByRole("cell", { name: "Data Engineer Trainee", exact: true })).toBeVisible();
 });
 
-test("Ask Nipuna: a chat thread, quick actions fill the box, a question it can't answer goes to Support", async ({ page }) => {
+test("Ask Nipuna: a chat thread, quick actions fill the box, a question it can't answer goes to Support", async ({ page, request }) => {
+  await createUpcomingClass(request, "E2E upcoming class", 2); // the staging classes are in the past now; "next class" needs one to come
   await login(page, USERS.student);
   await page.getByRole("link", { name: "Ask Nipuna", exact: true }).first().click();
   const thread = page.getByTestId("ask-thread");
