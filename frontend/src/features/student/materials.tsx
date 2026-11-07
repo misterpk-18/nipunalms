@@ -162,6 +162,17 @@ function RecordingsTab({ recordings }: { recordings: UseQueryResult<StudentRecor
           {playing?.status_note && <StatusNote tone="warning">{playing.status_note}</StatusNote>}
           {playing && !playing.playback.available ? (
             <StatusNote tone="info">{playing.playback.message}</StatusNote>
+          ) : playing?.playback.embed_url ? (
+            <>
+              <iframe
+                title={playing.session_title}
+                src={playing.playback.embed_url}
+                className="aspect-video w-full rounded-lg border-0 bg-navy"
+                allow="autoplay; fullscreen"
+                allowFullScreen
+              />
+              <p className="text-xs text-muted-foreground">{t("recordingGoogleSignIn")}</p>
+            </>
           ) : (
             <div className="grid aspect-video place-items-center rounded-lg bg-navy text-sm text-navy-foreground">{t("playerPlaceholder")}</div>
           )}

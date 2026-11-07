@@ -257,8 +257,39 @@ def test_create_weekly_series_and_conflicts(world, client, login):
     past = future(-2)
     assert call(client, login, people["ac"], "post", "/class-sessions", json={**body, "recurrence": None, "starts_at": iso(past), "ends_at": iso(past + timedelta(hours=1))}).status_code == 400
     assert call(client, login, people["ac"], "post", "/class-sessions", json={**body, "recurrence": None, "trainer_user_id": people["g2"].user_id, "room": "Z"}).status_code == 400
-    # a trainer cannot schedule
-    assert call(client, login, people["g1"], "post", "/class-sessions", json=body).status_code == 403
+    # a trainer schedules only for a batch they teach (test_trainer_schedules_their_own_classes)
+    assert call(client, login, people["g2"], "post", "/class-sessions", json=body).status_code == 404
+
+
+def test_trainer_schedules_their_own_classes(world, client, login, make_batch):
+    """A trainer schedules for the batches they are assigned to, as themselves. A regular class goes out at once and the
+    Branch Manager is told; an extra class still waits for the Branch Manager's approval."""
+    from sqlalchemy import select
+
+    from config.database import db
+    from models import Notification
+
+    people, batch, _ = world
+    start = future(5)
+    body = {"batch_id": batch.batch_id, "title": "Trainer's class", "starts_at": iso(start), "ends_at": iso(start + timedelta(hours=1))}
+
+    created = data(call(client, login, people["g1"], "post", "/class-sessions", json={**body, "recurrence": {"count": 2}}), 201)
+    assert len(created) == 2 and all(s["state"] == "Scheduled" and s["approval_status"] == "Not Required" for s in created)
+    assert all(s["trainer"]["user_id"] == people["g1"].user_id for s in created)
+    titles = db.session.execute(select(Notification.title)).scalars().all()
+    assert any(t.startswith("Trainer G1 scheduled 2 classes from") for t in titles)
+
+    # never for another trainer, nor a batch they don't teach (another branch's, or their own branch's)
+    later = {**body, "starts_at": iso(start + timedelta(days=1)), "ends_at": iso(start + timedelta(days=1, hours=1))}
+    assert call(client, login, people["g1"], "post", "/class-sessions", json={**later, "trainer_user_id": people["g2"].user_id}).status_code == 403
+    other = make_batch(1, trainers=[people["g2"]], state="Running")
+    assert call(client, login, people["g1"], "post", "/class-sessions", json={**later, "batch_id": other.batch_id}).status_code == 404
+
+    # an extra class waits for the Branch Manager
+    extra = data(call(client, login, people["g1"], "post", "/class-sessions", json={
+        **later, "purpose": "Extra", "purpose_reference": "Revision before the test", "owner_user_id": people["g1"].user_id,
+        "due_on": (start + timedelta(days=1)).date().isoformat()}), 201)[0]
+    assert extra["approval_status"] == "Pending"
 
 
 def test_online_session_meet_lifecycle(world, client, login):

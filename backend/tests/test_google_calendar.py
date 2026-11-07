@@ -9,7 +9,7 @@ from config.database import db
 from models import ClassSession, GoogleJob, MeetEvent, Notification
 from repositories import google as google_repo
 from services import integrations
-from services.google import class_events, jobs
+from services.google import class_events, jobs, meet_recordings
 from services.google import client as google_client
 from services.google.client import GoogleError
 from services.jobs import JOBS
@@ -62,6 +62,7 @@ def google(app, monkeypatch, make_user):
     fake = FakeGoogle()
     monkeypatch.setattr(google_client, "request", fake)
     monkeypatch.setattr(google_client, "is_configured", lambda: True)
+    monkeypatch.setattr(meet_recordings, "is_enabled", lambda: False)  # auto-record has its own tests (test_google_meet_recordings)
     verify_meet(make_user(roles=[("SUPER_ADMIN", None)]))
     return fake
 
@@ -309,7 +310,7 @@ def test_a_missing_meet_link_is_retried_and_the_event_kept(world, client, login,
     google.link = None  # Google is still making the conference
     assert run() == {"done": 0, "retry": 1, "dead": 0}
     [job] = jobs_of(sid)
-    assert job.state == "Failed" and job.attempts == 1 and job.next_attempt_at > datetime.now(timezone.utc) + timedelta(minutes=4)
+    assert job.state == "Failed" and job.attempts == 1 and job.next_attempt_at > datetime.now(timezone.utc) + timedelta(seconds=50)
     session = session_of(sid)
     assert session.calendar_event_id and session.meet_status == "Pending Verification"
     assert run() == {"done": 0, "retry": 0, "dead": 0}  # not due yet
@@ -335,7 +336,7 @@ def test_backoff_grows_then_the_job_dies_and_the_class_shows_failed(world, clien
             job.next_attempt_at = datetime.now(timezone.utc) - timedelta(seconds=1)
             db.session.commit()
     assert outcome == {"done": 0, "retry": 0, "dead": 1}
-    assert [round(w.total_seconds() / 60) for w in waits] == [5, 15, 60, 360, 1440]
+    assert [round(w.total_seconds() / 60) for w in waits] == [1, 15, 60, 360, 1440]
     [job] = jobs_of(sid)
     assert (job.state, job.attempts) == ("Dead", jobs.MAX_ATTEMPTS) and "503" in job.last_error
     session = session_of(sid)

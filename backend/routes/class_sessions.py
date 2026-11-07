@@ -18,7 +18,7 @@ def list_class_sessions():
 
 @class_sessions_bp.post("/class-sessions")
 @login_required
-@require_roles(*MANAGE_ROLES)
+@require_roles(*TEACHING_ROLES)  # a trainer only for the batches they teach, as themselves (the service checks)
 def create_class_sessions():
     return class_sessions_controller.create_class_sessions()
 

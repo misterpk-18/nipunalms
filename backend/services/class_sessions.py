@@ -269,10 +269,24 @@ def _validate_purpose(batch: Batch, data: dict) -> None:
         raise ValidationError("An owner and deadline are required", {"owner_user_id": ["Name who sees it through, and by when (due_on)"]})
 
 
+def _load_batch_to_schedule(batch_id: int) -> Batch:
+    """The batch, row-locked, for scheduling: a trainer only for a batch they are assigned to now; everyone else as for any
+    change to the batch (Branch Manager of its branch, Super Admin, Founder)."""
+    user = current_user()
+    if user.role_code != "TRAINER":
+        return batches_service.load_managed_batch(batch_id)
+    batch = batches_repo.get_batch_for_update(batch_id)
+    if batch is None or batch_id not in scope.trainer_batch_ids(user):
+        raise NotFound("Batch not found")
+    return batch
+
+
 def create_sessions(data: dict) -> list[ClassSession]:
     """Schedule one class, or a weekly series (`recurrence`: weekdays, and count or until). All or nothing. A replacement,
-    remedial or extra class waits for the Branch Manager's approval before its students are told."""
-    batch = batches_service.load_managed_batch(data["batch_id"])
+    remedial or extra class waits for the Branch Manager's approval before its students are told. A trainer schedules their
+    own classes for the batches they teach; a regular one goes out at once and the Branch Manager is told."""
+    batch = _load_batch_to_schedule(data["batch_id"])
+    by_trainer = current_user().role_code == "TRAINER"
     if batch.state in batches_service.CLOSED_STATES or batch.state == "On Hold":
         raise BusinessRule(f"Batch {batch.batch_code} is {batch.state}")
     _check_future(data["starts_at"], data["ends_at"])
@@ -281,6 +295,10 @@ def create_sessions(data: dict) -> list[ClassSession]:
     if purpose != "Regular" and data.get("recurrence"):
         raise ValidationError("One class at a time", {"recurrence": [f"A {purpose.lower()} class is scheduled singly"]})
     trainer_id = data.get("trainer_user_id")
+    if by_trainer:
+        if trainer_id not in (None, actor_id()):
+            raise Forbidden("A trainer schedules their own classes; ask the Branch Manager to schedule one for another trainer")
+        trainer_id = actor_id()
     if trainer_id is None:
         lead = batches_repo.lead_trainer(batch.batch_id)
         if lead is None:
@@ -293,7 +311,15 @@ def create_sessions(data: dict) -> list[ClassSession]:
     slots = _occurrences(data["starts_at"], data["ends_at"], data.get("recurrence"))
     if len(slots) > MAX_SESSIONS_PER_REQUEST:
         raise ValidationError("Too many sessions", {"recurrence": [f"At most {MAX_SESSIONS_PER_REQUEST} sessions at a time"]})
-    return create_series(batch, trainer_id, [(begin, finish, data["title"], data.get("topic_id")) for begin, finish in slots], data)
+    created = create_series(batch, trainer_id, [(begin, finish, data["title"], data.get("topic_id")) for begin, finish in slots], data)
+    if by_trainer and created[0].approval_status != "Pending":  # a pending one already asked the Branch Manager to approve it
+        first = created[0]
+        count = f"{len(created)} classes from" if len(created) > 1 else "a class on"
+        delivery_notices.notify_users(users_repo.user_ids_with_role("BRANCH_MANAGER", batch.branch_id),
+                                      title=f"{first.trainer.full_name} scheduled {count} {_slot(first.starts_at, first.ends_at)}",
+                                      body=f"{batch.batch_code} · {first.title}", event_key=f"sessions-by-trainer-{first.session_id}",
+                                      link="/branch/schedule", branch_id=batch.branch_id)
+    return created
 
 
 def conflicts_for(batch: Batch, trainer_user_id: int, starts_at: datetime, ends_at: datetime, room: str | None) -> tuple[str | None, list[str]]:

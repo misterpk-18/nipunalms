@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, type MutableRefObject } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   ATTENDANCE_STATUSES,
@@ -27,11 +27,25 @@ import { cn } from "@/lib/utils";
 
 type Draft = Record<number, { status: AttendanceStatus; remarks: string }>;
 
+/** Set by the register to a function that saves what is picked but not saved yet, or null when there is nothing to save. */
+export type SaveRegister = MutableRefObject<(() => Promise<unknown>) | null>;
+
 /**
  * The register for one class: used by Today's class flow and by the Attendance screen, so both save the same way.
  * The Save bar sticks to the bottom of the screen while the register is on it.
  */
-export function RegisterForm({ sessionId, onSaved, heading = true }: { sessionId: number; onSaved?: () => void; heading?: boolean }) {
+export function RegisterForm({
+  sessionId,
+  onSaved,
+  heading = true,
+  saveRef,
+}: {
+  sessionId: number;
+  onSaved?: () => void;
+  heading?: boolean;
+  /** Lets the class screen's Finish class save the unsaved picks together with the class log. */
+  saveRef?: SaveRegister;
+}) {
   const query = useRegister(sessionId);
   const [draft, setDraft] = useState<Draft>({});
   const invalidate = [attendanceKeys.all, ["progress"], ["completion"], ["trainer"], ["nav"], requestKeys.mine];
@@ -43,6 +57,16 @@ export function RegisterForm({ sessionId, onSaved, heading = true }: { sessionId
       onSaved?.();
     },
   });
+  const entries = (d: Draft) =>
+    Object.entries(d).map(([enrolment_id, row]) => ({ enrolment_id: Number(enrolment_id), status: row.status, remarks: row.remarks.trim() || null }));
+  const { mutateAsync } = save;
+  useEffect(() => {
+    if (!saveRef) return;
+    saveRef.current = Object.keys(draft).length > 0 ? () => mutateAsync({ entries: entries(draft) }) : null;
+    return () => {
+      saveRef.current = null;
+    };
+  }, [draft, saveRef, mutateAsync]);
   const correct = useApiMutation(attendanceApi.requestCorrection, {
     success: "Correction sent.",
     next: "Your Branch Manager decides. You will be told, and it shows under My requests.",
@@ -198,18 +222,7 @@ export function RegisterForm({ sessionId, onSaved, heading = true }: { sessionId
                   <Button variant="outline" onClick={markAllPresent} disabled={unmarked === 0}>
                     Mark everyone else Present
                   </Button>
-                  <Button
-                    disabled={!dirty || excusedWithoutReason || save.isPending}
-                    onClick={() =>
-                      save.mutate({
-                        entries: Object.entries(draft).map(([enrolment_id, d]) => ({
-                          enrolment_id: Number(enrolment_id),
-                          status: d.status,
-                          remarks: d.remarks.trim() || null,
-                        })),
-                      })
-                    }
-                  >
+                  <Button disabled={!dirty || excusedWithoutReason || save.isPending} onClick={() => save.mutate({ entries: entries(draft) })}>
                     Save attendance
                   </Button>
                 </div>

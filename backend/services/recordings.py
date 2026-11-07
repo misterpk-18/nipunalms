@@ -245,6 +245,30 @@ def register(data: dict) -> Recording:
     return recording
 
 
+def attach_from_meet(session: ClassSession, file_id: str, minutes: int | None) -> Recording | None:
+    """A Google Meet recording file of this class (the recording-import job): kept as Processing for the Branch Manager to release.
+    It fills in the placeholder `recording-check` left when the file was late, and resolves that exception. None when this file is
+    already attached."""
+    existing = recordings_repo.recordings_of_session(session.session_id)
+    if any(r.media_ref == file_id for r in existing):
+        return None
+    placeholder = next((r for r in existing if r.status == "Unavailable" and not r.media_ref), None)
+    if placeholder is not None:
+        placeholder.status, placeholder.media_ref, placeholder.duration_minutes = "Processing", file_id, minutes
+        recording = placeholder
+        _resolve_open(session, ("Unavailable", "Integration Unavailable"), "The Google Meet recording arrived and was attached")
+    else:
+        recording = Recording(session_id=session.session_id, part_no=recordings_repo.next_part_no(session.session_id), status="Processing",
+                              source="Google Drive", media_ref=file_id, duration_minutes=minutes)
+        db.session.add(recording)
+    db.session.flush()
+    db.session.refresh(recording)
+    audit.record("RECORDING_REGISTERED", "recording", recording.recording_code,
+                 new={"session": session.session_code, "part": recording.part_no, "status": "Processing", "source": "Google Meet",
+                      "media_ref": file_id}, branch_id=session.batch.branch_id)
+    return recording
+
+
 def update(recording_id: int, data: dict) -> Recording:
     """Record where the media is (Drive file id), its length, source and download policy. Policy changes are audited."""
     recording = _get_managed_recording(recording_id)
@@ -525,6 +549,9 @@ def watch(recording_id: int) -> dict:
             "source": recording.source,
             "integration_status": drive_status,
             "available": recording.source == "Google Drive" and drive_status == "Verified",
+            # the Drive player; the student signs in to Google with the address the batch's group holds
+            "embed_url": f"https://drive.google.com/file/d/{recording.media_ref}/preview"
+            if recording.source == "Google Drive" and drive_status == "Verified" and recording.media_ref else None,
             "message": None if drive_status == "Verified" else
             f"Playback needs the Google Drive recording integration, which is {drive_status}. Nothing is played from Drive yet.",
         },

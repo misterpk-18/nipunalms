@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+DRIVE_FULL_SCOPE = "https://www.googleapis.com/auth/drive"  # share a Meet recording file the LMS did not create
+MEET_SETTINGS_SCOPE = "https://www.googleapis.com/auth/meetings.space.settings"  # auto-record a meeting Calendar made
+MEET_READONLY_SCOPE = "https://www.googleapis.com/auth/meetings.space.readonly"  # its conferences and recordings
 GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 SECRET_MANAGER_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 ADMIN_GROUP_SCOPE = "https://www.googleapis.com/auth/admin.directory.group"

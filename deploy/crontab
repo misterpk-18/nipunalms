@@ -2,12 +2,16 @@
 # Times are IST (the server timezone is Asia/Kolkata).
 SHELL=/bin/bash
 
-# Background jobs (services/jobs.JOBS): attempts-expire, attendance-unconfirmed, recording-check, support-escalate-overdue,
-# allocation-escalation, session-delay-check, class-log-check, class-reminders, whatsapp-send (a no-op until WhatsApp is switched on).
-# Each is idempotent, so running all of them every 5 minutes is safe; a failed job doesn't stop the others. Every 5 minutes
-# also suits session-delay-check (students are told at 5 minutes late, a disruption is recorded at 15). Each run is
-# recorded in job_runs, which the Meet operations view shows as the last reconciliation time.
-*/5 * * * * cd /srv/nipunalms/backend && APP_ENV=production ../venv/bin/flask --app app jobs run >> /srv/nipunalms/jobs.log 2>&1
+# Background jobs (services/jobs.JOBS). Email and the Google Workspace jobs (services/jobs.EVERY_MINUTE: email-send,
+# google-sync, which makes the Calendar / Meet / Drive / Groups calls) run every minute, so an email, a Meet link or a folder
+# share follows a change within a minute. The rest (attempts-expire, attendance-unconfirmed, recording-check,
+# support-escalate-overdue, allocation-escalation, session-delay-check, class-log-check, class-reminders, crm-payload-purge,
+# whatsapp-send) run every 5 minutes, which also suits session-delay-check (students are told at 5 minutes late, a disruption
+# is recorded at 15). Each job is idempotent and a failed job doesn't stop the others; flock -n skips a run while the previous
+# one of the same line is still going. Each run is recorded in job_runs, which the Meet operations view shows as the last
+# reconciliation time.
+* * * * * cd /srv/nipunalms/backend && flock -n /tmp/nipunalms-jobs-minute.lock env APP_ENV=production ../venv/bin/flask --app app jobs run --every-minute >> /srv/nipunalms/jobs.log 2>&1
+*/5 * * * * cd /srv/nipunalms/backend && flock -n /tmp/nipunalms-jobs.lock env APP_ENV=production ../venv/bin/flask --app app jobs run --skip-every-minute >> /srv/nipunalms/jobs.log 2>&1
 
 # Nightly backup at 02:30: database dump + uploaded files, 14 days kept
 30 2 * * * /srv/nipunalms/deploy/backup.sh >> /srv/nipunalms/backups/backup.log 2>&1

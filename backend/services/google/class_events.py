@@ -23,7 +23,7 @@ from repositories import google as google_repo
 from repositories import users as users_repo
 from repositories import whatsapp as whatsapp_repo
 from services import audit, delivery_notices, integrations, meet
-from services.google import client
+from services.google import client, meet_recordings
 from services.google.client import GoogleError
 
 logger = logging.getLogger(__name__)
@@ -159,6 +159,7 @@ def handle_upsert(session_id: int) -> str:
         raise GoogleError("Google has not returned the Meet link yet", retryable=True)
     if session.meet_link != link or session.meet_status != "Linked":
         _apply_link(session, link, event["id"])
+    meet_recordings.enqueue_auto_record(session)
     return f"event {event['id']} {'updated' if session.meet_link == link else 'created'}"
 
 

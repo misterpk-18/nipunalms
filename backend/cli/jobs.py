@@ -1,5 +1,6 @@
-"""flask --app app jobs run [NAME ...]: run background jobs (all by default). Schedule with cron, e.g. every 30 minutes.
-Locally, `jobs run --loop` stands in for cron."""
+"""flask --app app jobs run [NAME ...]: run background jobs (all by default). On a server, cron runs `--every-minute` (email and
+Google Workspace) every minute and `--skip-every-minute` (the rest) every 5 minutes (deploy/crontab). Locally, `jobs run --loop`
+stands in for cron."""
 import time
 from datetime import datetime, timezone
 
@@ -8,7 +9,7 @@ from flask.cli import AppGroup
 
 from config.database import db
 from models import JobRun
-from services.jobs import JOBS
+from services.jobs import EVERY_MINUTE, JOBS
 
 jobs_cli = AppGroup("jobs", help="Background jobs: recording check, support escalation, allocation escalation.")
 
@@ -24,11 +25,19 @@ def list_jobs() -> None:
 @click.argument("names", nargs=-1)
 @click.option("--loop", is_flag=True, help="Keep running until stopped (Ctrl+C), in place of cron for local use.")
 @click.option("--interval", default=60, show_default=True, help="Seconds between runs with --loop.")
-def run_jobs(names: tuple[str, ...], loop: bool, interval: int) -> None:
+@click.option("--every-minute", "every_minute", is_flag=True, help=f"Only the every-minute jobs: {', '.join(EVERY_MINUTE)}.")
+@click.option("--skip-every-minute", "skip_every_minute", is_flag=True, help="All jobs except the every-minute ones.")
+def run_jobs(names: tuple[str, ...], loop: bool, interval: int, every_minute: bool, skip_every_minute: bool) -> None:
     """Run the named jobs (or all). Each job commits on its own, so one failure doesn't undo the others."""
     unknown = set(names) - set(JOBS)
     if unknown:
         raise click.BadParameter(f"Unknown job(s): {', '.join(sorted(unknown))}. See `flask jobs list`.")
+    if sum((bool(names), every_minute, skip_every_minute)) > 1:
+        raise click.UsageError("Give job names, --every-minute or --skip-every-minute, not more than one")
+    if every_minute:
+        names = EVERY_MINUTE
+    elif skip_every_minute:
+        names = tuple(name for name in JOBS if name not in EVERY_MINUTE)
     if not loop:
         if _run_once(names or tuple(JOBS)):
             raise SystemExit(1)

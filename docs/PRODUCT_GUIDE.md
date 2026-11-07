@@ -151,7 +151,11 @@ flowchart TD
 
 ## 6. A class day
 
-Every class moves Scheduled → Live → Delivered. The trainer runs it from one guided screen.
+Every class moves Scheduled → Live → Delivered. A Branch Manager, Super Admin or Founder schedules classes for any batch
+they manage; a trainer schedules their own classes for the batches they teach (a regular class goes out at once and the
+Branch Manager is told; a replacement, remedial or extra class waits for the Branch Manager's approval). The trainer runs a
+class from one screen: Start and join at the top, the attendance register below, then the class log, and one Finish class
+that saves the attendance and the log together. An online class's Meet is set to record itself.
 
 ```mermaid
 flowchart TD
@@ -161,10 +165,9 @@ flowchart TD
     B2 --> C
     B -->|"yes"| C["Trainer starts the class"]
     C --> D["Class is Live"]
-    D --> E["Trainer joins and teaches"]
-    E --> F["Marks attendance"]
-    F --> G["Writes the class log"]
-    G --> H["Class is Delivered"]
+    D --> E["Trainer joins and teaches; Meet records automatically"]
+    E --> F["Marks attendance and writes the class log on the same screen"]
+    F --> H["Finish class: attendance and log saved, class is Delivered"]
     D -->|"late or disrupted"| I["Students told, disruption recorded, recovery plan agreed"]
     I --> E
 ```
@@ -224,8 +227,8 @@ flowchart TD
     C -->|"approved"| D["Released to the batch"]
     C -->|"changes requested"| A
     C -->|"rejected"| X["Not shown"]
-    E["Class recording ready"] --> F["Branch Manager releases it"]
-    F --> G["Students see it in My Learning"]
+    E["Meet recording arrives from Google, attached to its class and shared with the batch"] --> F["Branch Manager releases it"]
+    F --> G["Students watch it in My Learning"]
 ```
 
 Access to recordings and materials runs from the Joining Date.

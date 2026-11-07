@@ -10,7 +10,9 @@ from services.google.client import GoogleError
 CALENDAR_LIST = "https://www.googleapis.com/calendar/v3/calendars/{mailbox}/events"
 DRIVE_LIST = "https://www.googleapis.com/drive/v3/files"
 GROUP_LIST = "https://admin.googleapis.com/admin/directory/v1/groups"
-SCOPES = (("Calendar events", client.CALENDAR_SCOPE), ("Drive files", client.DRIVE_SCOPE), ("Gmail send", client.GMAIL_SEND_SCOPE))
+SCOPES = (("Calendar events", client.CALENDAR_SCOPE), ("Drive files", client.DRIVE_SCOPE), ("Gmail send", client.GMAIL_SEND_SCOPE),
+          ("Meet auto-record", client.MEET_SETTINGS_SCOPE), ("Meet recordings", client.MEET_READONLY_SCOPE),
+          ("Drive recording sharing", client.DRIVE_FULL_SCOPE))
 
 
 @dataclass

@@ -13,6 +13,7 @@ from services import email_messages, emails, session_ops
 from services import support as support_service
 from services import whatsapp, whatsapp_messages
 from services.google import jobs as google_jobs
+from services.google import meet_recordings
 
 
 def recording_check() -> dict:
@@ -73,6 +74,12 @@ def google_sync() -> dict:
     return google_jobs.run_due()
 
 
+def recording_import() -> dict:
+    """Attach the Google Meet recordings of online classes that ended in the last 12 hours, share each with the batch's group, and
+    ask the Branch Manager to release it. Does nothing until Google is configured and Drive recording capture is verified."""
+    return meet_recordings.import_recordings()
+
+
 def crm_payload_purge() -> dict:
     """Empty CRM event payloads older than a year (services/crm.PAYLOAD_RETENTION). Safe to run every few minutes."""
     return crm_service.purge_old_payloads()
@@ -88,7 +95,12 @@ JOBS: dict[str, Callable[[], object]] = {
     "email-send": email_send,
     "google-sync": google_sync,
     "recording-check": recording_check,
+    "recording-import": recording_import,
     "session-delay-check": session_delay_check,
     "support-escalate-overdue": support_escalate_overdue,
     "whatsapp-send": whatsapp_send,
 }
+
+# Email and the Google Workspace jobs run every minute (`jobs run --every-minute`); the rest every 5 minutes
+# (`jobs run --skip-every-minute`). See deploy/crontab.
+EVERY_MINUTE = ("email-send", "google-sync", "recording-import")

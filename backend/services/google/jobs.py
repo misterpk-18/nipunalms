@@ -1,7 +1,7 @@
 """The `google-sync` job: makes the Google calls that requests queued in `google_jobs`, and retries the ones that fail.
 
 A job is claimed (marked Running) and committed before the first HTTP call, so no database transaction is held open while
-Google answers. A timeout, 429 or 5xx is retried after 5 min, 15 min, 1 h, 6 h, 24 h; anything else (a refused delegation, a bad
+Google answers. A timeout, 429 or 5xx is retried after 1 min, 15 min, 1 h, 6 h, 24 h; anything else (a refused delegation, a bad
 request) fails at once. After the last retry the job is Dead and the owning feature shows its failure (a Branch Manager task for
 a class's Meet link); a Super Admin can requeue a dead job.
 """
@@ -11,21 +11,21 @@ from datetime import datetime, timedelta, timezone
 from config.database import db
 from models import GoogleJob
 from repositories import google as google_repo
-from services.google import batch_folders, class_events
+from services.google import batch_folders, class_events, meet_recordings
 from services.google.client import GoogleError
 
 logger = logging.getLogger(__name__)
 
-BACKOFF = (timedelta(minutes=5), timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6), timedelta(hours=24))
+BACKOFF = (timedelta(minutes=1), timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6), timedelta(hours=24))
 MAX_ATTEMPTS = len(BACKOFF) + 1
 BATCH_SIZE = 50
 
 HANDLERS = {class_events.KIND_UPSERT: class_events.handle_upsert, class_events.KIND_CANCEL: class_events.handle_cancel,
-            batch_folders.KIND_SYNC: batch_folders.handle_sync}
+            batch_folders.KIND_SYNC: batch_folders.handle_sync, meet_recordings.KIND_AUTO_RECORD: meet_recordings.handle_auto_record}
 ON_DEAD = {class_events.KIND_UPSERT: class_events.on_dead, class_events.KIND_CANCEL: class_events.on_dead,
-           batch_folders.KIND_SYNC: batch_folders.on_dead}
+           batch_folders.KIND_SYNC: batch_folders.on_dead, meet_recordings.KIND_AUTO_RECORD: meet_recordings.on_dead}
 ENABLED = {class_events.KIND_UPSERT: class_events.is_enabled, class_events.KIND_CANCEL: class_events.is_enabled,
-           batch_folders.KIND_SYNC: batch_folders.is_enabled}
+           batch_folders.KIND_SYNC: batch_folders.is_enabled, meet_recordings.KIND_AUTO_RECORD: meet_recordings.is_enabled}
 
 
 def _now() -> datetime:

@@ -31,10 +31,11 @@ def test_a_working_connection_passes_every_check(connected):
     results = google_check.run()
     assert all(r.ok for r in results), [(r.name, r.detail) for r in results if not r.ok]
     assert [r.name for r in results] == ["Mailbox to act as", "Service-account key", "Key is a service account", "Delegation: Calendar events",
-                                         "Delegation: Drive files", "Delegation: Gmail send", "Read the mailbox's calendar", "Read Drive",
+                                         "Delegation: Drive files", "Delegation: Gmail send", "Delegation: Meet auto-record",
+                                         "Delegation: Meet recordings", "Delegation: Drive recording sharing", "Read the mailbox's calendar", "Read Drive",
                                          "Delegation: Groups (as the delegated admin)", "List the domain's groups"]
     assert "client ID 1234567890" in results[2].detail  # what the Workspace admin authorises
-    assert {m for m, _ in connected.minted} == {"admin@example.test"} and len(connected.minted) == 4
+    assert {m for m, _ in connected.minted} == {"admin@example.test"} and len(connected.minted) == 7
     assert all(c[0] == "GET" for c in connected.calls)  # only reads
 
 

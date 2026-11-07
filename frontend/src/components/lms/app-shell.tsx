@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowLeftRight, Bell, ChevronDown, Ellipsis, KeyRound, LogOut, ShieldCheck, User } from "lucide-react";
+import { ArrowLeftRight, Bell, ChevronDown, Ellipsis, KeyRound, LogOut, User } from "lucide-react";
 import { useNavCounts, type NavCounts } from "@/api/nav";
 import type { Workspace } from "@/api/types";
 import { useAuth } from "@/auth/auth";
@@ -120,10 +120,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b bg-navy text-navy-foreground">
         <div className="flex h-14 items-center gap-2 px-3 sm:px-5">
           <Link to={profile?.home_route ?? "/"} className="flex shrink-0 items-center gap-2 font-semibold">
-            <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <ShieldCheck className="size-5" aria-hidden />
-            </span>
-            <span className="hidden sm:inline">Nipuna LMS</span>
+            <img src="/nipuna-logo.png" alt="Nipuna Technologies" className="h-8 w-auto rounded-md" />
+            <span className="hidden sm:inline">LMS</span>
           </Link>
           <span data-testid="role-label" className="min-w-0 max-w-[11rem] truncate rounded bg-navy-muted px-2 py-0.5 text-xs sm:max-w-none">
             {headerLabel}

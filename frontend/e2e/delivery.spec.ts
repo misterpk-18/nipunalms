@@ -167,8 +167,6 @@ test("trainer runs the class from Today's flow, and requests a reschedule", asyn
   const flow = page.getByRole("region", { name: "Class: E2E live class" });
   await flow.getByRole("button", { name: "Start class" }).click();
   await expect(page.getByText("Class started.")).toBeVisible();
-  await flow.getByRole("button", { name: "Continue to attendance" }).click();
-  await flow.getByRole("button", { name: "Continue to class log" }).click();
   await flow.getByLabel("Notes").fill("Covered model evaluation");
   await flow.getByRole("button", { name: "Finish class" }).click();
   await page.getByRole("button", { name: "Save class log" }).click();

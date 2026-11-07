@@ -34,8 +34,11 @@ export function NewClassDialog({
   onOpenChange,
   trigger,
   approve: approver,
+  asTrainer = false,
 }: {
   batches: Batch[];
+  /** A trainer scheduling their own class: no trainer choice (it is them), and the Branch Manager is told. */
+  asTrainer?: boolean;
   /** Set by the route: true only for the Branch Manager (may accept advisory warnings with a reason). */
   approve: boolean;
   /** The batch to start from (the batch page passes its own). */
@@ -50,7 +53,9 @@ export function NewClassDialog({
   // The dialog is re-created when the batch changes (to fill it in again), so whether it is open is kept out here
   const [ownOpen, setOwnOpen] = useState(false);
   const isOpen = open ?? ownOpen;
-  const [batchId, setBatchId] = useState(initialBatchId ?? replaces?.batch.batch_id ?? batches[0]?.batch_id ?? 0);
+  const [chosenBatchId, setBatchId] = useState(initialBatchId ?? replaces?.batch.batch_id ?? 0);
+  // the batches may still be loading when the dialog is made: start from the first one once they arrive
+  const batchId = chosenBatchId || (batches[0]?.batch_id ?? 0);
   const batch = batches.find((b) => b.batch_id === batchId);
   const batchSessions = useQuery({
     queryKey: ["delivery", "sessions", "batch", batchId],
@@ -98,7 +103,11 @@ export function NewClassDialog({
         onOpenChange?.(next);
       }}
       title={replaces ? `Replace "${replaces.title}"` : "New class"}
-      description="One class, or repeat it weekly. Times are IST. The class is filled in from the batch; change anything you need. The students and the trainer are told when it is scheduled."
+      description={
+        asTrainer
+          ? "One class, or repeat it weekly. Times are IST. The class is filled in from the batch; change anything you need. Your students and your Branch Manager are told when it is scheduled."
+          : "One class, or repeat it weekly. Times are IST. The class is filled in from the batch; change anything you need. The students and the trainer are told when it is scheduled."
+      }
       submitLabel="Schedule class"
       onFieldChange={(name, value) => name === "batch_id" && setBatchId(Number(value))}
       fields={[
@@ -125,16 +134,20 @@ export function NewClassDialog({
         },
         { name: "starts_at", label: "Starts (IST)", type: "datetime", required: true, value: slot.start },
         { name: "ends_at", label: "Ends (IST)", type: "datetime", required: true, value: slot.end },
-        {
-          name: "trainer_user_id",
-          label: "Trainer",
-          type: "select",
-          options: [
-            { value: "", label: "The batch's lead trainer" },
-            ...(detail.data?.trainers ?? []).map((t) => ({ value: t.user_id, label: `${t.full_name} (${t.role})` })),
-          ],
-          value: "",
-        },
+        ...(asTrainer
+          ? []
+          : [
+              {
+                name: "trainer_user_id",
+                label: "Trainer",
+                type: "select" as const,
+                options: [
+                  { value: "", label: "The batch's lead trainer" },
+                  ...(detail.data?.trainers ?? []).map((t) => ({ value: t.user_id, label: `${t.full_name} (${t.role})` })),
+                ],
+                value: "",
+              },
+            ]),
         {
           name: "mode",
           label: "Mode",

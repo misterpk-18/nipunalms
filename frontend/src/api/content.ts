@@ -164,7 +164,7 @@ export type Playback = {
   session_title: string;
   status: RecordingStatus;
   status_note: string | null;
-  playback: { mode: "stream" | "download"; source: string; integration_status: string; available: boolean; message: string | null };
+  playback: { mode: "stream" | "download"; source: string; integration_status: string; available: boolean; message: string | null; embed_url: string | null };
 };
 
 export type RecordingException = {

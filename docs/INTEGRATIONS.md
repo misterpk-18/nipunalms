@@ -355,6 +355,7 @@ No token or key column: the service account needs no stored user tokens.
 3. On success the class is Linked, with `meet_link` and `calendar_event_id`, and `meet_events` gets a "Link associated" row in the same log a hand-entered link uses (the job has no signed-in user, so it writes the class directly instead of calling `associate_meet`).
 4. If Google has not made the Meet conference yet, the event id is kept and the job retries. When retries run out, or Google refuses the delegation, the class shows Failed and Branch Managers get the same "Meet association failed" task as a hand failure; staff can retry (`meet/reset`) or paste a link by hand. A link entered by hand before the job runs is kept.
 5. Reschedule and cancel patch or delete the same event by its stored ID.
+6. Once the class has its Meet link, a `MEET_AUTO_RECORD` job sets the meeting to record itself (§5.6).
 
 A seat taken or ended also queues an update for the batch's upcoming online classes that already have an event, so the invitations follow the roster. Students see the Meet link beside the class on their Schedule page, and the Join button opens 15 minutes before the class, as before. Addresses that are not valid emails are left out rather than failing the event; an event holds at most 190 guests.
 
@@ -376,17 +377,26 @@ Groups need two things in the Workspace admin console: the Directory scope in th
 - Every WhatsApp message the LMS sends has an email beside it, queued by the same code path in the same transaction (`services/email_messages.py`): activation link, staff invite, class reminder, class cancelled, class rescheduled, result published, certificate issued (with a verify link when `PUBLIC_BASE_URL` is set) and a batch change that needs the student's agreement. A staff login's password reset code is emailed too (staff often have no number on file); a student's reset code and the email-change code stay WhatsApp-only. The screen that issues a link says where it went: `email_delivery {state, note, to}` beside `whatsapp`.
 - Same rules as WhatsApp: one message per dedupe key; a message that cannot or should not go out is kept as Skipped with the reason ("Email is switched off", "No email address on file", "The person switched email off for this kind of message", "Too old to send"); sign-in links ignore the person's preferences and are blanked from the row once the message is done; class reminders (Learning reminders) and the other notices are on unless the student switches that group's email off in notification preferences (reminders were opt-in until 1 Nov 2026).
 - The switch is the `EMAIL` register entry Verified **and** a service-account key. The link needs `PUBLIC_BASE_URL`; without it the activation email is Skipped.
-- The `email-send` job sends Queued rows through Gmail as the branch's own sender if one is set (`branch_google_config.gmail_sender`), else the LMS no-reply address (`GOOGLE_EMAIL_SENDER`), else the branch mailbox (a staff invite with no branch and no no-reply address uses `GOOGLE_DELEGATED_ADMIN`). The no-reply address in `.env` is a **sample** (`no-reply@nipunatechnologies.com`) until the real one is given; it must be a real mailbox in the domain, because the service account acts as it. A timeout, 429 or 5xx is retried after 5 min doubling to 6 h, five tries in all; any other refusal fails at once. It is a separate job from `google-sync` so the two cannot hold each other up.
+- The `email-send` job sends Queued rows through Gmail as the branch's own sender if one is set (`branch_google_config.gmail_sender`), else the LMS no-reply address (`GOOGLE_EMAIL_SENDER`), else the branch mailbox (a staff invite with no branch and no no-reply address uses `GOOGLE_DELEGATED_ADMIN`). The no-reply address in `.env` is a **sample** (`no-reply@nipunatechnologies.com`) until the real one is given; it must be a real mailbox in the domain, because the service account acts as it. A timeout, 429 or 5xx is retried after 5 min doubling to 6 h, five tries in all; any other refusal fails at once. It is a separate job from `google-sync` so the two cannot hold each other up. It runs every minute.
 
 #### 5.4 Sync job and retry
 
-- `google-sync` runs with the other jobs every 5 minutes (`deploy/crontab`); `jobs run --loop` locally.
-- Backoff: 5 min, 15 min, 1 h, 6 h, 24 h, then `Dead`. 4xx other than 429 is not retried.
+- `google-sync`, `email-send` and `recording-import` run every minute (`services/jobs.EVERY_MINUTE`, `jobs run --every-minute` in `deploy/crontab`), so a Meet link, an email, a folder share or a recording follows a change within a minute; the other jobs run every 5 minutes (`--skip-every-minute`). `flock` skips a run while the previous one is still going. Locally `jobs run --loop` runs everything every 60 s.
+- Backoff: 1 min, 15 min, 1 h, 6 h, 24 h, then `Dead` (since 7 Nov 2026 the first retry is 1 min, so a Meet link Google has not made yet is asked for again on the next run). 4xx other than 429 is not retried.
 - Each run is recorded in `job_runs` like the existing jobs. Dead jobs list on a Super Admin screen (read-only in phase 1).
 
 #### 5.5 CRM events
 
 None. The CRM does not want any Workspace events for now. If that changes, see [INTEGRATIONS.md Part A](INTEGRATIONS.md) §2.2 before adding one.
+
+#### 5.6 Meet recordings: automatic recording and import (7 Nov 2026)
+
+`services/google/meet_recordings.py`, through the Meet REST API v2.
+
+- **Auto-record.** When the `google-sync` job gives a class its Meet link (§5.1), it queues `MEET_AUTO_RECORD`. That job, as the branch calendar mailbox that organises the meeting, reads `GET spaces/{meeting code}` for the space id (kept in `class_sessions.meet_space_id`) and, unless the space already records, sends `PATCH spaces/{id}?updateMask=config.artifactConfig.recordingConfig.autoRecordingGeneration` with `ON`. A patch takes only the space id, never the meeting code. Meet then records as soon as someone allowed to record joins. A space already set is not queued again when the class moves. Switch: `GOOGLE_MEET`, as for the event. When the job dies (for example the delegation lacks the scope), the branch's managers get "Auto-recording not set: <class>", telling them to press Record by hand.
+- **Import.** The `recording-import` job (every minute) takes online classes that ended in the last 12 hours, are Live or Delivered, have a Meet space and are not marked done. It lists the space's conferences (`conferenceRecords?filter=space.name = "spaces/<id>" AND start_time>=<an hour before the class>`) and each conference's recordings. For each recording in state `FILE_GENERATED`, it does three things. It registers the file on the class (`recordings.attach_from_meet`): status Processing, source Google Drive, `media_ref` = the Drive file id, `duration_minutes` from the recording's start and end. It fills in a placeholder that `recording-check` left and resolves that exception. It shares the file with the batch's Google Group (§5.2) as a reader. It then tells the Branch Managers "Recording ready to release", and they release it from Recordings as before. When every conference has ended and every recording has its file, the class gets `conference_record_id` and is not asked about again. A failed class is logged and tried again next minute. Switch: `GOOGLE_DRIVE_RECORDINGS` (Drive recording capture), the same row the student player reads.
+- **Playback.** `POST /recordings/{id}/watch` returns `playback.embed_url` (`https://drive.google.com/file/d/<file id>/preview`) for a Google Drive recording while `GOOGLE_DRIVE_RECORDINGS` is Verified, and the student's Class Materials plays it in the dialog. Google shows it to whoever is signed in with an address in the batch's group.
+- **Needs:** the Meet REST API enabled in the Cloud project; three more scopes in the domain-wide delegation (`meetings.space.settings`, `meetings.space.readonly`, and `drive`, the full Drive scope, because the recording file is not one the LMS created); and a Workspace edition and Meet policy that let the branch calendar mailboxes record. Meet keeps conference data for 30 days; the import looks back 12 hours.
 
 ### 6. Configuration
 
@@ -405,7 +415,7 @@ no test reaches Google.
 
 **Google-side setup (done by a Workspace Super Admin, once):** create a Cloud project and enable the Calendar, Drive and Gmail
 APIs; create the service account and its key; authorise its client ID in the admin console (Security → API controls →
-Domain-wide delegation) for the scopes `calendar.events`, `drive.file`, `gmail.send` and `admin.directory.group`; make sure groups may have members outside the organisation; store the key in Secret Manager;
+Domain-wide delegation) for the scopes `calendar.events`, `drive.file`, `gmail.send`, `admin.directory.group`, and for recordings (§5.6) `meetings.space.settings`, `meetings.space.readonly` and `drive`; enable the Meet REST API; make sure groups may have members outside the organisation; store the key in Secret Manager;
 check that every branch mailbox is a real Workspace account; set Meet so people outside the domain can join. No OAuth client
 is needed while Google Sign-In is out.
 
@@ -413,12 +423,12 @@ is needed while Google Sign-In is out.
 
 Do it with one dev mailbox first, so a mistake cannot email students or share real folders. Nothing calls Google until the last step.
 
-1. **Workspace admin, once** (the steps above): Cloud project with the Calendar, Drive and Gmail APIs enabled; a service account and its JSON key; domain-wide delegation with the four scopes (the fourth is `admin.directory.group`); groups allowed to have outside members; Meet open to people outside the domain.
+1. **Workspace admin, once** (the steps above): Cloud project with the Calendar, Drive and Gmail APIs enabled; a service account and its JSON key; domain-wide delegation with the seven scopes (`admin.directory.group` and the three recording scopes of §5.6 among them); the Meet REST API enabled; groups allowed to have outside members; Meet open to people outside the domain.
 2. **On the server:** save the key as `backend/secrets/google-service-account.json` (git-ignored), and set `GOOGLE_WORKSPACE_DOMAIN` and `GOOGLE_DELEGATED_ADMIN` (a real mailbox in that domain) in `backend/.env`.
 3. **`flask --app app google check`** (from `backend/`, venv active). It prints the service account's **client ID**: that is what goes in the Admin console's delegation list. It then proves delegation for each scope and reads the mailbox's calendar and Drive, then checks the Directory scope as the delegated admin and lists the domain's groups. Nothing is created. Add `--mailbox` or `--branch ID` to try a branch's mailbox. Exit code 1 means a check failed, with the fix beneath it.
 4. **`flask --app app google send-test --to you@…`** sends one real test email. Use your own address.
 5. **Setup & health:** mark Google Meet, Google Drive material and Email **Working**, each with a note of how you checked it. Until then nothing is queued, so the checks above never touch real classes.
-6. **Try one of each** with a test branch or batch: schedule an online class (a Meet link appears after the next `google-sync`, within 5 minutes; locally `jobs run --loop` does it), allocate a test student (they are added to the batch's group, which has the folder), and create a test student (an activation email arrives, if `PUBLIC_BASE_URL` is set).
+6. **Try one of each** with a test branch or batch: schedule an online class (a Meet link appears after the next `google-sync`, within a minute, and the meeting is set to record itself; locally `jobs run --loop` does it), allocate a test student (they are added to the batch's group, which has the folder), and create a test student (an activation email arrives, if `PUBLIC_BASE_URL` is set).
 7. **Setup & health > Google Workspace** shows anything stuck, with the reason and a Try again button.
 
 ### 7. API and screen

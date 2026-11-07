@@ -675,6 +675,10 @@ const DICTIONARY = {
   streamingOnly: ["Watch only, no download", "చూడటం మాత్రమే, డౌన్‌లోడ్ లేదు"],
   notPlayable: ["Can't be played now", "ఇప్పుడు ప్లే చేయలేము"],
   playerPlaceholder: ["Video player", "వీడియో ప్లేయర్"],
+  recordingGoogleSignIn: [
+    "If the video asks you to sign in, use the Google account of the email address the institute has for you.",
+    "వీడియో సైన్ ఇన్ అడిగితే, సంస్థ వద్ద ఉన్న మీ ఇమెయిల్ చిరునామా Google ఖాతాతో సైన్ ఇన్ చేయండి.",
+  ],
   viewSaved: ["Your view is saved in your learning activity.", "మీరు చూసినది మీ అభ్యాస కార్యకలాపంలో నమోదవుతుంది."],
   courseGroup: ["{code} · {title}", "{code} · {title}"],
   extTitle: ["Request an access extension", "యాక్సెస్ పొడిగింపు కోరండి"],

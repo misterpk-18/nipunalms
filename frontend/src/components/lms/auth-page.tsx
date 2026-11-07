@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { ShieldCheck } from "lucide-react";
 import { LanguageToggle } from "@/components/lms/language-toggle";
 import { useDocumentLanguage } from "@/lib/i18n";
 
@@ -10,10 +9,8 @@ export function AuthPage({ children, wide }: { children: ReactNode; wide?: boole
     <div className="min-h-screen">
       <header className="border-b bg-navy text-navy-foreground">
         <div className="flex h-14 items-center gap-2 px-3 sm:px-5">
-          <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <ShieldCheck className="size-5" aria-hidden />
-          </span>
-          <span className="font-semibold">Nipuna LMS</span>
+          <img src="/nipuna-logo.png" alt="Nipuna Technologies" className="h-8 w-auto rounded-md" />
+          <span className="font-semibold">LMS</span>
           <div className="ml-auto">
             <LanguageToggle />
           </div>

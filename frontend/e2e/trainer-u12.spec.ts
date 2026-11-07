@@ -49,7 +49,7 @@ test("the Branch Manager schedules two classes for today", async ({ request }) =
   await schedule(request, "U12 online class", 50, 40, "Live Online");
 });
 
-test("Today runs the next class from start to class log, and a refresh keeps the place", async ({ page }, info) => {
+test("Today runs the next class on one screen: start, attendance and class log, and a refresh keeps what was typed", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop flow");
   await login(page, USERS.trainerG1);
   await expect(page).toHaveURL(/\/trainer$/);
@@ -60,21 +60,17 @@ test("Today runs the next class from start to class log, and a refresh keeps the
   await expect(page.getByRole("region", { name: "Later today" }).getByText("U12 online class")).toBeVisible();
   await expect(page.getByRole("region", { name: "To do" })).toBeVisible();
 
+  // before the class is started, the register and the log are on the screen but closed
+  await expect(flow.getByText("The register opens when you start the class.")).toBeVisible();
   await flow.getByRole("button", { name: "Start class" }).click();
   await expect(page.getByText("Class started.")).toBeVisible();
 
-  // refresh: still at the Join step
+  // one screen: the meeting, the register with its Save bar, and the class log, all at once
   await page.reload();
   await expect(flow.getByText("There is no meeting to join.")).toBeVisible();
-  await flow.getByRole("button", { name: "Continue to attendance" }).click();
-
-  // refresh: still at Attendance, with the sticky Save bar
-  await page.reload();
   await expect(flow.getByRole("button", { name: "Save attendance" })).toBeVisible();
+  await expect(flow.getByRole("button", { name: "Finish class" })).toBeVisible();
   await flow.getByRole("button", { name: "Mark everyone else Present" }).click();
-  await flow.getByRole("button", { name: "Save attendance" }).click();
-  await expect(page.getByText("Attendance saved.")).toBeVisible();
-  await flow.getByRole("button", { name: "Continue to class log" }).click();
 
   // the class log: what is typed is kept on the server
   await flow.getByText("Partly held").click();
@@ -87,9 +83,11 @@ test("Today runs the next class from start to class log, and a refresh keeps the
   await expect(flow.getByLabel("Notes")).toHaveValue("Covered controllers and request mapping.");
   await expect(flow.getByRole("checkbox", { name: /Planned/ })).toBeChecked(); // the planned topic is ticked
 
+  // the attendance picked before the refresh was never saved: pick it again, and Finish class saves it with the log
+  await flow.getByRole("button", { name: "Mark everyone else Present" }).click();
   await flow.getByText("Held in full").click();
   await flow.getByRole("button", { name: "Finish class" }).click();
-  await expect(page.getByRole("alertdialog")).toContainText("This class will count as taught");
+  await expect(page.getByRole("alertdialog")).toContainText("Attendance you have marked here is saved");
   await page.getByRole("button", { name: "Save class log" }).click();
   await expect(page.getByText("Class log saved.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Class: U12 flow class" })).toHaveCount(0); // the online class is next now
@@ -109,8 +107,7 @@ test("a class with no Meet link: one click asks the Branch Manager and the flow 
   await expect(page.getByText("Your Branch Manager has been asked for a link.")).toBeVisible();
   await expect(flow.getByText(/Your Branch Manager was asked at/)).toBeVisible();
   await expect(flow.getByRole("button", { name: "Ask Branch Manager" })).toHaveCount(0);
-  await flow.getByRole("button", { name: "Continue to attendance" }).click();
-  await expect(flow.getByRole("button", { name: "Save attendance" })).toBeVisible();
+  await expect(flow.getByRole("button", { name: "Save attendance" })).toBeVisible(); // the class carries on: the register is right below
 
   const bm = await apiLogin(request, USERS.bmGnt);
   const notices = await (await request.get("/api/v1/notifications?per_page=50", { headers: auth(bm.token) })).json();
@@ -140,6 +137,20 @@ test("Sessions is a schedule: Run class opens the Today flow and a past class ge
   await expect(page.getByText("Class log saved.")).toBeVisible();
   // attendance can be marked straight after
   await expect(flow.getByRole("button", { name: "Mark attendance" })).toBeVisible();
+});
+
+test("a trainer schedules a class for a batch they teach from Class schedule", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop flow");
+  await login(page, USERS.trainerG1);
+  await page.goto("/trainer/sessions");
+  await page.getByRole("button", { name: "New class" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Your students and your Branch Manager are told");
+  await expect(dialog.getByLabel("Trainer")).toHaveCount(0); // it is always the trainer themselves
+  await dialog.getByLabel("Title").fill("U12 trainer's own class");
+  await dialog.getByRole("button", { name: "Schedule class" }).click();
+  await expect(page.getByText("Class scheduled")).toBeVisible();
+  await expect(page.getByRole("row", { name: /U12 trainer's own class/ })).toBeVisible();
 });
 
 test("a reschedule request shows under My requests, and the decision comes back with its reason", async ({ page, request }, info) => {

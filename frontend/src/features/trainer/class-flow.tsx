@@ -1,31 +1,30 @@
 /**
- * Today's guided class flow, the only way a trainer runs a class: Start class → Join → Attendance → Class log.
- * Where the trainer is, and what they have typed in the class log, are kept on the server (`PUT /class-sessions/{id}/flow`),
- * so a refresh, or another device, picks up at the same step.
+ * Today's class screen, the only way a trainer runs a class: one screen with Start class and Join on top, then the
+ * attendance register, then the class log, and one Finish class that saves the attendance not yet saved and the log together.
+ * What the trainer has typed in the class log is kept on the server (`PUT /class-sessions/{id}/flow`), so a refresh, or
+ * another device, keeps it.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { attendanceKeys } from "@/api/attendance";
 import { useAuth } from "@/auth/auth";
-import { dashboardKeys, dashboardsApi, type ClassLogDraft, type ClassOutcome, type FlowStep, type TodaySession } from "@/api/dashboards";
+import { dashboardKeys, dashboardsApi, type ClassLogDraft, type ClassOutcome, type TodaySession } from "@/api/dashboards";
 import { deliveryApi } from "@/api/delivery";
 import { ConfirmDialog } from "@/components/lms/confirm-dialog";
-import { StepBar } from "@/components/lms/step-bar";
 import { StatusBadge, StatusNote, Tag } from "@/components/lms/ui";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { RegisterForm } from "@/features/trainer/attendance";
+import { RegisterForm, type SaveRegister } from "@/features/trainer/attendance";
 import { fmtDate, fmtRange } from "@/features/shared/format";
 import { ActionDialog, fmtTime } from "@/features/shared/delivery-ui";
 import { fromIstInput, toIstInput } from "@/lib/format";
 import { useApiMutation } from "@/lib/mutation";
 import { cn } from "@/lib/utils";
 
-const STEP_LABEL: Record<FlowStep, string> = { open: "Start class", join: "Join", attendance: "Attendance", log: "Class log" };
 const OUTCOME_LABEL: Record<ClassOutcome, string> = { Held: "Held in full", "Partially Held": "Partly held" };
 
 /** Refresh everything a class change touches: Today, the single-class view, the schedule, the badges and the registers. */
@@ -38,7 +37,7 @@ function useRefresh() {
   }, [queryClient]);
 }
 
-/** The class log being typed: held here (not in the step) so it survives moving between steps, and saved to the server a moment after each change. */
+/** The class log being typed: saved to the server a moment after each change, so a refresh keeps it. */
 function useDraft(session: TodaySession) {
   const [draft, setDraft] = useState<ClassLogDraft>(session.flow.draft);
   const pending = useRef<ClassLogDraft>({});
@@ -65,96 +64,78 @@ function useDraft(session: TodaySession) {
   return { draft, patch, flush, discard };
 }
 
-// ---------------------------------------------------------------- the steps
+// ---------------------------------------------------------------- the parts of the screen
 
-function OpenStep({ session, onStarted }: { session: TodaySession; onStarted: () => void }) {
-  const start = useApiMutation(() => deliveryApi.startSession(session.session_id), {
-    success: "Class started.",
-    next: "Join the meeting, then mark attendance.",
-    onSuccess: onStarted,
-  });
-  const { flow } = session;
+/** One titled part of the class screen; `muted` when it cannot be used yet. */
+function Part({ title, muted, children }: { title: string; muted?: boolean; children: ReactNode }) {
   return (
-    <div className="space-y-3">
-      <p className="text-sm">Starting the class opens attendance and tells the system the class is on.</p>
-      {flow.awaiting_approval && <StatusNote tone="warning">Your Branch Manager has not approved this class yet. You can start it once they have.</StatusNote>}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button disabled={!flow.can_start || start.isPending} onClick={() => start.mutate(undefined)}>
-          Start class
-        </Button>
-        {!flow.can_start && !flow.awaiting_approval && (
-          <span className="text-sm text-muted-foreground">You can start from {fmtTime(flow.start_opens_at)} IST, an hour before the class.</span>
-        )}
-      </div>
+    <div className={cn("space-y-3 border-t pt-4 first:border-t-0 first:pt-0", muted && "text-muted-foreground")}>
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      {children}
     </div>
   );
 }
 
-function JoinStep({ session, onContinue, busy }: { session: TodaySession; onContinue: () => void; busy: boolean }) {
+/** Start the class (until it is started) and join its meeting: the Meet link, or a one-click request for one. */
+function StartAndJoin({ session, started }: { session: TodaySession; started: boolean }) {
   const refresh = useRefresh();
+  const start = useApiMutation(() => deliveryApi.startSession(session.session_id), {
+    success: "Class started.",
+    next: "Mark attendance, then fill in the class log and finish the class.",
+    onSuccess: () => void refresh(),
+  });
   const ask = useApiMutation(() => dashboardsApi.askForMeetLink(session.session_id), {
     success: "Your Branch Manager has been asked for a link.",
     next: "You can carry on with the class meanwhile.",
     onSuccess: () => void refresh(),
   });
-  const { meet } = session;
+  const { flow, meet } = session;
   return (
     <div className="space-y-3">
-      {session.mode === "Classroom" ? (
-        <p className="text-sm">Classroom class{session.room ? ` in ${session.room}` : ""}. There is no meeting to join.</p>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            {meet.link ? (
-              <Button asChild>
-                <a href={meet.link} target="_blank" rel="noreferrer">
-                  Join Google Meet
-                </a>
-              </Button>
-            ) : (
-              <Button disabled>Join Google Meet</Button>
-            )}
-            <StatusBadge domain="meet" code={meet.status} label={meet.label} />
-          </div>
-          {!meet.link && (
-            <StatusNote tone="warning" title="There is no Meet link for this class yet.">
-              {meet.link_requested_at ? (
-                <>Your Branch Manager was asked at {fmtTime(meet.link_requested_at)} IST. You can carry on with the class without it.</>
-              ) : (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span>Ask your Branch Manager to set one. You can carry on meanwhile.</span>
-                  <Button size="sm" variant="outline" disabled={ask.isPending} onClick={() => ask.mutate(undefined)}>
-                    Ask Branch Manager
-                  </Button>
-                </div>
-              )}
-            </StatusNote>
-          )}
-          {meet.link && meet.organizer_email && <p className="text-xs text-muted-foreground">The meeting is organised by {meet.organizer_email}.</p>}
-        </div>
+      {!started && flow.awaiting_approval && (
+        <StatusNote tone="warning">Your Branch Manager has not approved this class yet. You can start it once they have.</StatusNote>
       )}
-      <Button variant={meet.link || session.mode === "Classroom" ? "default" : "outline"} disabled={busy} onClick={onContinue}>
-        Continue to attendance
-      </Button>
-    </div>
-  );
-}
-
-function AttendanceStep({ session, onBack, onContinue, busy }: { session: TodaySession; onBack: () => void; onContinue: () => void; busy: boolean }) {
-  const refresh = useRefresh();
-  const left = session.attendance.not_yet_marked;
-  return (
-    <div className="space-y-3">
-      <RegisterForm sessionId={session.session_id} heading={false} onSaved={() => void refresh()} />
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" disabled={busy} onClick={onBack}>
-          Back
-        </Button>
-        <Button disabled={busy} onClick={onContinue}>
-          Continue to class log
-        </Button>
-        {left > 0 && <span className="text-sm text-muted-foreground">{left} not marked yet. You can come back to this step before you finish.</span>}
+        {!started && (
+          <Button disabled={!flow.can_start || start.isPending} onClick={() => start.mutate(undefined)}>
+            Start class
+          </Button>
+        )}
+        {session.mode !== "Classroom" &&
+          (meet.link ? (
+            <Button asChild variant={started ? "default" : "outline"}>
+              <a href={meet.link} target="_blank" rel="noreferrer">
+                Join Google Meet
+              </a>
+            </Button>
+          ) : (
+            <Button variant="outline" disabled>
+              Join Google Meet
+            </Button>
+          ))}
+        {session.mode !== "Classroom" && <StatusBadge domain="meet" code={meet.status} label={meet.label} />}
+        {started && <Tag tone="success">Started</Tag>}
       </div>
+      {!started && !flow.can_start && !flow.awaiting_approval && (
+        <p className="text-sm text-muted-foreground">You can start from {fmtTime(flow.start_opens_at)} IST, an hour before the class.</p>
+      )}
+      {!started && flow.can_start && <p className="text-sm">Starting the class opens attendance and the class log.</p>}
+      {session.mode === "Classroom" && <p className="text-sm">Classroom class{session.room ? ` in ${session.room}` : ""}. There is no meeting to join.</p>}
+      {session.mode !== "Classroom" && !meet.link && (
+        <StatusNote tone="warning" title="There is no Meet link for this class yet.">
+          {meet.link_requested_at ? (
+            <>Your Branch Manager was asked at {fmtTime(meet.link_requested_at)} IST. You can carry on with the class without it.</>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <span>Ask your Branch Manager to set one. You can carry on meanwhile.</span>
+              <Button size="sm" variant="outline" disabled={ask.isPending} onClick={() => ask.mutate(undefined)}>
+                Ask Branch Manager
+              </Button>
+            </div>
+          )}
+        </StatusNote>
+      )}
+      {meet.link && meet.organizer_email && <p className="text-xs text-muted-foreground">The meeting is organised by {meet.organizer_email}.</p>}
     </div>
   );
 }
@@ -163,22 +144,25 @@ function minutesBetween(start: string, end: string, breaks: number): number {
   return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000) - breaks;
 }
 
-function LogStep({
+function ClassLog({
   session,
+  late,
   draft,
   patch,
   flush,
-  onBack,
+  saveRegister,
   onFinished,
 }: {
   session: TodaySession;
+  /** The class is over and can no longer be started: only its log is left (attendance is marked after). */
+  late: boolean;
   draft: ClassLogDraft;
   patch: (change: ClassLogDraft) => void;
   flush: () => Promise<void>;
-  onBack: () => void;
+  /** Saves the attendance picked on this screen but not saved yet (none when there is nothing to save). */
+  saveRegister: SaveRegister;
   onFinished: () => void;
 }) {
-  const late = !session.flow.steps.includes("open");
   // What the form shows before the trainer changes anything: from when the class was started to its end (or now, when finishing early)
   const defaults = useMemo(() => {
     const start = session.live_at ?? session.starts_at;
@@ -201,8 +185,10 @@ function LogStep({
   if (outcome === "Partially Held" && !notDelivered) problems.push("Say what was not covered.");
 
   const finish = useApiMutation(
-    () =>
-      deliveryApi.deliverSession(session.session_id, {
+    async () => {
+      await saveRegister.current?.();
+      await flush();
+      return deliveryApi.deliverSession(session.session_id, {
         outcome,
         actual_start: fromIstInput(start),
         actual_end: fromIstInput(end),
@@ -210,7 +196,8 @@ function LogStep({
         ...(outcome === "Partially Held" ? { unfulfilled_note: notDelivered } : {}),
         topic_ids: topicIds,
         ...(draft.notes?.trim() ? { notes: draft.notes.trim() } : {}),
-      }),
+      });
+    },
     {
       success: "Class log saved.",
       next: session.attendance.not_yet_marked > 0 ? "Some students are still not marked. Mark them from this class." : "The class now counts as taught.",
@@ -354,34 +341,22 @@ function LogStep({
         />
       </div>
 
-      <div className="rounded-lg bg-muted/60 p-3 text-sm">
-        Attendance: {session.attendance.marked} of {session.attendance.seats} students marked.
-        {session.attendance.not_yet_marked > 0 && !late && (
-          <>
-            {" "}
-            <button type="button" className="text-primary underline" onClick={() => void flush().then(onBack)}>
-              Go back to mark the rest
-            </button>
-            .
-          </>
-        )}
-      </div>
-
       {problems.length > 0 && <StatusNote tone="warning">{problems.join(" ")}</StatusNote>}
       <div className="flex flex-wrap items-center gap-3">
-        {!late && (
-          <Button variant="outline" onClick={() => void flush().then(onBack)}>
-            Back
-          </Button>
-        )}
         <ConfirmDialog
-          title="Save the class log?"
-          consequence={`This class will count as taught (${Math.max(minutes, 0)} minutes, ${OUTCOME_LABEL[outcome].toLowerCase()}). You can still mark or correct attendance afterwards.`}
+          title="Finish the class?"
+          consequence={`Attendance you have marked here is saved, and this class will count as taught (${Math.max(minutes, 0)} minutes, ${OUTCOME_LABEL[outcome].toLowerCase()}). You can still mark or correct attendance afterwards.`}
           confirmLabel="Save class log"
           onConfirm={() => finish.mutateAsync(undefined).catch(() => undefined)}
         >
           <Button disabled={problems.length > 0 || finish.isPending}>Finish class</Button>
         </ConfirmDialog>
+        {!late && (
+          <span className="text-sm text-muted-foreground">
+            Attendance: {session.attendance.marked} of {session.attendance.seats} students marked
+            {session.attendance.not_yet_marked > 0 ? "; mark the rest above, or afterwards" : ""}.
+          </span>
+        )}
       </div>
     </div>
   );
@@ -539,11 +514,12 @@ function ReportProblem({ session }: { session: TodaySession }) {
 export function ClassFlow({ session, label }: { session: TodaySession; label?: string }) {
   const refresh = useRefresh();
   const { draft, patch, flush, discard } = useDraft(session);
+  const saveRegister: SaveRegister = useRef(null);
   const { flow } = session;
-  const move = useApiMutation((step: FlowStep) => dashboardsApi.saveClassFlow(session.session_id, { step }), { onSuccess: () => void refresh() });
   const finished = flow.steps.length === 0 || flow.step === null;
-  const go = (step: FlowStep) => void flush().then(() => move.mutate(step));
-  const stepIndex = flow.step ? flow.steps.indexOf(flow.step) : -1;
+  // a class that can no longer be started has only its log left; otherwise the register and the log open once it is started
+  const late = !flow.steps.includes("open");
+  const started = session.state === "Live";
 
   return (
     <section aria-label={`Class: ${session.title}`} className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
@@ -563,30 +539,50 @@ export function ClassFlow({ session, label }: { session: TodaySession; label?: s
 
       {finished ? (
         <FinishedClass session={session} />
+      ) : late ? (
+        <ClassLog
+          session={session}
+          late
+          draft={draft}
+          patch={patch}
+          flush={flush}
+          saveRegister={saveRegister}
+          onFinished={() => {
+            discard();
+            void refresh();
+          }}
+        />
       ) : (
-        <>
-          {flow.steps.length > 1 && (
-            <div className="mb-4">
-              <StepBar steps={flow.steps.map((step, i) => ({ label: STEP_LABEL[step], done: i < stepIndex }))} />
-            </div>
-          )}
-          {flow.step === "open" && <OpenStep session={session} onStarted={() => void refresh()} />}
-          {flow.step === "join" && <JoinStep session={session} busy={move.isPending} onContinue={() => go("attendance")} />}
-          {flow.step === "attendance" && <AttendanceStep session={session} busy={move.isPending} onBack={() => go("join")} onContinue={() => go("log")} />}
-          {flow.step === "log" && (
-            <LogStep
-              session={session}
-              draft={draft}
-              patch={patch}
-              flush={flush}
-              onBack={() => go("attendance")}
-              onFinished={() => {
-                discard();
-                void refresh();
-              }}
-            />
-          )}
-        </>
+        <div className="space-y-4">
+          <Part title="Start and join">
+            <StartAndJoin session={session} started={started} />
+          </Part>
+          <Part title="Attendance" muted={!started}>
+            {started ? (
+              <RegisterForm sessionId={session.session_id} heading={false} saveRef={saveRegister} onSaved={() => void refresh()} />
+            ) : (
+              <p className="text-sm">The register opens when you start the class.</p>
+            )}
+          </Part>
+          <Part title="Class log" muted={!started}>
+            {started ? (
+              <ClassLog
+                session={session}
+                late={false}
+                draft={draft}
+                patch={patch}
+                flush={flush}
+                saveRegister={saveRegister}
+                onFinished={() => {
+                  discard();
+                  void refresh();
+                }}
+              />
+            ) : (
+              <p className="text-sm">Fill in the class log once the class is started; Finish class saves it with the attendance.</p>
+            )}
+          </Part>
+        </div>
       )}
       {!finished && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
